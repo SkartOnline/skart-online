@@ -5,6 +5,7 @@ extends "res://scripts/cards/card.gd"
 @export var title: String = ""                  ## e.g. "a Néma Tüzek Őre"
 @export var signature_card_ids: Array = []      ## IDs of signature cards
 @export var deckbuilding_rules: Dictionary = {}  ## e.g. {"sidedeck":{"max":3,"filter":"..."}}
+@export var game_rules: Dictionary = {}          ## Runtime rule overrides, e.g. {"starting_hand_size": 7, "max_hand_size": 13}
 
 func _init() -> void:
     card_type = CardType.CHARACTER

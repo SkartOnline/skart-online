@@ -24,6 +24,13 @@ const BUILTIN_CARDS := [
 	preload("res://data/cards/felix.tres"),
 	preload("res://data/cards/fetus.tres"),
 	preload("res://data/cards/cassanus.tres"),
+	preload("res://data/cards/artifex.tres"),
+	preload("res://data/cards/fuedrax.tres"),
+	preload("res://data/cards/ezethriel.tres"),
+	preload("res://data/cards/elfina.tres"),
+	preload("res://data/cards/guner.tres"),
+	preload("res://data/cards/x_mizuki_kiralyno.tres"),
+	preload("res://data/cards/nixie.tres"),
 	preload("res://data/cards/caecus.tres"),
 	preload("res://data/cards/matroz.tres"),
 	preload("res://data/cards/hektor.tres"),
@@ -38,6 +45,9 @@ const BUILTIN_CARDS := [
 	preload("res://data/cards/bolyongo.tres"),
 	preload("res://data/cards/ouroboros.tres"),
 	preload("res://data/cards/hjaflgar.tres"),
+	preload("res://data/cards/mashu_liderc.tres"),
+	preload("res://data/cards/ambiciosus_paleontologus.tres"),
+	preload("res://data/cards/oshullo.tres"),
 	preload("res://data/cards/explar.tres"),
 	preload("res://data/cards/tor.tres"),
 	preload("res://data/cards/mozgositas.tres"),
@@ -52,6 +62,7 @@ const BUILTIN_CARDS := [
 	preload("res://data/cards/elcsenes.tres"),
 	preload("res://data/cards/arurakodas.tres"),
 	preload("res://data/cards/rozzant_granat.tres"),
+	preload("res://data/cards/suttogavatas.tres"),
 	preload("res://data/cards/a_gomb.tres"),
 ]
 
@@ -157,6 +168,20 @@ static func _ensure_fallback_cards() -> void:
 		_cards[1009] = _build_fetus()
 	if not _cards.has(1010):
 		_cards[1010] = _build_cassanus()
+	if not _cards.has(1011):
+		_cards[1011] = _build_artifex()
+	if not _cards.has(1012):
+		_cards[1012] = _build_fuedrax()
+	if not _cards.has(1013):
+		_cards[1013] = _build_ezethriel()
+	if not _cards.has(1014):
+		_cards[1014] = _build_elfina()
+	if not _cards.has(1015):
+		_cards[1015] = _build_guner()
+	if not _cards.has(1016):
+		_cards[1016] = _build_x_mizuki_kiralyno()
+	if not _cards.has(1017):
+		_cards[1017] = _build_nixie()
 	if not _cards.has(2001):
 		_cards[2001] = _build_caecus()
 	if not _cards.has(2002):
@@ -185,6 +210,12 @@ static func _ensure_fallback_cards() -> void:
 		_cards[2013] = _build_ouroboros()
 	if not _cards.has(2014):
 		_cards[2014] = _build_hjaflgar()
+	if not _cards.has(2015):
+		_cards[2015] = _build_mashu_liderc()
+	if not _cards.has(2016):
+		_cards[2016] = _build_ambiciosus_paleontologus()
+	if not _cards.has(2017):
+		_cards[2017] = _build_oshullo()
 	if not _cards.has(3001):
 		_cards[3001] = _build_explar()
 	if not _cards.has(3002):
@@ -213,6 +244,8 @@ static func _ensure_fallback_cards() -> void:
 		_cards[3013] = _build_arurakodas()
 	if not _cards.has(3014):
 		_cards[3014] = _build_rozzant_granat()
+	if not _cards.has(3015):
+		_cards[3015] = _build_suttogavatas()
 	if not _cards.has(4001):
 		_cards[4001] = _build_a_gomb()
 
@@ -376,6 +409,113 @@ static func _build_cassanus():
 	card.title = "a Halhatatlan Törzsfőnök"
 	card.deckbuilding_rules = {"starting_bench_cards": [{"card_id": 4001}]}
 	card.description = "A Gömbbel kezded a játékot."
+	return card
+
+static func _build_artifex():
+	var card = CharacterCardScript.new()
+	card.card_id = 1011
+	card.card_name = "Artifex"
+	card.card_class = "Mágus"
+	card.title = "a Kódfejtő Könyvtáros"
+	card.game_rules = {"starting_hand_size": 7, "max_hand_size": 13}
+	card.description = "7 lappal kezded a játékot és maximum 13 lap lehet a kezedben."
+	return card
+
+static func _build_fuedrax():
+	var t0 = _new_trigger("ON_PLAY", {"modifier1": "ALLY", "modifier2": "Spell", "game_state_condition": "ally_pile_type_count:TRAP>=1", "trigger_interactors": {"PlayedCard": "type:TRAP"}})
+	var t1 = _new_target("Pile", "Ally", "Automatic")
+	var e2 = _new_effect("Search", {"parameters": {"SearchFilters": "type:TRAP", "SelectAmount": 1, "Prompt": "Válassz egy Csapdát, amit felhúzol!"}, "tag": "chosen_trap", "target_ref": "targets[0]"})
+	var e3 = _new_effect("MoveToZone", {"target_ref": "chosen_trap.SearchResults"})
+	var e4 = _new_effect("ModifyStat", {"parameters": {"ModifiedStat": "COST", "SetAmount": 0, "ModifyDuration": 0}, "target_ref": "chosen_trap.SearchResults"})
+	var e5 = _new_effect("Search", {"parameters": {"SearchFilters": "type:TRAP", "SelectAmount": -1}, "tag": "remaining_traps", "target_ref": "targets[0]"})
+	var e6 = _new_effect("Exile", {"target_ref": "remaining_traps.SearchResults"})
+	var main_ab = _new_ability("Káosz Csapdák", "Ha két Csapdád van a rakáson, húzd fel az egyiket (költsége 0 lesz), a másik megsemmisül.", t0, [t1], [e2, e3, e4, e5, e6])
+	var card = CharacterCardScript.new()
+	card.card_id = 1012
+	card.card_name = "Fuedrax"
+	card.card_class = "Vaják"
+	card.title = "a Káoszcsapdász"
+	card.description = "Amikor kijátszol egy Csapda kártyát és van már másik Csapda a rakásodon, húzd fel az egyiket és a költsége 0 lesz. A másik megsemmisül."
+	card.abilities = [main_ab]
+	return card
+
+static func _build_ezethriel():
+	var t0 = _new_trigger("CONTINUOUS")
+	var t1 = _new_target("Card", "Ally", "AllValid", {"condition": "type:NATURE_FORCE"})
+	var e2 = _new_effect("ModifyStat", {"parameters": {"ModifiedStat": "RANGE", "ModifyAmount": 1, "ModifyDuration": 1}, "target_ref": "targets[0]"})
+	var e3 = _new_effect("ModifyStat", {"parameters": {"ModifiedStat": "COST", "ModifyAmount": -1, "ModifyDuration": 1}, "target_ref": "targets[0]"})
+	var ab0 = _new_ability("Természet Mestere", "Természeti erő kártyáid +1 hatótáv és -1 költség.", t0, [t1], [e2, e3])
+	var t4 = _new_trigger("CONTINUOUS")
+	var t5 = _new_target("Unit", "Ally", "AllValid", {"condition": "tag:Druida"})
+	var e6 = _new_effect("ModifyKeyword", {"parameters": {"AddedKeywords": ["NatureForceImmunity"], "NewKeywordDurations": 1}, "target_ref": "targets[0]"})
+	var ab1 = _new_ability("Druida Harmónia", "Szövetséges Druida egységeid ignorálják a negatív Természeti erő hatásokat.", t4, [t5], [e6])
+	var card = CharacterCardScript.new()
+	card.card_id = 1013
+	card.card_name = "Ezethriel"
+	card.card_class = "Vaják"
+	card.title = "az Alapító"
+	card.description = "A Természeti erőidnek +1 a hatótávja és (1)-gyel kevesebb a költsége. A szövetséges Druida egységeid ignorálják a negatív Természeti erő hatásokat."
+	card.abilities = [ab0, ab1]
+	return card
+
+static func _build_elfina():
+	var t0 = _new_trigger("CONTINUOUS")
+	var t1 = _new_target("Unit", "Ally", "AllValid")
+	var e2 = _new_effect("ModifyStat", {"parameters": {"ModifiedStat": "MOVE_SPEED", "ModifyAmount": 1, "ModifyDuration": 1}, "target_ref": "targets[0]"})
+	var ab0 = _new_ability("Természet Hívása", "Minden szövetséges egységnek +1 mozgási sebesség.", t0, [t1], [e2])
+	var t3 = _new_trigger("CONTINUOUS")
+	var t4 = _new_target("Unit", "Ally", "AllValid", {"condition": "tag:Állat|Druida"})
+	var e5 = _new_effect("ModifyStat", {"parameters": {"ModifiedStat": "MOVE_SPEED", "ModifyAmount": 1, "ModifyDuration": 1}, "target_ref": "targets[0]"})
+	var ab1 = _new_ability("Vad Összeköttetés", "Szövetséges Állat és Druida egységeknek további +1 mozgási sebesség (+2 összesen).", t3, [t4], [e5])
+	var card = CharacterCardScript.new()
+	card.card_id = 1014
+	card.card_name = "Elfina"
+	card.card_class = "Vaják"
+	card.title = "a Rókapapnő"
+	card.description = "Minden szövetséges egységnek +1 mozgási sebesség. Állatoknak és Druidáknak +2."
+	card.abilities = [ab0, ab1]
+	return card
+
+static func _build_guner():
+	var t0 = _new_trigger("ON_ATTACK", {"modifier1": "ALLY"})
+	var t1 = _new_target("Unit", "Ally", "Automatic", {"trigger_interactor": "AttackingUnit"})
+	var e2 = _new_effect("", {"flow": {"type": "conditional", "condition": "attack_direction:rear"}})
+	var e3 = _new_effect("", {"flow": {"type": "conditional", "condition": "attack_direction:flank"}})
+	e3.else_effects = [e2]
+	var main_ab = _new_ability("Holló Taktika", "Oldalról támadó egységeid +1 támadás, hátulról támadók +2 támadás és Ütéselőny.", t0, [t1], [e3])
+	var card = CharacterCardScript.new()
+	card.card_id = 1015
+	card.card_name = "Gúner"
+	card.card_class = "Zsivány"
+	card.title = "a Holló"
+	card.game_rules = {"diagonal_placement": true}
+	card.description = "Átlósan is kijátszhatsz egységeket a meglévő egységeid mellé. Ha egy egységed oldalról támad, +1 támadás. Ha hátulról, +2 és Ütéselőnyt is kap."
+	card.abilities = [main_ab]
+	return card
+
+static func _build_x_mizuki_kiralyno():
+	var t0 = _new_trigger("CONTINUOUS")
+	var main_ab = _new_ability("Korona Víztükre", "Tükörkép effektjeid egy választott szomszédos mezőre is hatnak.", t0, [], [])
+	var card = CharacterCardScript.new()
+	card.card_id = 1016
+	card.card_name = "X. Mizuki Királynő"
+	card.card_class = "Bölcs"
+	card.title = "a Korona Víztükre"
+	card.description = "A tükörkép effektjeid egy választott szomszédos mezőre is hatnak."
+	card.abilities = [main_ab]
+	return card
+
+static func _build_nixie():
+	var t0 = _new_trigger("ON_DEATH", {"modifier1": "ALLY", "limit_type": "PER_TURN", "limit_count": 1})
+	var e1 = _new_effect("ExecuteAbility")
+	var main_ab = _new_ability("Halál Visszhangja", "Minden körben az első Halál effekted kétszer hat.", t0, [], [e1])
+	var card = CharacterCardScript.new()
+	card.card_id = 1017
+	card.card_name = "Nixie"
+	card.card_class = "Garabonciás"
+	card.title = "a Boszorkánydoktor"
+	card.description = "Minden körben az első Halál effekted kétszer hat."
+	card.abilities = [main_ab]
 	return card
 
 static func _build_caecus():
@@ -649,6 +789,59 @@ static func _build_hjaflgar():
 	card.abilities = [main_ab]
 	return card
 
+static func _build_mashu_liderc():
+	var t0 = _new_trigger("ON_PLAY")
+	var t1 = _new_target("Unit", "Any", "Automatic")
+	var e2 = _new_effect("ModifyKeyword", {"parameters": {"AddedKeywords": ["Kábítás"], "NewKeywordDurations": 2}, "target_ref": "targets[0]"})
+	var main_ab = _new_ability("Tükör Kábítás", "Kábítsd el a tükörképemen álló egységet a következő köröm végéig.", t0, [t1], [e2])
+	var card = UnitCardScript.new()
+	card.card_id = 2015
+	card.card_name = "Mashu lidérc"
+	card.card_class = "Bölcs"
+	card.cost = 2
+	card.attack = 2
+	card.hp = 3
+	card.move_speed = 1
+	card.attack_range = 1
+	card.description = "Csatakiáltás: Kábítsd el a tükörképemen álló egységet a következő köröm végéig!"
+	card.tags = ["Dinasztikus", "Lidérc"]
+	card.flavor_text = "A víztükörben csak az árnyéka mozdul."
+	card.abilities = [main_ab]
+	return card
+
+static func _build_ambiciosus_paleontologus():
+	var t0 = _new_trigger("ON_DEATH")
+	var t1 = _new_target("Player", "Ally", "Automatic")
+	var e2 = _new_effect("ModifyCounter", {"parameters": {"CounterType": "PermanentNamed", "ModifyAmount": 1}, "target_ref": "targets[0]"})
+	var e3 = _new_effect("", {"flow": {"type": "conditional", "condition": "counter(paleontologus_asatas)>=4"}})
+	var main_ab = _new_ability("Ásatás", "Halál: +1 permanens jelző. 4 jelzőnél: törlés, Őshüllő a kezedbe 0 költséggel.", t0, [t1], [e2, e3])
+	var card = UnitCardScript.new()
+	card.card_id = 2016
+	card.card_name = "Ambíciózus paleontológus"
+	card.card_class = "Garabonciás"
+	card.cost = 3
+	card.attack = 1
+	card.hp = 2
+	card.move_speed = 1
+	card.attack_range = 1
+	card.description = "Halál: Tegyél egy permanens jelzőt az Ambíciózus paleontológus lapokra. Ha összesen legalább 4 jelző van, töröld őket, és tedd a kezedbe az Őshüllőt 0 költséggel!"
+	card.abilities = [main_ab]
+	return card
+
+static func _build_oshullo():
+	var card = UnitCardScript.new()
+	card.card_id = 2017
+	card.card_name = "Őshüllő"
+	card.card_class = "Garabonciás"
+	card.cost = 7
+	card.attack = 7
+	card.hp = 7
+	card.move_speed = 1
+	card.attack_range = 1
+	card.description = "Segéd egység — nem gyűjthető, csak az Ambíciózus paleontológus képessége hozza létre."
+	card.tags = ["Segéd", "Sárkány", "Élettelen"]
+	return card
+
 static func _build_explar():
 	var t0 = _new_trigger("ON_PLAY")
 	var t1 = _new_target("Entity", "Any", "PlayerChoice", {"target_range": 2})
@@ -900,6 +1093,25 @@ static func _build_rozzant_granat():
 	card.cost = 2
 	card.spell_type = SpellCardScript.SpellType.RITUAL
 	card.description = "Ölj meg egy szövetségest és egy vele szomszédos ellenségest!"
+	card.abilities = [main_ab]
+	return card
+
+static func _build_suttogavatas():
+	var t0 = _new_trigger("ON_PLAY")
+	var t1 = _new_target("Unit", "Ally", "PlayerChoice", {"prompt": "Válassz egy szövetséges egységet az újraidézéshez!"})
+	var e2 = _new_effect("StoreRef")
+	var e3 = _new_effect("StoreRef")
+	var e4 = _new_effect("Kill", {"target_ref": "targets[0]"})
+	var e5 = _new_effect("Summon", {"parameters": {"SummonedEntity": "ref/sacrifice_card", "SummoningTile": "ref/sacrifice_tile"}})
+	var main_ab = _new_ability("Suttogóavatás", "Áldozz fel egy szövetségest, majd egyből idézd újra ugyanazon a mezőn.", t0, [t1], [e2, e3, e4, e5])
+	var card = SpellCardScript.new()
+	card.card_id = 3015
+	card.card_name = "Suttogóavatás"
+	card.card_class = "Garabonciás"
+	card.cost = 1
+	card.spell_range = 0
+	card.description = "Áldozz fel egy szövetségest, majd egyből idézd újra ugyanazon a mezőn!"
+	card.tags = ["Nekromancia"]
 	card.abilities = [main_ab]
 	return card
 

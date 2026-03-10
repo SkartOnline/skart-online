@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="CharacterCard" format=3]
+
+[ext_resource type="Script" uid="uid://cmoe2lyoum0oe" path="res://scripts/cards/character_card.gd" id="1_card"]
+[ext_resource type="Script" uid="uid://8pkq1chvkr5a" path="res://scripts/abilities/ability.gd" id="2_abil"]
+[ext_resource type="Script" uid="uid://b0mosco1r307u" path="res://scripts/abilities/trigger.gd" id="3_trig"]
+
+[sub_resource type="Resource" id="Resource_ab0_trig"]
+script = ExtResource("3_trig")
+event = "CONTINUOUS"
+
+[sub_resource type="Resource" id="Resource_ab0"]
+script = ExtResource("2_abil")
+ability_name = "Korona Víztükre"
+description = "Tükörkép effektjeid egy választott szomszédos mezőre is hatnak."
+trigger = SubResource("Resource_ab0_trig")
+
+[resource]
+script = ExtResource("1_card")
+title = "a Korona Víztükre"
+card_id = 1016
+card_name = "X. Mizuki Királynő"
+description = "A tükörkép effektjeid egy választott szomszédos mezőre is hatnak."
+card_class = "Bölcs"
+abilities = [SubResource("Resource_ab0")]

@@ -90,6 +90,7 @@ interface CardDef {
   rarity?: number;
   art_path?: string;
   deckbuilding_rules?: Record<string, any>;
+  game_rules?: Record<string, any>;
 }
 
 // ---------------------------------------------------------------------------
@@ -373,6 +374,9 @@ function generateTres(card: CardDef): string {
     if (card.title) lines.push(`title = "${escGd(card.title)}"`);
     if (card.deckbuilding_rules && Object.keys(card.deckbuilding_rules).length > 0) {
       lines.push(`deckbuilding_rules = ${serializeGdValue(card.deckbuilding_rules)}`);
+    }
+    if (card.game_rules && Object.keys(card.game_rules).length > 0) {
+      lines.push(`game_rules = ${serializeGdValue(card.game_rules)}`);
     }
   } else if (isUnitLike) {
     lines.push(`attack = ${card.attack ?? 0}`);
@@ -758,6 +762,9 @@ function emitGdBuilderBody(card: CardDef, lines: string[]): void {
     if (card.deckbuilding_rules && Object.keys(card.deckbuilding_rules).length > 0) {
       lines.push(`\tcard.deckbuilding_rules = ${serializeGdValue(card.deckbuilding_rules)}`);
     }
+    if (card.game_rules && Object.keys(card.game_rules).length > 0) {
+      lines.push(`\tcard.game_rules = ${serializeGdValue(card.game_rules)}`);
+    }
     lines.push(`\tcard.description = "${escGd(card.description)}"`);
   } else if (UNIT_LIKE_TYPES.has(card.card_type)) {
     lines.push('\tvar card = UnitCardScript.new()');
@@ -990,6 +997,7 @@ function generateCardsTs(): string {
   lines.push('  collectible?: boolean;');
   lines.push('  tags?: string[];');
   lines.push('  deckbuilding_rules?: Record<string, any>;');
+  lines.push('  game_rules?: Record<string, any>;');
   lines.push('}');
   lines.push('');
 
@@ -1014,6 +1022,7 @@ function generateCardsTs(): string {
     description: card.description,
     ...(card.tags && card.tags.length > 0 ? { tags: card.tags } : {}),
     ...(card.deckbuilding_rules && Object.keys(card.deckbuilding_rules).length > 0 ? { deckbuilding_rules: card.deckbuilding_rules } : {}),
+    ...(card.game_rules && Object.keys(card.game_rules).length > 0 ? { game_rules: card.game_rules } : {}),
     ...(card.collectible === false ? { collectible: false } : {}),
     abilities: card.abilities,
   }));

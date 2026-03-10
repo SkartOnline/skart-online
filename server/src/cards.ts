@@ -65,6 +65,7 @@ export interface CardDef {
   collectible?: boolean;
   tags?: string[];
   deckbuilding_rules?: Record<string, any>;
+  game_rules?: Record<string, any>;
 }
 
 export const CARD_CATALOG: CardDef[] = 
@@ -547,6 +548,351 @@ export const CARD_CATALOG: CardDef[] =
       ]
     },
     "abilities": []
+  },
+  {
+    "card_id": 1011,
+    "card_name": "Artifex",
+    "card_type": "character",
+    "card_class": "Mágus",
+    "title": "a Kódfejtő Könyvtáros",
+    "description": "7 lappal kezded a játékot és maximum 13 lap lehet a kezedben.",
+    "game_rules": {
+      "starting_hand_size": 7,
+      "max_hand_size": 13
+    },
+    "abilities": []
+  },
+  {
+    "card_id": 1012,
+    "card_name": "Fuedrax",
+    "card_type": "character",
+    "card_class": "Vaják",
+    "title": "a Káoszcsapdász",
+    "description": "Amikor kijátszol egy Csapda kártyát és van már másik Csapda a rakásodon, húzd fel az egyiket és a költsége 0 lesz. A másik megsemmisül.",
+    "abilities": [
+      {
+        "ability_name": "Káosz Csapdák",
+        "description": "Ha két Csapdád van a rakáson, húzd fel az egyiket (költsége 0 lesz), a másik megsemmisül.",
+        "trigger": {
+          "event": "ON_PLAY",
+          "modifier1": "ALLY",
+          "modifier2": "Spell",
+          "trigger_interactors": {
+            "PlayedCard": "type:TRAP"
+          },
+          "game_state_condition": "ally_pile_type_count:TRAP>=1"
+        },
+        "targets": [
+          {
+            "target_type": "Pile",
+            "owner": "Ally",
+            "targeting": "Automatic"
+          }
+        ],
+        "effects": [
+          {
+            "step": "Search",
+            "parameters": {
+              "SearchFilters": "type:TRAP",
+              "SelectAmount": 1,
+              "Prompt": "Válassz egy Csapdát, amit felhúzol!"
+            },
+            "tag": "chosen_trap",
+            "target_ref": "targets[0]"
+          },
+          {
+            "step": "MoveToZone",
+            "parameters": {},
+            "target_ref": "chosen_trap.SearchResults"
+          },
+          {
+            "step": "ModifyStat",
+            "parameters": {
+              "ModifiedStat": "COST",
+              "SetAmount": 0,
+              "ModifyDuration": 0
+            },
+            "target_ref": "chosen_trap.SearchResults"
+          },
+          {
+            "step": "Search",
+            "parameters": {
+              "SearchFilters": "type:TRAP",
+              "SelectAmount": -1
+            },
+            "tag": "remaining_traps",
+            "target_ref": "targets[0]"
+          },
+          {
+            "step": "Exile",
+            "target_ref": "remaining_traps.SearchResults"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_id": 1013,
+    "card_name": "Ezethriel",
+    "card_type": "character",
+    "card_class": "Vaják",
+    "title": "az Alapító",
+    "description": "A Természeti erőidnek +1 a hatótávja és (1)-gyel kevesebb a költsége. A szövetséges Druida egységeid ignorálják a negatív Természeti erő hatásokat.",
+    "abilities": [
+      {
+        "ability_name": "Természet Mestere",
+        "description": "Természeti erő kártyáid +1 hatótáv és -1 költség.",
+        "trigger": {
+          "event": "CONTINUOUS"
+        },
+        "targets": [
+          {
+            "target_type": "Card",
+            "owner": "Ally",
+            "targeting": "AllValid",
+            "condition": "type:NATURE_FORCE"
+          }
+        ],
+        "effects": [
+          {
+            "step": "ModifyStat",
+            "parameters": {
+              "ModifiedStat": "RANGE",
+              "ModifyAmount": 1,
+              "ModifyDuration": 1
+            },
+            "target_ref": "targets[0]"
+          },
+          {
+            "step": "ModifyStat",
+            "parameters": {
+              "ModifiedStat": "COST",
+              "ModifyAmount": -1,
+              "ModifyDuration": 1
+            },
+            "target_ref": "targets[0]"
+          }
+        ]
+      },
+      {
+        "ability_name": "Druida Harmónia",
+        "description": "Szövetséges Druida egységeid ignorálják a negatív Természeti erő hatásokat.",
+        "trigger": {
+          "event": "CONTINUOUS"
+        },
+        "targets": [
+          {
+            "target_type": "Unit",
+            "owner": "Ally",
+            "targeting": "AllValid",
+            "condition": "tag:Druida"
+          }
+        ],
+        "effects": [
+          {
+            "step": "ModifyKeyword",
+            "parameters": {
+              "AddedKeywords": [
+                "NatureForceImmunity"
+              ],
+              "NewKeywordDurations": 1
+            },
+            "target_ref": "targets[0]"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_id": 1014,
+    "card_name": "Elfina",
+    "card_type": "character",
+    "card_class": "Vaják",
+    "title": "a Rókapapnő",
+    "description": "Minden szövetséges egységnek +1 mozgási sebesség. Állatoknak és Druidáknak +2.",
+    "abilities": [
+      {
+        "ability_name": "Természet Hívása",
+        "description": "Minden szövetséges egységnek +1 mozgási sebesség.",
+        "trigger": {
+          "event": "CONTINUOUS"
+        },
+        "targets": [
+          {
+            "target_type": "Unit",
+            "owner": "Ally",
+            "targeting": "AllValid"
+          }
+        ],
+        "effects": [
+          {
+            "step": "ModifyStat",
+            "parameters": {
+              "ModifiedStat": "MOVE_SPEED",
+              "ModifyAmount": 1,
+              "ModifyDuration": 1
+            },
+            "target_ref": "targets[0]"
+          }
+        ]
+      },
+      {
+        "ability_name": "Vad Összeköttetés",
+        "description": "Szövetséges Állat és Druida egységeknek további +1 mozgási sebesség (+2 összesen).",
+        "trigger": {
+          "event": "CONTINUOUS"
+        },
+        "targets": [
+          {
+            "target_type": "Unit",
+            "owner": "Ally",
+            "targeting": "AllValid",
+            "condition": "tag:Állat|Druida"
+          }
+        ],
+        "effects": [
+          {
+            "step": "ModifyStat",
+            "parameters": {
+              "ModifiedStat": "MOVE_SPEED",
+              "ModifyAmount": 1,
+              "ModifyDuration": 1
+            },
+            "target_ref": "targets[0]"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_id": 1015,
+    "card_name": "Gúner",
+    "card_type": "character",
+    "card_class": "Zsivány",
+    "title": "a Holló",
+    "description": "Átlósan is kijátszhatsz egységeket a meglévő egységeid mellé. Ha egy egységed oldalról támad, +1 támadás. Ha hátulról, +2 és Ütéselőnyt is kap.",
+    "game_rules": {
+      "diagonal_placement": true
+    },
+    "abilities": [
+      {
+        "ability_name": "Holló Taktika",
+        "description": "Oldalról támadó egységeid +1 támadás, hátulról támadók +2 támadás és Ütéselőny.",
+        "trigger": {
+          "event": "ON_ATTACK",
+          "modifier1": "ALLY"
+        },
+        "targets": [
+          {
+            "target_type": "Unit",
+            "owner": "Ally",
+            "targeting": "Automatic",
+            "trigger_interactor": "AttackingUnit"
+          }
+        ],
+        "effects": [
+          {
+            "step": "",
+            "flow": {
+              "type": "conditional",
+              "condition": "attack_direction:flank"
+            },
+            "effects": [
+              {
+                "step": "ModifyStat",
+                "parameters": {
+                  "ModifiedStat": "ATK",
+                  "ModifyAmount": 1,
+                  "ModifyDuration": 3
+                },
+                "target_ref": "targets[0]"
+              }
+            ],
+            "else_effects": [
+              {
+                "step": "",
+                "flow": {
+                  "type": "conditional",
+                  "condition": "attack_direction:rear"
+                },
+                "effects": [
+                  {
+                    "step": "ModifyStat",
+                    "parameters": {
+                      "ModifiedStat": "ATK",
+                      "ModifyAmount": 2,
+                      "ModifyDuration": 3
+                    },
+                    "target_ref": "targets[0]"
+                  },
+                  {
+                    "step": "ModifyKeyword",
+                    "parameters": {
+                      "AddedKeywords": [
+                        "Ütéselőny"
+                      ],
+                      "NewKeywordDurations": 3
+                    },
+                    "target_ref": "targets[0]"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_id": 1016,
+    "card_name": "X. Mizuki Királynő",
+    "card_type": "character",
+    "card_class": "Bölcs",
+    "title": "a Korona Víztükre",
+    "description": "A tükörkép effektjeid egy választott szomszédos mezőre is hatnak.",
+    "abilities": [
+      {
+        "ability_name": "Korona Víztükre",
+        "description": "Tükörkép effektjeid egy választott szomszédos mezőre is hatnak.",
+        "trigger": {
+          "event": "CONTINUOUS"
+        },
+        "targets": [],
+        "effects": [],
+        "passive_modifier": {
+          "scope": "mirror_effects",
+          "extension": "adjacent_choice",
+          "description": "When a Tükörkép ability targets the mirror tile, the player also chooses one tile adjacent to the mirror tile for the same effect."
+        }
+      }
+    ]
+  },
+  {
+    "card_id": 1017,
+    "card_name": "Nixie",
+    "card_type": "character",
+    "card_class": "Garabonciás",
+    "title": "a Boszorkánydoktor",
+    "description": "Minden körben az első Halál effekted kétszer hat.",
+    "abilities": [
+      {
+        "ability_name": "Halál Visszhangja",
+        "description": "Minden körben az első Halál effekted kétszer hat.",
+        "trigger": {
+          "event": "ON_DEATH",
+          "modifier1": "ALLY",
+          "limit_type": "PER_TURN",
+          "limit_count": 1
+        },
+        "targets": [],
+        "effects": [
+          {
+            "step": "ExecuteAbility",
+            "parameters": {}
+          }
+        ]
+      }
+    ]
   },
   {
     "card_id": 2001,
@@ -1141,6 +1487,142 @@ export const CARD_CATALOG: CardDef[] =
         ]
       }
     ]
+  },
+  {
+    "card_id": 2015,
+    "card_name": "Mashu lidérc",
+    "card_type": "unit",
+    "card_class": "Bölcs",
+    "cost": 2,
+    "attack": 2,
+    "hp": 3,
+    "move_speed": 1,
+    "attack_range": 1,
+    "description": "Csatakiáltás: Kábítsd el a tükörképemen álló egységet a következő köröm végéig!",
+    "tags": [
+      "Dinasztikus",
+      "Lidérc"
+    ],
+    "abilities": [
+      {
+        "ability_name": "Tükör Kábítás",
+        "description": "Kábítsd el a tükörképemen álló egységet a következő köröm végéig.",
+        "trigger": {
+          "event": "ON_PLAY"
+        },
+        "targets": [
+          {
+            "target_type": "Unit",
+            "owner": "Any",
+            "targeting": "Automatic",
+            "position": "mirror_of:Self"
+          }
+        ],
+        "effects": [
+          {
+            "step": "ModifyKeyword",
+            "parameters": {
+              "AddedKeywords": [
+                "Kábítás"
+              ],
+              "NewKeywordDurations": 2
+            },
+            "target_ref": "targets[0]"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_id": 2016,
+    "card_name": "Ambíciózus paleontológus",
+    "card_type": "unit",
+    "card_class": "Garabonciás",
+    "cost": 3,
+    "attack": 1,
+    "hp": 2,
+    "move_speed": 1,
+    "attack_range": 1,
+    "description": "Halál: Tegyél egy permanens jelzőt az Ambíciózus paleontológus lapokra. Ha összesen legalább 4 jelző van, töröld őket, és tedd a kezedbe az Őshüllőt 0 költséggel!",
+    "abilities": [
+      {
+        "ability_name": "Ásatás",
+        "description": "Halál: +1 permanens jelző. 4 jelzőnél: törlés, Őshüllő a kezedbe 0 költséggel.",
+        "trigger": {
+          "event": "ON_DEATH"
+        },
+        "targets": [
+          {
+            "target_type": "Player",
+            "owner": "Ally",
+            "targeting": "Automatic"
+          }
+        ],
+        "effects": [
+          {
+            "step": "ModifyCounter",
+            "parameters": {
+              "CounterType": "PermanentNamed",
+              "ModifyAmount": 1
+            },
+            "target_ref": "targets[0]"
+          },
+          {
+            "step": "",
+            "flow": {
+              "type": "conditional",
+              "condition": "counter(paleontologus_asatas)>=4"
+            },
+            "effects": [
+              {
+                "step": "ModifyCounter",
+                "parameters": {
+                  "CounterType": "PermanentNamed",
+                  "CounterName": "paleontologus_asatas",
+                  "SetAmount": 0
+                },
+                "target_ref": "targets[0]"
+              },
+              {
+                "step": "CreateToken",
+                "parameters": {
+                  "TokenCardId": 2017,
+                  "DestinationZone": "Hand"
+                }
+              },
+              {
+                "step": "ModifyStat",
+                "parameters": {
+                  "ModifiedStat": "COST",
+                  "SetAmount": 0,
+                  "ModifyDuration": 1
+                },
+                "target_ref": "last_created"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_id": 2017,
+    "card_name": "Őshüllő",
+    "card_type": "unit",
+    "card_class": "Garabonciás",
+    "cost": 7,
+    "attack": 7,
+    "hp": 7,
+    "move_speed": 1,
+    "attack_range": 1,
+    "description": "Segéd egység — nem gyűjthető, csak az Ambíciózus paleontológus képessége hozza létre.",
+    "tags": [
+      "Segéd",
+      "Sárkány",
+      "Élettelen"
+    ],
+    "collectible": false,
+    "abilities": []
   },
   {
     "card_id": 3001,
@@ -1843,6 +2325,57 @@ export const CARD_CATALOG: CardDef[] =
                 "target_ref": "targets[0]"
               }
             ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "card_id": 3015,
+    "card_name": "Suttogóavatás",
+    "card_type": "spell",
+    "card_class": "Garabonciás",
+    "cost": 1,
+    "spell_range": 0,
+    "spell_type": "Azonnali",
+    "description": "Áldozz fel egy szövetségest, majd egyből idézd újra ugyanazon a mezőn!",
+    "tags": [
+      "Nekromancia"
+    ],
+    "abilities": [
+      {
+        "ability_name": "Suttogóavatás",
+        "description": "Áldozz fel egy szövetségest, majd egyből idézd újra ugyanazon a mezőn.",
+        "trigger": {
+          "event": "ON_PLAY"
+        },
+        "targets": [
+          {
+            "target_type": "Unit",
+            "owner": "Ally",
+            "targeting": "PlayerChoice",
+            "prompt": "Válassz egy szövetséges egységet az újraidézéshez!"
+          }
+        ],
+        "effects": [
+          {
+            "step": "StoreRef",
+            "parameters": {}
+          },
+          {
+            "step": "StoreRef",
+            "parameters": {}
+          },
+          {
+            "step": "Kill",
+            "target_ref": "targets[0]"
+          },
+          {
+            "step": "Summon",
+            "parameters": {
+              "SummonedEntity": "ref/sacrifice_card",
+              "SummoningTile": "ref/sacrifice_tile"
+            }
           }
         ]
       }
