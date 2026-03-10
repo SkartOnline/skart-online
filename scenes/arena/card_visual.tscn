@@ -1,0 +1,188 @@
+[gd_scene format=3 uid="uid://bl0vr3ao7grk3"]
+
+[ext_resource type="Script" path="res://scripts/arena/card_visual.gd" id="1_card_visual"]
+[ext_resource type="Texture2D" uid="uid://dtql682wsutp3" path="res://data/art/ui_assets_icons/atk.png" id="2_atk"]
+[ext_resource type="Texture2D" uid="uid://bvm3qasvavgok" path="res://data/art/ui_assets_icons/hp.png" id="3_hp"]
+
+[node name="CardVisual" type="PanelContainer" unique_id=1217809374]
+custom_minimum_size = Vector2(180, 280)
+script = ExtResource("1_card_visual")
+
+[node name="OuterMargin" type="MarginContainer" parent="." unique_id=870295236]
+layout_mode = 2
+theme_override_constants/margin_left = 4
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 4
+theme_override_constants/margin_bottom = 4
+
+[node name="InnerPanel" type="PanelContainer" parent="OuterMargin" unique_id=1821859187]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="InnerMargin" type="MarginContainer" parent="OuterMargin/InnerPanel" unique_id=835103666]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
+
+[node name="VBox" type="VBoxContainer" parent="OuterMargin/InnerPanel/InnerMargin" unique_id=1911120604]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 4
+
+[node name="HeaderPanel" type="PanelContainer" parent="OuterMargin/InnerPanel/InnerMargin/VBox" unique_id=2003448033]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="HeaderMargin" type="MarginContainer" parent="OuterMargin/InnerPanel/InnerMargin/VBox/HeaderPanel" unique_id=926153573]
+layout_mode = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 2
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 2
+
+[node name="TopRow" type="HBoxContainer" parent="OuterMargin/InnerPanel/InnerMargin/VBox/HeaderPanel/HeaderMargin" unique_id=608631491]
+layout_mode = 2
+
+[node name="CostLabel" type="Label" parent="OuterMargin/InnerPanel/InnerMargin/VBox/HeaderPanel/HeaderMargin/TopRow" unique_id=876089359]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.07, 0.07, 0.07, 1)
+theme_override_font_sizes/font_size = 17
+text = "0"
+
+[node name="Spacer" type="Control" parent="OuterMargin/InnerPanel/InnerMargin/VBox/HeaderPanel/HeaderMargin/TopRow" unique_id=2000310245]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="NameLabel" type="Label" parent="OuterMargin/InnerPanel/InnerMargin/VBox/HeaderPanel/HeaderMargin/TopRow" unique_id=1285165128]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.07, 0.07, 0.07, 1)
+theme_override_font_sizes/font_size = 16
+text = "Kártya Név"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="ArtPanel" type="PanelContainer" parent="OuterMargin/InnerPanel/InnerMargin/VBox" unique_id=768663848]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="ArtTexture" type="TextureRect" parent="OuterMargin/InnerPanel/InnerMargin/VBox/ArtPanel" unique_id=37295988]
+unique_name_in_owner = true
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TypePanel" type="PanelContainer" parent="OuterMargin/InnerPanel/InnerMargin/VBox" unique_id=44623316]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 24)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="TypeMargin" type="MarginContainer" parent="OuterMargin/InnerPanel/InnerMargin/VBox/TypePanel" unique_id=748029563]
+layout_mode = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 2
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 2
+
+[node name="TypeTagLabel" type="Label" parent="OuterMargin/InnerPanel/InnerMargin/VBox/TypePanel/TypeMargin" unique_id=640499381]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.07, 0.07, 0.07, 1)
+theme_override_font_sizes/font_size = 14
+text = "Egység - Kalóz"
+autowrap_mode = 2
+
+[node name="TextPanel" type="PanelContainer" parent="OuterMargin/InnerPanel/InnerMargin/VBox" unique_id=1776271617]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="TextMargin" type="MarginContainer" parent="OuterMargin/InnerPanel/InnerMargin/VBox/TextPanel" unique_id=411232178]
+layout_mode = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 6
+
+[node name="TextVBox" type="VBoxContainer" parent="OuterMargin/InnerPanel/InnerMargin/VBox/TextPanel/TextMargin" unique_id=1389756603]
+layout_mode = 2
+theme_override_constants/separation = 5
+
+[node name="DescriptionLabel" type="Label" parent="OuterMargin/InnerPanel/InnerMargin/VBox/TextPanel/TextMargin/TextVBox" unique_id=718153050]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.12, 0.12, 0.12, 1)
+theme_override_font_sizes/font_size = 10
+text = "Kártyaszöveg"
+autowrap_mode = 2
+
+[node name="TextSeparator" type="HSeparator" parent="OuterMargin/InnerPanel/InnerMargin/VBox/TextPanel/TextMargin/TextVBox" unique_id=38309393]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="FlavorLabel" type="RichTextLabel" parent="OuterMargin/InnerPanel/InnerMargin/VBox/TextPanel/TextMargin/TextVBox" unique_id=1069420947]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+bbcode_enabled = true
+text = "[i]Ízesítő szöveg[/i]"
+fit_content = true
+scroll_active = false
+
+[node name="BottomRow" type="HBoxContainer" parent="OuterMargin/InnerPanel/InnerMargin/VBox" unique_id=490397240]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AtkContainer" type="HBoxContainer" parent="OuterMargin/InnerPanel/InnerMargin/VBox/BottomRow" unique_id=1452656020]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="AtkIcon" type="TextureRect" parent="OuterMargin/InnerPanel/InnerMargin/VBox/BottomRow/AtkContainer" unique_id=1585708631]
+custom_minimum_size = Vector2(14, 14)
+layout_mode = 2
+texture = ExtResource("2_atk")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="AtkLabel" type="Label" parent="OuterMargin/InnerPanel/InnerMargin/VBox/BottomRow/AtkContainer" unique_id=649804080]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.07, 0.07, 0.07, 1)
+theme_override_font_sizes/font_size = 16
+text = "0"
+
+[node name="BottomSpacer" type="Control" parent="OuterMargin/InnerPanel/InnerMargin/VBox/BottomRow" unique_id=1030112382]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="HpContainer" type="HBoxContainer" parent="OuterMargin/InnerPanel/InnerMargin/VBox/BottomRow" unique_id=1500277400]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="HpIcon" type="TextureRect" parent="OuterMargin/InnerPanel/InnerMargin/VBox/BottomRow/HpContainer" unique_id=816697138]
+custom_minimum_size = Vector2(14, 14)
+layout_mode = 2
+texture = ExtResource("3_hp")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HpLabel" type="Label" parent="OuterMargin/InnerPanel/InnerMargin/VBox/BottomRow/HpContainer" unique_id=961019423]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.07, 0.07, 0.07, 1)
+theme_override_font_sizes/font_size = 16
+text = "0"

@@ -1,0 +1,146 @@
+Alapok
+A Skart egy gyűjtögetős kártyajáték, amelyet két játékos játszik egymás ellen. 
+Játékosok
+Mindkét játékos két karakterrel, egy minimum 30 lapos paklival, ezek alapján meghatározott segédpaklikkal és 20 életgyűrűvel kezdi a játékot. Az a játékos nyer, aki először 0-ra csökkenti az ellenfele életgyűrűit, vagy beteljesít egy speciális győzelmi feltételt.
+Játékterek
+Aréna
+A Skart csatái egy 25 mezőből álló Arénában zajlanak. A mezők 5 sort és 5 oszlopot alkotnak. A játékoshoz legközelebbi sor a bázissor, erre különleges szabályok vonatkoznak. Mindkét játékos a saját bázissorából kezdi a játékot, és az ellenfél bázissorából tudja az ellenfél játékosát sebezni.
+→ ötlet: lehetne egy class / condition / augment, ami megváltoztatja az Arénát egy specifikus tábori helyszínre → pl Ködrét, Kesergő stb és akkor valami extra lófasz történik → Pionír class :) sur
+Paklik
+Mindkét játékos paklija legalább 30 lapból áll. Felső limit nincs, de az egyéb pakliépítési szabályoknak meg kell hogy feleljen. Ebbe a pakliba kerülnek az egységek, varázslatok, fegyverek, csapdák, természeti erők, artifaktumok, permanensek és küldetések. A paklikat fejjel lefelé fordítva kell az aréna mellé helyezni. Amikor egy játékos húz, alapesetben a saját paklijából húz, kivéve ha egy másik effekt nem utasítja máshogy. Egy pakliba minden legendás vagy mítikus lapból laponként maximum 1, minden egyéb lapból laponként maximum 3 tehető egy pakliba. A Segéd lapokat nem lehet a fő paklidba rakni.
+
+A segédpaklik olyan lapokból állnak, amelyek egy másik lap effektjéhez szükségesek. Segédpakli tartozhat karakterhez (pl. Felix, a Hajnali Utas), egységhez (Huascar, a kozmoszkovács), varázslathoz (Lepumorf), stb.
+
+Amikor egy játékos lapot húzna, de a paklija elfogyott, a köre végén automatikusan elveszíti a játékot.
+Kéz
+A pakliból húzott lapok a játékos kezébe kerülnek. Mindkét játékos csak a saját kezében lévő lapokat láthatja. Egy játékos kezében maximum 10 lap lehet, hacsak egy másik effekt nem utasítja máshogy. A játékot alapesetben mindkét játékos 6-6 lappal kezdi. Amennyiben egy játékos választott két karaktere ugyanabba a rendbe tartozik, +1 extra lappal kezdheti a játékot.
+Temető - Umbra flavor 
+Ha egy arénában lévő egység életereje 0-ra csökken, egyéb módon meghal, vagy ha feláldozzák, a temetőbe kerül. Mindkét játékosnak saját temetője van, a játékos oldalán harcoló egységek oda kerülnek, akkor is ha az egység a játék kezdetekor a másik játékos paklijában volt (pl. Átverés). A temetőkben lévő lapokat mindkét játékos láthatja, sorrendjük nem számít.
+Rakás
+A kijátszott varázslatok hatásuk kifejtése után a rakásra kerülnek, hacsak a varázslat szövege, vagy másik effekt nem utasítja máshogy. Mindkét játékosnak saját rakása van, az általuk kijátszott varázslatok oda kerülnek. A rakásokon lévő lapokat mindkét játékos láthatja, de sorrendjük kötött és nem változtatható meg.
+Pad
+Mindkét játékos karakterei, manakártyái, artifaktumai, küldetései, és permanensei a játékos padjára kerülnek.A padokat mindkét játékos láthatja, de az itt lévő lapokat nem lehet elrabolni vagy megsemmisíteni.
+Üresség
+A megsemmisített és eldobott lapok az ürességbe kerülnek. Ezek a lapok kikerülnek a játékból és semmilyen módon nem hozhatók vissza.
+Egy kör menete
+Hajnal
+Új kör kezdődik. Minden effekt, amelynek hatása X körig tart, abbamarad, ha legalább az X-edik kör kezdődik az effekt kezdete óta. Az egyszerre abbamaradó effektek közül az fejeződik be először, amelyik előbb kezdődött el.
+Az aktív játékos reaktiválja az inaktív manakártyáit, azaz visszaforgatja őket álló helyzetbe.
+A Hajnal effektek aktiválódnak. Először a padon, balról jobbra, majd az arénában az aktív játékos felől sorról sorra, balról jobbra.
+Az aktív játékos húz egy lapot. (Kivéve az első körben a játékot kezdő játékos.)
+Az aktív játékos kijátszhat egy lapot manakártyaként. Ezt a lapot hátlappal felfelé a padjára teszi.
+Nappal
+A nappali fázisnak négy eleme van: Kijátszás, Mozgatás, Támadás és Visszahívás. Ezek tetszőleges sorrendben végrehajthatóak.
+Kijátszás
+Az aktív játékos kijátszhat egy lapot a kezéből, ha kifizeti a lap költségét. A lap kijátszásakor a játékos elforgat annyi manakártyát, amennyi a lap költsége. Az éppen nem soron következő játékos is kijátszhat lapokat reakcióként, amennyiben ki tudja fizetni a lap költségét és a lap gyors. A következő szituációkra lehet reagálni:
+Lap kijátszása (reakcióra is lehet reagálni)
+Támadás
+Effekt aktiválása
+
+A laptípusok kijátszására más-más szabályok vonatkoznak:
+Egységet csak a bázissorra, vagy olyan mezőre lehet kijátszani, amelyen, vagy amely mellett a kör elején szövetséges egység állt.
+A varázslat célpontjának a varázslat hatótávján belül kell állnia.
+Csapdákat csak üres mezőre lehet helyezni, hátlappal felfelé.
+A padra kijátszott lapokra nem vonatkoznak speciális szabályok.
+Mozgás
+Minden szövetséges egységet a mozgási sebességével egyenlő mezőnyit lehet mozgatni minden körben. Ez a legtöbb egység esetében 1, de egyéb lapok is befolyásolhatják.
+Harc
+Minden szövetséges egység körönként egyszer megtámadhat egy hatótávján (ez általában 1) belüli ellenséget. A harc folyamata a következő:
+A támadó játékos bejelenti a támadási szándékát. (pl.: a Felindori kardforgatómmal megtámadom a Nyominger melákot)
+Az ellenfélnek lehetősége van reagálni.
+Ezt követően a támadó fél is reagálhat a reakcióra. Ez addig folytatódik, amíg az egyik játékos nem tud, vagy nem szeretne reagálni.
+Amennyiben a harc továbbra is lehetséges, tehát mindkét egység él és a támadó hatótávon belül van, a harc végbemegy.
+Először az Ütéselőnnyel és Kettős csapással rendelkező egységek támadnak. A támadásuk értékével egyenlő (de egyéb lapok által módosítható) életerőt sebeznek a célpontba. Ha a célpont életereje eléri a 0-t, meghal, és a harcnak vége.
+Utána az Ütéselőny nélküli egységek támadnak (illetve a Kettős csapással rendelkező egységek másodszor). A sebzés hasonlóan történik, a két egység egyszerre sebzi egymást. Amelyik életereje eléri a 0-t, meghal.
+Az életben maradt egységek annyi sebzésszámlálót kapnak, ahány életerőt veszítettek a harc során.
+Minden egy harc időtartamára szóló effekt befejeződik a csatában résztvevő egységeken. A harcnak vége.
+
+Visszahívás
+Az aktív játékos a köre során bármikor felhúzhatja az egyik aktív (tehát abban a körben nem használt) manakártyáját. Ezt egy körben bárhányszor meg lehet tenni, viszont az így felhúzott lapok számától függetlenül körönként csak egy lap játszható ki manakártyaként (kivéve ha egy lap szövege nem utasít máshogy).
+Reakció
+Amikor a másik játékos:
+Kijátszik egy lapot,
+támad,
+vagy aktivál egy effektet,
+
+reagálhatsz erre egy Azonnali varázslattal vagy Reakcióval. Reakcióként egy lapot játszhatsz ki, amire az ellenfelednek van lehetősége reagálni. Akár reagál, akár nem, utána van lehetőséged egyenként több lapot is kijátszani Reakcióként, de az ellenfelednek is megvan a lehetősége, hogy minden lapra reagáljon. Amikor egyik játékos sem szeretné, vagy tudja folytatni a Reakciót, a Reakciónak vége. A Reakcióban résztvevő lapok és effektek hatása a kijátszáshoz képest fordított sorrendben megy végbe, tehát az utoljára kijátszott lap aktiválódik először. Ha egy lap effektjét megakadályozták vagy nincs érvényes célpontja, a rakásra kerül. Reakció közben nem lehet olyan akciót végrehajtani, ami nem a Reakció része, tehát támadást kezdeni, Rítust kijátszani, Visszahívni, vagy egységet mozgatni.
+
+Alkony
+Az Alkony effektek aktiválódnak. Először a padon, balról jobbra, majd az arénában az aktív játékos felől sorról sorra, balról jobbra. 
+Ha az aktív játékosnak több lapja van, mint amennyi a kezébe fér, eldob annyi lapot, amennyivel több van.
+A körnek vége és új kör kezdődik.
+Rendek
+like thematics and shit, archetypes
+Harcos
+Morálok 
+- Felindori / - midrange idk, malomépítő verseny
+Undán / - aggro swarm?
+Maybe Noldorini? / - segg
+Tünde works even better in felindor - econ we can do felindori, undán, tünde as moráls. we can fit around 3 moráls overall. what i was thinking is that you could start with a küldetés/permanens/artifaktum/épület lap for each of them which gives bonuses to these units based on how many you have in the arena like a 3/5/7/9 split lets say. the upside is that we can put a real effect on the units if we want to bc morál doesnt take up all the space
+lets axe törps there aint rly none in felindor
+Az ezüstköpenyesnek ilyen barbárjai voltak, de szerintem az nagyon olyan mint az Undán
+we were mostly figthing undead tbh, thats kinda garabonc, but i think it makes sense to design a harcos eredet around it. likey they were the big bads for 10 years we could give anti undead cards to harcos as an identity
+
+Mágus
+minden, ami mágus, de azért aki ilyen jó fej :) i made an evan karakter but then deleted it xd
+Vaják
+bestiák, állatok, (szörny) vadászok, druidák
+Zsivány
+simlis gecik, vamzerek, kereskedő házak (Scrogegni és fia, Brak Kereskedp ház), Árnyak rendje (assassins), Síkkutatók (vamzerek igazából)
+Bölcs
+aermedák (healers and achemists), tudósok, mesteremberek, vándorok (ha nincs pionír), feltalálók, rúnakovács (weapon buffs)
+Garabonciás 
+evil mage/druid/doctor stb
+
+Majd egyszer:
+Csodatevő - we have a couple o’ religions
+Laptípusok 
+Karakterek
+Egységek
+Egy egység lap felépítése
+Gyűrűk és sebzésszámlálók
+Az egységek képesek erősítést kapni, vagy harcban megsérülni. Egy gyűrű +1 támadást és +1 életgyűrűt jelez, egy sebzésszámláló -1 életgyűrűt. Ha egy egység sebzésszámlálói elérik az összes életgyűrűinek számát, az egység meghal.
+
+→ u can order like 1k shitty metal rings from amazon for 10gbp, maybe that? and we give them during special occasions like casino, rest of the time they improv it that works too
+
+A gyűrűket az egység támadásán, a sebzésszámlálókat az egység életgyűrűin kell jelezni. Egy egységnek nem lehetnek egyszerre gyűrűi és sebzésszámlálói. Ha egy gyűrűt viselő egység sebződik, először a gyűrűi semmisülnek meg (ezzel az életgyűrűi mellett a támadása is csökken). Ha egy sebzett egység gyűrűt kap, először a sebzésszámlálói tűnnek el.
+Varázslatok
+Azonnali varázslatok
+Az Azonnali varázslatokat kijátszhatod rendesen, a saját körödben, de akár az ellenfél körében is Reakcióként.
+Rítusok
+A Rítusokat csak a saját körödben játszhatod ki, az ellenfél körében nem. Emellett Reakciókban sem játszhatóak ki, de egy saját körödben kijátszott Rítus is potenciálisan indíthatja a Reakciót.
+Reakciók
+A Reakciókat csak Reakcióként játszhatod ki, az ellenfél valamelyik akciójára vagy kijátszott lapjára válaszul. Ezt akár a saját körödben is megteheted: ha az ellenfeled Reakciót játszott ki a te egyik lapodra, te reagálhatsz a saját Reakcióddal.
+Permanensek
+A Permanens varázslatokat a padodra játszhatod ki, ugyanakkor, amikor egy Rítust kijátszhatnál. A Permanens varázslatok hatása a játék végéig tart.
+Fegyverek
+A fegyvereket egy szövetséges egységre játszhatod ki. Ha egy fegyvert használó szövetséges meghal vagy kikerül az arénából, a fegyver visszakerül a kezedbe. Ha megsemmisül, a fegyver is megsemmisül.
+Csapdák
+A csapdákat hátlappal felfelé, egy üres mezőre játszhatod ki. Ezek a lapok között erősítő és gyengítő hatások is találhatóak. A csapdáknak kell egy kis élesítési idő, csak a köröd végén élesednek. Azelőtt nem mozgathatsz vagy helyezhetsz oda egységet sem te, sem az ellenfeled.
+Természeti erők
+A természet erőket előlappal felfelé, egy üres mezőre vagy 4 mező közé játszhatod ki. Utóbbi esetben a mezőknek nem kell üreseknek lenniük, de adott 4 mező között csak 1 természeti erő lehet.
+Sugallatok
+Artifaktumok
+Az artifaktumok ritka varázstárgyak, amelyeket a padodra tudsz kijátszani. Hatásuk kijátszásuk után folyamatosan aktív.
+
+Épületek
+: 
+Kulcsszavak
+Alkony: Ezek az effektusok a kör végén aktiválódnak.
+Álomfogó: Az Álomfogóval rendelkező egységekre az első ellenséges varázslatnak nincs hatása.
+Aura: Ez az effektus a négy, egységgel szomszédos mezőre hat.
+Csatakiáltás: Ezek az effektusok akkor aktiválódnak, amikor egy egységet kijátszol. Amikor egy egységet megidézel, a Csatakiáltás effektusa nem aktiválódik.
+Halál: Ezek az effektusok akkor aktiválódnak, amikor egy egységed meghal, megölik, vagy feláldozzák. Amikor egy egység megsemmisül, vagy visszakerül valamelyik kézbe vagy pakliba, a Halál effektusa nem aktiválódik.
+Halálos érintés: A Halálos érintéssel rendelkező egységek által megsebzett egységek a sebzés mértékétől függetlenül meghalnak.
+Hajnal: Ezek az effektusok a kör elején aktiválódnak.
+Kettős csapás: A Kettős csapással rendelkező egységek kétszer is sebeznek, amikor támadnak. Egyszer a harc elején, az Ütéselőnnyel rendelkező egységekkel hasonlóan, majd a harc rendes fázisában, amikor a többi egység. Visszatámadás esetén, amikor a Kettős csapással rendelkező egység a védekező, nem sebez előbb vagy kétszer, csak a rendes harcfázisban egyszer.
+Lövéstáv X: A Lövéstáv X-szel rendelkező egységek X mező távolságból is képesek támadni. Amelyik egységnél nincs feltüntetve Lövéstáv, az ő Lövéstávja 1, azaz csak egy szomszédos mezőre képes támadni.
+Megállíthatatlan: A Megállíthatatlan egységeket nem lehet leütni, megfagyasztani, vagy az őt kontrolláló játékos akarata ellenére mozgatni akár az arénán belül, akár az arénából valamelyik kézbe, vagy pakliba.
+Mozgási sebesség X: A Mozgási sebesség X-szel rendelkező egységek X mezőnyit képesek mozogni egy körben. Amelyik egységnél nincs feltüntetve Mozgási sebesség, az ő Mozgási sebessége 1, azaz 1 mezőnyit képes mozogni egy körben.  
+Páncél X: A Páncél X-szel rendelkező egységek minden bejövő sebzést X-szel csökkentenek.
+Rablás: Általában az ellenfél valamelyik lapját, vagy effektjét ellopó Zsivány egységekhez és varázslatokhoz tartozó kulcsszó. Bizonyos lapok interakcióba lépnek a Rablás kulcsszóval. Ha nincs másképp specifikálva, a Rablás effekt Csatakiáltás, tehát kijátszáskor aktiválódik.
+Sérthetetlen: A Sérthetetlen egységeket nem lehet megsebezni, megölni, megsemmisíteni, vagy más módon eltávolítani az arénából.
+Ütéselőny: Az Ütéselőnnyel rendelkező egységek előbb sebzik meg az ellenfelüket, amikor ők támadnak. Visszatámadás esetén, amikor az Ütéselőnnyel rendelkező egység a védekező, nem sebez előbb.
+Varázsellenállás: A Varázsellenállással rendelkező egységekre nincsenek hatással a varázslatok.
+Védelmező: A Védelmező egységgel szomszédos egységek csak a Védelmező egységet vehetik célba támadással. Ha egy ellenséges egység elmozdul egy Védelmező mellől anélkül, hogy abban a körben megtámadta volna, a Védelmező támadásával egyenlő sebzést szenved el.
+

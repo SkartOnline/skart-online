@@ -1,0 +1,56 @@
+[gd_resource type="Resource" script_class="SpellCard" format=3]
+
+[ext_resource type="Script" uid="uid://bo6m1vdd0m4vq" path="res://scripts/cards/spell_card.gd" id="1_card"]
+[ext_resource type="Script" uid="uid://8pkq1chvkr5a" path="res://scripts/abilities/ability.gd" id="2_abil"]
+[ext_resource type="Script" uid="uid://b0mosco1r307u" path="res://scripts/abilities/trigger.gd" id="3_trig"]
+[ext_resource type="Script" uid="uid://b60jxsqdv6nrd" path="res://scripts/abilities/target.gd" id="4_tgt"]
+[ext_resource type="Script" uid="uid://t72vfvkvypd8" path="res://scripts/abilities/effect_step.gd" id="5_eff"]
+
+[sub_resource type="Resource" id="Resource_ab0_trig"]
+script = ExtResource("3_trig")
+event = "ON_PLAY"
+
+[sub_resource type="Resource" id="Resource_ab0_tgt0"]
+script = ExtResource("4_tgt")
+target_type = "Deck"
+owner = "Enemy"
+targeting = "Automatic"
+
+[sub_resource type="Resource" id="Resource_ab0_tgt1"]
+script = ExtResource("4_tgt")
+target_type = "Card"
+owner = "Ally"
+targeting = "Self"
+
+[sub_resource type="Resource" id="Resource_ab0_eff0"]
+script = ExtResource("5_eff")
+step = "Draw"
+parameters = {"DrawAmount": 1}
+tag = "stolen"
+target_ref = "targets[0]"
+
+[sub_resource type="Resource" id="Resource_ab0_eff1"]
+script = ExtResource("5_eff")
+step = "MoveToZone"
+parameters = {"GoalZone": "EnemyHand"}
+target_ref = "targets[1]"
+
+[sub_resource type="Resource" id="Resource_ab0"]
+script = ExtResource("2_abil")
+ability_name = "Hamiskártya"
+description = "Rablás: Húzz egyet az ellenfél paklijából és add neki ezt a lapot cserébe!"
+trigger = SubResource("Resource_ab0_trig")
+targets = [SubResource("Resource_ab0_tgt0"), SubResource("Resource_ab0_tgt1")]
+effects = [SubResource("Resource_ab0_eff0"), SubResource("Resource_ab0_eff1")]
+
+[resource]
+script = ExtResource("1_card")
+spell_type = 1
+spell_range = 0
+card_type = Card.CardType.SPELL
+card_id = 3011
+card_name = "Hamiskártya"
+description = "Rablás: Húzd el az ellenfél paklijának felső lapját és add neki ezt a varázslatot cserébe!"
+card_class = "Zsivány"
+cost = 1
+abilities = [SubResource("Resource_ab0")]

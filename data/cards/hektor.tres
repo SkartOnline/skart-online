@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="UnitCard" format=3]
+
+[ext_resource type="Script" uid="uid://bf711n1425ndf" path="res://scripts/cards/unit_card.gd" id="1_card"]
+
+[resource]
+script = ExtResource("1_card")
+attack = 1
+hp = 3
+card_type = Card.CardType.UNIT
+card_id = 2003
+card_name = "Hektor"
+description = ""
+card_class = "Zsivány"
+cost = 1
+tags = ["Kalóz"]
+flavor_text = "Csak egy gályarab."

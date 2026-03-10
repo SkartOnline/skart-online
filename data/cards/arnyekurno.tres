@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="UnitCard" format=3]
+
+[ext_resource type="Script" uid="uid://bf711n1425ndf" path="res://scripts/cards/unit_card.gd" id="1_card"]
+
+[resource]
+script = ExtResource("1_card")
+attack = 6
+hp = 4
+attack_range = 2
+card_type = Card.CardType.UNIT
+card_id = 2007
+card_name = "Árnyékúrnő"
+description = "Lövéstáv 2."
+card_class = "Zsivány"
+cost = 7
+rarity = 3
+tags = ["Kalóz", "Csempész"]
+flavor_text = "Senki nem látja jönni, mindenki érzi menni."

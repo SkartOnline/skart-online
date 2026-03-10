@@ -1,0 +1,74 @@
+[gd_resource type="Resource" script_class="UnitCard" format=3]
+
+[ext_resource type="Script" uid="uid://bf711n1425ndf" path="res://scripts/cards/unit_card.gd" id="1_card"]
+[ext_resource type="Script" uid="uid://8pkq1chvkr5a" path="res://scripts/abilities/ability.gd" id="2_abil"]
+[ext_resource type="Script" uid="uid://b0mosco1r307u" path="res://scripts/abilities/trigger.gd" id="3_trig"]
+[ext_resource type="Script" uid="uid://b60jxsqdv6nrd" path="res://scripts/abilities/target.gd" id="4_tgt"]
+[ext_resource type="Script" uid="uid://t72vfvkvypd8" path="res://scripts/abilities/effect_step.gd" id="5_eff"]
+
+[sub_resource type="Resource" id="Resource_ab0_trig"]
+script = ExtResource("3_trig")
+event = "ON_PLAY"
+
+[sub_resource type="Resource" id="Resource_ab0_tgt0"]
+script = ExtResource("4_tgt")
+target_type = "Deck"
+owner = "Ally"
+targeting = "Automatic"
+
+[sub_resource type="Resource" id="Resource_ab0_eff0"]
+script = ExtResource("5_eff")
+step = "Search"
+parameters = {"SearchFilters": "type:SPELL,cost<=2", "SelectAmount": 1, "Prompt": "Nevezz meg egy varázslatot!"}
+tag = "named_card"
+target_ref = "targets[0]"
+
+[sub_resource type="Resource" id="Resource_ab0"]
+script = ExtResource("2_abil")
+ability_name = "Varázslat Keresés"
+description = "Nevezz meg egy max. 2 költségű varázslatot a paklidból!"
+trigger = SubResource("Resource_ab0_trig")
+targets = [SubResource("Resource_ab0_tgt0")]
+effects = [SubResource("Resource_ab0_eff0")]
+
+[sub_resource type="Resource" id="Resource_ab1_trig"]
+script = ExtResource("3_trig")
+event = "ON_DEATH"
+
+[sub_resource type="Resource" id="Resource_ab1_tgt0"]
+script = ExtResource("4_tgt")
+target_type = "Deck"
+owner = "Ally"
+targeting = "Automatic"
+
+[sub_resource type="Resource" id="Resource_ab1_eff0_itgt"]
+script = ExtResource("4_tgt")
+target_type = "Deck"
+owner = "Ally"
+condition = "tag:named_card"
+targeting = "Automatic"
+
+[sub_resource type="Resource" id="Resource_ab1_eff0"]
+script = ExtResource("5_eff")
+step = "MoveToZone"
+parameters = {"GoalZone": "MyHand"}
+inline_target = SubResource("Resource_ab1_eff0_itgt")
+
+[sub_resource type="Resource" id="Resource_ab1"]
+script = ExtResource("2_abil")
+ability_name = "Emlék"
+description = "Húzd fel a megnevezett lapot!"
+trigger = SubResource("Resource_ab1_trig")
+targets = [SubResource("Resource_ab1_tgt0")]
+effects = [SubResource("Resource_ab1_eff0")]
+
+[resource]
+script = ExtResource("1_card")
+attack = 2
+card_type = Card.CardType.UNIT
+card_id = 2011
+card_name = "Ryan Cooper"
+description = "Csatakiáltás: Nevezz meg egy max. 2 költségű varázslatot a paklidból! Halál: Húzd fel!"
+card_class = "Garabonciás"
+cost = 2
+abilities = [SubResource("Resource_ab0"), SubResource("Resource_ab1")]

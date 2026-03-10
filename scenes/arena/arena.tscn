@@ -1,0 +1,332 @@
+[gd_scene load_steps=2 format=3 uid="uid://arena_scene"]
+
+[ext_resource type="Script" path="res://scripts/arena/arena.gd" id="1_arena"]
+
+[node name="Arena" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_arena")
+
+[node name="BG" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.051, 0.067, 0.09, 1)
+
+[node name="MainLayout" type="HBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+
+[node name="ArenaColumn" type="CenterContainer" parent="MainLayout"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+size_flags_stretch_ratio = 5.5
+
+[node name="GridContainer" type="GridContainer" parent="MainLayout/ArenaColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+columns = 5
+theme_override_constants/h_separation = 2
+theme_override_constants/v_separation = 2
+
+[node name="RightSection" type="VBoxContainer" parent="MainLayout"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 4.5
+theme_override_constants/separation = 2
+
+[node name="EnemyHandBar" type="PanelContainer" parent="MainLayout/RightSection"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 80)
+
+[node name="EnemyHandScroll" type="ScrollContainer" parent="MainLayout/RightSection/EnemyHandBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 1
+vertical_scroll_mode = 0
+
+[node name="EnemyHand" type="HBoxContainer" parent="MainLayout/RightSection/EnemyHandBar/EnemyHandScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 3
+
+[node name="EnemyInfoBar" type="HBoxContainer" parent="MainLayout/RightSection"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="EnemyHandSwitch" type="Button" parent="MainLayout/RightSection/EnemyInfoBar"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(44, 24)
+text = "KÉZ"
+
+[node name="OpponentHPLabel" type="Label" parent="MainLayout/RightSection/EnemyInfoBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.3, 0.3, 1)
+theme_override_font_sizes/font_size = 14
+text = "♥ 20"
+
+[node name="OpponentManaLabel" type="Label" parent="MainLayout/RightSection/EnemyInfoBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.651, 1.0, 1)
+theme_override_font_sizes/font_size = 14
+text = "✦ ?/?"
+
+[node name="EnemyDeckCount" type="Label" parent="MainLayout/RightSection/EnemyInfoBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.431, 0.463, 0.502, 1)
+theme_override_font_sizes/font_size = 11
+text = "♣ ?"
+
+[node name="EnemyDiscardCount" type="Label" parent="MainLayout/RightSection/EnemyInfoBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.431, 0.463, 0.502, 1)
+theme_override_font_sizes/font_size = 11
+text = "☠ ?"
+
+[node name="EnemyPileCount" type="Label" parent="MainLayout/RightSection/EnemyInfoBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.431, 0.463, 0.502, 1)
+theme_override_font_sizes/font_size = 11
+text = "↺ ?"
+
+[node name="OpponentChars" type="HBoxContainer" parent="MainLayout/RightSection/EnemyInfoBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 28)
+theme_override_constants/separation = 4
+alignment = 2
+
+[node name="ContentMiddle" type="HBoxContainer" parent="MainLayout/RightSection"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 4
+
+[node name="CardPreview" type="PanelContainer" parent="MainLayout/RightSection/ContentMiddle"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+custom_minimum_size = Vector2(0, 160)
+
+[node name="PreviewContent" type="VBoxContainer" parent="MainLayout/RightSection/ContentMiddle/CardPreview"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="PreviewTitle" type="Label" parent="MainLayout/RightSection/ContentMiddle/CardPreview/PreviewContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.05, 0.05, 0.05, 1)
+theme_override_font_sizes/font_size = 18
+horizontal_alignment = 1
+
+[node name="PreviewArt" type="ColorRect" parent="MainLayout/RightSection/ContentMiddle/CardPreview/PreviewContent"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 40)
+color = Color(0.15, 0.18, 0.23, 1)
+
+[node name="PreviewType" type="Label" parent="MainLayout/RightSection/ContentMiddle/CardPreview/PreviewContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.05, 0.05, 0.05, 1)
+theme_override_font_sizes/font_size = 12
+horizontal_alignment = 1
+
+[node name="PreviewSep" type="HSeparator" parent="MainLayout/RightSection/ContentMiddle/CardPreview/PreviewContent"]
+layout_mode = 2
+
+[node name="PreviewAbility" type="RichTextLabel" parent="MainLayout/RightSection/ContentMiddle/CardPreview/PreviewContent"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_colors/default_color = Color(0.05, 0.05, 0.05, 1)
+theme_override_font_sizes/normal_font_size = 12
+bbcode_enabled = true
+fit_content = true
+
+[node name="PreviewStatsRow" type="HBoxContainer" parent="MainLayout/RightSection/ContentMiddle/CardPreview/PreviewContent"]
+layout_mode = 2
+
+[node name="PreviewAtkLabel" type="Label" parent="MainLayout/RightSection/ContentMiddle/CardPreview/PreviewContent/PreviewStatsRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.05, 0.05, 0.05, 1)
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 0
+
+[node name="PreviewStats" type="Label" parent="MainLayout/RightSection/ContentMiddle/CardPreview/PreviewContent/PreviewStatsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.05, 0.05, 0.05, 1)
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 1
+
+[node name="PreviewDefLabel" type="Label" parent="MainLayout/RightSection/ContentMiddle/CardPreview/PreviewContent/PreviewStatsRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.05, 0.05, 0.05, 1)
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 2
+
+[node name="MiddleGap" type="Control" parent="MainLayout/RightSection/ContentMiddle"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="GameLogPanel" type="PanelContainer" parent="MainLayout/RightSection/ContentMiddle"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(240, 0)
+
+[node name="GameLogView" type="RichTextLabel" parent="MainLayout/RightSection/ContentMiddle/GameLogPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+bbcode_enabled = true
+scroll_following = true
+fit_content = false
+autowrap_mode = 2
+selection_enabled = true
+
+[node name="TurnPanel" type="VBoxContainer" parent="MainLayout/RightSection/ContentMiddle"]
+layout_mode = 2
+custom_minimum_size = Vector2(120, 0)
+size_flags_vertical = 4
+theme_override_constants/separation = 8
+
+[node name="OpponentNameLabel" type="Label" parent="MainLayout/RightSection/ContentMiddle/TurnPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.73, 0.76, 1)
+theme_override_font_sizes/font_size = 12
+text = "Ellenfél"
+horizontal_alignment = 1
+
+[node name="TurnLabel" type="Label" parent="MainLayout/RightSection/ContentMiddle/TurnPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.831, 0.659, 0.263, 1)
+theme_override_font_sizes/font_size = 14
+text = "Teszt Mód"
+horizontal_alignment = 1
+
+[node name="CommandHintPanel" type="PanelContainer" parent="MainLayout/RightSection/ContentMiddle/TurnPanel"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="CommandHintLabel" type="Label" parent="MainLayout/RightSection/ContentMiddle/TurnPanel/CommandHintPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+autowrap_mode = 2
+text = ""
+
+[node name="EndTurnButton" type="Button" parent="MainLayout/RightSection/ContentMiddle/TurnPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 40)
+text = "Kör vége"
+
+[node name="PlayerNameLabel" type="Label" parent="MainLayout/RightSection/ContentMiddle/TurnPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.73, 0.76, 1)
+theme_override_font_sizes/font_size = 12
+text = "Te"
+horizontal_alignment = 1
+
+[node name="PlayerInfoBar" type="HBoxContainer" parent="MainLayout/RightSection"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="PlayerHandSwitch" type="Button" parent="MainLayout/RightSection/PlayerInfoBar"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(44, 24)
+text = "PAD"
+
+[node name="PlayerHPCount" type="Label" parent="MainLayout/RightSection/PlayerInfoBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.2, 0.2, 1)
+theme_override_font_sizes/font_size = 14
+text = "♥ 20"
+
+[node name="PlayerManaCount" type="Label" parent="MainLayout/RightSection/PlayerInfoBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.345, 0.651, 1.0, 1)
+theme_override_font_sizes/font_size = 14
+text = "✦ 0/0"
+
+[node name="PlayerDeckCount" type="Label" parent="MainLayout/RightSection/PlayerInfoBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.431, 0.463, 0.502, 1)
+theme_override_font_sizes/font_size = 11
+text = "♣ 0"
+
+[node name="PlayerDiscardCount" type="Label" parent="MainLayout/RightSection/PlayerInfoBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.431, 0.463, 0.502, 1)
+theme_override_font_sizes/font_size = 11
+text = "☠ 0"
+
+[node name="PlayerPileCount" type="Label" parent="MainLayout/RightSection/PlayerInfoBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.431, 0.463, 0.502, 1)
+theme_override_font_sizes/font_size = 11
+text = "↺ 0"
+
+[node name="PlayerChars" type="HBoxContainer" parent="MainLayout/RightSection/PlayerInfoBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 28)
+theme_override_constants/separation = 4
+alignment = 2
+
+[node name="PlayerHandBar" type="PanelContainer" parent="MainLayout/RightSection"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 80)
+
+[node name="PlayerHandScroll" type="ScrollContainer" parent="MainLayout/RightSection/PlayerHandBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+horizontal_scroll_mode = 1
+vertical_scroll_mode = 0
+
+[node name="PlayerHand" type="HBoxContainer" parent="MainLayout/RightSection/PlayerHandBar/PlayerHandScroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 3

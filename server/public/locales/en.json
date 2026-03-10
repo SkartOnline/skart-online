@@ -1,0 +1,62 @@
+{
+  "auth": {
+    "login_title": "Log In",
+    "register_title": "Register",
+    "username": "Username",
+    "password": "Password",
+    "login_btn": "Log In",
+    "register_btn": "Register",
+    "no_account": "Don't have an account?",
+    "has_account": "Already have an account?",
+    "register_link": "Register",
+    "login_link": "Log In",
+    "success_register": "Registration successful!"
+  },
+  "lobby": {
+    "welcome": "Welcome,",
+    "collection": "Collection",
+    "collection_desc": "Browse your cards and build decks",
+    "lobbies": "Lobbies",
+    "lobbies_desc": "Create and join player lobbies",
+    "create": "Create Lobby",
+    "ready": "Ready",
+    "test_game": "Test Game",
+    "test_game_desc": "Open an empty arena for testing",
+    "logout": "Log Out"
+  },
+  "collection": {
+    "title": "Collection",
+    "create_deck": "+ New deck",
+    "deck_editor": "Deck editor",
+    "deck_name": "Deck name",
+    "characters": "Characters (click cards to add)",
+    "main_deck": "Main deck (click cards to add)",
+    "save_deck": "Save deck",
+    "delete_deck": "Delete",
+    "empty_title": "Empty collection",
+    "empty_desc": "You don't have any cards yet. Cards will be available later!"
+  },
+  "game": {
+    "arena_title": "Skart 2 Arena",
+    "multiplayer_title": "Multiplayer match",
+    "exit": "Exit",
+    "bench": "Bench",
+    "character": "Character",
+    "buffs": "Buffs",
+    "deck": "Deck",
+    "hand": "Hand",
+    "discard": "Discard",
+    "empty_hand": "Empty hand",
+    "test_mode": "Test Mode"
+  },
+  "common": {
+    "back": "← Back",
+    "loading": "Loading...",
+    "error": "An error occurred"
+  },
+  "_meta": {
+    "lang": "en",
+    "label": "English",
+    "toggle_label": "🌐 Magyar"
+  }
+}
