@@ -507,8 +507,9 @@ static func _build_x_mizuki_kiralyno():
 
 static func _build_nixie():
 	var t0 = _new_trigger("ON_DEATH", {"modifier1": "ALLY", "limit_type": "PER_TURN", "limit_count": 1})
-	var e1 = _new_effect("ExecuteAbility")
-	var main_ab = _new_ability("Halál Visszhangja", "Minden körben az első Halál effekted kétszer hat.", t0, [], [e1])
+	var t1 = _new_target("Unit", "Ally", "Automatic", {"trigger_interactor": "KilledUnit"})
+	var e2 = _new_effect("ExecuteAbility", {"parameters": {"AbilityType": "ON_DEATH"}, "target_ref": "targets[0]"})
+	var main_ab = _new_ability("Halál Visszhangja", "Minden körben az első Halál effekted kétszer hat.", t0, [t1], [e2])
 	var card = CharacterCardScript.new()
 	card.card_id = 1017
 	card.card_name = "Nixie"

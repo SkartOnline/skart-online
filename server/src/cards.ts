@@ -884,11 +884,21 @@ export const CARD_CATALOG: CardDef[] =
           "limit_type": "PER_TURN",
           "limit_count": 1
         },
-        "targets": [],
+        "targets": [
+          {
+            "target_type": "Unit",
+            "owner": "Ally",
+            "targeting": "Automatic",
+            "trigger_interactor": "KilledUnit"
+          }
+        ],
         "effects": [
           {
             "step": "ExecuteAbility",
-            "parameters": {}
+            "parameters": {
+              "AbilityType": "ON_DEATH"
+            },
+            "target_ref": "targets[0]"
           }
         ]
       }

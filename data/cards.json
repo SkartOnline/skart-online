@@ -2146,11 +2146,14 @@
           "limit_type": "PER_TURN",
           "limit_count": 1
         },
-        "targets": [],
+        "targets": [
+          { "target_type": "Unit", "owner": "Ally", "targeting": "Automatic", "trigger_interactor": "KilledUnit" }
+        ],
         "effects": [
           {
             "step": "ExecuteAbility",
-            "parameters": { "Repeat": "TRIGGER_SOURCE_ABILITY" }
+            "parameters": { "AbilityType": "ON_DEATH" },
+            "target_ref": "targets[0]"
           }
         ]
       }
