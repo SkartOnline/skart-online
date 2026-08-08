@@ -1,0 +1,361 @@
+[
+  {
+    "id": "patkany",
+    "name": "Patkány",
+    "kind": "unit",
+    "cost": 0,
+    "power": 1,
+    "keywords": ["Állat", "Fodder"],
+    "spellpower": {},
+    "tags": ["swarm"],
+    "text": "Egy patkány sosem elég."
+  },
+  {
+    "id": "koldus",
+    "name": "Koldus",
+    "kind": "unit",
+    "cost": 0,
+    "power": 1,
+    "keywords": ["Fodder"],
+    "spellpower": {},
+    "tags": ["swarm"]
+  },
+  {
+    "id": "csirke",
+    "name": "Csirke",
+    "kind": "unit",
+    "cost": 0,
+    "power": 1,
+    "keywords": ["Állat", "Fodder"],
+    "spellpower": { "Állat": 1 },
+    "tags": ["swarm"],
+    "text": "Egy pont Állat mágia, ennyi."
+  },
+  {
+    "id": "nyul",
+    "name": "Nyúl",
+    "kind": "unit",
+    "cost": 0,
+    "power": 1,
+    "keywords": ["Állat"],
+    "spellpower": {},
+    "tags": ["token"],
+    "text": "Képesség nélküli Állat. Lépumorf hagyja maga után."
+  },
+  {
+    "id": "paraszt",
+    "name": "Paraszt",
+    "kind": "unit",
+    "cost": 1,
+    "power": 2,
+    "keywords": ["Melee", "Fodder"],
+    "spellpower": {},
+    "tags": ["swarm"]
+  },
+  {
+    "id": "tolvaj",
+    "name": "Tolvaj",
+    "kind": "unit",
+    "cost": 1,
+    "power": 2,
+    "keywords": [],
+    "spellpower": {},
+    "tags": ["swarm"],
+    "statics": [{ "kind": "isolationBonus", "amount": 1 }],
+    "text": "+1, amíg nem áll mellette szövetséges."
+  },
+  {
+    "id": "milicia",
+    "name": "Milícia",
+    "kind": "unit",
+    "cost": 2,
+    "power": 3,
+    "keywords": ["Melee"],
+    "spellpower": { "Harcos": 1 },
+    "tags": ["swarm", "value"]
+  },
+  {
+    "id": "farkas",
+    "name": "Farkas",
+    "kind": "unit",
+    "cost": 2,
+    "power": 3,
+    "keywords": ["Állat"],
+    "spellpower": { "Állat": 1 },
+    "tags": ["beast", "swarm"],
+    "statics": [{ "kind": "packBonus", "amount": 1, "keyword": "Állat" }],
+    "text": "+1 minden szomszédos szövetséges Állat után."
+  },
+  {
+    "id": "felderito",
+    "name": "Felderítő",
+    "kind": "unit",
+    "cost": 2,
+    "power": 2,
+    "keywords": [],
+    "spellpower": { "Harcos": 2 },
+    "tags": ["value"],
+    "statics": [{ "kind": "rowBonus", "row": "B", "amount": 1 }],
+    "text": "+1 a hátsó sorban."
+  },
+  {
+    "id": "ijasz",
+    "name": "Íjász",
+    "kind": "unit",
+    "cost": 3,
+    "power": 4,
+    "keywords": [],
+    "spellpower": { "Harcos": 1 },
+    "tags": ["value"]
+  },
+  {
+    "id": "konnyulandzsas",
+    "name": "Könnyűlándzsás",
+    "kind": "unit",
+    "cost": 3,
+    "power": 4,
+    "keywords": ["Melee"],
+    "spellpower": {},
+    "tags": ["value"]
+  },
+  {
+    "id": "remete",
+    "name": "Remete",
+    "kind": "unit",
+    "cost": 3,
+    "power": 2,
+    "keywords": [],
+    "spellpower": { "Mágus": 2 },
+    "tags": ["caster"],
+    "statics": [{ "kind": "isolationBonus", "amount": 3 }],
+    "text": "+3, amíg nem áll mellette szövetséges."
+  },
+  {
+    "id": "tanonc",
+    "name": "Tanonc",
+    "kind": "unit",
+    "cost": 3,
+    "power": 1,
+    "keywords": ["Mágus"],
+    "spellpower": { "Mágus": 3 },
+    "tags": ["caster"]
+  },
+  {
+    "id": "vador",
+    "name": "Vadőr",
+    "kind": "unit",
+    "cost": 3,
+    "power": 2,
+    "keywords": ["Állat"],
+    "spellpower": { "Állat": 3 },
+    "tags": ["beast", "caster"]
+  },
+  {
+    "id": "felindori_kardforgato",
+    "name": "Felindori kardforgató",
+    "kind": "unit",
+    "cost": 4,
+    "power": 5,
+    "keywords": ["Melee"],
+    "spellpower": { "Harcos": 2 },
+    "tags": ["value"],
+    "text": "A mérce. Minden más ehhez képest drága vagy olcsó."
+  },
+  {
+    "id": "ogre",
+    "name": "Ogre",
+    "kind": "unit",
+    "cost": 4,
+    "power": 6,
+    "keywords": ["Melee"],
+    "spellpower": {},
+    "tags": ["value"],
+    "text": "Erő 6, költség 4. A költség és az erő nincs összekötve."
+  },
+  {
+    "id": "bergyilkos",
+    "name": "Bérgyilkos",
+    "kind": "unit",
+    "cost": 4,
+    "power": 2,
+    "keywords": [],
+    "spellpower": {},
+    "tags": ["control"],
+    "belepo": {
+      "target": { "scope": "opposed", "compare": "weakerThanSelf" },
+      "effects": [{ "kind": "destroy" }]
+    },
+    "text": "Belépő: megöli a vele szemben álló gyengébb egységet."
+  },
+  {
+    "id": "patkanykiraly",
+    "name": "Patkánykirály",
+    "kind": "unit",
+    "cost": 4,
+    "power": 2,
+    "keywords": ["Állat"],
+    "spellpower": { "Állat": 2 },
+    "tags": ["swarm"],
+    "statics": [{ "kind": "countBonus", "amount": 1, "keyword": "Fodder", "side": "ally" }],
+    "text": "+1 minden szövetséges Fodder egység után."
+  },
+  {
+    "id": "okto",
+    "name": "Októ",
+    "kind": "unit",
+    "cost": 5,
+    "power": 3,
+    "keywords": [],
+    "spellpower": { "Mágus": 2 },
+    "tags": ["swarm", "control"],
+    "statics": [{ "kind": "diagonalBonus", "amount": 1, "includeEnemy": true }],
+    "text": "+1 minden átlósan érintkező egység után, a sajátjaidat is beleértve."
+  },
+  {
+    "id": "veteran",
+    "name": "Veterán",
+    "kind": "unit",
+    "cost": 5,
+    "power": 6,
+    "keywords": ["Melee"],
+    "spellpower": { "Harcos": 3 },
+    "tags": ["value"]
+  },
+  {
+    "id": "lovag",
+    "name": "Lovag",
+    "kind": "unit",
+    "cost": 5,
+    "power": 6,
+    "keywords": ["Melee"],
+    "spellpower": {},
+    "tags": ["value"],
+    "statics": [{ "kind": "auraAdjacentAlly", "amount": 1, "keyword": "Melee" }],
+    "text": "A szomszédos szövetséges Melee egységek +1-et kapnak."
+  },
+  {
+    "id": "medve",
+    "name": "Medve",
+    "kind": "unit",
+    "cost": 5,
+    "power": 6,
+    "keywords": ["Állat"],
+    "spellpower": { "Állat": 2 },
+    "tags": ["beast"]
+  },
+  {
+    "id": "magus",
+    "name": "Mágus",
+    "kind": "unit",
+    "cost": 5,
+    "power": 2,
+    "keywords": ["Mágus"],
+    "spellpower": { "Mágus": 5 },
+    "tags": ["caster"]
+  },
+  {
+    "id": "troll",
+    "name": "Troll",
+    "kind": "unit",
+    "cost": 6,
+    "power": 7,
+    "keywords": ["Melee"],
+    "spellpower": {},
+    "tags": ["value"]
+  },
+  {
+    "id": "bajnok",
+    "name": "Bajnok",
+    "kind": "unit",
+    "cost": 6,
+    "power": 7,
+    "keywords": ["Melee"],
+    "spellpower": { "Harcos": 4 },
+    "tags": ["value"]
+  },
+  {
+    "id": "bestiaidomar",
+    "name": "Bestiaidomár",
+    "kind": "unit",
+    "cost": 6,
+    "power": 3,
+    "keywords": [],
+    "spellpower": { "Bestia": 5, "Állat": 2 },
+    "tags": ["beast", "caster"]
+  },
+  {
+    "id": "fomagus",
+    "name": "Főmágus",
+    "kind": "unit",
+    "cost": 7,
+    "power": 2,
+    "keywords": ["Mágus"],
+    "spellpower": { "Mágus": 7 },
+    "tags": ["caster"],
+    "text": "Erő 2, varázserő 7. A varázslók árazása külön történik."
+  },
+  {
+    "id": "hadur",
+    "name": "Hadúr",
+    "kind": "unit",
+    "cost": 7,
+    "power": 8,
+    "keywords": ["Melee"],
+    "spellpower": { "Harcos": 4 },
+    "tags": ["value"],
+    "statics": [{ "kind": "auraAdjacentAlly", "amount": 1 }],
+    "text": "Minden szomszédos szövetséges +1-et kap."
+  },
+  {
+    "id": "verfarkas",
+    "name": "Vérfarkas",
+    "kind": "unit",
+    "cost": 8,
+    "power": 8,
+    "keywords": ["Melee", "Állat"],
+    "spellpower": { "Bestia": 2 },
+    "tags": ["beast", "value"],
+    "statics": [{ "kind": "opposedBonus", "amount": 3, "condition": "weaker" }],
+    "text": "+3, ha a vele szemben álló egység nyomtatott ereje kisebb."
+  },
+  {
+    "id": "griff",
+    "name": "Griff",
+    "kind": "unit",
+    "cost": 8,
+    "power": 9,
+    "keywords": ["Állat"],
+    "spellpower": {},
+    "tags": ["beast", "value"]
+  },
+  {
+    "id": "nekromanta",
+    "name": "Nekromanta",
+    "kind": "unit",
+    "cost": 9,
+    "power": 2,
+    "keywords": ["Mágus"],
+    "spellpower": { "Feketemágus": 8 },
+    "tags": ["caster", "control"]
+  },
+  {
+    "id": "orias",
+    "name": "Óriás",
+    "kind": "unit",
+    "cost": 9,
+    "power": 11,
+    "keywords": ["Melee"],
+    "spellpower": {},
+    "tags": ["value"]
+  },
+  {
+    "id": "wyvern",
+    "name": "Wyvern",
+    "kind": "unit",
+    "cost": 10,
+    "power": 12,
+    "keywords": ["Állat"],
+    "spellpower": { "Bestia": 3 },
+    "tags": ["beast", "value"]
+  }
+]

@@ -1,0 +1,14 @@
+[
+  {
+    "id": "acelpenge",
+    "name": "Acélpenge",
+    "powerDelta": 1,
+    "text": "+1 erő, amíg rajta van."
+  },
+  {
+    "id": "vaskarom",
+    "name": "Vaskarom",
+    "powerDelta": 1,
+    "text": "+1 erő gyűrű, amíg rajta van."
+  }
+]
