@@ -1,0 +1,80 @@
+[
+  {
+    "id": "felindori_mezok",
+    "name": "Felindori mezők",
+    "cap": 8,
+    "effects": [],
+    "text": "Semmi különös. A mérce, amihez a többi csatateret hasonlítod."
+  },
+  {
+    "id": "koszali_hago",
+    "name": "Kőszáli hágó",
+    "cap": 6,
+    "effects": [{ "kind": "rowBonus", "row": "F", "amount": 1 }],
+    "text": "Szűk keret, az első sor +1-et kap."
+  },
+  {
+    "id": "vermocsar",
+    "name": "Vérmocsár",
+    "cap": 10,
+    "effects": [{ "kind": "costAtMostBonus", "maxCost": 1, "amount": 1 }],
+    "text": "A legfeljebb 1 költségű egységek +1-et kapnak."
+  },
+  {
+    "id": "sarkanytorok",
+    "name": "Sárkánytorok",
+    "cap": 12,
+    "effects": [{ "kind": "perCost", "per": 3, "amount": 1 }],
+    "text": "+1 minden 3 pont költség után."
+  },
+  {
+    "id": "ezustliget",
+    "name": "Ezüstliget",
+    "cap": 8,
+    "effects": [{ "kind": "schoolSpellpowerBonus", "school": "Mágus", "amount": 1 }],
+    "text": "Aki Mágus varázserőt csatornáz, +1 varázserőt kap itt."
+  },
+  {
+    "id": "vadon",
+    "name": "Vadon",
+    "cap": 8,
+    "effects": [{ "kind": "keywordBonus", "keyword": "Állat", "amount": 2 }],
+    "text": "Az Állatok +2-t kapnak."
+  },
+  {
+    "id": "romvaros",
+    "name": "Romváros",
+    "cap": 7,
+    "effects": [{ "kind": "rowBonus", "row": "B", "amount": 1 }],
+    "text": "A hátsó sor +1-et kap. A fedezék itt ér valamit."
+  },
+  {
+    "id": "aranymezo",
+    "name": "Aranymező",
+    "cap": 14,
+    "effects": [],
+    "text": "Tág keret, semmi módosító. Aki többet hozott, itt kirakhatja."
+  },
+  {
+    "id": "szuk_szoros",
+    "name": "Szűk szoros",
+    "cap": 5,
+    "effects": [{ "kind": "flatBonus", "amount": 1 }],
+    "text": "Alig fér el bárki. Minden egység +1-et kap."
+  },
+  {
+    "id": "kohalti_gat",
+    "name": "Kőhalti gát",
+    "cap": 9,
+    "effects": [{ "kind": "keywordBonus", "keyword": "Melee", "amount": 1 }],
+    "text": "A közelharcosok +1-et kapnak."
+  },
+  {
+    "id": "vegtelen_puszta",
+    "name": "Végtelen puszta",
+    "cap": null,
+    "tiebreaker": true,
+    "effects": [],
+    "text": "Nincs költségkeret, és semmi más nem változik. A kéz 7, a rács hat mező."
+  }
+]

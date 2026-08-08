@@ -1,0 +1,125 @@
+[
+  {
+    "id": "swarm",
+    "name": "Nyüzsgés",
+    "archetype": "swarm",
+    "battlefields": ["vermocsar", "szuk_szoros", "felindori_mezok"],
+    "units": {
+      "patkany": 5,
+      "koldus": 4,
+      "csirke": 3,
+      "paraszt": 4,
+      "tolvaj": 3,
+      "milicia": 3,
+      "patkanykiraly": 3,
+      "okto": 2,
+      "farkas": 2,
+      "lovag": 1
+    },
+    "spells": {
+      "explar": 4,
+      "csatakialtas": 4,
+      "acelpenge": 4,
+      "manover": 3,
+      "harapas": 3,
+      "szellokes": 3,
+      "vaskarom": 3,
+      "alomfogo": 3,
+      "kigyomaras": 3
+    }
+  },
+  {
+    "id": "value",
+    "name": "Nehézsúly",
+    "archetype": "value",
+    "battlefields": ["sarkanytorok", "aranymezo", "kohalti_gat"],
+    "units": {
+      "felindori_kardforgato": 4,
+      "ogre": 3,
+      "veteran": 3,
+      "lovag": 3,
+      "troll": 3,
+      "bajnok": 3,
+      "hadur": 2,
+      "orias": 2,
+      "konnyulandzsas": 3,
+      "ijasz": 2,
+      "bergyilkos": 2
+    },
+    "spells": {
+      "acelpenge": 4,
+      "csatakialtas": 4,
+      "manover": 4,
+      "explar": 3,
+      "arnyekdofes": 3,
+      "enormorf": 2,
+      "jeghegy": 2,
+      "argeo": 2,
+      "alomfogo": 3,
+      "teleport": 3
+    }
+  },
+  {
+    "id": "caster",
+    "name": "Varázslótanács",
+    "archetype": "caster",
+    "battlefields": ["ezustliget", "romvaros", "koszali_hago"],
+    "units": {
+      "tanonc": 4,
+      "magus": 4,
+      "fomagus": 2,
+      "nekromanta": 2,
+      "remete": 3,
+      "felderito": 3,
+      "okto": 3,
+      "milicia": 3,
+      "konnyulandzsas": 2,
+      "bergyilkos": 2,
+      "patkany": 2
+    },
+    "spells": {
+      "explar": 4,
+      "vaskarom": 3,
+      "szellokes": 3,
+      "alomfogo": 3,
+      "dermeszto_szel": 3,
+      "enormorf": 2,
+      "lepumorf": 2,
+      "jeghegy": 2,
+      "argeo": 2,
+      "teleport": 2,
+      "idezes": 2,
+      "arnyekdofes": 2
+    }
+  },
+  {
+    "id": "beast",
+    "name": "Vadállatok",
+    "archetype": "beast",
+    "battlefields": ["vadon", "vermocsar", "sarkanytorok"],
+    "units": {
+      "farkas": 4,
+      "csirke": 3,
+      "vador": 3,
+      "medve": 3,
+      "bestiaidomar": 3,
+      "verfarkas": 2,
+      "griff": 2,
+      "wyvern": 1,
+      "patkany": 4,
+      "patkanykiraly": 3,
+      "milicia": 2
+    },
+    "spells": {
+      "harapas": 4,
+      "vadaszat": 4,
+      "kigyomaras": 4,
+      "acelpenge": 3,
+      "explar": 3,
+      "alomfogo": 3,
+      "manover": 3,
+      "szellokes": 3,
+      "csatakialtas": 3
+    }
+  }
+]

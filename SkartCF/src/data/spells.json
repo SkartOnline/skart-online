@@ -1,0 +1,228 @@
+[
+  {
+    "id": "explar",
+    "name": "Explar",
+    "kind": "spell",
+    "school": "Mágus",
+    "cost": 1,
+    "rarity": "Gyakori",
+    "target": { "side": "any", "range": 2 },
+    "effects": [{ "kind": "modifyPower", "amount": -1 }],
+    "text": "−1 erő egy egységnek."
+  },
+  {
+    "id": "harapas",
+    "name": "Harapás",
+    "kind": "spell",
+    "school": "Állat",
+    "cost": 1,
+    "rarity": "Gyakori",
+    "target": { "side": "any", "range": 1 },
+    "effects": [{ "kind": "modifyPower", "amount": -2 }],
+    "text": "−2 erő egy egységnek."
+  },
+  {
+    "id": "vadaszat",
+    "name": "Vadászat",
+    "kind": "spell",
+    "school": "Bestia",
+    "cost": 4,
+    "rarity": "Ritka",
+    "target": null,
+    "effects": [
+      { "kind": "thresholdAoe", "stat": "power", "atMost": 3, "amount": -2, "side": "enemy" }
+    ],
+    "text": "Minden legfeljebb 3 erejű ellenséges egység −2-t kap."
+  },
+  {
+    "id": "dermeszto_szel",
+    "name": "Dermesztő szél",
+    "kind": "spell",
+    "school": "Mágus",
+    "cost": 5,
+    "rarity": "Ritka",
+    "target": null,
+    "effects": [
+      { "kind": "thresholdAoe", "stat": "basePower", "atMost": 2, "amount": -3, "side": "enemy" }
+    ],
+    "text": "Minden legfeljebb 2 nyomtatott erejű ellenséges egység −3-at kap."
+  },
+  {
+    "id": "alomfogo",
+    "name": "Álomfogó",
+    "kind": "spell",
+    "school": "Mágus",
+    "cost": 2,
+    "rarity": "Gyakori",
+    "target": { "side": "ally", "range": 1 },
+    "effects": [{ "kind": "fizzleShield", "maxCost": 5 }],
+    "text": "Szövetséges: a következő rá irányuló, legfeljebb 5 költségű varázslat elszáll."
+  },
+  {
+    "id": "manover",
+    "name": "Manőver",
+    "kind": "spell",
+    "school": "Harcos",
+    "cost": 1,
+    "rarity": "Gyakori",
+    "target": null,
+    "effects": [{ "kind": "move", "destination": "adjacent", "on": "caster" }],
+    "text": "A varázsló egy szomszédos üres mezőre lép."
+  },
+  {
+    "id": "tuzkopeny",
+    "name": "Tűzköpeny",
+    "kind": "spell",
+    "school": "Mágus",
+    "cost": 1,
+    "rarity": "Gyakori",
+    "target": { "side": "ally", "range": 1 },
+    "effects": [{ "kind": "grantImmunity", "school": "Tűz" }],
+    "text": "Szövetséges: immunis a Tűz iskola varázslataira."
+  },
+  {
+    "id": "fagypancel",
+    "name": "Fagypáncél",
+    "kind": "spell",
+    "school": "Mágus",
+    "cost": 1,
+    "rarity": "Gyakori",
+    "target": { "side": "ally", "range": 1 },
+    "effects": [{ "kind": "grantImmunity", "school": "Fagy" }],
+    "text": "Szövetséges: immunis a Fagy iskola varázslataira."
+  },
+  {
+    "id": "teleport",
+    "name": "Teleport",
+    "kind": "spell",
+    "school": "Mágus",
+    "cost": 4,
+    "rarity": "Kivételes",
+    "target": { "side": "ally", "range": 1 },
+    "effects": [{ "kind": "move", "destination": "anyEmpty" }],
+    "text": "Szövetséges egységet bármelyik üres mezőre mozgat."
+  },
+  {
+    "id": "jeghegy",
+    "name": "Jéghegy",
+    "kind": "spell",
+    "school": "Mágus",
+    "cost": 6,
+    "rarity": "Legendás",
+    "target": { "side": "any", "range": 2 },
+    "effects": [{ "kind": "lock", "power": 1 }],
+    "text": "Egy egység befagy: célozhatatlan, nem varázsolhat, ereje 1."
+  },
+  {
+    "id": "argeo",
+    "name": "Argeo",
+    "kind": "spell",
+    "school": "Feketemágus",
+    "cost": 8,
+    "rarity": "Legendás",
+    "target": { "side": "any", "range": 2 },
+    "effects": [{ "kind": "destroy" }],
+    "text": "Megsemmisít egy egységet."
+  },
+  {
+    "id": "lepumorf",
+    "name": "Lépumorf",
+    "kind": "spell",
+    "school": "Mágus",
+    "cost": 7,
+    "rarity": "Kivételes",
+    "target": { "side": "any", "range": 2 },
+    "effects": [{ "kind": "transform", "into": "nyul", "keepAbilities": false }],
+    "text": "Egy egységet Nyúllá változtat (képesség nélküli Állat, erő 1)."
+  },
+  {
+    "id": "enormorf",
+    "name": "Enormorf",
+    "kind": "spell",
+    "school": "Mágus",
+    "cost": 6,
+    "rarity": "Ritka",
+    "target": { "side": "any", "range": 1 },
+    "effects": [{ "kind": "setPower", "value": 6 }],
+    "text": "Egy egység ereje 6 lesz."
+  },
+  {
+    "id": "idezes",
+    "name": "Idézés",
+    "kind": "spell",
+    "school": "Mágus",
+    "cost": 5,
+    "rarity": "Kivételes",
+    "target": { "side": "ally", "range": 1, "emptyOnly": true },
+    "effects": [{ "kind": "summon", "ignoreCap": false }],
+    "text": "Megidéz egy egységet a kezedből egy szomszédos üres mezőre. Beleszámít a keretbe."
+  },
+  {
+    "id": "szellokes",
+    "name": "Széllökés",
+    "kind": "spell",
+    "school": "Mágus",
+    "cost": 1,
+    "rarity": "Gyakori",
+    "target": { "side": "any", "range": 1 },
+    "effects": [{ "kind": "move", "destination": "adjacent" }],
+    "text": "Egy egységet szomszédos üres mezőre mozgat."
+  },
+  {
+    "id": "acelpenge",
+    "name": "Acélpenge",
+    "kind": "spell",
+    "school": "Harcos",
+    "cost": 1,
+    "rarity": "Gyakori",
+    "target": { "side": "ally", "range": 1 },
+    "effects": [{ "kind": "attach", "attachment": "acelpenge" }],
+    "text": "Szövetséges: +1 erő, amíg rajta van."
+  },
+  {
+    "id": "vaskarom",
+    "name": "Vaskarom",
+    "kind": "spell",
+    "school": "Mágus",
+    "cost": 1,
+    "rarity": "Gyakori",
+    "target": { "side": "ally", "range": 1 },
+    "effects": [{ "kind": "attach", "attachment": "vaskarom" }],
+    "text": "Szövetséges: +1 erő gyűrű, amíg rajta van."
+  },
+  {
+    "id": "csatakialtas",
+    "name": "Csatakiáltás",
+    "kind": "spell",
+    "school": "Harcos",
+    "cost": 3,
+    "rarity": "Ritka",
+    "target": null,
+    "effects": [
+      { "kind": "thresholdAoe", "stat": "power", "atMost": 4, "amount": 1, "side": "ally" }
+    ],
+    "text": "Minden legfeljebb 4 erejű szövetséges egység +1-et kap."
+  },
+  {
+    "id": "kigyomaras",
+    "name": "Kígyómarás",
+    "kind": "spell",
+    "school": "Bestia",
+    "cost": 3,
+    "rarity": "Gyakori",
+    "target": { "side": "enemy", "range": 3 },
+    "effects": [{ "kind": "damage", "amount": 4 }],
+    "text": "4 sebzés egy ellenséges egységnek, akár a hátsó sarokba is."
+  },
+  {
+    "id": "arnyekdofes",
+    "name": "Árnyékdöfés",
+    "kind": "spell",
+    "school": "Feketemágus",
+    "cost": 3,
+    "rarity": "Ritka",
+    "target": { "side": "enemy", "range": 3 },
+    "effects": [{ "kind": "modifyPower", "amount": -3 }],
+    "text": "−3 erő egy ellenséges egységnek, hosszú hatótávon."
+  }
+]
