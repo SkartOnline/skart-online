@@ -104,6 +104,7 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
     }
   }
 
+
   if (!p.flags.unitsClosed) out.push({ type: "declareUnitsDone", player });
   if (!p.flags.spellsClosed) out.push({ type: "declareSpellsDone", player });
   out.push({ type: "endTurn", player });
@@ -111,11 +112,13 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
   return out;
 }
 
+/**
+ * Hiding costs one unit card out of hand, and there is no limit on how many
+ * units you may hide per location. The only gate is being able to pay: you
+ * cannot hide the last card in your hand, because nothing is left to discard.
+ */
 function canHide(state: GameState, player: PlayerId, committedUid: string): boolean {
-  const p = state.players[player];
-  if (p.hiddenThisLocation >= state.config.maxHiddenPerLocation) return false;
-  const spare = p.unitHand.some((c) => c.uid !== committedUid);
-  return spare || state.config.allowHideWithoutSpare;
+  return state.players[player].unitHand.some((c) => c.uid !== committedUid);
 }
 
 // ---------------------------------------------------------------------------
@@ -221,8 +224,10 @@ function doStackSpell(state: GameState, action: Extract<Action, { type: "stackSp
     order: state.stack.length,
   });
   state.turnActions.spellPlayed = true;
-  // Ownership and stack height are public. Contents are not.
-  log(state, `Egy varázslat a pakliba (${state.stack.length}. hely).`, action.player);
+  // Ownership and rakás height are public. Contents are not.
+  log(state, `Egy varázslat a rakásra (${state.stack.length}. hely).`, action.player);
+  // Nothing can follow a spell in the same turn, so the turn passes on its own.
+  passTurn(state);
 }
 
 function passTurn(state: GameState): void {

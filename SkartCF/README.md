@@ -17,15 +17,18 @@ npm run build      # static build into dist/
 
 ## What works right now
 
-- **Hotseat game.** One screen, you control both players. Full location loop:
-  commitment with the four stop flags, face-down units, reveal, spell-stack resolution
-  with caster/target/destination picks, totaling, six battlefields plus Végtelen puszta
-  on a tie.
-- **Card editor.** Build units, spells, battlefields, attachments and decks in the
-  browser. Effects are picked from a generated form, saved to a local overlay, and are
-  immediately playable. Export writes the JSON you commit.
-- **Headless simulator.** Plays N games with a greedy policy and reports win rate per
-  deck per battlefield against the 75% hard-failure line.
+The site opens on a main menu with three ways in.
+
+- **Játék** — hotseat. One fixed-viewport screen, no page scroll, you control both
+  players. Full location loop: commitment with the four stop flags, face-down units,
+  reveal, rakás resolution with caster/target/destination picks, totaling, six
+  battlefields plus Végtelen puszta on a tie.
+- **Gyűjtemény** — the collection. Build your own decks: thirty units, thirty spells,
+  three battlefields. Saved to the browser and live in the deck picker straight away.
+  The shipped decks are starting points, nothing more.
+- **Kártyaműhely** — the card editor. Units, spells, battlefields and attachments.
+  Effects come from a form generated out of the engine's own schema, so what you set is
+  exactly what the engine plays.
 
 Not built yet: networked multiplayer, card art, AI worth playing against.
 
@@ -134,17 +137,49 @@ to play *consistently*, so a win-rate gap between two decks is a property of the
 rather than of the bot. `stopMargin` and `stopChance` are the parameters worth sweeping,
 since "when do I stop" is the most important decision in the game.
 
-## Open rulings, and where they live in code
+## Damage versus power debuffs
 
-The rules document leaves several questions for playtest. None of them is hardcoded:
+These are two different things and the engine keeps them apart.
+
+**A power debuff shifts the comparison.** `modifyPower −3` takes three points off what
+the unit contributes at totaling, immediately.
+
+**Damage buys nothing until it kills.** Sebzés accumulates on the unit as a wound count
+and does not reduce its power. A unit at 6 power carrying 5 damage still counts 6 on the
+scoreboard. It dies the moment damage reaches its current power — so a debuff landing
+afterwards can finish what the damage started.
+
+`power()` therefore does not subtract damage; `isDead()` compares the two. Explar is a
+damaging spell (`1-et sebzek egy egységbe`), so playing it into a big unit and not
+killing it gains you nothing at all.
+
+## Settled rules
+
+These were open questions and no longer are. They are constants, not options, and there
+is no UI to change them:
+
+- Unit deck **30**, spell deck 30.
+- Melee front row **+1** (`MELEE_FRONT_BONUS` in `power.ts`).
+- **No limit** on face-down units per location — the only gate is being able to pay,
+  since hiding discards a unit card and you cannot pay with the last card in hand.
+- Playing a spell **ends your turn**: nothing can follow it, so the turn passes on its
+  own. A unit can still go down before the spell in the same turn.
+
+Still genuinely open, and still a switch:
 
 | Question | Where |
 |---|---|
-| Unit deck 30 or 40 | `RuleConfig.unitDeckSize`, switch on the setup screen |
-| Melee front-row +1 or +2 | `RuleConfig.meleeFrontBonus`, same place |
-| More than one hidden unit per location | `RuleConfig.maxHiddenPerLocation` |
-| Hiding with no spare card to pay | `RuleConfig.allowHideWithoutSpare`, default off |
 | Does a transformed unit keep its abilities | `keepAbilities` on the `transform` effect, default off |
+
+## Wording
+
+Cards speak in the first person. A unit describes its own ability — *„+1-et kapok minden
+szomszédos szövetséges Állat után."* A spell speaks as whoever is casting it — *„1-et
+sebzek egy egységbe."* — because a spell is, in effect, an ability the caster borrows.
+
+**Rakás** is the shared pile both players commit spells into during commitment. The
+thirty-card spell deck a player brings is the **varázslatpakli**. They are not the same
+thing and the UI never mixes them up.
 
 ## Known gaps and judgement calls
 
@@ -159,5 +194,9 @@ The rules document leaves several questions for playtest. None of them is hardco
   example rather than the tier table's cost-6 row.
 - **`grantImmunity` schools Tűz and Fagy have no spells yet.** Tűzköpeny and Fagypáncél
   work, they just have nothing to protect against until fire and frost spells exist.
+- **The rules doc contradicts the damage rule.** `docs/rules-v2.md` says "Damage is a
+  persistent −X token placed on the unit and summed at totaling." The engine follows the
+  later correction instead: damage is not summed at totaling and scores nothing unless it
+  kills. The doc line wants updating.
 - **Végtelen puszta's first player** is picked at random at setup; the rules do not say
   who goes first there.

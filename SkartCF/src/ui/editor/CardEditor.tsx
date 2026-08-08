@@ -6,15 +6,11 @@ import {
   LOCATION_EFFECT_SPECS,
   STATIC_SPECS,
   TARGET_SIDES,
-  allLocations,
-  allSpells,
-  allUnits,
   knownSchools,
 } from "../../engine";
 import type {
   Attachment,
   CardSet,
-  DeckList,
   Effect,
   LocationCard,
   SpellCard,
@@ -34,14 +30,13 @@ import { FieldInput, KindListEditor } from "./fields";
  * rebuild. Export writes the merged file, which is what you commit.
  */
 
-type Kind = "units" | "spells" | "locations" | "attachments" | "decks";
+type Kind = "units" | "spells" | "locations" | "attachments";
 
 const KIND_LABEL: Record<Kind, string> = {
   units: "Egységek",
   spells: "Varázslatok",
   locations: "Csataterek",
   attachments: "Ráakasztott lapok",
-  decks: "Paklik",
 };
 
 const NEW_ID_BASE: Record<Kind, string> = {
@@ -49,16 +44,16 @@ const NEW_ID_BASE: Record<Kind, string> = {
   spells: "uj_varazslat",
   locations: "uj_csatater",
   attachments: "uj_raakasztott",
-  decks: "uj_pakli",
 };
 
 interface Props {
   cardSet: CardSet;
   overlay: CardOverlay;
   onChange: (overlay: CardOverlay) => void;
+  onLeave: () => void;
 }
 
-export default function CardEditor({ cardSet, overlay, onChange }: Props) {
+export default function CardEditor({ cardSet, overlay, onChange, onLeave }: Props) {
   const [kind, setKind] = useState<Kind>("units");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
@@ -94,13 +89,24 @@ export default function CardEditor({ cardSet, overlay, onChange }: Props) {
   }
 
   return (
-    <main className="editor">
-      <aside className="editor-list">
-        <div className="editor-tabs">
+    <div className="workshop">
+      <div className="crossbar">
+        <button className="quiet" onClick={onLeave}>
+          ‹ Menü
+        </button>
+        <h2>Kártyaműhely</h2>
+        <span className="label">
+          minden lap adatsor — a hatásokat a motor sémája kínálja fel
+        </span>
+      </div>
+
+      <div className="shelf">
+      <aside className="timber">
+        <div className="tabs">
           {(Object.keys(KIND_LABEL) as Kind[]).map((k) => (
             <button
               key={k}
-              className={k === kind ? "tab active" : "tab"}
+              className={k === kind ? "here" : ""}
               onClick={() => {
                 setKind(k);
                 setSelectedId(null);
@@ -110,25 +116,27 @@ export default function CardEditor({ cardSet, overlay, onChange }: Props) {
             </button>
           ))}
         </div>
-        <input
-          className="search"
-          placeholder="keresés…"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
-        <button className="primary" onClick={createNew}>
-          + Új lap
-        </button>
-        <ul>
+        <div className="block-head" style={{ marginTop: 8 }}>
+          <input
+            placeholder="keresés…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            style={{ flex: 1, minWidth: 0 }}
+          />
+          <button className="tiny" onClick={createNew} title="Új lap ebben a kategóriában">
+            + új
+          </button>
+        </div>
+        <ul className="index">
           {visible.map((card) => (
             <li key={card.id}>
               <button
-                className={card.id === selectedId ? "row selected" : "row"}
+                className={card.id === selectedId ? "here" : ""}
                 onClick={() => setSelectedId(card.id)}
               >
                 {card.name}
                 {overriddenIds.has(card.id) && (
-                  <span className="badge" title="Ez a lap a helyi rétegben él">
+                  <span className="stamp" title="Ez a lap a helyi rétegben él">
                     {baseIds.has(card.id) ? "módosítva" : "új"}
                   </span>
                 )}
@@ -138,7 +146,7 @@ export default function CardEditor({ cardSet, overlay, onChange }: Props) {
         </ul>
       </aside>
 
-      <section className="editor-form">
+      <section className="timber sheet">
         {selected ? (
           <CardForm
             key={selected.id}
@@ -150,14 +158,14 @@ export default function CardEditor({ cardSet, overlay, onChange }: Props) {
             isBase={baseIds.has(selected.id)}
           />
         ) : (
-          <div className="empty-state">
+          <div className="empty">
             <h2>Kártyaszerkesztő</h2>
             <p>
               Válassz egy lapot balról, vagy hozz létre újat. A hatásokat a motor
               sémájából generált űrlap kínálja fel, tehát amit itt beállítasz, azt a
               játék pontosan úgy fogja lejátszani — nincs lapra szabott kód sehol.
             </p>
-            <p className="muted">
+            <p className="dim">
               A módosítások a böngésző tárolójában élnek, a beszállított JSON-ra
               rétegezve. Ha véglegesíted, exportáld a fájlt és tedd be a{" "}
               <code>src/data</code> mappába.
@@ -165,8 +173,8 @@ export default function CardEditor({ cardSet, overlay, onChange }: Props) {
           </div>
         )}
 
-        <div className="editor-footer">
-          <div className={issues.length ? "issues error" : "issues ok"}>
+        <div className="tail">
+          <div className={issues.length ? "verdict torn" : "verdict sound"}>
             {issues.length === 0
               ? "A teljes lapkészlet érvényes."
               : issues.map((i, n) => (
@@ -175,15 +183,15 @@ export default function CardEditor({ cardSet, overlay, onChange }: Props) {
                   </div>
                 ))}
           </div>
-          <div className="editor-actions">
+          <div className="acts">
             <button onClick={() => download(`${kind}.json`, JSON.stringify(cardSet[kind], null, 2))}>
-              Export {kind}.json
+              Fájlba ír ({kind}.json)
             </button>
             <ImportButton
               onImport={(rows) => onChange({ ...overlay, [kind]: rows })}
             />
             <button
-              className="danger"
+              className="grim"
               onClick={() => {
                 if (confirm("Minden helyi módosítás törlése?")) {
                   clearOverlay();
@@ -197,14 +205,15 @@ export default function CardEditor({ cardSet, overlay, onChange }: Props) {
           </div>
         </div>
       </section>
-    </main>
+      </div>
+    </div>
   );
 }
 
 function ImportButton({ onImport }: { onImport: (rows: { id: string }[]) => void }) {
   return (
-    <label className="button-like">
-      Import JSON
+    <label className="pick" style={{ margin: 0, padding: "6px 14px", width: "auto" }}>
+      Fájlból olvas
       <input
         type="file"
         accept="application/json"
@@ -239,7 +248,7 @@ function CardForm({
   isBase,
 }: {
   kind: Kind;
-  card: UnitCard & SpellCard & LocationCard & Attachment & DeckList;
+  card: UnitCard & SpellCard & LocationCard & Attachment;
   onSave: (card: { id: string }) => void;
   onRevert: () => void;
   isOverridden: boolean;
@@ -251,30 +260,30 @@ function CardForm({
   const set = (key: string, value: unknown) => setDraft((d) => ({ ...d, [key]: value }));
 
   return (
-    <div className="form">
-      <div className="form-head">
+    <div className="sheet">
+      <div className="sheet-head">
         <h2>{String(draft.name)}</h2>
         <div>
-          <button className="primary" onClick={() => onSave(draft as { id: string })}>
+          <button className="ember" onClick={() => onSave(draft as { id: string })}>
             Mentés
           </button>
           {isOverridden && (
-            <button className="danger" onClick={onRevert}>
+            <button className="grim" onClick={onRevert}>
               {isBase ? "Vissza az alaphoz" : "Törlés"}
             </button>
           )}
         </div>
       </div>
 
-      <div className="field-grid">
-        <label className="field">
+      <div className="fields">
+        <label className="f">
           <span>Azonosító (id)</span>
           <input value={String(draft.id)} onChange={(e) => set("id", e.target.value)} />
           <small>
             Ha egyezik egy meglévővel, felülírja azt. Új azonosító új lapot hoz létre.
           </small>
         </label>
-        <label className="field">
+        <label className="f">
           <span>Név</span>
           <input value={String(draft.name ?? "")} onChange={(e) => set("name", e.target.value)} />
         </label>
@@ -283,10 +292,9 @@ function CardForm({
       {kind === "units" && <UnitFields draft={draft} set={set} />}
       {kind === "spells" && <SpellFields draft={draft} set={set} />}
       {kind === "locations" && <LocationFields draft={draft} set={set} />}
-      {kind === "decks" && <DeckFields draft={draft} set={set} />}
       {kind === "attachments" && (
-        <div className="field-grid">
-          <label className="field">
+        <div className="fields">
+          <label className="f">
             <span>Erőmódosító</span>
             <input
               type="number"
@@ -297,7 +305,7 @@ function CardForm({
         </div>
       )}
 
-      <label className="field wide">
+      <label className="f wide">
         <span>Szöveg</span>
         <textarea
           rows={2}
@@ -322,10 +330,10 @@ function UnitFields({ draft, set }: { draft: Record<string, unknown>; set: SetFn
 
   return (
     <>
-      <div className="field-grid">
+      <div className="fields">
         <NumberField label="Költség" value={draft.cost} onChange={(v) => set("cost", v)} />
         <NumberField label="Nyomtatott erő" value={draft.power} onChange={(v) => set("power", v)} />
-        <label className="field">
+        <label className="f">
           <span>Kulcsszavak (vesszővel)</span>
           <input
             value={((draft.keywords ?? []) as string[]).join(", ")}
@@ -341,7 +349,7 @@ function UnitFields({ draft, set }: { draft: Record<string, unknown>; set: SetFn
           />
           <small>Melee kapja az első sor bónuszt. A többi kulcsszó szabad szöveg.</small>
         </label>
-        <label className="field">
+        <label className="f">
           <span>Címkék (paklihoz)</span>
           <input
             value={((draft.tags ?? []) as string[]).join(", ")}
@@ -368,11 +376,11 @@ function UnitFields({ draft, set }: { draft: Record<string, unknown>; set: SetFn
         emptyHint="Az állandó képességeket a motor olvasáskor számolja, nem állapotként tárolja — ezért egy egység halála magától felerősíti a túlélőket."
       />
 
-      <div className="belepo">
-        <div className="kind-list-head">
+      <div className="block">
+        <div className="block-head">
           <b>Belépő</b>
           <button
-            className="small"
+            className="tiny"
             onClick={() =>
               set(
                 "belepo",
@@ -385,12 +393,12 @@ function UnitFields({ draft, set }: { draft: Record<string, unknown>; set: SetFn
         </div>
         {belepo && (
           <>
-            <p className="muted small">
+            <p className="faint">
               Kötelező, és lerakáskor sül el — rejtett egységnél a felfedéskor. A célt a
               motor maga választja ki, a játékos nem dönt.
             </p>
-            <div className="field-grid">
-              <label className="field">
+            <div className="fields">
+              <label className="f">
                 <span>Kit érint</span>
                 <select
                   value={belepo.target.scope}
@@ -408,7 +416,7 @@ function UnitFields({ draft, set }: { draft: Record<string, unknown>; set: SetFn
                   ))}
                 </select>
               </label>
-              <label className="field">
+              <label className="f">
                 <span>Összehasonlítás</span>
                 <select
                   value={belepo.target.compare ?? ""}
@@ -446,8 +454,8 @@ function SpellFields({ draft, set }: { draft: Record<string, unknown>; set: SetF
   const target = (draft.target ?? null) as SpellCard["target"];
   return (
     <>
-      <div className="field-grid">
-        <label className="field">
+      <div className="fields">
+        <label className="f">
           <span>Iskola</span>
           <input
             list="schools"
@@ -462,7 +470,7 @@ function SpellFields({ draft, set }: { draft: Record<string, unknown>; set: SetF
           <small>A varázsló ebből az iskolából fizet, és a készlete iskolánként külön fogy.</small>
         </label>
         <NumberField label="Költség (= szükséges varázserő)" value={draft.cost} onChange={(v) => set("cost", v)} />
-        <label className="field">
+        <label className="f">
           <span>Ritkaság</span>
           <select value={String(draft.rarity ?? "Gyakori")} onChange={(e) => set("rarity", e.target.value)}>
             {["Gyakori", "Ritka", "Kivételes", "Legendás"].map((r) => (
@@ -474,19 +482,19 @@ function SpellFields({ draft, set }: { draft: Record<string, unknown>; set: SetF
         </label>
       </div>
 
-      <div className="kind-list">
-        <div className="kind-list-head">
+      <div className="block">
+        <div className="block-head">
           <b>Célzás</b>
           <button
-            className="small"
+            className="tiny"
             onClick={() => set("target", target ? null : { side: "any", range: 2 })}
           >
             {target ? "nincs cél (terület / önmaga)" : "+ célspecifikáció"}
           </button>
         </div>
         {target ? (
-          <div className="field-grid">
-            <label className="field">
+          <div className="fields">
+            <label className="f">
               <span>Oldal</span>
               <select
                 value={target.side}
@@ -504,7 +512,7 @@ function SpellFields({ draft, set }: { draft: Record<string, unknown>; set: SetF
               value={target.range}
               onChange={(v) => set("target", { ...target, range: v })}
             />
-            <label className="field checkbox">
+            <label className="f tick">
               <input
                 type="checkbox"
                 checked={target.emptyOnly === true}
@@ -513,15 +521,23 @@ function SpellFields({ draft, set }: { draft: Record<string, unknown>; set: SetF
               <span>Üres mezőre céloz</span>
               <small>Idézéshez és teleport-célmezőhöz.</small>
             </label>
-            <NumberField
-              label="Szűrő: legfeljebb ekkora költség"
-              value={target.filter?.maxCost}
-              allowEmpty
-              onChange={(v) =>
-                set("target", { ...target, filter: { ...target.filter, maxCost: v } })
-              }
-            />
-            <label className="field">
+            <label className="f">
+              <span>Szűrő: legfeljebb ekkora költség</span>
+              <input
+                type="number"
+                min={0}
+                value={target.filter?.maxCost ?? ""}
+                placeholder="nincs szűrés"
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  set("target", {
+                    ...target,
+                    filter: { ...target.filter, maxCost: raw === "" ? undefined : Number(raw) },
+                  });
+                }}
+              />
+            </label>
+            <label className="f">
               <span>Szűrő: kulcsszó</span>
               <input
                 value={target.filter?.keyword ?? ""}
@@ -535,7 +551,7 @@ function SpellFields({ draft, set }: { draft: Record<string, unknown>; set: SetF
             </label>
           </div>
         ) : (
-          <p className="muted small">
+          <p className="faint">
             Nincs választott cél. A hatások maguk döntik el, kit érintenek (küszöbös terület),
             vagy a varázslóra hatnak.
           </p>
@@ -557,8 +573,8 @@ function LocationFields({ draft, set }: { draft: Record<string, unknown>; set: S
   const uncapped = draft.cap === null;
   return (
     <>
-      <div className="field-grid">
-        <label className="field checkbox">
+      <div className="fields">
+        <label className="f tick">
           <input
             type="checkbox"
             checked={uncapped}
@@ -570,7 +586,7 @@ function LocationFields({ draft, set }: { draft: Record<string, unknown>; set: S
         {!uncapped && (
           <NumberField label="Költségkeret" value={draft.cap} onChange={(v) => set("cap", v)} />
         )}
-        <label className="field checkbox">
+        <label className="f tick">
           <input
             type="checkbox"
             checked={draft.tiebreaker === true}
@@ -590,128 +606,6 @@ function LocationFields({ draft, set }: { draft: Record<string, unknown>; set: S
   );
 }
 
-/**
- * A deck is three battlefields plus card counts. It lives in the same overlay as
- * the cards, so a unit you just invented is one click away from being in a deck
- * and on the board.
- */
-function DeckFields({ draft, set }: { draft: Record<string, unknown>; set: SetFn }) {
-  const battlefields = (draft.battlefields ?? []) as string[];
-  const locations = allLocations().filter((l) => !l.tiebreaker);
-
-  return (
-    <>
-      <div className="field-grid">
-        <label className="field">
-          <span>Archetípus</span>
-          <input
-            value={String(draft.archetype ?? "")}
-            onChange={(e) => set("archetype", e.target.value)}
-          />
-        </label>
-        {[0, 1, 2].map((i) => (
-          <label className="field" key={i}>
-            <span>{i + 1}. csatatér</span>
-            <select
-              value={battlefields[i] ?? ""}
-              onChange={(e) => {
-                const next = battlefields.slice();
-                next[i] = e.target.value;
-                set("battlefields", next);
-              }}
-            >
-              <option value="">—</option>
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name} (keret {l.cap})
-                </option>
-              ))}
-            </select>
-          </label>
-        ))}
-      </div>
-
-      <CountEditor
-        label="Egységek"
-        options={allUnits().map((u) => ({ id: u.id, label: `${u.name} — ${u.cost}/${u.power}` }))}
-        value={(draft.units ?? {}) as Record<string, number>}
-        onChange={(v) => set("units", v)}
-        hint="A pakli a beállított méretre töltődik fel vagy vágódik le, tehát félkész pakli is játszható."
-      />
-      <CountEditor
-        label="Varázslatok"
-        options={allSpells().map((s) => ({ id: s.id, label: `${s.name} — ${s.school} ${s.cost}` }))}
-        value={(draft.spells ?? {}) as Record<string, number>}
-        onChange={(v) => set("spells", v)}
-        hint="Több iskola ára a táblán jelentkezik: mindkettőhöz varázslót kell kiállítani."
-      />
-    </>
-  );
-}
-
-function CountEditor({
-  label,
-  options,
-  value,
-  onChange,
-  hint,
-}: {
-  label: string;
-  options: { id: string; label: string }[];
-  value: Record<string, number>;
-  onChange: (v: Record<string, number>) => void;
-  hint?: string;
-}) {
-  const total = Object.values(value).reduce((a, b) => a + b, 0);
-  const available = options.filter((o) => value[o.id] === undefined);
-  return (
-    <div className="kind-list">
-      <div className="kind-list-head">
-        <b>
-          {label} <span className="muted">({total} lap)</span>
-        </b>
-        <select
-          value=""
-          onChange={(e) => e.target.value && onChange({ ...value, [e.target.value]: 1 })}
-        >
-          <option value="">+ hozzáad…</option>
-          {available.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </div>
-      {hint && <p className="muted small">{hint}</p>}
-      <div className="field-grid">
-        {Object.entries(value).map(([id, count]) => (
-          <label className="field" key={id}>
-            <span>{options.find((o) => o.id === id)?.label ?? id}</span>
-            <span className="inline">
-              <input
-                type="number"
-                min={1}
-                value={count}
-                onChange={(e) => onChange({ ...value, [id]: Number(e.target.value) })}
-              />
-              <button
-                className="danger small"
-                onClick={() => {
-                  const next = { ...value };
-                  delete next[id];
-                  onChange(next);
-                }}
-              >
-                ×
-              </button>
-            </span>
-          </label>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function SpellpowerEditor({
   value,
   onChange,
@@ -721,8 +615,8 @@ function SpellpowerEditor({
 }) {
   const [newSchool, setNewSchool] = useState("");
   return (
-    <div className="kind-list">
-      <div className="kind-list-head">
+    <div className="block">
+      <div className="block-head">
         <b>Varázserő iskolánként</b>
         <span>
           <input
@@ -737,7 +631,7 @@ function SpellpowerEditor({
             ))}
           </datalist>
           <button
-            className="small"
+            className="tiny"
             onClick={() => {
               if (!newSchool) return;
               onChange({ ...value, [newSchool]: value[newSchool] ?? 1 });
@@ -749,14 +643,14 @@ function SpellpowerEditor({
         </span>
       </div>
       {Object.keys(value).length === 0 && (
-        <p className="muted small">
+        <p className="faint">
           Nem varázsló. A varázserő egységenként külön készlet, iskolára zárva, és nem
           összeadható másik egységével.
         </p>
       )}
-      <div className="field-grid">
+      <div className="fields">
         {Object.entries(value).map(([school, amount]) => (
-          <label className="field" key={school}>
+          <label className="f" key={school}>
             <span>{school}</span>
             <span className="inline">
               <input
@@ -766,7 +660,7 @@ function SpellpowerEditor({
                 onChange={(e) => onChange({ ...value, [school]: Number(e.target.value) })}
               />
               <button
-                className="danger small"
+                className="grim tiny"
                 onClick={() => {
                   const next = { ...value };
                   delete next[school];
@@ -787,21 +681,16 @@ function NumberField({
   label,
   value,
   onChange,
-  allowEmpty,
 }: {
   label: string;
   value: unknown;
-  onChange: (v: number | undefined) => void;
-  allowEmpty?: boolean;
+  onChange: (v: number) => void;
 }) {
   return (
     <FieldInput
       field={{ name: label, type: "number", label, default: 0 }}
       value={value}
-      onChange={(v) => {
-        const n = Number(v);
-        onChange(allowEmpty && Number.isNaN(n) ? undefined : n);
-      }}
+      onChange={(v) => onChange(Number(v))}
     />
   );
 }
@@ -845,18 +734,6 @@ function blankCard(kind: Kind, id: string): Record<string, unknown> {
       };
     case "locations":
       return { id, name: "Új csatatér", cap: 8, effects: [], text: "" };
-    case "decks":
-      return {
-        id,
-        name: "Új pakli",
-        archetype: "custom",
-        battlefields: allLocations()
-          .filter((l) => !l.tiebreaker)
-          .slice(0, 3)
-          .map((l) => l.id),
-        units: {},
-        spells: {},
-      };
     default:
       return { id, name: "Új ráakasztott lap", powerDelta: 1, text: "" };
   }

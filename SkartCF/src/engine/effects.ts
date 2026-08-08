@@ -13,8 +13,8 @@ import {
   allUnitsOnBoard,
   basePower,
   cardOf,
+  isDead,
   matchesFilter,
-  power,
   readStat,
   unitAt,
 } from "./power";
@@ -64,9 +64,10 @@ export function removeUnit(state: GameState, slot: SlotId): UnitInstance | null 
 }
 
 /**
- * A unit at 0 power is dead and leaves its slot immediately. Run after every
- * effect application, because a set-power followed by a −2 can kill and the
- * survivors' static abilities have to read the new board straight away.
+ * A unit whose power is driven to 0, or whose damage has caught up with its
+ * power, leaves its slot immediately. Run after every effect application: a
+ * set-power followed by a −2 can kill, and the survivors' static abilities have
+ * to read the new board straight away.
  */
 export function sweepDead(state: GameState, log: (text: string) => void): void {
   let changed = true;
@@ -75,8 +76,8 @@ export function sweepDead(state: GameState, log: (text: string) => void): void {
     for (const slot of ALL_SLOTS) {
       const unit = state.board[slot];
       if (!unit) continue;
-      if (power(unit, state) <= 0) {
-        log(`${cardOf(unit).name} esik el ${slot}-on (0 erő).`);
+      if (isDead(unit, state)) {
+        log(`${cardOf(unit).name} elesik.`);
         removeUnit(state, slot);
         changed = true;
       }
@@ -115,7 +116,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     const amount = Number(effect.amount ?? 0);
     for (const unit of targetUnits(ctx, effect, targets)) {
       unit.damage += amount;
-      ctx.log(`${cardOf(unit).name} kap ${amount} sebzést.`);
+      ctx.log(`${cardOf(unit).name}: ${amount} sebzés (összesen ${unit.damage}).`);
     }
   },
 

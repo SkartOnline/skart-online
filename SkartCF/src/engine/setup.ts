@@ -19,9 +19,6 @@ export const DEFAULT_CONFIG: RuleConfig = {
   spellHandSize: 7,
   unitDeckSize: 30,
   spellDeckSize: 30,
-  maxHiddenPerLocation: 1,
-  allowHideWithoutSpare: false,
-  meleeFrontBonus: 1,
 };
 
 export interface GameOptions {

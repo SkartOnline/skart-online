@@ -23,12 +23,26 @@ export function readOverlay(): CardOverlay {
   }
 }
 
+/**
+ * Storage can be unavailable — a sandboxed iframe, private browsing, a full
+ * quota. Losing persistence is survivable; losing the edit you just made
+ * because the write threw is not, so failures here are swallowed and the
+ * in-memory card set carries on.
+ */
 export function writeOverlay(overlay: CardOverlay): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(overlay));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(overlay));
+  } catch {
+    // no persistence this session
+  }
 }
 
 export function clearOverlay(): void {
-  localStorage.removeItem(STORAGE_KEY);
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // nothing stored to clear
+  }
 }
 
 /** Merges the overlay onto the base set and installs it into the engine. */

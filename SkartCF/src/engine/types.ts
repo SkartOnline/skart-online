@@ -266,7 +266,7 @@ export interface PlayerState {
   flags: Flags;
   /** Sum of committed unit costs this location, checked against the cap. */
   capSpent: number;
-  /** How many units this player hid this location (rule config caps it). */
+  /** How many units this player hid this location. Display only — no cap. */
   hiddenThisLocation: number;
 }
 
@@ -308,17 +308,15 @@ export interface LocationInstance {
   totals?: Record<PlayerId, number>;
 }
 
+/**
+ * What is left of the tunable rules. Deck size, the melee bonus and the number
+ * of units you may hide are settled and live as constants, not options.
+ */
 export interface RuleConfig {
   handSize: number;
   spellHandSize: number;
   unitDeckSize: number;
   spellDeckSize: number;
-  /** Max face-down units per player per location. Open ruling; 1 is the default. */
-  maxHiddenPerLocation: number;
-  /** May you hide when the unit being committed is your last card? Default no. */
-  allowHideWithoutSpare: boolean;
-  /** Melee front-row bonus. The doc flags +2 as a possible correction. */
-  meleeFrontBonus: number;
 }
 
 export interface LogEntry {

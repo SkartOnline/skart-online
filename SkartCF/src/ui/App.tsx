@@ -1,25 +1,24 @@
 import { useCallback, useState } from "react";
 import type { CardSet } from "../engine";
+import CollectionManager from "./collection/CollectionManager";
 import CardEditor from "./editor/CardEditor";
 import GameView from "./game/GameView";
+import MainMenu from "./MainMenu";
+import type { Room } from "./MainMenu";
 import { installOverlay, readOverlay, writeOverlay } from "./cardSet";
 import type { CardOverlay } from "./cardSet";
 
-type Tab = "play" | "editor";
-
 export default function App() {
-  const [tab, setTab] = useState<Tab>("play");
+  const [room, setRoom] = useState<Room>("menu");
 
-  // The overlay has to be installed into the engine before anything renders,
-  // so a card built in the editor is in the deck the moment you start a game.
+  // The overlay is installed into the engine before anything renders, so a card
+  // or deck built in the workshop is live the moment a game starts.
   const [overlay, setOverlayState] = useState<CardOverlay>(() => {
     const stored = readOverlay();
     installOverlay(stored);
     return stored;
   });
   const [cardSet, setCardSet] = useState<CardSet>(() => installOverlay(readOverlay()));
-  // Bumped whenever the card set changes, so the game view rebuilds anything
-  // it derived from card data.
   const [revision, setRevision] = useState(0);
 
   const setOverlay = useCallback((next: CardOverlay) => {
@@ -29,34 +28,21 @@ export default function App() {
     setRevision((r) => r + 1);
   }, []);
 
-  return (
-    <div className="app">
-      <header className="topbar">
-        <h1>
-          Skart<span className="accent">CF</span>
-        </h1>
-        <nav>
-          <button className={tab === "play" ? "tab active" : "tab"} onClick={() => setTab("play")}>
-            Játék
-          </button>
-          <button
-            className={tab === "editor" ? "tab active" : "tab"}
-            onClick={() => setTab("editor")}
-          >
-            Kártyaszerkesztő
-          </button>
-        </nav>
-        <span className="muted">
-          {cardSet.units.length} egység · {cardSet.spells.length} varázslat ·{" "}
-          {cardSet.locations.length} csatatér
-        </span>
-      </header>
+  const home = () => setRoom("menu");
 
-      {tab === "play" ? (
-        <GameView key={revision} />
-      ) : (
-        <CardEditor cardSet={cardSet} overlay={overlay} onChange={setOverlay} />
-      )}
-    </div>
+  if (room === "menu") return <MainMenu onEnter={setRoom} />;
+  if (room === "play") return <GameView key={revision} onLeave={home} />;
+  if (room === "collection") {
+    return (
+      <CollectionManager
+        cardSet={cardSet}
+        overlay={overlay}
+        onChange={setOverlay}
+        onLeave={home}
+      />
+    );
+  }
+  return (
+    <CardEditor cardSet={cardSet} overlay={overlay} onChange={setOverlay} onLeave={home} />
   );
 }

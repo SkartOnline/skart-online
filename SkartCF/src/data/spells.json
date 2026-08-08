@@ -7,8 +7,8 @@
     "cost": 1,
     "rarity": "Gyakori",
     "target": { "side": "any", "range": 2 },
-    "effects": [{ "kind": "modifyPower", "amount": -1 }],
-    "text": "−1 erő egy egységnek."
+    "effects": [{ "kind": "damage", "amount": 1 }],
+    "text": "1-et sebzek egy egységbe."
   },
   {
     "id": "harapas",
@@ -18,8 +18,19 @@
     "cost": 1,
     "rarity": "Gyakori",
     "target": { "side": "any", "range": 1 },
-    "effects": [{ "kind": "modifyPower", "amount": -2 }],
-    "text": "−2 erő egy egységnek."
+    "effects": [{ "kind": "damage", "amount": 2 }],
+    "text": "2-t sebzek egy egységbe."
+  },
+  {
+    "id": "kigyomaras",
+    "name": "Kígyómarás",
+    "kind": "spell",
+    "school": "Bestia",
+    "cost": 3,
+    "rarity": "Gyakori",
+    "target": { "side": "enemy", "range": 3 },
+    "effects": [{ "kind": "damage", "amount": 4 }],
+    "text": "4-et sebzek egy ellenséges egységbe, akár a hátsó sarokban is."
   },
   {
     "id": "vadaszat",
@@ -32,7 +43,7 @@
     "effects": [
       { "kind": "thresholdAoe", "stat": "power", "atMost": 3, "amount": -2, "side": "enemy" }
     ],
-    "text": "Minden legfeljebb 3 erejű ellenséges egység −2-t kap."
+    "text": "Minden legfeljebb 3 erejű ellenséges egység erejéből 2-t elveszek."
   },
   {
     "id": "dermeszto_szel",
@@ -45,7 +56,7 @@
     "effects": [
       { "kind": "thresholdAoe", "stat": "basePower", "atMost": 2, "amount": -3, "side": "enemy" }
     ],
-    "text": "Minden legfeljebb 2 nyomtatott erejű ellenséges egység −3-at kap."
+    "text": "Minden legfeljebb 2 nyomtatott erejű ellenséges egység erejéből 3-at elveszek."
   },
   {
     "id": "alomfogo",
@@ -56,7 +67,7 @@
     "rarity": "Gyakori",
     "target": { "side": "ally", "range": 1 },
     "effects": [{ "kind": "fizzleShield", "maxCost": 5 }],
-    "text": "Szövetséges: a következő rá irányuló, legfeljebb 5 költségű varázslat elszáll."
+    "text": "Álomfogót teszek egy szövetségesemre: a következő rá szálló, legfeljebb 5 költségű varázslat elszáll."
   },
   {
     "id": "manover",
@@ -67,7 +78,7 @@
     "rarity": "Gyakori",
     "target": null,
     "effects": [{ "kind": "move", "destination": "adjacent", "on": "caster" }],
-    "text": "A varázsló egy szomszédos üres mezőre lép."
+    "text": "Átlépek egy szomszédos üres mezőre."
   },
   {
     "id": "tuzkopeny",
@@ -78,7 +89,7 @@
     "rarity": "Gyakori",
     "target": { "side": "ally", "range": 1 },
     "effects": [{ "kind": "grantImmunity", "school": "Tűz" }],
-    "text": "Szövetséges: immunis a Tűz iskola varázslataira."
+    "text": "Tűzköpenyt adok egy szövetségesemre: immunis lesz a Tűz varázslataira."
   },
   {
     "id": "fagypancel",
@@ -89,7 +100,7 @@
     "rarity": "Gyakori",
     "target": { "side": "ally", "range": 1 },
     "effects": [{ "kind": "grantImmunity", "school": "Fagy" }],
-    "text": "Szövetséges: immunis a Fagy iskola varázslataira."
+    "text": "Fagypáncélt adok egy szövetségesemre: immunis lesz a Fagy varázslataira."
   },
   {
     "id": "teleport",
@@ -100,7 +111,7 @@
     "rarity": "Kivételes",
     "target": { "side": "ally", "range": 1 },
     "effects": [{ "kind": "move", "destination": "anyEmpty" }],
-    "text": "Szövetséges egységet bármelyik üres mezőre mozgat."
+    "text": "Egy szövetségesemet bármelyik üres mezőre teleportálom."
   },
   {
     "id": "jeghegy",
@@ -111,7 +122,7 @@
     "rarity": "Legendás",
     "target": { "side": "any", "range": 2 },
     "effects": [{ "kind": "lock", "power": 1 }],
-    "text": "Egy egység befagy: célozhatatlan, nem varázsolhat, ereje 1."
+    "text": "Jégbe zárok egy egységet: célozhatatlan, nem varázsol, az ereje 1."
   },
   {
     "id": "argeo",
@@ -122,7 +133,7 @@
     "rarity": "Legendás",
     "target": { "side": "any", "range": 2 },
     "effects": [{ "kind": "destroy" }],
-    "text": "Megsemmisít egy egységet."
+    "text": "Megsemmisítek egy egységet."
   },
   {
     "id": "lepumorf",
@@ -133,7 +144,7 @@
     "rarity": "Kivételes",
     "target": { "side": "any", "range": 2 },
     "effects": [{ "kind": "transform", "into": "nyul", "keepAbilities": false }],
-    "text": "Egy egységet Nyúllá változtat (képesség nélküli Állat, erő 1)."
+    "text": "Egy egységet Nyúllá változtatok."
   },
   {
     "id": "enormorf",
@@ -144,7 +155,7 @@
     "rarity": "Ritka",
     "target": { "side": "any", "range": 1 },
     "effects": [{ "kind": "setPower", "value": 6 }],
-    "text": "Egy egység ereje 6 lesz."
+    "text": "Egy egység erejét 6-ra állítom."
   },
   {
     "id": "idezes",
@@ -155,7 +166,7 @@
     "rarity": "Kivételes",
     "target": { "side": "ally", "range": 1, "emptyOnly": true },
     "effects": [{ "kind": "summon", "ignoreCap": false }],
-    "text": "Megidéz egy egységet a kezedből egy szomszédos üres mezőre. Beleszámít a keretbe."
+    "text": "Megidézek egy egységet a kezemből egy szomszédos üres mezőre. Beleszámít a keretbe."
   },
   {
     "id": "szellokes",
@@ -166,7 +177,7 @@
     "rarity": "Gyakori",
     "target": { "side": "any", "range": 1 },
     "effects": [{ "kind": "move", "destination": "adjacent" }],
-    "text": "Egy egységet szomszédos üres mezőre mozgat."
+    "text": "Egy egységet szomszédos üres mezőre lökök."
   },
   {
     "id": "acelpenge",
@@ -177,7 +188,7 @@
     "rarity": "Gyakori",
     "target": { "side": "ally", "range": 1 },
     "effects": [{ "kind": "attach", "attachment": "acelpenge" }],
-    "text": "Szövetséges: +1 erő, amíg rajta van."
+    "text": "Acélpengét adok egy szövetségesemnek: +1 erő, amíg rajta van."
   },
   {
     "id": "vaskarom",
@@ -188,7 +199,7 @@
     "rarity": "Gyakori",
     "target": { "side": "ally", "range": 1 },
     "effects": [{ "kind": "attach", "attachment": "vaskarom" }],
-    "text": "Szövetséges: +1 erő gyűrű, amíg rajta van."
+    "text": "Vaskarmot adok egy szövetségesemnek: +1 erő, amíg rajta van."
   },
   {
     "id": "csatakialtas",
@@ -201,18 +212,7 @@
     "effects": [
       { "kind": "thresholdAoe", "stat": "power", "atMost": 4, "amount": 1, "side": "ally" }
     ],
-    "text": "Minden legfeljebb 4 erejű szövetséges egység +1-et kap."
-  },
-  {
-    "id": "kigyomaras",
-    "name": "Kígyómarás",
-    "kind": "spell",
-    "school": "Bestia",
-    "cost": 3,
-    "rarity": "Gyakori",
-    "target": { "side": "enemy", "range": 3 },
-    "effects": [{ "kind": "damage", "amount": 4 }],
-    "text": "4 sebzés egy ellenséges egységnek, akár a hátsó sarokba is."
+    "text": "Minden legfeljebb 4 erejű szövetségesem +1 erőt kap."
   },
   {
     "id": "arnyekdofes",
@@ -223,6 +223,6 @@
     "rarity": "Ritka",
     "target": { "side": "enemy", "range": 3 },
     "effects": [{ "kind": "modifyPower", "amount": -3 }],
-    "text": "−3 erő egy ellenséges egységnek, hosszú hatótávon."
+    "text": "Egy ellenséges egység erejéből 3-at elveszek, akár a hátsó sarokban is."
   }
 ]

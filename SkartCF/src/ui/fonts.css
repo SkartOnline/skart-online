@@ -1,0 +1,17 @@
+/*
+ * Spectral, self-hosted. Latin plus latin-ext — Hungarian needs ő and ű, which
+ * live in the ext subset, so importing latin alone silently falls back on those
+ * two letters and nothing else.
+ *
+ * Four cuts, each doing one job: 400 body, 400 italic for the cards' own voice,
+ * 500 for small-caps labels, 600 for display.
+ */
+
+@import "@fontsource/spectral/latin-400.css";
+@import "@fontsource/spectral/latin-ext-400.css";
+@import "@fontsource/spectral/latin-400-italic.css";
+@import "@fontsource/spectral/latin-ext-400-italic.css";
+@import "@fontsource/spectral/latin-500.css";
+@import "@fontsource/spectral/latin-ext-500.css";
+@import "@fontsource/spectral/latin-600.css";
+@import "@fontsource/spectral/latin-ext-600.css";

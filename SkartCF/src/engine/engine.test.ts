@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { BASE_CARD_SET, loadCardSet, validateCardSet } from "./cards";
+import { BASE_CARD_SET, getSpell, loadCardSet, validateCardSet } from "./cards";
 import { makeUnitInstance } from "./effects";
 import { ALL_SLOTS } from "./grid";
-import { basePower, power } from "./power";
+import { basePower, isDead, power } from "./power";
 import { boardTotal, locationWinner } from "./totaling";
 import { applyAction, legalActions, remainingCap } from "./reducer";
 import { createGame, DEFAULT_CONFIG } from "./setup";
@@ -225,7 +225,7 @@ describe("hiding a unit", () => {
     expect(state.players[player].discard.length).toBe(1);
   });
 
-  it("is capped at one per location by default", () => {
+  it("has no per-location limit — you may keep paying to hide", () => {
     let state = newGame();
     const player = state.turn;
     const hide = legalActions(state, player).find((a) => a.type === "playUnit" && a.faceDown);
@@ -235,6 +235,17 @@ describe("hiding a unit", () => {
     expect(state.turn).toBe(player);
     expect(
       legalActions(state, player).some((a) => a.type === "playUnit" && a.faceDown),
+    ).toBe(true);
+  });
+
+  it("cannot be paid for with the last card in hand", () => {
+    const state = blankState();
+    state.players.p1.unitHand = [{ uid: "only", cardId: "ogre" }];
+    state.players.p1.spellHand = [];
+    state.players.p2.unitHand = [];
+    state.players.p2.spellHand = [];
+    expect(
+      legalActions(state, "p1").some((a) => a.type === "playUnit" && a.faceDown),
     ).toBe(false);
   });
 
@@ -297,5 +308,78 @@ describe("Belépő", () => {
       slot: "p1.F2",
     });
     expect(after.board["p2.F2"]).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Damage
+// ---------------------------------------------------------------------------
+
+describe("sebzés", () => {
+  it("buys nothing on the scoreboard until it kills", () => {
+    const state = blankState();
+    place(state, "orias", "p1.B1"); // printed 11
+    const giant = state.board["p1.B1"]!;
+
+    giant.damage = 10;
+    expect(power(giant, state)).toBe(11);
+    expect(boardTotal(state, "p1")).toBe(11);
+    expect(isDead(giant, state)).toBe(false);
+  });
+
+  it("kills once it reaches the unit's current power", () => {
+    const state = blankState();
+    place(state, "ogre", "p1.B1"); // printed 6
+    const ogre = state.board["p1.B1"]!;
+    ogre.damage = 6;
+    expect(isDead(ogre, state)).toBe(true);
+  });
+
+  it("finishes the job when a later debuff drops power to the damage", () => {
+    const state = blankState();
+    place(state, "orias", "p1.B1"); // 11
+    const giant = state.board["p1.B1"]!;
+    giant.damage = 8;
+    expect(isDead(giant, state)).toBe(false);
+    giant.powerDelta = -3; // now 8 power against 8 damage
+    expect(isDead(giant, state)).toBe(true);
+  });
+
+  it("is what Explar does — one damage, no points", () => {
+    const explar = getSpell("explar");
+    expect(explar.effects[0].kind).toBe("damage");
+    expect(explar.effects[0].amount).toBe(1);
+  });
+
+  it("stays distinct from a power debuff, which always shifts the comparison", () => {
+    const state = blankState();
+    place(state, "ogre", "p1.B1");
+    const ogre = state.board["p1.B1"]!;
+    ogre.powerDelta = -3;
+    expect(power(ogre, state)).toBe(3);
+    expect(boardTotal(state, "p1")).toBe(3);
+  });
+});
+
+describe("turn flow", () => {
+  it("passes the turn as soon as a spell goes on the rakás", () => {
+    let state = newGame();
+    const player = state.turn;
+    const stack = legalActions(state, player).find((a) => a.type === "stackSpell");
+    expect(stack).toBeDefined();
+    state = applyAction(state, stack!);
+    expect(state.stack).toHaveLength(1);
+    expect(state.turn).not.toBe(player);
+  });
+
+  it("still lets a unit go down before the spell in the same turn", () => {
+    let state = newGame();
+    const player = state.turn;
+    const play = firstAction(state, player, "playUnit");
+    state = applyAction(state, play!);
+    expect(state.turn).toBe(player);
+    const stack = legalActions(state, player).find((a) => a.type === "stackSpell");
+    state = applyAction(state, stack!);
+    expect(state.turn).not.toBe(player);
   });
 });

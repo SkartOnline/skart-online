@@ -5,9 +5,14 @@
     "kind": "unit",
     "cost": 0,
     "power": 1,
-    "keywords": ["Állat", "Fodder"],
+    "keywords": [
+      "Állat",
+      "Fodder"
+    ],
     "spellpower": {},
-    "tags": ["swarm"],
+    "tags": [
+      "swarm"
+    ],
     "text": "Egy patkány sosem elég."
   },
   {
@@ -16,9 +21,14 @@
     "kind": "unit",
     "cost": 0,
     "power": 1,
-    "keywords": ["Fodder"],
+    "keywords": [
+      "Fodder"
+    ],
     "spellpower": {},
-    "tags": ["swarm"]
+    "tags": [
+      "swarm"
+    ],
+    "text": "Semmim sincs, csak a helyem a rácson."
   },
   {
     "id": "csirke",
@@ -26,10 +36,17 @@
     "kind": "unit",
     "cost": 0,
     "power": 1,
-    "keywords": ["Állat", "Fodder"],
-    "spellpower": { "Állat": 1 },
-    "tags": ["swarm"],
-    "text": "Egy pont Állat mágia, ennyi."
+    "keywords": [
+      "Állat",
+      "Fodder"
+    ],
+    "spellpower": {
+      "Állat": 1
+    },
+    "tags": [
+      "swarm"
+    ],
+    "text": "Egyetlen pont Állat mágiát adok, semmi többet."
   },
   {
     "id": "nyul",
@@ -37,10 +54,14 @@
     "kind": "unit",
     "cost": 0,
     "power": 1,
-    "keywords": ["Állat"],
+    "keywords": [
+      "Állat"
+    ],
     "spellpower": {},
-    "tags": ["token"],
-    "text": "Képesség nélküli Állat. Lépumorf hagyja maga után."
+    "tags": [
+      "token"
+    ],
+    "text": "Képesség nélküli Állat vagyok."
   },
   {
     "id": "paraszt",
@@ -48,9 +69,15 @@
     "kind": "unit",
     "cost": 1,
     "power": 2,
-    "keywords": ["Melee", "Fodder"],
+    "keywords": [
+      "Melee",
+      "Fodder"
+    ],
     "spellpower": {},
-    "tags": ["swarm"]
+    "tags": [
+      "swarm"
+    ],
+    "text": "Kaszával jöttem, mert az volt kéznél."
   },
   {
     "id": "tolvaj",
@@ -60,9 +87,16 @@
     "power": 2,
     "keywords": [],
     "spellpower": {},
-    "tags": ["swarm"],
-    "statics": [{ "kind": "isolationBonus", "amount": 1 }],
-    "text": "+1, amíg nem áll mellette szövetséges."
+    "tags": [
+      "swarm"
+    ],
+    "statics": [
+      {
+        "kind": "isolationBonus",
+        "amount": 1
+      }
+    ],
+    "text": "+1-et kapok, amíg nem áll mellettem szövetséges."
   },
   {
     "id": "milicia",
@@ -70,9 +104,17 @@
     "kind": "unit",
     "cost": 2,
     "power": 3,
-    "keywords": ["Melee"],
-    "spellpower": { "Harcos": 1 },
-    "tags": ["swarm", "value"]
+    "keywords": [
+      "Melee"
+    ],
+    "spellpower": {
+      "Harcos": 1
+    },
+    "tags": [
+      "swarm",
+      "value"
+    ],
+    "text": "Hatan tanultuk ugyanazt a három mozdulatot."
   },
   {
     "id": "farkas",
@@ -80,11 +122,24 @@
     "kind": "unit",
     "cost": 2,
     "power": 3,
-    "keywords": ["Állat"],
-    "spellpower": { "Állat": 1 },
-    "tags": ["beast", "swarm"],
-    "statics": [{ "kind": "packBonus", "amount": 1, "keyword": "Állat" }],
-    "text": "+1 minden szomszédos szövetséges Állat után."
+    "keywords": [
+      "Állat"
+    ],
+    "spellpower": {
+      "Állat": 1
+    },
+    "tags": [
+      "beast",
+      "swarm"
+    ],
+    "statics": [
+      {
+        "kind": "packBonus",
+        "amount": 1,
+        "keyword": "Állat"
+      }
+    ],
+    "text": "+1-et kapok minden szomszédos szövetséges Állat után."
   },
   {
     "id": "felderito",
@@ -93,10 +148,20 @@
     "cost": 2,
     "power": 2,
     "keywords": [],
-    "spellpower": { "Harcos": 2 },
-    "tags": ["value"],
-    "statics": [{ "kind": "rowBonus", "row": "B", "amount": 1 }],
-    "text": "+1 a hátsó sorban."
+    "spellpower": {
+      "Harcos": 2
+    },
+    "tags": [
+      "value"
+    ],
+    "statics": [
+      {
+        "kind": "rowBonus",
+        "row": "B",
+        "amount": 1
+      }
+    ],
+    "text": "+1-et kapok a hátsó sorban."
   },
   {
     "id": "ijasz",
@@ -105,8 +170,13 @@
     "cost": 3,
     "power": 4,
     "keywords": [],
-    "spellpower": { "Harcos": 1 },
-    "tags": ["value"]
+    "spellpower": {
+      "Harcos": 1
+    },
+    "tags": [
+      "value"
+    ],
+    "text": "Messziről dolgozom, és nem kérdezek."
   },
   {
     "id": "konnyulandzsas",
@@ -114,9 +184,14 @@
     "kind": "unit",
     "cost": 3,
     "power": 4,
-    "keywords": ["Melee"],
+    "keywords": [
+      "Melee"
+    ],
     "spellpower": {},
-    "tags": ["value"]
+    "tags": [
+      "value"
+    ],
+    "text": "Amíg a lándzsám ér el, addig tart a sorunk."
   },
   {
     "id": "remete",
@@ -125,10 +200,19 @@
     "cost": 3,
     "power": 2,
     "keywords": [],
-    "spellpower": { "Mágus": 2 },
-    "tags": ["caster"],
-    "statics": [{ "kind": "isolationBonus", "amount": 3 }],
-    "text": "+3, amíg nem áll mellette szövetséges."
+    "spellpower": {
+      "Mágus": 2
+    },
+    "tags": [
+      "caster"
+    ],
+    "statics": [
+      {
+        "kind": "isolationBonus",
+        "amount": 3
+      }
+    ],
+    "text": "+3-at kapok, amíg nem áll mellettem szövetséges."
   },
   {
     "id": "tanonc",
@@ -136,9 +220,16 @@
     "kind": "unit",
     "cost": 3,
     "power": 1,
-    "keywords": ["Mágus"],
-    "spellpower": { "Mágus": 3 },
-    "tags": ["caster"]
+    "keywords": [
+      "Mágus"
+    ],
+    "spellpower": {
+      "Mágus": 3
+    },
+    "tags": [
+      "caster"
+    ],
+    "text": "Három pont varázserőt hozok, és még remegek tőle."
   },
   {
     "id": "vador",
@@ -146,9 +237,17 @@
     "kind": "unit",
     "cost": 3,
     "power": 2,
-    "keywords": ["Állat"],
-    "spellpower": { "Állat": 3 },
-    "tags": ["beast", "caster"]
+    "keywords": [
+      "Állat"
+    ],
+    "spellpower": {
+      "Állat": 3
+    },
+    "tags": [
+      "beast",
+      "caster"
+    ],
+    "text": "Az erdő nyelvén beszélek, három pontnyit."
   },
   {
     "id": "felindori_kardforgato",
@@ -156,10 +255,16 @@
     "kind": "unit",
     "cost": 4,
     "power": 5,
-    "keywords": ["Melee"],
-    "spellpower": { "Harcos": 2 },
-    "tags": ["value"],
-    "text": "A mérce. Minden más ehhez képest drága vagy olcsó."
+    "keywords": [
+      "Melee"
+    ],
+    "spellpower": {
+      "Harcos": 2
+    },
+    "tags": [
+      "value"
+    ],
+    "text": "A mérce. Minden más hozzám képest drága vagy olcsó."
   },
   {
     "id": "ogre",
@@ -167,10 +272,14 @@
     "kind": "unit",
     "cost": 4,
     "power": 6,
-    "keywords": ["Melee"],
+    "keywords": [
+      "Melee"
+    ],
     "spellpower": {},
-    "tags": ["value"],
-    "text": "Erő 6, költség 4. A költség és az erő nincs összekötve."
+    "tags": [
+      "value"
+    ],
+    "text": "Hatot ütök négyért. Ennyi az egész."
   },
   {
     "id": "bergyilkos",
@@ -180,12 +289,21 @@
     "power": 2,
     "keywords": [],
     "spellpower": {},
-    "tags": ["control"],
+    "tags": [
+      "control"
+    ],
     "belepo": {
-      "target": { "scope": "opposed", "compare": "weakerThanSelf" },
-      "effects": [{ "kind": "destroy" }]
+      "target": {
+        "scope": "opposed",
+        "compare": "weakerThanSelf"
+      },
+      "effects": [
+        {
+          "kind": "destroy"
+        }
+      ]
     },
-    "text": "Belépő: megöli a vele szemben álló gyengébb egységet."
+    "text": "Belépő: megölöm a velem szemben álló gyengébb egységet."
   },
   {
     "id": "patkanykiraly",
@@ -193,11 +311,24 @@
     "kind": "unit",
     "cost": 4,
     "power": 2,
-    "keywords": ["Állat"],
-    "spellpower": { "Állat": 2 },
-    "tags": ["swarm"],
-    "statics": [{ "kind": "countBonus", "amount": 1, "keyword": "Fodder", "side": "ally" }],
-    "text": "+1 minden szövetséges Fodder egység után."
+    "keywords": [
+      "Állat"
+    ],
+    "spellpower": {
+      "Állat": 2
+    },
+    "tags": [
+      "swarm"
+    ],
+    "statics": [
+      {
+        "kind": "countBonus",
+        "amount": 1,
+        "keyword": "Fodder",
+        "side": "ally"
+      }
+    ],
+    "text": "+1-et kapok minden szövetséges Fodder egység után."
   },
   {
     "id": "okto",
@@ -206,10 +337,21 @@
     "cost": 5,
     "power": 3,
     "keywords": [],
-    "spellpower": { "Mágus": 2 },
-    "tags": ["swarm", "control"],
-    "statics": [{ "kind": "diagonalBonus", "amount": 1, "includeEnemy": true }],
-    "text": "+1 minden átlósan érintkező egység után, a sajátjaidat is beleértve."
+    "spellpower": {
+      "Mágus": 2
+    },
+    "tags": [
+      "swarm",
+      "control"
+    ],
+    "statics": [
+      {
+        "kind": "diagonalBonus",
+        "amount": 1,
+        "includeEnemy": true
+      }
+    ],
+    "text": "+1-et kapok minden átlósan érintkező egység után, a sajátjaimat is beleértve."
   },
   {
     "id": "veteran",
@@ -217,9 +359,16 @@
     "kind": "unit",
     "cost": 5,
     "power": 6,
-    "keywords": ["Melee"],
-    "spellpower": { "Harcos": 3 },
-    "tags": ["value"]
+    "keywords": [
+      "Melee"
+    ],
+    "spellpower": {
+      "Harcos": 3
+    },
+    "tags": [
+      "value"
+    ],
+    "text": "Már láttam ezt a csatateret. Kétszer."
   },
   {
     "id": "lovag",
@@ -227,11 +376,21 @@
     "kind": "unit",
     "cost": 5,
     "power": 6,
-    "keywords": ["Melee"],
+    "keywords": [
+      "Melee"
+    ],
     "spellpower": {},
-    "tags": ["value"],
-    "statics": [{ "kind": "auraAdjacentAlly", "amount": 1, "keyword": "Melee" }],
-    "text": "A szomszédos szövetséges Melee egységek +1-et kapnak."
+    "tags": [
+      "value"
+    ],
+    "statics": [
+      {
+        "kind": "auraAdjacentAlly",
+        "amount": 1,
+        "keyword": "Melee"
+      }
+    ],
+    "text": "+1-et adok minden szomszédos szövetséges Melee egységnek."
   },
   {
     "id": "medve",
@@ -239,9 +398,16 @@
     "kind": "unit",
     "cost": 5,
     "power": 6,
-    "keywords": ["Állat"],
-    "spellpower": { "Állat": 2 },
-    "tags": ["beast"]
+    "keywords": [
+      "Állat"
+    ],
+    "spellpower": {
+      "Állat": 2
+    },
+    "tags": [
+      "beast"
+    ],
+    "text": "Nem vagyok szelíd, csak lassú."
   },
   {
     "id": "magus",
@@ -249,9 +415,16 @@
     "kind": "unit",
     "cost": 5,
     "power": 2,
-    "keywords": ["Mágus"],
-    "spellpower": { "Mágus": 5 },
-    "tags": ["caster"]
+    "keywords": [
+      "Mágus"
+    ],
+    "spellpower": {
+      "Mágus": 5
+    },
+    "tags": [
+      "caster"
+    ],
+    "text": "Öt pont varázserőt hozok, erőt alig."
   },
   {
     "id": "troll",
@@ -259,9 +432,14 @@
     "kind": "unit",
     "cost": 6,
     "power": 7,
-    "keywords": ["Melee"],
+    "keywords": [
+      "Melee"
+    ],
     "spellpower": {},
-    "tags": ["value"]
+    "tags": [
+      "value"
+    ],
+    "text": "Kőből vagyok, és rosszkedvű."
   },
   {
     "id": "bajnok",
@@ -269,9 +447,16 @@
     "kind": "unit",
     "cost": 6,
     "power": 7,
-    "keywords": ["Melee"],
-    "spellpower": { "Harcos": 4 },
-    "tags": ["value"]
+    "keywords": [
+      "Melee"
+    ],
+    "spellpower": {
+      "Harcos": 4
+    },
+    "tags": [
+      "value"
+    ],
+    "text": "Engem küldenek, ha egy ember is elég kell legyen."
   },
   {
     "id": "bestiaidomar",
@@ -280,8 +465,15 @@
     "cost": 6,
     "power": 3,
     "keywords": [],
-    "spellpower": { "Bestia": 5, "Állat": 2 },
-    "tags": ["beast", "caster"]
+    "spellpower": {
+      "Bestia": 5,
+      "Állat": 2
+    },
+    "tags": [
+      "beast",
+      "caster"
+    ],
+    "text": "A bestiák hallgatnak rám, öt pontnyit."
   },
   {
     "id": "fomagus",
@@ -289,10 +481,16 @@
     "kind": "unit",
     "cost": 7,
     "power": 2,
-    "keywords": ["Mágus"],
-    "spellpower": { "Mágus": 7 },
-    "tags": ["caster"],
-    "text": "Erő 2, varázserő 7. A varázslók árazása külön történik."
+    "keywords": [
+      "Mágus"
+    ],
+    "spellpower": {
+      "Mágus": 7
+    },
+    "tags": [
+      "caster"
+    ],
+    "text": "Hét pont varázserő, kettő erő. Nem verekedni jöttem."
   },
   {
     "id": "hadur",
@@ -300,11 +498,22 @@
     "kind": "unit",
     "cost": 7,
     "power": 8,
-    "keywords": ["Melee"],
-    "spellpower": { "Harcos": 4 },
-    "tags": ["value"],
-    "statics": [{ "kind": "auraAdjacentAlly", "amount": 1 }],
-    "text": "Minden szomszédos szövetséges +1-et kap."
+    "keywords": [
+      "Melee"
+    ],
+    "spellpower": {
+      "Harcos": 4
+    },
+    "tags": [
+      "value"
+    ],
+    "statics": [
+      {
+        "kind": "auraAdjacentAlly",
+        "amount": 1
+      }
+    ],
+    "text": "+1-et adok minden szomszédos szövetségesemnek."
   },
   {
     "id": "verfarkas",
@@ -312,11 +521,25 @@
     "kind": "unit",
     "cost": 8,
     "power": 8,
-    "keywords": ["Melee", "Állat"],
-    "spellpower": { "Bestia": 2 },
-    "tags": ["beast", "value"],
-    "statics": [{ "kind": "opposedBonus", "amount": 3, "condition": "weaker" }],
-    "text": "+3, ha a vele szemben álló egység nyomtatott ereje kisebb."
+    "keywords": [
+      "Melee",
+      "Állat"
+    ],
+    "spellpower": {
+      "Bestia": 2
+    },
+    "tags": [
+      "beast",
+      "value"
+    ],
+    "statics": [
+      {
+        "kind": "opposedBonus",
+        "amount": 3,
+        "condition": "weaker"
+      }
+    ],
+    "text": "+3-at kapok, ha a velem szemben álló egység nyomtatott ereje kisebb az enyémnél."
   },
   {
     "id": "griff",
@@ -324,9 +547,15 @@
     "kind": "unit",
     "cost": 8,
     "power": 9,
-    "keywords": ["Állat"],
+    "keywords": [
+      "Állat"
+    ],
     "spellpower": {},
-    "tags": ["beast", "value"]
+    "tags": [
+      "beast",
+      "value"
+    ],
+    "text": "Fentről nézem, hol szakad a soruk."
   },
   {
     "id": "nekromanta",
@@ -334,9 +563,17 @@
     "kind": "unit",
     "cost": 9,
     "power": 2,
-    "keywords": ["Mágus"],
-    "spellpower": { "Feketemágus": 8 },
-    "tags": ["caster", "control"]
+    "keywords": [
+      "Mágus"
+    ],
+    "spellpower": {
+      "Feketemágus": 8
+    },
+    "tags": [
+      "caster",
+      "control"
+    ],
+    "text": "Nyolc pont Feketemágia, és a hozzá tartozó szag."
   },
   {
     "id": "orias",
@@ -344,9 +581,14 @@
     "kind": "unit",
     "cost": 9,
     "power": 11,
-    "keywords": ["Melee"],
+    "keywords": [
+      "Melee"
+    ],
     "spellpower": {},
-    "tags": ["value"]
+    "tags": [
+      "value"
+    ],
+    "text": "Ha elférek a mezőn, ti nem fértek el."
   },
   {
     "id": "wyvern",
@@ -354,8 +596,16 @@
     "kind": "unit",
     "cost": 10,
     "power": 12,
-    "keywords": ["Állat"],
-    "spellpower": { "Bestia": 3 },
-    "tags": ["beast", "value"]
+    "keywords": [
+      "Állat"
+    ],
+    "spellpower": {
+      "Bestia": 3
+    },
+    "tags": [
+      "beast",
+      "value"
+    ],
+    "text": "Tizenkettőt érek, és tudom is."
   }
 ]

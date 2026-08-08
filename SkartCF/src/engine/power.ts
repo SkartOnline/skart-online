@@ -22,6 +22,9 @@ import type {
   UnitInstance,
 } from "./types";
 
+/** Melee units get +1 in the front row. Settled, not a playtest knob. */
+export const MELEE_FRONT_BONUS = 1;
+
 /**
  * Two accessors, and they must never be confused:
  *
@@ -220,20 +223,34 @@ function attachmentBonus(unit: UnitInstance): number {
 
 /**
  * Current power: printed value plus positional bonuses plus the location effect
- * plus statics plus attachments minus damage tokens, clamped at 0.
+ * plus statics plus attachments plus spell power-modifiers, clamped at 0.
+ *
+ * Damage is deliberately NOT subtracted here. Sebzés buys you nothing on the
+ * scoreboard unless it kills — a unit at 6 power carrying 5 damage still counts
+ * 6 at totaling. That is what separates the two removal styles: a −2 always
+ * shifts the comparison, while damage is dead weight until it crosses the line.
  */
 export function power(unit: UnitInstance, state: GameState): number {
   if (unit.locked) return unit.lockedPower;
   let total = basePower(unit);
   if (hasKeyword(unit, "Melee") && rowOfSlot(unit.slot) === "F") {
-    total += state.config.meleeFrontBonus;
+    total += MELEE_FRONT_BONUS;
   }
   total += locationPowerBonus(unit, state);
   total += staticBonus(unit, state);
   total += attachmentBonus(unit);
   total += unit.powerDelta;
-  total -= unit.damage;
   return Math.max(0, total);
+}
+
+/**
+ * A unit dies when its power is driven to 0, or when accumulated damage reaches
+ * its current power. Damage is checked against power as it stands right now, so
+ * a debuff landing after the damage can finish the job.
+ */
+export function isDead(unit: UnitInstance, state: GameState): boolean {
+  const current = power(unit, state);
+  return current <= 0 || unit.damage >= current;
 }
 
 /** The stat an effect asked for, by name, straight off the card text. */

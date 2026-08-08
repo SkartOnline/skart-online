@@ -21,7 +21,7 @@ export function FieldInput({
   switch (field.type) {
     case "number":
       return (
-        <label className="field">
+        <label className="f">
           <span>{field.label}</span>
           <input
             type="number"
@@ -36,7 +36,7 @@ export function FieldInput({
       );
     case "boolean":
       return (
-        <label className="field checkbox">
+        <label className="f tick">
           <input
             type="checkbox"
             checked={value === undefined ? field.default : Boolean(value)}
@@ -48,7 +48,7 @@ export function FieldInput({
       );
     case "select":
       return (
-        <label className="field">
+        <label className="f">
           <span>{field.label}</span>
           <select
             value={String(value ?? field.default)}
@@ -66,7 +66,7 @@ export function FieldInput({
     case "cardRef": {
       const options = field.cardKind === "unit" ? allUnits() : allSpells();
       return (
-        <label className="field">
+        <label className="f">
           <span>{field.label}</span>
           <select value={String(value ?? field.default)} onChange={(e) => onChange(e.target.value)}>
             {options.map((card) => (
@@ -80,7 +80,7 @@ export function FieldInput({
     }
     case "attachmentRef":
       return (
-        <label className="field">
+        <label className="f">
           <span>{field.label}</span>
           <select value={String(value ?? field.default)} onChange={(e) => onChange(e.target.value)}>
             {allAttachments().map((a) => (
@@ -95,7 +95,7 @@ export function FieldInput({
     case "keyword": {
       const list = field.type === "school" ? knownSchools() : knownKeywords();
       return (
-        <label className="field">
+        <label className="f">
           <span>{field.label}</span>
           <input
             list={id}
@@ -114,7 +114,7 @@ export function FieldInput({
     }
     default:
       return (
-        <label className="field">
+        <label className="f">
           <span>{field.label}</span>
           <input
             value={String(value ?? field.default ?? "")}
@@ -150,8 +150,8 @@ export function KindListEditor({
   };
 
   return (
-    <div className="kind-list">
-      <div className="kind-list-head">
+    <div className="block">
+      <div className="block-head">
         <b>{label}</b>
         <select
           value=""
@@ -169,13 +169,13 @@ export function KindListEditor({
         </select>
       </div>
 
-      {value.length === 0 && emptyHint && <p className="muted small">{emptyHint}</p>}
+      {value.length === 0 && emptyHint && <p className="faint">{emptyHint}</p>}
 
       {value.map((item, index) => {
         const spec = table.find((s) => s.kind === item.kind);
         return (
-          <div className="kind-item" key={index}>
-            <div className="kind-item-head">
+          <div className="piece" key={index}>
+            <div className="piece-head">
               <select
                 value={String(item.kind)}
                 onChange={(e) => {
@@ -190,7 +190,7 @@ export function KindListEditor({
                 ))}
               </select>
               <button
-                className="danger small"
+                className="grim tiny"
                 onClick={() => onChange(value.filter((_, i) => i !== index))}
               >
                 törlés
@@ -198,8 +198,8 @@ export function KindListEditor({
             </div>
             {spec ? (
               <>
-                <p className="muted small">{spec.summary}</p>
-                <div className="field-grid">
+                <p className="faint">{spec.summary}</p>
+                <div className="fields">
                   {spec.fields.map((field) => (
                     <FieldInput
                       key={field.name}
@@ -211,7 +211,7 @@ export function KindListEditor({
                 </div>
               </>
             ) : (
-              <p className="error">Ismeretlen típus: {String(item.kind)}</p>
+              <p className="bad">Ismeretlen típus: {String(item.kind)}</p>
             )}
           </div>
         );

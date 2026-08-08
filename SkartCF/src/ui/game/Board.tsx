@@ -1,74 +1,53 @@
 import { cardOf, power, rowOfSlot } from "../../engine";
-import type { GameState, PlayerId, SlotId } from "../../engine";
+import type { GameState, PlayerId, Row, SlotId } from "../../engine";
 
 interface Props {
   state: GameState;
-  highlight: Set<SlotId>;
-  onSlotClick: (slot: SlotId) => void;
+  open: Set<SlotId>;
+  onPick: (slot: SlotId) => void;
   /** Reveal face-down units — the hotseat testing switch. */
-  revealAll: boolean;
-  selectedSlot?: SlotId | null;
+  bare: boolean;
 }
 
 const COLS = [1, 2, 3];
 
 /**
- * Twelve divs. Column 1 faces column 1, so both grids keep the same left-to-
- * right column order and p2's rows are drawn back-row-first to put its front
- * row against the centerline.
+ * Twelve cells. Column 1 faces column 1, so both grids keep the same left-to-
+ * right order and p2's ranks are drawn back-first, putting its front rank
+ * against the line.
  */
-export default function Board({ state, highlight, onSlotClick, revealAll, selectedSlot }: Props) {
+export default function Board({ state, open, onPick, bare }: Props) {
   return (
-    <div className="board">
-      <PlayerGrid
-        player="p2"
-        rows={["B", "F"]}
-        state={state}
-        highlight={highlight}
-        onSlotClick={onSlotClick}
-        revealAll={revealAll}
-        selectedSlot={selectedSlot}
-      />
-      <div className="centerline">
-        <span>arcvonal</span>
-      </div>
-      <PlayerGrid
-        player="p1"
-        rows={["F", "B"]}
-        state={state}
-        highlight={highlight}
-        onSlotClick={onSlotClick}
-        revealAll={revealAll}
-        selectedSlot={selectedSlot}
-      />
+    <div className="grids">
+      <Side player="p2" ranks={["B", "F"]} state={state} open={open} onPick={onPick} bare={bare} />
+      <div className="line">arcvonal</div>
+      <Side player="p1" ranks={["F", "B"]} state={state} open={open} onPick={onPick} bare={bare} />
     </div>
   );
 }
 
-function PlayerGrid({
+function Side({
   player,
-  rows,
+  ranks,
   state,
-  highlight,
-  onSlotClick,
-  revealAll,
-  selectedSlot,
-}: Props & { player: PlayerId; rows: ("F" | "B")[] }) {
+  open,
+  onPick,
+  bare,
+}: Props & { player: PlayerId; ranks: Row[] }) {
   return (
-    <div className={`grid ${player}`}>
-      {rows.map((row) => (
-        <div className="grid-row" key={row}>
+    <div className="side">
+      {ranks.map((row) => (
+        <div className="rank" key={row}>
           {COLS.map((col) => {
             const slot = `${player}.${row}${col}` as SlotId;
             return (
-              <SlotView
+              <Cell
                 key={slot}
                 slot={slot}
                 state={state}
-                highlighted={highlight.has(slot)}
-                selected={selectedSlot === slot}
-                onClick={() => onSlotClick(slot)}
-                revealAll={revealAll}
+                open={open.has(slot)}
+                onPick={() => onPick(slot)}
+                bare={bare}
               />
             );
           })}
@@ -78,85 +57,97 @@ function PlayerGrid({
   );
 }
 
-function SlotView({
+function Cell({
   slot,
   state,
-  highlighted,
-  selected,
-  onClick,
-  revealAll,
+  open,
+  onPick,
+  bare,
 }: {
   slot: SlotId;
   state: GameState;
-  highlighted: boolean;
-  selected: boolean;
-  onClick: () => void;
-  revealAll: boolean;
+  open: boolean;
+  onPick: () => void;
+  bare: boolean;
 }) {
   const unit = state.board[slot];
-  const classes = ["slot"];
-  if (highlighted) classes.push("legal");
-  if (selected) classes.push("selected");
+  const classes = ["cell"];
   if (rowOfSlot(slot) === "F") classes.push("front");
+  if (open) classes.push("open");
 
   if (!unit) {
     return (
-      <button className={classes.join(" ")} onClick={onClick} disabled={!highlighted}>
-        <span className="slot-id">{slot.slice(3)}</span>
+      <button className={classes.join(" ")} onClick={onPick} disabled={!open}>
+        <span className="coord">{slot.slice(3)}</span>
       </button>
     );
   }
 
-  const concealed = unit.faceDown && !revealAll;
-  if (concealed) {
-    classes.push("facedown");
+  if (unit.faceDown && !bare) {
+    classes.push("veiled");
     return (
-      <button className={classes.join(" ")} onClick={onClick} disabled={!highlighted}>
-        <span className="slot-id">{slot.slice(3)}</span>
-        <span className="unit-name">rejtett</span>
+      <button className={classes.join(" ")} onClick={onPick} disabled={!open}>
+        <span className="coord">{slot.slice(3)}</span>
+        <span className="label">lefordítva</span>
       </button>
     );
   }
 
   const card = cardOf(unit);
-  classes.push("occupied");
-  if (unit.owner === "p1") classes.push("mine");
-  else classes.push("theirs");
-  if (unit.faceDown) classes.push("facedown-revealed");
-  if (unit.locked) classes.push("locked");
+  classes.push("held", unit.owner === "p1" ? "mine" : "theirs");
+  if (unit.locked) classes.push("frozen");
 
-  const spellpower = Object.entries(card.spellpower ?? {}).filter(([, v]) => v > 0);
+  const wells = Object.entries(card.spellpower ?? {}).filter(([, v]) => v > 0);
+  const hasMarks =
+    unit.damage > 0 ||
+    unit.powerDelta !== 0 ||
+    unit.attachments.length > 0 ||
+    unit.fizzleShields.length > 0 ||
+    unit.immunities.length > 0 ||
+    wells.length > 0;
 
   return (
-    <button className={classes.join(" ")} onClick={onClick} disabled={!highlighted}>
-      <span className="slot-id">{slot.slice(3)}</span>
-      <span className="unit-name">{card.name}</span>
-      <span className="unit-stats">
-        <b className="pw">{power(unit, state)}</b>
-        <span className="cost">{card.cost}</span>
+    <button className={classes.join(" ")} onClick={onPick} disabled={!open} title={card.text}>
+      <span className="coord">{slot.slice(3)}</span>
+      <span className="who">{card.name}</span>
+      <span className="might">
+        <b>{power(unit, state)}</b>
+        <span className="coin">{card.cost}</span>
       </span>
-      {spellpower.length > 0 && (
-        <span className="unit-sp">
-          {spellpower.map(([school, value]) => (
-            <span key={school} title={school}>
+      {hasMarks && (
+        <span className="marks">
+          {wells.map(([school, value]) => (
+            <span className="arcane" key={school} title={`${school} varázserő`}>
               {school.slice(0, 2)}
               {value}
             </span>
           ))}
-        </span>
-      )}
-      {(unit.damage !== 0 || unit.powerDelta !== 0 || unit.attachments.length > 0) && (
-        <span className="unit-tokens">
-          {unit.damage > 0 && <span className="dmg">−{unit.damage}</span>}
+          {/* Damage is shown as a wound count, never folded into power — it
+              scores nothing until it reaches the unit's power. */}
+          {unit.damage > 0 && (
+            <span className="wound" title="sebzés">
+              ✕{unit.damage}
+            </span>
+          )}
           {unit.powerDelta !== 0 && (
-            <span className={unit.powerDelta > 0 ? "buff" : "dmg"}>
+            <span className={unit.powerDelta > 0 ? "boon" : "hex"}>
               {unit.powerDelta > 0 ? "+" : ""}
               {unit.powerDelta}
             </span>
           )}
           {unit.attachments.map((a, i) => (
-            <span className="attach" key={i}>
-              {a.slice(0, 3)}
+            <span className="boon" key={`a${i}`}>
+              {a.slice(0, 4)}
+            </span>
+          ))}
+          {unit.fizzleShields.map((s, i) => (
+            <span className="bound" key={`f${i}`} title="álomfogó">
+              ≤{s.maxCost}
+            </span>
+          ))}
+          {unit.immunities.map((school, i) => (
+            <span className="bound" key={`i${i}`} title={`immunis: ${school}`}>
+              {school.slice(0, 2)}∅
             </span>
           ))}
         </span>
