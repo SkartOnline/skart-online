@@ -8,6 +8,9 @@ Browser prototype for **Skart 2**: TypeScript, React, Vite, no game engine. A pu
 engine with a hotseat game screen, an in-app card editor, and a headless balance
 simulator on top of it.
 
+**Play it: <https://skartonline.github.io/skart-online/>** — every push to `main` that
+touches `SkartCF/` rebuilds and republishes it.
+
 Start here: [`SkartCF/README.md`](SkartCF/README.md)
 
 ```

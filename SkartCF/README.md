@@ -7,6 +7,10 @@ stack, then the stack resolves and the boards are compared.
 This folder is the new direction. It shares no code with `../SkartTG`, which is kept
 only for preservation.
 
+Live build: <https://skartonline.github.io/skart-online/>. Published by
+[`.github/workflows/pages.yml`](../.github/workflows/pages.yml) on every push to `main`
+that touches this folder — it runs the engine tests first, so a red suite never ships.
+
 ```
 npm install
 npm run dev        # http://localhost:5173 — hotseat game + card editor
