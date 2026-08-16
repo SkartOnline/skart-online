@@ -495,13 +495,24 @@ function verdict(state: GameState): string {
 
 // -------------------------------------------------------------------- hands
 
-/** Where card `i` of `n` sits on the arc. */
+/**
+ * Where card `i` of `n` sits on the arc.
+ *
+ * The angle and the drop are handed over as custom properties rather than a
+ * finished `transform`. An inline transform would beat any rule the stylesheet
+ * could write, which is what stops a hovered card from standing up straight and
+ * its neighbours from shuffling out of its way.
+ */
 function arc(i: number, n: number, flip = false): React.CSSProperties {
   const mid = (n - 1) / 2;
   const offset = i - mid;
   const angle = offset * 4.5 * (flip ? -1 : 1);
   const drop = offset * offset * 2.6 * (flip ? -1 : 1);
-  return { transform: `rotate(${angle}deg) translateY(${drop}px)`, zIndex: 10 + i };
+  return {
+    "--angle": `${angle}deg`,
+    "--drop": `${drop}px`,
+    zIndex: 10 + i,
+  } as React.CSSProperties;
 }
 
 /**

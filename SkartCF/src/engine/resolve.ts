@@ -48,6 +48,10 @@ import type {
  *
  * Fizzle is not a special case, it is simply "no viable caster", which advances
  * the cursor without asking anyone.
+ *
+ * Every remaining pick belongs to the player, including the ones with a single
+ * legal answer. A spell that resolved itself the moment it was played read as a
+ * bug rather than a convenience.
  */
 
 export function log(state: GameState, text: string, player?: PlayerId): void {
@@ -255,11 +259,8 @@ export function advanceResolution(state: GameState): void {
         res.chosen = {};
         continue;
       }
-      if (casters.length > 1) {
-        res.pending = request("caster", entry, spell, casters, "Válassz varázslót");
-        return;
-      }
-      res.chosen.caster = casters[0];
+      res.pending = request("caster", entry, spell, casters, "Válassz varázslót");
+      return;
     }
 
     // 2. Target.
@@ -271,11 +272,8 @@ export function advanceResolution(state: GameState): void {
         res.chosen = {};
         continue;
       }
-      if (targets.length > 1) {
-        res.pending = request("target", entry, spell, targets, "Válassz célpontot");
-        return;
-      }
-      res.chosen.target = targets[0];
+      res.pending = request("target", entry, spell, targets, "Válassz célpontot");
+      return;
     }
 
     // 3. Destination, when something moves.
@@ -293,11 +291,8 @@ export function advanceResolution(state: GameState): void {
         res.chosen = {};
         continue;
       }
-      if (destinations.length > 1) {
-        res.pending = request("destination", entry, spell, destinations, "Hova lépjen");
-        return;
-      }
-      res.chosen.destination = destinations[0];
+      res.pending = request("destination", entry, spell, destinations, "Hova lépjen");
+      return;
     }
 
     // 4. A card out of hand, when something is summoned.
@@ -315,19 +310,16 @@ export function advanceResolution(state: GameState): void {
         res.chosen = {};
         continue;
       }
-      if (options.length > 1) {
-        res.pending = {
-          kind: "handCard",
-          player: entry.owner,
-          entryUid: entry.uid,
-          cardId: entry.cardId,
-          options: [],
-          handOptions: options,
-          prompt: "Melyik lapot idézed meg",
-        };
-        return;
-      }
-      res.chosen.handCard = options[0].uid;
+      res.pending = {
+        kind: "handCard",
+        player: entry.owner,
+        entryUid: entry.uid,
+        cardId: entry.cardId,
+        options: [],
+        handOptions: options,
+        prompt: "Melyik lapot idézed meg",
+      };
+      return;
     }
 
     applyCastEntry(state, entry, spell);

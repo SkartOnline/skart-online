@@ -177,9 +177,11 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
         for (const slot of free) {
           if (!placementAllowed(state, unitCard, player, slot)) continue;
           out.push({ type: "playUnit", player, uid: card.uid, slot });
+          // Hiding is offered once per card that could pay for it, so the
+          // player picks what to lose rather than being handed a default.
           if (canPay) {
-            const payment = p.unitHand.find((c) => c.uid !== card.uid);
-            if (payment) {
+            for (const payment of p.unitHand) {
+              if (payment.uid === card.uid) continue;
               out.push({
                 type: "playUnit",
                 player,
@@ -627,6 +629,13 @@ function startNextLocation(state: GameState): void {
   const regularCount = state.locations.filter((l) => !getLocation(l.cardId).tiebreaker).length;
 
   if (played >= state.locations.length) {
+    finishGame(state);
+    return;
+  }
+  // Taking more than half the regular battlefields settles it: the rest cannot
+  // be caught up, so there is nothing left to play for.
+  const majority = Math.floor(regularCount / 2) + 1;
+  if (board.p1 >= majority || board.p2 >= majority) {
     finishGame(state);
     return;
   }

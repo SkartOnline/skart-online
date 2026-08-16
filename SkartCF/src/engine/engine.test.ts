@@ -718,15 +718,20 @@ describe("phase flow", () => {
     expect(legalActions(state, state.turn).some((a) => a.type === "castSpell")).toBe(false);
   });
 
-  it("resolves a spell on the spot and then passes the turn", () => {
+  it("asks the caster for every pick, even the ones with a single answer", () => {
     let state = newGame();
     state = skipUnits(state);
     const player = state.turn;
     seatCaster(state, player);
-    const cast = legalActions(state, player).find((a) => a.type === "castSpell");
-    expect(cast).toBeDefined();
-    state = applyAction(state, cast!);
+    state = applyAction(state, legalActions(state, player).find((a) => a.type === "castSpell")!);
     expect(state.spellsCast).toHaveLength(1);
+
+    // One legal caster and one legal target, and it still stops to be told so.
+    expect(state.resolution?.pending?.kind).toBe("caster");
+    state = applyAction(state, legalActions(state, player)[0]);
+    expect(state.resolution?.pending?.kind).toBe("target");
+    state = applyAction(state, legalActions(state, player)[0]);
+
     expect(state.resolution).toBeNull();
     expect(state.turn).not.toBe(player);
   });
@@ -751,6 +756,21 @@ describe("phase flow", () => {
     expect(legalActions(state, "p1").some((a) => a.type === "castSpell")).toBe(false);
   });
 
+  it("offers every card in hand as the price of hiding a unit", () => {
+    const state = newGame();
+    const player = state.turn;
+    const hand = state.players[player].unitHand;
+    const hiding = legalActions(state, player).filter(
+      (a): a is Extract<Action, { type: "playUnit" }> => a.type === "playUnit" && a.faceDown === true,
+    );
+    const first = hiding[0];
+    // Every other card in hand can pay for this one, not just the first.
+    const payers = new Set(
+      hiding.filter((a) => a.uid === first.uid && a.slot === first.slot).map((a) => a.discardUid),
+    );
+    expect(payers.size).toBe(hand.length - 1);
+  });
+
   it("ends the turn the moment a unit is committed", () => {
     let state = newGame();
     const player = state.turn;
@@ -759,6 +779,30 @@ describe("phase flow", () => {
     state = applyAction(state, play!);
     expect(state.turn).not.toBe(player);
     expect(legalActions(state, player)).toHaveLength(0);
+  });
+});
+
+describe("a settled match", () => {
+  it("stops as soon as one side holds more than half the battlefields", () => {
+    let state = newGame();
+    // Four of the six regular boards taken: the last two cannot catch that up.
+    for (let i = 0; i < 4; i++) state.locations[i].winner = "p1";
+    state.locationIndex = 3;
+    state.phase = "scored";
+    state = applyAction(state, { type: "nextLocation" });
+    expect(state.phase).toBe("gameOver");
+    expect(state.winner).toBe("p1");
+  });
+
+  it("keeps playing while the lead is still catchable", () => {
+    let state = newGame();
+    state.locations[0].winner = "p1";
+    state.locations[1].winner = "p1";
+    state.locations[2].winner = "p2";
+    state.locationIndex = 2;
+    state.phase = "scored";
+    state = applyAction(state, { type: "nextLocation" });
+    expect(state.phase).not.toBe("gameOver");
   });
 });
 
@@ -814,6 +858,7 @@ describe("Mesteri varázslatok", () => {
     expect(state.players.p1.discard.some((c) => c.uid === "s2")).toBe(true);
     // Only now is the card named and aimed, in front of both players.
     expect(state.resolution?.pending?.cardId).toBe("argeo");
+    state = applyAction(state, { type: "chooseSlot", player: "p1", slot: "p1.B2" });
     state = applyAction(state, { type: "chooseSlot", player: "p1", slot: "p2.F2" });
     expect(state.board["p2.F2"]).toBeNull();
   });
