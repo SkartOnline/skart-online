@@ -22,20 +22,29 @@ export interface LearnParams {
 }
 
 /**
- * `learningRate` is measured rather than guessed. Over 360 self-play games and
- * a 120-game arena against the greedy policy:
+ * `learningRate` is 0.01 because of how the training length interacts with it,
+ * and the short-run answer is the opposite of the long-run one.
  *
- *   0.01   61%   (and only after ~1000 games; it gets there, just slowly)
- *   0.05   89%
- *   0.2    70%
+ * Measured against the greedy policy over 300-game arenas:
  *
- * The intervals for 0.05 and 0.2 do not overlap, so the gap between them is
- * real. Note how much this depends on the optimiser: with plain gradient ascent
- * the step is `lr * delta * trace`, and `delta` sits around 0.07, so a rate that
- * would be sane for a normalised optimiser barely moves the weights at all.
+ *   lr 0.01, 2000 games   89.3%  [85.3, 92.3]
+ *   lr 0.05,  360 games   85.3%  [80.9, 88.9]
+ *   lr 0.05, 2700 games   61.0%  [55.4, 66.3]
+ *
+ * Read the last two together. More training at 0.05 made the player *worse*,
+ * which is what a rate above the stable range looks like: it converges quickly
+ * to something decent and then oscillates apart. 0.01 climbs slowly, and was
+ * still climbing at 2000 games (it measured 61% partway through, which is why
+ * an early reading of a slow rate is worth nothing).
+ *
+ * Two traps live in this number. Short sweeps rank the rates backwards, because
+ * the fast rate wins any race that ends early. And the rate is only meaningful
+ * alongside the optimiser: with plain gradient ascent the step is
+ * `lr * delta * trace` and `delta` sits near 0.07, so a value that is sane for
+ * a normalised optimiser like Adam barely moves the weights here.
  */
 export const DEFAULT_LEARN: LearnParams = {
-  learningRate: 0.05,
+  learningRate: 0.01,
   lambda: 0.7,
   gamma: 0.98,
   gradClip: 1,

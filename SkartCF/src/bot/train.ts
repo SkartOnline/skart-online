@@ -36,6 +36,17 @@ export interface TrainParams {
   temperatureStart: number;
   temperatureEnd: number;
   decks: string[];
+  /**
+   * Play every training game as a mirror, both sides on the same list.
+   *
+   * On by default, because a non-mirror result is mostly a statement about the
+   * matchup. If the decks are even a little rock-paper-scissors, the learner
+   * wins games it played badly and loses games it played well, and that noise
+   * goes straight into the TD target. A mirror strips the matchup out: both
+   * sides hold the same cards, so the only thing left to explain the result is
+   * how they were played, which is the only thing worth learning.
+   */
+  mirror: boolean;
   seed: string;
   out: string;
   agent: AgentParams;
@@ -51,6 +62,7 @@ export const DEFAULT_TRAIN: Omit<TrainParams, "decks" | "out"> = {
   mixPool: 0.3,
   temperatureStart: 1,
   temperatureEnd: 0.15,
+  mirror: true,
   seed: "skartcf-train",
   agent: { ...DEFAULT_AGENT, randomOpeningMoves: 4 },
   learn: { ...DEFAULT_LEARN },
@@ -136,7 +148,7 @@ export function train(
       } as Record<PlayerId, Seat>;
 
       const deckA = decks[Math.floor(rng.next() * decks.length)];
-      const deckB = decks[Math.floor(rng.next() * decks.length)];
+      const deckB = params.mirror ? deckA : decks[Math.floor(rng.next() * decks.length)];
       const record = playGame(
         seats,
         { [learnerSide]: deckA, [foe]: deckB } as Record<PlayerId, string>,
@@ -209,6 +221,7 @@ function main(): void {
     gamesPerIteration: Number(args.games ?? DEFAULT_TRAIN.gamesPerIteration),
     seed: args.seed ?? DEFAULT_TRAIN.seed,
     decks: args.decks ? args.decks.split(",") : allDecks().map((d) => d.id),
+    mirror: args.mirror !== "false",
     out: args.out ?? "src/bot/weights/latest.json",
     agent: {
       ...DEFAULT_TRAIN.agent,
@@ -229,7 +242,8 @@ function main(): void {
 
   console.log(
     `training: ${params.iterations} x ${params.gamesPerIteration} games ` +
-      `on ${params.decks.length} decks, lr ${params.learn.learningRate}, ` +
+      `on ${params.decks.length} decks ${params.mirror ? "(mirror)" : "(all pairings)"}, ` +
+      `lr ${params.learn.learningRate}, ` +
       `lambda ${params.learn.lambda}, gamma ${params.learn.gamma}`,
   );
   console.log("  iter   games   |delta|    value   vs greedy   trunc     secs");
