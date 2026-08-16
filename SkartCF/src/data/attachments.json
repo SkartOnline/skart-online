@@ -9,6 +9,179 @@
     "id": "vaskarom",
     "name": "Vaskarom",
     "powerDelta": 1,
-    "text": "+1 erő gyűrű, amíg rajta van."
+    "ring": true,
+    "text": "Gyűrű: +1 erő, amíg rajta van."
+  },
+  {
+    "id": "indak",
+    "name": "Indák",
+    "preventsMove": true,
+    "text": "Nem mozoghat."
+  },
+  {
+    "id": "kotel",
+    "name": "Kötél",
+    "preventsMove": true,
+    "text": "Nem mozoghat."
+  },
+  {
+    "id": "szoritas",
+    "name": "Szorítás",
+    "preventsMove": true,
+    "text": "Nem mozoghat."
+  },
+  {
+    "id": "nemitas",
+    "name": "Némítás",
+    "preventsCasting": true,
+    "text": "Nem varázsolhat."
+  },
+  {
+    "id": "elfeledes",
+    "name": "Elfeledés",
+    "suppressesAbilities": true,
+    "text": "Nincs képessége."
+  },
+  {
+    "id": "termeszetes_forma",
+    "name": "Természetes forma",
+    "powerEqualsBase": true,
+    "text": "Az ereje egyenlő az alaperejével, minden mást felülírva."
+  },
+  {
+    "id": "enormorf",
+    "name": "Enormorf",
+    "setPower": 6,
+    "text": "Az ereje 6."
+  },
+  {
+    "id": "fustbomba",
+    "name": "Füstbomba",
+    "untargetable": true,
+    "text": "Nem lehet varázslattal megcélozni."
+  },
+  {
+    "id": "sarkanypikkelyek",
+    "name": "Sárkánypikkelyek",
+    "spellImmune": true,
+    "text": "Nem hatnak rá varázslatok."
+  },
+  {
+    "id": "odu",
+    "name": "Odú",
+    "untargetableCondition": "isolated",
+    "text": "Amíg nincs mellette szövetséges, nem célozható."
+  },
+  {
+    "id": "kopja",
+    "name": "Kopja",
+    "untargetableCondition": "opposedOccupied",
+    "statics": [
+      {
+        "kind": "powerBonus",
+        "amount": 1,
+        "condition": "opposedOccupied"
+      }
+    ],
+    "text": "Amíg ellenség áll előtte: +1 erő, és nem célozható varázslattal."
+  },
+  {
+    "id": "falanx",
+    "name": "Falanx",
+    "statics": [
+      {
+        "kind": "powerBonus",
+        "amount": 1,
+        "condition": "frontRow"
+      }
+    ],
+    "text": "+1 erő az első sorban."
+  },
+  {
+    "id": "verszomj",
+    "name": "Vérszomj",
+    "statics": [
+      {
+        "kind": "countBonus",
+        "amount": 1,
+        "side": "enemy",
+        "scope": "board",
+        "requires": "damaged"
+      }
+    ],
+    "text": "+1 erő minden sérült ellenség után."
+  },
+  {
+    "id": "halalfelelem",
+    "name": "Halálfélelem",
+    "statics": [
+      {
+        "kind": "powerBonus",
+        "amount": -3,
+        "condition": "isolated"
+      }
+    ],
+    "text": "-3 erő, amíg nincs vele szomszédos szövetséges."
+  },
+  {
+    "id": "csordaszellem",
+    "name": "Csordaszellem",
+    "statics": [
+      {
+        "kind": "aura",
+        "amount": 1,
+        "side": "ally",
+        "scope": "adjacent",
+        "keyword": "Állat"
+      }
+    ],
+    "text": "Minden szomszédos szövetséges Állat +1 erőt kap."
+  },
+  {
+    "id": "moral",
+    "name": "Morál",
+    "statics": [
+      {
+        "kind": "aura",
+        "amount": 1,
+        "side": "ally",
+        "scope": "adjacent",
+        "keyword": "Harcos"
+      }
+    ],
+    "text": "Minden szomszédos szövetséges Harcos +1 erőt kap."
+  },
+  {
+    "id": "egysegben_az_ero",
+    "name": "Egységben az erő",
+    "statics": [
+      {
+        "kind": "aura",
+        "amount": 1,
+        "side": "ally",
+        "scope": "row",
+        "includeSelf": true,
+        "atLeastCount": 3
+      }
+    ],
+    "text": "Ha hárman állnak a sorban, mindannyian +1 erőt kapnak."
+  },
+  {
+    "id": "rothadas",
+    "name": "Rothadás",
+    "statics": [
+      {
+        "kind": "aura",
+        "amount": -2,
+        "side": "all",
+        "scope": "adjacent"
+      }
+    ],
+    "text": "Minden szomszédos egység -2 erőt kap."
+  },
+  {
+    "id": "tisztitas",
+    "name": "Tisztítás",
+    "text": "Levett róla egy lapot."
   }
 ]

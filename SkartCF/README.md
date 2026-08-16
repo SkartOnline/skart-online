@@ -7,10 +7,6 @@ stack, then the stack resolves and the boards are compared.
 This folder is the new direction. It shares no code with `../SkartTG`, which is kept
 only for preservation.
 
-Live build: <https://skartonline.github.io/skart-online/>. Published by
-[`.github/workflows/pages.yml`](../.github/workflows/pages.yml) on every push to `main`
-that touches this folder — it runs the engine tests first, so a red suite never ships.
-
 ```
 npm install
 npm run dev        # http://localhost:5173 — hotseat game + card editor
@@ -18,6 +14,25 @@ npm test           # engine test suite
 npm run sim -- --games 2000
 npm run build      # static build into dist/
 ```
+
+## The card set
+
+The full set is in: **88 units, 59 spells, 15 battlefields**, plus 21 attachment cards
+and one token (the Nyúl a Lépumorf leaves behind). `docs/abilities.md` is the ability
+inventory — every card text traced back to the parameterised primitive that implements
+it, and the short list of abilities that deliberately stayed as flavour text.
+
+Three things about this set are worth knowing before you read the data:
+
+- **Six schools: Mágus, Feketemágus, Harcos, Ravaszság, Druida, Bestia.** The old `Állat`
+  *caster school* was folded into Bestia. `Állat` survives as a keyword (Eredet) and is
+  still a different thing from the `Bestia` origin.
+- **A spell may name more than one school** (`schools: ["Harcos", "Ravaszság"]`). One
+  caster covers the whole cost out of one pool — naming two schools widens who *can*
+  pay, it never adds two pools together.
+- **Eredet and Rend are keywords.** `origin` and `order` are separate fields for the
+  editor's sake, but `keywordsOf()` folds them into the same list every filter reads, so
+  "minden szövetséges Kalóz" needs no special case.
 
 ## What works right now
 
@@ -70,16 +85,65 @@ card-specific branches anywhere in the engine — `effects.ts` is a table keyed 
 {
   "id": "bergyilkos",
   "name": "Bérgyilkos",
-  "cost": 4,
-  "power": 2,
+  "cost": 5,
+  "power": 4,
+  "order": "Orgyilkos",
+  "spellpower": { "Ravaszság": 3 },
   "belepo": {
-    "target": { "scope": "opposed", "compare": "weakerThanSelf" },
+    "target": { "scope": "columnEnemy", "compare": "weakerThanSelf", "pick": "weakest" },
     "effects": [{ "kind": "destroy" }]
   }
 }
 ```
 
 Rebalancing is editing a number in JSON, not editing code.
+
+The set comes out of fourteen static kinds, thirty-two effect kinds and sixteen location
+effects, because the variation lives in the parameters rather than in the table. Five
+different "kill a unit" spells are all one `destroy` effect with different target
+filters:
+
+| Card | Filter |
+|---|---|
+| Óriásölő | `minPower: 8` |
+| Fojtás | `maxPower: 3` |
+| Rajtaütés | `isolated: true` |
+| Kegyelemdöfés | `damaged: true` |
+| Carnifex (Belépő) | `maxBasePower: 4` |
+
+Two conventions do most of the compression work. Every "+X, ha …" unit is one
+`powerBonus` static plus a value from a shared condition enum (`isolated`, `enemyHalf`,
+`opposedWeaker`, `graveyardAtLeast`, …), and every effect accepts the same optional `if`
+gate off that enum — which is how a Belépő that reads "if nobody else is out there, +2"
+stays data instead of becoming a new effect kind.
+
+### Gyűrű
+
+Some abilities grant power for a condition that has *already happened*, and the grantee
+keeps it after the granter leaves the board. Bodur kapitány is the example: an ally that
+moves takes +1 with it, and Bodur dying does not take it back.
+
+That is a **gyűrű**, and it is a separate number from `powerDelta` for exactly that
+reason — `UnitInstance.rings`, granted by the `grantRing` effect, drawn on the card with
+a ⊙ mark. Vaskarom is the spell version: an attachment flagged `ring: true`, which wears
+the same mark.
+
+Rings come from triggers, which are the other half of the mechanism: `onDeath` (Vigasz),
+`onAnyDeath`, `onAllyMove`, `onLocationWon` (Diadal). A trigger is an event name, a
+target set and an effect list — the same shape a Belépő has.
+
+### Spells sit on units
+
+Every spell that resolves onto a unit is recorded in `UnitInstance.placed`, whether or
+not it left a lasting effect. A lasting one also names an `attachment`, and taking the
+card off takes the effect off — there is no duration to track anywhere.
+
+Attachments carry the same `statics` array units do. That is why Falanx, Vérszomj,
+Halálfélelem, Csordaszellem and Morál need no code at all: they are a card with one
+static on it.
+
+On the board a laden unit shows a `✦n` count and a coloured edge; hovering it fans out
+every card lying on it, spent one-shots included.
 
 ### Adding a new effect kind
 
@@ -127,7 +191,7 @@ simulator and the hotseat agree.
 
 ```
 npm run sim -- --games 2000
-npm run sim -- --games 500 --decks value,swarm
+npm run sim -- --games 500 --decks felindori,bestia
 npm run sim -- --games 2000 --stop-margin 0,2,4
 ```
 
@@ -163,7 +227,9 @@ These were open questions and no longer are. They are constants, not options, an
 is no UI to change them:
 
 - Unit deck **30**, spell deck 30.
-- Melee front row **+1** (`MELEE_FRONT_BONUS` in `power.ts`).
+- Positional keywords live in one table, `POSITIONAL_KEYWORDS` in `power.ts`: **Melee**
+  front row +1, **Távolsági** back row +2. No unit in the current set carries Melee — the
+  Excel never marked any — so the front-row bonus is live code with no cards on it yet.
 - **No limit** on face-down units per location — the only gate is being able to pay,
   since hiding discards a unit card and you cannot pay with the last card in hand.
 - Playing a spell **ends your turn**: nothing can follow it, so the turn passes on its
@@ -191,16 +257,39 @@ thing and the UI never mixes them up.
   column checks the actual card sitting across from it even while it is face-down. The
   alternative — treating a concealed unit as untargetable — would make hiding far
   stronger than the rules intend.
-- **The archmage's printed power.** The rules doc says power 3 in the cost-curve section
-  and power 2 in the caster-pricing paragraph. `fomagus` uses power 2, cost 7,
-  spellpower 7.
-- **Ogre is cost 4, power 6**, following the explicit "cost is decoupled from power"
-  example rather than the tier table's cost-6 row.
-- **`grantImmunity` schools Tűz and Fagy have no spells yet.** Tűzköpeny and Fagypáncél
-  work, they just have nothing to protect against until fire and frost spells exist.
+- **Six units have no printed power in the source spreadsheet** — Sir Ton, Elfina,
+  Dérföldi Deoren, Charon, Calcas, A Faarcú. They are in the set at the cost-curve
+  baseline (`cost + 1`), tagged `wip`, with the placeholder said out loud in their card
+  text. Calcas had no printed cost either and is a guess at 5. Replace the numbers in
+  the editor when they are decided.
+- **Tűz and Fagy tags were assigned, not printed.** No spell in the spreadsheet names its
+  element, so Explar and Lánglándzsa were tagged `Tűz` and Jéghegy `Fagy` from their card
+  text. Tűzköpeny, Fagypáncél, Explodus and Erif mester all read those tags, so moving a
+  tag moves four cards' worth of behaviour.
+- **Belépő abilities that say "one" need a rule for which one.** A Belépő never asks the
+  player anything, so `pick` decides: Bérgyilkos takes the `weakest` in its column,
+  Carnifex the `strongest` it is allowed to kill, Azman the `weakest` ally, Mágiacenzor
+  the `highestSpellpower` enemy in its column.
+- **Vízköpő reads "no other ally in my row", not "in the front row".** The printed text
+  says első sor while the unit can stand in either, so the condition was read as the row
+  it is actually in.
+- **Varjú discards two, not "any number".** The card lets the player choose how many; a
+  Belépő cannot ask, so it takes the two cheapest units for two rings.
+- **Egységben az erő has no front-row restriction.** The printed card asks for the front
+  row; the attachment grants +1 to a three-strong row either way.
 - **The rules doc contradicts the damage rule.** `docs/rules-v2.md` says "Damage is a
   persistent −X token placed on the unit and summed at totaling." The engine follows the
   later correction instead: damage is not summed at totaling and scores nothing unless it
   kills. The doc line wants updating.
 - **Végtelen puszta's first player** is picked at random at setup; the rules do not say
   who goes first there.
+- **Five abilities are text only.** Fuedrax's trap zone, Felix's portal to the next
+  battlefield, Gouraldir's Three Relics (the card does not exist in the set) and Griff's
+  two-way hand swap all need machinery the engine does not have; the pure-information
+  plays (Greta, Mágusinkvizítor, Leskelődés) write to the chronicle and nothing else,
+  since hotseat already has a "Mindent mutat" switch. Each one carries a `note` effect
+  saying so, and they are listed at the end of `docs/abilities.md`.
+- **The shipped decks are starting points.** Five archetypes — Felindori sereg,
+  Csempészgyűrű, Varázslótanács, Vadállatok, Élettelen menet — assembled to exercise the
+  set, not balanced. The simulator already flags a couple of battlefields over the 75%
+  line; that is tuning work, not a bug.

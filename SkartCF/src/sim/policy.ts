@@ -84,8 +84,10 @@ function slotScore(state: GameState, cardId: string, slot: SlotId): number {
 
 function canCastNow(state: GameState, player: PlayerId, spellId: string): boolean {
   const spell = getSpell(spellId);
-  return unitsOf(state, player).some(
-    (u) => remainingSpellpower(u, spell.school, state) >= spell.cost,
+  // A spell may name several schools; one caster has to cover the whole cost
+  // out of a single pool, so this is an "any school" check, never a sum.
+  return unitsOf(state, player).some((u) =>
+    spell.schools.some((school) => remainingSpellpower(u, school, state) >= spell.cost),
   );
 }
 

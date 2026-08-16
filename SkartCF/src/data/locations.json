@@ -1,73 +1,189 @@
 [
   {
-    "id": "felindori_mezok",
-    "name": "Felindori mezők",
-    "cap": 8,
-    "effects": [],
-    "text": "Semmi különös. A mérce, amihez a többi csatateret hasonlítod."
-  },
-  {
-    "id": "koszali_hago",
-    "name": "Kőszáli hágó",
+    "id": "sikator",
+    "name": "Sikátor",
     "cap": 6,
-    "effects": [{ "kind": "rowBonus", "row": "F", "amount": 1 }],
-    "text": "Szűk keret, az első sor +1-et kap."
+    "effects": [
+      {
+        "kind": "strongestPenalty",
+        "amount": -1
+      }
+    ],
+    "text": "A legerősebb egység -1 erőt kap. Azonos erő esetén mindegyikük."
   },
   {
-    "id": "vermocsar",
-    "name": "Vérmocsár",
-    "cap": 10,
-    "effects": [{ "kind": "costAtMostBonus", "maxCost": 1, "amount": 1 }],
-    "text": "A legfeljebb 1 költségű egységek +1-et kapnak."
-  },
-  {
-    "id": "sarkanytorok",
-    "name": "Sárkánytorok",
+    "id": "feketepiac",
+    "name": "Feketepiac",
     "cap": 12,
-    "effects": [{ "kind": "perCost", "per": 3, "amount": 1 }],
-    "text": "+1 minden 3 pont költség után."
+    "effects": [
+      {
+        "kind": "autoHide",
+        "keyword": "Csempész"
+      },
+      {
+        "kind": "hideCostMod",
+        "cost": 2,
+        "exceptKeyword": "Csempész"
+      }
+    ],
+    "text": "Minden Csempész rejtett. A nem-Csempész egységek elrejtése 2 egységbe kerül."
   },
   {
-    "id": "ezustliget",
-    "name": "Ezüstliget",
-    "cap": 8,
-    "effects": [{ "kind": "schoolSpellpowerBonus", "school": "Mágus", "amount": 1 }],
-    "text": "Aki Mágus varázserőt csatornáz, +1 varázserőt kap itt."
+    "id": "akaczos",
+    "name": "Akáczos",
+    "cap": 12,
+    "effects": [
+      {
+        "kind": "keywordBonus",
+        "keyword": "Állat",
+        "amount": -1,
+        "row": "F",
+        "invert": true
+      }
+    ],
+    "text": "Az első sorban álló nem-Állat egységek -1 erőt kapnak."
   },
   {
-    "id": "vadon",
-    "name": "Vadon",
-    "cap": 8,
-    "effects": [{ "kind": "keywordBonus", "keyword": "Állat", "amount": 2 }],
-    "text": "Az Állatok +2-t kapnak."
+    "id": "a_pek_hidja",
+    "name": "A Pék hídja",
+    "cap": 12,
+    "effects": [
+      {
+        "kind": "blockedSlots",
+        "slots": "F1,F3"
+      }
+    ],
+    "text": "Az első sor két szélső mezője szakadék — nem kerülhet ide egység."
   },
   {
-    "id": "romvaros",
-    "name": "Romváros",
-    "cap": 7,
-    "effects": [{ "kind": "rowBonus", "row": "B", "amount": 1 }],
-    "text": "A hátsó sor +1-et kap. A fedezék itt ér valamit."
+    "id": "maguskor",
+    "name": "Máguskör",
+    "cap": 12,
+    "effects": [
+      {
+        "kind": "spellCostMod",
+        "amount": -1,
+        "min": 1
+      }
+    ],
+    "text": "Minden varázslat költsége 1-gyel kevesebb, de legalább 1."
   },
   {
-    "id": "aranymezo",
-    "name": "Aranymező",
-    "cap": 14,
+    "id": "lingadori_konyvtar",
+    "name": "Lingadori könyvtár",
+    "cap": 12,
+    "effects": [
+      {
+        "kind": "startEffect",
+        "effect": "searchDeck",
+        "cardKind": "spell",
+        "count": 1
+      }
+    ],
+    "text": "Mindkét játékos kikereshet egy varázslatot a paklijából és felhúzhatja."
+  },
+  {
+    "id": "kikoto",
+    "name": "Kikötő",
+    "cap": 15,
+    "effects": [
+      {
+        "kind": "costMod",
+        "keyword": "Kalóz",
+        "amount": -1,
+        "min": 0
+      }
+    ],
+    "text": "Minden Kalóz 1 arannyal kevesebbe kerül."
+  },
+  {
+    "id": "holdfenyes_tisztas",
+    "name": "Holdfényes tisztás",
+    "cap": 18,
+    "effects": [
+      {
+        "kind": "flatBonus",
+        "amount": 1
+      }
+    ],
+    "text": "Minden egység +1 erőt kap."
+  },
+  {
+    "id": "malom",
+    "name": "Malom",
+    "cap": 18,
+    "effects": [
+      {
+        "kind": "startEffect",
+        "effect": "discard",
+        "cardKind": "both",
+        "count": 2
+      }
+    ],
+    "text": "Mindkét játékos eldob 2 egységet és 2 varázslatot."
+  },
+  {
+    "id": "bosegkert",
+    "name": "Bőségkert",
+    "cap": 18,
+    "effects": [
+      {
+        "kind": "startEffect",
+        "effect": "draw",
+        "cardKind": "both",
+        "count": 2
+      }
+    ],
+    "text": "Mindkét játékos húz 2 egységet és 2 varázslatot."
+  },
+  {
+    "id": "elatkozott_rengeteg",
+    "name": "Elátkozott rengeteg",
+    "cap": 18,
+    "effects": [
+      {
+        "kind": "flatBonus",
+        "amount": -1
+      }
+    ],
+    "text": "Minden egység -1 erőt kap."
+  },
+  {
+    "id": "kodret",
+    "name": "Ködrét",
+    "cap": 24,
+    "effects": [
+      {
+        "kind": "autoHide"
+      },
+      {
+        "kind": "rangeCap",
+        "max": 1
+      },
+      {
+        "kind": "suppressPositional",
+        "keyword": "Távolsági"
+      }
+    ],
+    "text": "Minden egység rejtett. A varázslatok hatótávja legfeljebb 1. A Távolsági bónuszok nem érvényesülnek."
+  },
+  {
+    "id": "plazs",
+    "name": "Plázs",
+    "cap": 24,
     "effects": [],
-    "text": "Tág keret, semmi módosító. Aki többet hozott, itt kirakhatja."
+    "text": "Semmi különös. Tág keret, tiszta aritmetika."
   },
   {
-    "id": "szuk_szoros",
-    "name": "Szűk szoros",
-    "cap": 5,
-    "effects": [{ "kind": "flatBonus", "amount": 1 }],
-    "text": "Alig fér el bárki. Minden egység +1-et kap."
-  },
-  {
-    "id": "kohalti_gat",
-    "name": "Kőhalti gát",
-    "cap": 9,
-    "effects": [{ "kind": "keywordBonus", "keyword": "Melee", "amount": 1 }],
-    "text": "A közelharcosok +1-et kapnak."
+    "id": "umbra",
+    "name": "Umbra",
+    "cap": 30,
+    "effects": [
+      {
+        "kind": "playFromGraveyard"
+      }
+    ],
+    "text": "A temetőből is kijátszhatsz egységeket."
   },
   {
     "id": "vegtelen_puszta",
@@ -75,6 +191,6 @@
     "cap": null,
     "tiebreaker": true,
     "effects": [],
-    "text": "Nincs költségkeret, és semmi más nem változik. A kéz 7, a rács hat mező."
+    "text": "Nincs költséglimit, és semmi más nem változik."
   }
 ]

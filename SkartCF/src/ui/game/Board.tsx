@@ -1,5 +1,13 @@
-import { cardOf, power, rowOfSlot } from "../../engine";
-import type { GameState, PlayerId, Row, SlotId } from "../../engine";
+import {
+  attachmentsOn,
+  cardOf,
+  getAttachment,
+  getSpell,
+  isBlocked,
+  power,
+  rowOfSlot,
+} from "../../engine";
+import type { GameState, PlayerId, Row, SlotId, UnitInstance } from "../../engine";
 
 interface Props {
   state: GameState;
@@ -75,6 +83,16 @@ function Cell({
   if (rowOfSlot(slot) === "F") classes.push("front");
   if (open) classes.push("open");
 
+  // A Pék hídja turns the outer front slots into a chasm.
+  if (isBlocked(state, slot)) {
+    return (
+      <div className="cell chasm">
+        <span className="coord">{slot.slice(3)}</span>
+        <span className="label">szakadék</span>
+      </div>
+    );
+  }
+
   if (!unit) {
     return (
       <button className={classes.join(" ")} onClick={onPick} disabled={!open}>
@@ -96,18 +114,24 @@ function Cell({
   const card = cardOf(unit);
   classes.push("held", unit.owner === "p1" ? "mine" : "theirs");
   if (unit.locked) classes.push("frozen");
+  if (unit.placed.length > 0) classes.push("laden");
 
   const wells = Object.entries(card.spellpower ?? {}).filter(([, v]) => v > 0);
+  // Both kinds of gyűrű wear the same mark: the ring a trigger paid out, and a
+  // ring-flagged card lying on the unit (Vaskarom).
+  const rings =
+    unit.rings + attachmentsOn(unit).reduce((n, a) => n + (a.ring ? (a.powerDelta ?? 0) : 0), 0);
   const hasMarks =
     unit.damage > 0 ||
     unit.powerDelta !== 0 ||
-    unit.attachments.length > 0 ||
+    rings !== 0 ||
+    unit.placed.length > 0 ||
     unit.fizzleShields.length > 0 ||
     unit.immunities.length > 0 ||
     wells.length > 0;
 
   return (
-    <button className={classes.join(" ")} onClick={onPick} disabled={!open} title={card.text}>
+    <button className={classes.join(" ")} onClick={onPick} disabled={!open}>
       <span className="coord">{slot.slice(3)}</span>
       <span className="who">{card.name}</span>
       <span className="might">
@@ -135,11 +159,20 @@ function Cell({
               {unit.powerDelta}
             </span>
           )}
-          {unit.attachments.map((a, i) => (
-            <span className="boon" key={`a${i}`}>
-              {a.slice(0, 4)}
+          {/* Gyűrű: power a condition already paid out. It stays even if
+              whoever granted it has left the board, so it gets its own mark. */}
+          {rings !== 0 && (
+            <span className="ring" title="gyűrű — végleges erő, az adományozótól függetlenül">
+              ⊙{rings > 0 ? "+" : ""}
+              {rings}
             </span>
-          ))}
+          )}
+          {/* One symbol per spell sitting on the unit. The full fan is on hover. */}
+          {unit.placed.length > 0 && (
+            <span className="scroll-count" title="ráhelyezett varázslatok">
+              ✦{unit.placed.length}
+            </span>
+          )}
           {unit.fizzleShields.map((s, i) => (
             <span className="bound" key={`f${i}`} title="álomfogó">
               ≤{s.maxCost}
@@ -152,6 +185,49 @@ function Cell({
           ))}
         </span>
       )}
+      <Fan unit={unit} card={card} />
     </button>
   );
+}
+
+/**
+ * The fan of cards on the unit, revealed on hover. A spell with a lasting
+ * effect is a physical card lying on the unit, so removing it removes the
+ * effect — and a spent one-shot stays visible as a record of what happened.
+ */
+function Fan({ unit, card }: { unit: UnitInstance; card: ReturnType<typeof cardOf> }) {
+  const lasting = new Set(attachmentsOn(unit).map((a) => a.id));
+  return (
+    <span className="fan-hover">
+      <b>{card.name}</b>
+      {card.text && <em>{card.text}</em>}
+      {unit.placed.length > 0 && (
+        <ul>
+          {unit.placed.map((placed, i) => {
+            const attachment = placed.attachment ? getAttachment(placed.attachment) : undefined;
+            const spell = trySpellName(placed.spellId);
+            const active = !!attachment && lasting.has(attachment.id);
+            return (
+              <li key={i} className={active ? "active" : "used"}>
+                <span className={`sigil ${placed.owner}`}>
+                  {placed.owner === "p1" ? "I" : "II"}
+                </span>
+                {attachment?.ring && <span className="ring">⊙</span>}
+                {spell ?? attachment?.name ?? placed.spellId}
+                <em>{attachment?.text ?? "elsült, nyoma marad"}</em>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </span>
+  );
+}
+
+function trySpellName(id: string): string | undefined {
+  try {
+    return getSpell(id).name;
+  } catch {
+    return undefined;
+  }
 }

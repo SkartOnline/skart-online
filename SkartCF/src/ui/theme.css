@@ -574,6 +574,94 @@ textarea:focus {
   color: var(--frost);
   border-color: var(--frost-deep);
 }
+/* Gyűrű: power a condition has already paid out. It outlives whoever granted
+   it, so it never shares a mark with an ordinary +/− modifier. */
+.marks .ring {
+  color: var(--brass);
+  border-color: var(--brass);
+  border-radius: 9px;
+}
+.marks .scroll-count {
+  color: var(--frost);
+  border-color: var(--frost-deep);
+  border-style: dashed;
+}
+
+/* A unit carrying spells keeps a visible edge, and the whole fan on hover. */
+.cell.laden {
+  border-bottom: 2px solid var(--frost-deep);
+}
+.cell.held {
+  overflow: visible;
+}
+.cell.chasm {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(6, 4, 3, 0.85) 0 7px,
+    rgba(28, 20, 13, 0.85) 7px 14px
+  );
+  align-items: center;
+  justify-content: center;
+  color: var(--ash-dim);
+  cursor: not-allowed;
+}
+
+.fan-hover {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  z-index: 40;
+  display: none;
+  width: max-content;
+  max-width: 300px;
+  padding: 8px 10px;
+  text-align: left;
+  white-space: normal;
+  background: #120c08;
+  background-image: var(--grain);
+  border: 1px solid var(--iron);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.66);
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--parchment);
+  pointer-events: none;
+}
+.cell.held:hover .fan-hover {
+  display: block;
+}
+.fan-hover > b {
+  display: block;
+  font-size: 13px;
+  color: var(--brass);
+}
+.fan-hover em {
+  display: block;
+  font-style: italic;
+  color: var(--ash);
+}
+.fan-hover ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 6px 0 0;
+  border-top: 1px solid var(--iron);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fan-hover li {
+  padding-left: 2px;
+  border-left: 2px solid var(--frost-deep);
+  padding-left: 6px;
+}
+.fan-hover li.used {
+  opacity: 0.55;
+  border-left-color: var(--iron);
+}
+.fan-hover li .ring {
+  color: var(--brass);
+  margin-right: 3px;
+}
 
 /* ------------------------------------------------------------------- rails */
 
