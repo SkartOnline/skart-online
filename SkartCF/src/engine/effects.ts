@@ -128,20 +128,16 @@ function isDeadNow(unit: UnitInstance, state: GameState): boolean {
   return current <= 0 || unit.damage >= current;
 }
 
-/** Removes a unit and pays out both death triggers. */
+/**
+ * Removes a unit and pays out the death trigger the survivors are owed.
+ *
+ * There is deliberately no self-death trigger. Vigasz turned out not to be one
+ * — it fires when the unit's owner loses the location, not when the unit dies —
+ * and a genuine "when I die" effect would have to act on a unit that
+ * `sweepDead` has already taken off the board, which is how loops start.
+ */
 export function killUnit(state: GameState, unit: UnitInstance, log: (text: string) => void): void {
-  const ownDeath = abilitiesActive(unit, state)
-    ? (cardOf(unit).triggers ?? []).filter((t) => t.on === "onDeath")
-    : [];
-  const returning = ownDeath.some((t) => t.effects.some((e) => e.kind === "returnToHand"));
-  removeUnit(state, unit.slot, returning ? "hand" : "graveyard");
-  for (const trigger of ownDeath) {
-    if (trigger.effects.every((e) => e.kind === "returnToHand")) {
-      log(`${cardOf(unit).name}: Vigasz — visszakerül a kézbe.`);
-      continue;
-    }
-    runEffects(state, unit, unit.owner, trigger.effects, [], log, unit);
-  }
+  removeUnit(state, unit.slot, "graveyard");
   fireTrigger(state, "onAnyDeath", unit, log);
 }
 
@@ -155,8 +151,11 @@ export function fireTrigger(
   event: TriggerEvent,
   cause: UnitInstance | null,
   log: (text: string) => void,
+  /** Diadal fires only for the winner, Vigasz only for the loser. */
+  onlyOwner?: PlayerId,
 ): void {
   for (const unit of allUnitsOnBoard(state)) {
+    if (onlyOwner && unit.owner !== onlyOwner) continue;
     if (!abilitiesActive(unit, state)) continue;
     for (const trigger of cardOf(unit).triggers ?? []) {
       if (trigger.on !== event) continue;
@@ -170,10 +169,11 @@ export function fireTrigger(
 }
 
 const TRIGGER_LABEL: Record<TriggerEvent, string> = {
-  onDeath: "Vigasz",
   onAnyDeath: "kiváltó — egység elesett",
   onAllyMove: "kiváltó — szövetséges mozgott",
+  onMustra: "Mustra",
   onLocationWon: "Diadal",
+  onLocationLost: "Vigasz",
   onLocationStart: "kiváltó — csata kezdete",
 };
 

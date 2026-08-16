@@ -129,7 +129,7 @@
     "tags": [
       "swarm"
     ],
-    "text": "Diadal: a következő csata előtt húzz egy extra egységet!"
+    "text": "Diadal: ha megnyerjük a csatát és még állok, a következő csata előtt húzz egy extra egységet!"
   },
   {
     "id": "szerencsejatekos",
@@ -523,7 +523,7 @@
     "origin": "Élettelen",
     "triggers": [
       {
-        "on": "onDeath",
+        "on": "onLocationLost",
         "target": {
           "scope": "self"
         },
@@ -539,7 +539,7 @@
     "tags": [
       "elettelen"
     ],
-    "text": "Vigasz: visszakerülök a kezedbe."
+    "text": "Vigasz: ha elveszítjük a csatát és még állok, visszakerülök a kezedbe."
   },
   {
     "id": "dionzosz",
@@ -1232,7 +1232,7 @@
     "order": "Mágus",
     "triggers": [
       {
-        "on": "onDeath",
+        "on": "onLocationLost",
         "target": {
           "scope": "self"
         },
@@ -1248,7 +1248,7 @@
       "felindori",
       "caster"
     ],
-    "text": "Vigasz: portált nyitok a következő csatatérre. Ha így érkezem, nem számítok bele a költséglimitbe."
+    "text": "Vigasz: ha elveszítjük a csatát és még állok, portált nyitok a következő csatatérre. Ha így érkezem, nem számítok bele a költséglimitbe."
   },
   {
     "id": "artifex",
@@ -1375,21 +1375,24 @@
       "Bestia": 3
     },
     "rarity": "Ritka",
-    "belepo": {
-      "target": {
-        "scope": "self"
-      },
-      "effects": [
-        {
-          "kind": "advance",
-          "ringPerTile": 1
-        }
-      ]
-    },
+    "triggers": [
+      {
+        "on": "onMustra",
+        "target": {
+          "scope": "self"
+        },
+        "effects": [
+          {
+            "kind": "advance",
+            "ringPerTile": 1
+          }
+        ]
+      }
+    ],
     "tags": [
       "beast"
     ],
-    "text": "Belépő: előrenyomulok, amíg van előttem üres mező az oszlopban. Minden megtett mezőért +1 gyűrűt kapok."
+    "text": "Mustra: előrenyomulok, amíg van előttem üres mező az oszlopban. Minden megtett mezőért +1 gyűrűt kapok."
   },
   {
     "id": "elfina",
@@ -2098,13 +2101,13 @@
     "rarity": "Legendás",
     "statics": [
       {
-        "kind": "banStacking"
+        "kind": "banCasting"
       }
     ],
     "tags": [
       "control"
     ],
-    "text": "Nem lehet varázslatot játszani a rakásra."
+    "text": "Amíg a csatatéren állok, senki nem játszhat ki varázslatot."
   },
   {
     "id": "cassanus",

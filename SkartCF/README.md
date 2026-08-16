@@ -1,8 +1,9 @@
 # SkartCF
 
 Browser prototype for **Skart 2**: a two-player tactical card game where you fight for
-locations one at a time, committing units under a cost cap while feeding a hidden spell
-stack, then the stack resolves and the boards are compared.
+locations one at a time. Units go down under a cost cap until both players stop, the
+board is revealed at Mustra, then the battle opens and spells are traded openly until
+both players stop again. Whoever has the higher total takes the location.
 
 This folder is the new direction. It shares no code with `../SkartTG`, which is kept
 only for preservation.
@@ -39,8 +40,8 @@ Three things about this set are worth knowing before you read the data:
 The site opens on a main menu with three ways in.
 
 - **Játék** — hotseat. One fixed-viewport screen, no page scroll, you control both
-  players. Full location loop: commitment with the four stop flags, face-down units,
-  reveal, rakás resolution with caster/target/destination picks, totaling, six
+  players. Full location loop: the units phase with its stop flags and face-down units,
+  Mustra, the battle phase with caster/target/destination picks, totaling, six
   battlefields plus Végtelen puszta on a tie.
 - **Gyűjtemény** — the collection. Build your own decks: thirty units, thirty spells,
   three battlefields. Saved to the browser and live in the deck picker straight away.
@@ -67,7 +68,7 @@ src/
     cards.ts      the card registry and card-set validation
     power.ts      basePower() and power(), statics computed on read
     effects.ts    one handler per effect kind
-    resolve.ts    the spell-stack resolution machine, Belépő firing
+    resolve.ts    the spell resolution machine, Belépő firing
     reducer.ts    applyAction(state, action) => state, legalActions()
     setup.ts      createGame(), rule config defaults
     totaling.ts   final board sum
@@ -128,9 +129,13 @@ reason — `UnitInstance.rings`, granted by the `grantRing` effect, drawn on the
 a ⊙ mark. Vaskarom is the spell version: an attachment flagged `ring: true`, which wears
 the same mark.
 
-Rings come from triggers, which are the other half of the mechanism: `onDeath` (Vigasz),
-`onAnyDeath`, `onAllyMove`, `onLocationWon` (Diadal). A trigger is an event name, a
-target set and an effect list — the same shape a Belépő has.
+Rings come from triggers, which are the other half of the mechanism: `onAnyDeath`,
+`onAllyMove`, `onMustra`, `onLocationWon` (Diadal) and `onLocationLost` (Vigasz). A
+trigger is an event name, a target set and an effect list — the same shape a Belépő has.
+
+There is deliberately no self-death trigger. Vigasz turned out not to be one, and a
+genuine "when I die" effect would have to act on a unit `sweepDead` has already taken off
+the board.
 
 ### Spells sit on units
 
@@ -168,24 +173,39 @@ Static abilities are never applied as state mutations. They are computed on read
 Every static therefore reads only printed values, keywords and slot occupancy — never
 `power()`, or the computation would recurse.
 
-### The spell stack
+### The three phases
 
-Resolution is a machine, not a function call, because casters and targets are chosen
-mid-resolution and the choosing player alternates unpredictably. The engine advances
-until it needs input, parks a `ChoiceRequest` in `state.resolution.pending`, and stops.
-The caller supplies a choice and it advances again.
+A location runs **units → Mustra → battle → scored**, and the phase is the thing that
+decides what is playable:
 
-Fizzle is not a special case: it is "no viable caster", which advances the index without
-asking anyone. That is what makes stacking a spell you cannot cast a legal bluff rather
-than an error.
+| Phase | What is on offer | Ends when |
+|---|---|---|
+| `units` | one unit per turn, or *units done* | both `unitsClosed` |
+| `mustra` | nothing — it flips the hidden units, fires their Belépő, then Mustra abilities | immediately |
+| `battle` | one spell per turn, or *spells done* | both `spellsClosed` |
+| `scored` | Diadal and Vigasz have fired; *next location* | — |
 
-### Stop flags
+The two stop flags belong to different phases and are never live at the same time. That
+is the whole shape: `legalActions` returns an empty array for a player who has stopped in
+the phase that is running, and the turn loop skips them rather than ending it early.
+Auto-closing (empty hand, six slots filled, empty spell hand, an Omen on the board) is
+applied by the engine, not the UI, so the simulator and the hotseat agree.
 
-Four booleans, not a turn counter. `legalActions(state, player)` returns an empty array
-when both of a player's flags are closed, and the turn loop skips them rather than
-ending the phase. The phase ends only when all four are true. Auto-closing (empty hand,
-six slots filled, empty spell hand) is applied by the engine, not the UI, so the
-simulator and the hotseat agree.
+### Spell resolution
+
+Spells are played **open and resolve on the spot**, one per turn. There is no stack and
+nothing is face-down: you nominate caster and target as you play it, it goes off, the
+turn passes.
+
+Resolution is still a machine rather than a function call, because caster and target are
+chosen mid-resolution. The engine advances until it needs input, parks a `ChoiceRequest`
+in `state.resolution.pending`, and stops; the caller supplies a choice and it advances
+again. `state.spellsCast` is the ordered record of what has been cast, and the resolution
+cursor points at the entry currently going off.
+
+Fizzle is not a special case: it is "no viable caster", which advances the cursor without
+asking anyone. Under the old face-down stack that made an uncastable spell a legal bluff;
+now it is simply a wasted card, which is why the sim's bot no longer plays one.
 
 ## The simulator
 
@@ -233,7 +253,10 @@ is no UI to change them:
 - **No limit** on face-down units per location — the only gate is being able to pay,
   since hiding discards a unit card and you cannot pay with the last card in hand.
 - Playing a spell **ends your turn**: nothing can follow it, so the turn passes on its
-  own. A unit can still go down before the spell in the same turn.
+  own once the spell has finished asking for picks.
+- Both phases open with the player who **brought the battlefield**. Going first costs
+  information in each: on units you reveal intent a step ahead, in the battle you show a
+  spell and its target before the reply.
 
 Still genuinely open, and still a switch:
 
@@ -247,9 +270,11 @@ Cards speak in the first person. A unit describes its own ability — *„+1-et 
 szomszédos szövetséges Állat után."* A spell speaks as whoever is casting it — *„1-et
 sebzek egy egységbe."* — because a spell is, in effect, an ability the caster borrows.
 
-**Rakás** is the shared pile both players commit spells into during commitment. The
-thirty-card spell deck a player brings is the **varázslatpakli**. They are not the same
-thing and the UI never mixes them up.
+**Mustra** is the reveal step between the two phases. **Csata** is the battle phase that
+follows it. The thirty-card spell deck a player brings is the **varázslatpakli**; what
+has already been cast this location is shown as **elsült varázslatok**. There is no
+*rakás* any more — that was the face-down pile the old design committed spells into, and
+nothing in the engine plays that role now.
 
 ## Known gaps and judgement calls
 

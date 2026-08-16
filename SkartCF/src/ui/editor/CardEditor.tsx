@@ -511,7 +511,7 @@ function TriggerEditor({
         <button
           className="tiny"
           onClick={() =>
-            onChange([...value, { on: "onDeath", target: { scope: "self" }, effects: [] }])
+            onChange([...value, { on: "onLocationWon", target: { scope: "self" }, effects: [] }])
           }
         >
           + hozzáad
@@ -521,7 +521,8 @@ function TriggerEditor({
         <p className="faint">
           A Belépőn kívüli események. Az <code>onAllyMove</code> + <code>trigger</code> célzás +
           gyűrűadás együtt adja ki a Bodur kapitányt: a kapott erő akkor is megmarad, ha az
-          adományozó lekerül a tábláról.
+          adományozó lekerül a tábláról. A <code>onMustra</code> a felfedés pillanatában sül el,
+          amikor már minden egység lent van.
         </p>
       )}
       {value.map((trigger, i) => (
@@ -539,7 +540,10 @@ function TriggerEditor({
                   </option>
                 ))}
               </select>
-              <small>onDeath = Vigasz, onLocationWon = Diadal.</small>
+              <small>
+                Diadal = onLocationWon, Vigasz = onLocationLost. Egyik sem haláleffekt: azt
+                nézik, hogy az egység a csatatéren áll-e, amikor a csata eldől.
+              </small>
             </label>
             <label className="f">
               <span>Kit érint</span>

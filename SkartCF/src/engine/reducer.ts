@@ -6,12 +6,12 @@ import {
   cardOf,
   currentLocation,
   effectiveCost,
-  stackingBanned,
+  castingBanned,
   unitsOf,
 } from "./power";
 import {
   advanceResolution,
-  beginResolution,
+  beginCast,
   chooseHandCard,
   chooseSlot,
   fireBelepo,
@@ -125,16 +125,22 @@ function cardForbidsHiding(card: UnitCard): boolean {
 // ---------------------------------------------------------------------------
 
 /**
- * Returns an empty array when both of a player's flags are closed, and the turn
- * loop skips them rather than ending the phase. The phase ends only when all
- * four flags are true.
+ * Returns an empty array when the player has stopped in the phase that is
+ * running, and the turn loop skips them rather than ending the phase. Each
+ * phase ends only when both of its flags are down.
+ *
+ * The two flags belong to different phases now: `unitsClosed` gates the units
+ * phase, `spellsClosed` the battle. There is no longer a moment where both are
+ * live at once.
  */
 export function legalActions(state: GameState, player: PlayerId): Action[] {
   const out: Action[] = [];
 
-  if (state.phase === "spells") {
-    const pending = state.resolution?.pending;
-    if (!pending || pending.player !== player) return out;
+  // A spell in mid-resolution owns the whole turn: only the caster answers, and
+  // nothing else may be played until it has finished with the board.
+  const pending = state.resolution?.pending;
+  if (pending) {
+    if (pending.player !== player) return out;
     if (pending.kind === "handCard") {
       for (const c of pending.handOptions ?? []) {
         out.push({ type: "chooseHandCard", player, uid: c.uid });
@@ -150,52 +156,56 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
     return out;
   }
 
-  if (state.phase !== "commitment" || state.turn !== player) return out;
+  if (state.turn !== player) return out;
 
   const p = state.players[player];
-  const free = emptySlotsOf(state, player);
-  const cap = remainingCap(state, player);
-  const pile = playablePile(state, player);
 
-  if (!p.flags.unitsClosed && !state.turnActions.unitPlayed) {
-    for (const card of pile) {
-      const unitCard = getUnit(card.cardId);
-      if (effectiveCost(unitCard, state) > cap) continue;
-      const toll = hideCost(state, unitCard);
-      const canPay =
-        !cardForbidsHiding(unitCard) &&
-        !autoHidden(state, unitCard) &&
-        p.unitHand.filter((c) => c.uid !== card.uid).length >= toll;
-      for (const slot of free) {
-        if (!placementAllowed(state, unitCard, player, slot)) continue;
-        out.push({ type: "playUnit", player, uid: card.uid, slot });
-        if (canPay) {
-          const payment = p.unitHand.find((c) => c.uid !== card.uid);
-          if (payment) {
-            out.push({
-              type: "playUnit",
-              player,
-              uid: card.uid,
-              slot,
-              faceDown: true,
-              discardUid: payment.uid,
-            });
+  if (state.phase === "units") {
+    if (!p.flags.unitsClosed && !state.turnActions.unitPlayed) {
+      const free = emptySlotsOf(state, player);
+      const cap = remainingCap(state, player);
+      for (const card of playablePile(state, player)) {
+        const unitCard = getUnit(card.cardId);
+        if (effectiveCost(unitCard, state) > cap) continue;
+        const toll = hideCost(state, unitCard);
+        const canPay =
+          !cardForbidsHiding(unitCard) &&
+          !autoHidden(state, unitCard) &&
+          p.unitHand.filter((c) => c.uid !== card.uid).length >= toll;
+        for (const slot of free) {
+          if (!placementAllowed(state, unitCard, player, slot)) continue;
+          out.push({ type: "playUnit", player, uid: card.uid, slot });
+          if (canPay) {
+            const payment = p.unitHand.find((c) => c.uid !== card.uid);
+            if (payment) {
+              out.push({
+                type: "playUnit",
+                player,
+                uid: card.uid,
+                slot,
+                faceDown: true,
+                discardUid: payment.uid,
+              });
+            }
           }
         }
       }
     }
+    if (!p.flags.unitsClosed) out.push({ type: "declareUnitsDone", player });
+    out.push({ type: "endTurn", player });
+    return out;
   }
 
-  // Omen shuts the rakás for both players while it stands.
-  if (!p.flags.spellsClosed && !state.turnActions.spellPlayed && !stackingBanned(state)) {
-    for (const card of p.spellHand) {
-      out.push({ type: "stackSpell", player, uid: card.uid });
+  if (state.phase === "battle") {
+    // Omen stops anyone casting at all while it stands.
+    if (!p.flags.spellsClosed && !state.turnActions.spellPlayed && !castingBanned(state)) {
+      for (const card of p.spellHand) {
+        out.push({ type: "castSpell", player, uid: card.uid });
+      }
     }
+    if (!p.flags.spellsClosed) out.push({ type: "declareSpellsDone", player });
+    out.push({ type: "endTurn", player });
   }
-
-  if (!p.flags.unitsClosed) out.push({ type: "declareUnitsDone", player });
-  if (!p.flags.spellsClosed) out.push({ type: "declareSpellsDone", player });
-  out.push({ type: "endTurn", player });
 
   return out;
 }
@@ -210,23 +220,25 @@ export function applyAction(state: GameState, action: Action): GameState {
     case "playUnit":
       doPlayUnit(next, action);
       break;
-    case "stackSpell":
-      doStackSpell(next, action);
+    case "castSpell":
+      doCastSpell(next, action);
       break;
     case "declareUnitsDone":
-      if (next.phase === "commitment" && next.turn === action.player) {
+      if (next.phase === "units" && next.turn === action.player) {
         next.players[action.player].flags.unitsClosed = true;
         log(next, "Egységek: kész.", action.player);
       }
       break;
     case "declareSpellsDone":
-      if (next.phase === "commitment" && next.turn === action.player) {
+      if (next.phase === "battle" && next.turn === action.player) {
         next.players[action.player].flags.spellsClosed = true;
         log(next, "Varázslatok: kész.", action.player);
       }
       break;
     case "endTurn":
-      if (next.phase === "commitment" && next.turn === action.player) passTurn(next);
+      if ((next.phase === "units" || next.phase === "battle") && next.turn === action.player) {
+        passTurn(next);
+      }
       break;
     case "chooseSlot":
       chooseSlot(next, action.slot);
@@ -257,7 +269,7 @@ function takeFromPile(state: GameState, player: PlayerId, uid: string): HandCard
 }
 
 function doPlayUnit(state: GameState, action: Extract<Action, { type: "playUnit" }>): void {
-  if (state.phase !== "commitment" || state.turn !== action.player) return;
+  if (state.phase !== "units" || state.turn !== action.player) return;
   const p = state.players[action.player];
   if (p.flags.unitsClosed || state.turnActions.unitPlayed) return;
   if (ownerOfSlot(action.slot) !== action.player || state.board[action.slot]) return;
@@ -315,25 +327,29 @@ function doPlayUnit(state: GameState, action: Extract<Action, { type: "playUnit"
   if (!faceDown) fireBelepo(state, unit);
 }
 
-function doStackSpell(state: GameState, action: Extract<Action, { type: "stackSpell" }>): void {
-  if (state.phase !== "commitment" || state.turn !== action.player) return;
+/**
+ * A spell is played open in the battle phase and goes off on the spot. The turn
+ * does not pass here — `settle` releases it once the spell has stopped asking
+ * for picks, which may be several actions later.
+ */
+function doCastSpell(state: GameState, action: Extract<Action, { type: "castSpell" }>): void {
+  if (state.phase !== "battle" || state.turn !== action.player) return;
   const p = state.players[action.player];
   if (p.flags.spellsClosed || state.turnActions.spellPlayed) return;
-  if (stackingBanned(state)) return;
+  if (state.resolution) return; // one spell finishes before the next begins
+  if (castingBanned(state)) return;
   const index = p.spellHand.findIndex((c) => c.uid === action.uid);
   if (index === -1) return;
   const [card] = p.spellHand.splice(index, 1);
-  state.stack.push({
+  state.spellsCast.push({
     uid: card.uid,
     owner: action.player,
     cardId: card.cardId,
-    order: state.stack.length,
+    order: state.spellsCast.length,
   });
   state.turnActions.spellPlayed = true;
-  // Ownership and rakás height are public. Contents are not.
-  log(state, `Egy varázslat a rakásra (${state.stack.length}. hely).`, action.player);
-  // Nothing can follow a spell in the same turn, so the turn passes on its own.
-  passTurn(state);
+  log(state, `${getSpell(card.cardId).name} kijátszva.`, action.player);
+  beginCast(state, state.spellsCast.length - 1);
 }
 
 function passTurn(state: GameState): void {
@@ -345,65 +361,82 @@ function passTurn(state: GameState): void {
 // settle — auto-closing, phase transitions, skipping finished players
 // ---------------------------------------------------------------------------
 
-function autoCloseFlags(state: GameState): void {
+function autoCloseUnits(state: GameState): void {
   for (const id of PLAYERS) {
     const p = state.players[id];
-    if (!p.flags.unitsClosed) {
-      const boardFull = emptySlotsOf(state, id).length === 0;
-      const nothingAffordable = playablePile(state, id).length === 0;
-      if (boardFull || nothingAffordable) {
-        p.flags.unitsClosed = true;
-        log(state, boardFull ? "Egységek: kész (tele a rács)." : "Egységek: kész (üres kéz).", id);
-      }
-    }
-    if (!p.flags.spellsClosed && (p.spellHand.length === 0 || stackingBanned(state))) {
-      p.flags.spellsClosed = true;
-      log(state, "Varázslatok: kész (nincs mit tenni a rakásra).", id);
+    if (p.flags.unitsClosed) continue;
+    const boardFull = emptySlotsOf(state, id).length === 0;
+    const handEmpty = playablePile(state, id).length === 0;
+    if (boardFull || handEmpty) {
+      p.flags.unitsClosed = true;
+      log(state, boardFull ? "Egységek: kész (tele a rács)." : "Egységek: kész (üres kéz).", id);
     }
   }
 }
 
-function allFlagsClosed(state: GameState): boolean {
-  return PLAYERS.every((id) => {
-    const f = state.players[id].flags;
-    return f.unitsClosed && f.spellsClosed;
-  });
+function autoCloseSpells(state: GameState): void {
+  const banned = castingBanned(state);
+  for (const id of PLAYERS) {
+    const p = state.players[id];
+    if (p.flags.spellsClosed) continue;
+    if (p.spellHand.length === 0 || banned) {
+      p.flags.spellsClosed = true;
+      log(state, banned ? "Varázslatok: kész (nem lehet varázsolni)." : "Varázslatok: kész (üres kéz).", id);
+    }
+  }
 }
 
-function bothClosed(state: GameState, player: PlayerId): boolean {
-  const f = state.players[player].flags;
-  return f.unitsClosed && f.spellsClosed;
+const bothStopped = (state: GameState, flag: "unitsClosed" | "spellsClosed"): boolean =>
+  PLAYERS.every((id) => state.players[id].flags[flag]);
+
+/** Hands the turn on until it lands on somebody who can still act. */
+function skipStopped(state: GameState, flag: "unitsClosed" | "spellsClosed"): void {
+  let guard = 0;
+  while (state.players[state.turn].flags[flag] && guard++ < 4) passTurn(state);
 }
 
 export function settle(state: GameState): void {
   if (state.phase === "gameOver") return;
 
-  if (state.phase === "commitment") {
-    autoCloseFlags(state);
-    if (allFlagsClosed(state)) {
-      doReveal(state);
-      state.phase = "spells";
-      beginResolution(state);
-    } else {
-      // A player with both flags closed is skipped; the opponent keeps taking
-      // turns alone until every flag is down.
-      let guard = 0;
-      while (bothClosed(state, state.turn) && guard++ < 4) passTurn(state);
+  if (state.phase === "units") {
+    autoCloseUnits(state);
+    if (!bothStopped(state, "unitsClosed")) {
+      skipStopped(state, "unitsClosed");
+      return;
     }
+    runMustra(state);
   }
 
-  if (state.phase === "spells") {
-    if (state.resolution && !state.resolution.pending) {
+  if (state.phase === "battle") {
+    // A spell holds the turn until it has finished asking for picks.
+    if (state.resolution) {
+      if (state.resolution.pending) return;
       advanceResolution(state);
+      if (state.resolution.pending) return;
+      if (!resolutionFinished(state)) return;
+      state.resolution = null;
+      passTurn(state);
     }
-    if (resolutionFinished(state) && !state.resolution?.pending) {
+
+    autoCloseSpells(state);
+    if (bothStopped(state, "spellsClosed")) {
       scoreLocation(state);
+      return;
     }
+    skipStopped(state, "spellsClosed");
   }
 }
 
-function doReveal(state: GameState): void {
-  state.phase = "reveal";
+/**
+ * Mustra: every unit is down, the hidden ones turn face up, and the battle
+ * opens. A face-down unit's Belépő waited for this moment — that delay is the
+ * main reason to pay for hiding one. Mustra abilities fire here too, after
+ * every Belépő has landed, so Szarvas advances into a settled board.
+ */
+function runMustra(state: GameState): void {
+  state.phase = "mustra";
+  log(state, "Mustra — a rejtett egységek felfedve, jöhet a csata.");
+
   const hidden = ALL_SLOTS.map((s) => state.board[s])
     .filter((u): u is NonNullable<typeof u> => !!u && u.faceDown)
     .sort((a, b) => a.order - b.order);
@@ -411,10 +444,17 @@ function doReveal(state: GameState): void {
     unit.faceDown = false;
     log(state, `Felfedve: ${cardOf(unit).name} (${unit.slot}).`, unit.owner);
   }
-  // Belépő abilities of hidden units fire now, in placement order.
   for (const unit of hidden) {
     if (state.board[unit.slot]?.uid === unit.uid) fireBelepo(state, unit);
   }
+
+  fireTrigger(state, "onMustra", null, (text) => log(state, text));
+
+  state.phase = "battle";
+  // The player who brought the battlefield opens the battle too, same as the
+  // units phase — casting first now costs information rather than buying it.
+  state.turn = state.locations[state.locationIndex].broughtBy;
+  state.turnActions = { unitPlayed: false, spellPlayed: false };
 }
 
 function scoreLocation(state: GameState): void {
@@ -433,14 +473,14 @@ function scoreLocation(state: GameState): void {
       : `${name}: ${winner} nyeri (${t.p1}–${t.p2}).`,
   );
 
-  // Diadal fires for the winner only, before the board is cleared.
+  // Diadal and Vigasz are outcome triggers, not death triggers: they ask
+  // whether the unit is standing here when the location is decided, and fire
+  // for the winning side and the losing side respectively. A tied location
+  // fires neither, because nobody won and nobody lost.
   if (winner !== "void") {
-    for (const unit of unitsOf(state, winner)) {
-      for (const trigger of cardOf(unit).triggers ?? []) {
-        if (trigger.on !== "onLocationWon") continue;
-        runEffects(state, unit, winner, trigger.effects, [unit.slot], (text) => log(state, text, winner));
-      }
-    }
+    const loser = other(winner);
+    fireTrigger(state, "onLocationWon", null, (text) => log(state, text, winner), winner);
+    fireTrigger(state, "onLocationLost", null, (text) => log(state, text, loser), loser);
   }
 
   state.scores = scoreboard(state);
@@ -463,10 +503,10 @@ function startNextLocation(state: GameState): void {
     }
     state.board[slot] = null;
   }
-  for (const entry of state.stack) {
+  for (const entry of state.spellsCast) {
     state.players[entry.owner].discard.push({ uid: entry.uid, cardId: entry.cardId });
   }
-  state.stack = [];
+  state.spellsCast = [];
   state.placementCounter = 0;
 
   // No toss. You keep whatever you did not spend, and refill only what left.
@@ -495,7 +535,7 @@ function startNextLocation(state: GameState): void {
   }
 
   state.locationIndex = played;
-  state.phase = "commitment";
+  state.phase = "units";
   state.turn = state.locations[state.locationIndex].broughtBy;
   state.turnActions = { unitPlayed: false, spellPlayed: false };
   const loc = getLocation(state.locations[state.locationIndex].cardId);
@@ -550,17 +590,14 @@ function drawUpTo(hand: HandCard[], deck: HandCard[], size: number): void {
 // ---------------------------------------------------------------------------
 
 export function activePlayer(state: GameState): PlayerId | null {
-  if (state.phase === "commitment") return state.turn;
-  if (state.phase === "spells") return state.resolution?.pending?.player ?? null;
+  if (state.phase === "units" || state.phase === "battle") return state.turn;
   if (state.phase === "scored") return state.turn;
   return null;
 }
 
-export function stackDescription(
-  state: GameState,
-): { owner: PlayerId; revealed: boolean; cardId: string }[] {
-  const revealed = state.phase === "spells" || state.phase === "scored" || state.phase === "gameOver";
-  return state.stack.map((e) => ({ owner: e.owner, revealed, cardId: e.cardId }));
+/** Spells cast this location, in play order. All of them are public. */
+export function castDescription(state: GameState): { owner: PlayerId; cardId: string }[] {
+  return state.spellsCast.map((e) => ({ owner: e.owner, cardId: e.cardId }));
 }
 
 export function spellName(cardId: string): string {

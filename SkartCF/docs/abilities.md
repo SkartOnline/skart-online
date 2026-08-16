@@ -35,7 +35,7 @@ a Falanx, a Vérszomj, a Halálfélelem és a Csordaszellem nem igényel külön
 | `suppressOpposed` | `condition` | Vérfarkas |
 | `spellMod` | `what`, `amount`, `tag`, `school` | Explodus, Erif mester |
 | `freeCasts` | `count` | A Moirák |
-| `banStacking` | — | Omen |
+| `banCasting` | — | Omen |
 | `placementRule` | `requireAdjacentKeyword` | Papagáj |
 | `selfRestrict` | `restrict` | Némítás, Indák, Kötél, Szorítás, Elfeledés |
 | `powerOverride` | `mode`, `value` | Természetes forma, Enormorf |
@@ -53,7 +53,8 @@ Egyetlen feltétel-enum szolgálja ki a `powerBonus`-t és a `selfGrant`-ot:
 
 ## 2. Hatások (`effects`)
 
-Egyszer sülnek el: Belépőből, kiváltóból (`triggers`) vagy a rakásról.
+Egyszer sülnek el: Belépőből, kiváltóból (`triggers`), vagy egy kijátszott
+varázslatból a csata fázisban.
 
 ### Tábla-hatások
 `modifyPower`, `setPower`, `damage`, `destroy`, `massDestroy`, `move`,
@@ -88,16 +89,22 @@ A `TargetFilter` mezői: `keyword`, `keywords` (bármelyik), `notKeyword`,
 
 ## 3. Kiváltók (`triggers`)
 
-A Belépőn kívül négy esemény létezik. Ez teszi lehetővé a **gyűrűt**: olyan
+A Belépőn kívül öt esemény létezik. Ez teszi lehetővé a **gyűrűt**: olyan
 erőt, amit egy feltétel adott, és a megajándékozott akkor is megtartja, ha az
 adományozó már nincs a táblán.
 
 | Esemény | Lapok |
 |---|---|
-| `onDeath` (Vigasz) | Makacs élőhalott, Felix |
 | `onAnyDeath` | Temetkezési vállalkozó |
 | `onAllyMove` | **Bodur kapitány** — a mozgó szövetséges gyűrűt kap |
+| `onMustra` | Szarvas — a felfedéskor nyomul előre, kész táblára |
 | `onLocationWon` (Diadal) | Kincskereső |
+| `onLocationLost` (Vigasz) | Makacs élőhalott, Felix |
+
+**A Diadal és a Vigasz nem haláleffekt.** Mindkettő azt nézi, hogy az egység a
+csatatéren áll-e, amikor a csata eldől: a Diadal a győztesnek fizet, a Vigasz a
+vesztesnek. Döntetlennél egyik sem sül el, mert senki nem nyert és senki nem
+vesztett. Önálló „amikor meghalok" kiváltó szándékosan nincs.
 
 A `scope: "trigger"` célzás az eseményt kiváltó egységre mutat.
 
@@ -168,7 +175,7 @@ olvasható, de mechanikát nem kap. Mindegyik `note` hatással van megjelölve.
 
 | Lap | Miért |
 |---|---|
-| Fuedrax | csapdaként lehelyezett varázslat — új zóna kellene a rakás mellé |
+| Fuedrax | csapdaként lehelyezett varázslat — új zóna kellene a táblán |
 | Felix, a Hajnali Utas | átvitel a következő csatatérre, keret nélkül |
 | Gouraldir | a Három Ereklye lap nem létezik a készletben |
 | Griff, a hamiskártyás | kézcsere mindkét irányban, játékosi választással |

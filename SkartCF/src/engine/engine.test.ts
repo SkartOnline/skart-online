@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { BASE_CARD_SET, getSpell, getUnit, loadCardSet, validateCardSet } from "./cards";
 import { applyEffect, fireTrigger, makeUnitInstance, isBlocked } from "./effects";
+
+function other(player: PlayerId): PlayerId {
+  return player === "p1" ? "p2" : "p1";
+}
 import { ALL_SLOTS } from "./grid";
 import { basePower, cannotDie, isDead, power } from "./power";
 import { payingSchool } from "./resolve";
@@ -22,10 +26,10 @@ function blankState(locationId = "plazs"): GameState {
     board: board as GameState["board"],
     locations: [{ cardId: locationId, broughtBy: "p1", winner: null }],
     locationIndex: 0,
-    phase: "commitment",
+    phase: "units",
     turn: "p1",
     turnActions: { unitPlayed: false, spellPlayed: false },
-    stack: [],
+    spellsCast: [],
     resolution: null,
     placementCounter: 0,
     uidCounter: 0,
@@ -361,20 +365,19 @@ function firstAction<T extends Action["type"]>(
     | undefined;
 }
 
-describe("commitment phase", () => {
+describe("units phase", () => {
   it("starts with the player who brought the battlefield", () => {
     const state = newGame();
     expect(state.turn).toBe(state.locations[0].broughtBy);
   });
 
-  it("offers no actions to a player whose flags are both closed", () => {
+  it("offers no actions to a player who has stopped, and keeps the phase open", () => {
     let state = newGame();
     const first = state.turn;
     state = applyAction(state, { type: "declareUnitsDone", player: first });
-    state = applyAction(state, { type: "declareSpellsDone", player: first });
     expect(legalActions(state, first)).toEqual([]);
     expect(state.turn).not.toBe(first);
-    expect(state.phase).toBe("commitment");
+    expect(state.phase).toBe("units");
   });
 
   it("never lets a closed flag reopen", () => {
@@ -399,7 +402,7 @@ describe("commitment phase", () => {
     }
   });
 
-  it("runs a whole location to a score once both players stop", () => {
+  it("runs a whole location through both phases to a score", () => {
     let state = newGame();
     for (const player of ["p1", "p2"] as PlayerId[]) {
       const play = firstAction(state, player, "playUnit");
@@ -408,12 +411,15 @@ describe("commitment phase", () => {
     }
     for (const player of ["p1", "p2"] as PlayerId[]) {
       state = applyAction(state, { type: "declareUnitsDone", player });
-      state = applyAction(state, { type: "declareSpellsDone", player });
     }
-    expect(["scored", "spells"]).toContain(state.phase);
-    if (state.phase === "scored") {
-      expect(state.locations[0].winner).not.toBeNull();
+    expect(state.phase).toBe("battle");
+    for (const player of ["p1", "p2"] as PlayerId[]) {
+      if (!state.players[player].flags.spellsClosed) {
+        state = applyAction(state, { type: "declareSpellsDone", player });
+      }
     }
+    expect(state.phase).toBe("scored");
+    expect(state.locations[0].winner).not.toBeNull();
   });
 
   it("refuses to commit a unit into A Pék hídja's chasm", () => {
@@ -651,36 +657,203 @@ describe("sebzés", () => {
   });
 });
 
-describe("turn flow", () => {
-  it("passes the turn as soon as a spell goes on the rakás", () => {
+describe("phase flow", () => {
+  /** Closes both unit flags, carrying the location into the battle phase. */
+  function skipUnits(state: GameState): GameState {
+    for (const player of ["p1", "p2"] as PlayerId[]) {
+      state = applyAction(state, { type: "declareUnitsDone", player });
+    }
+    return state;
+  }
+
+  it("keeps spells out of the units phase entirely", () => {
+    const state = newGame();
+    expect(state.phase).toBe("units");
+    for (const player of ["p1", "p2"] as PlayerId[]) {
+      const moves = legalActions(state, player);
+      expect(moves.some((a) => a.type === "castSpell")).toBe(false);
+      expect(moves.some((a) => a.type === "declareSpellsDone")).toBe(false);
+    }
+  });
+
+  it("runs units then Mustra then battle, opening only once both stop", () => {
     let state = newGame();
+    const first = state.turn;
+    state = applyAction(state, { type: "declareUnitsDone", player: first });
+    expect(state.phase).toBe("units"); // one flag down is not enough
+    state = applyAction(state, { type: "declareUnitsDone", player: other(first) });
+    expect(state.phase).toBe("battle");
+    expect(state.log.some((l) => l.text.startsWith("Mustra"))).toBe(true);
+    // The battle opens with whoever brought the battlefield, same as the units.
+    expect(state.turn).toBe(state.locations[0].broughtBy);
+  });
+
+  it("offers units in the units phase and spells in the battle, never both", () => {
+    let state = newGame();
+    expect(legalActions(state, state.turn).some((a) => a.type === "playUnit")).toBe(true);
+    state = skipUnits(state);
+    expect(state.phase).toBe("battle");
+    const moves = legalActions(state, state.turn);
+    expect(moves.some((a) => a.type === "playUnit")).toBe(false);
+    expect(moves.some((a) => a.type === "castSpell")).toBe(true);
+  });
+
+  it("resolves a spell on the spot and then passes the turn", () => {
+    let state = newGame();
+    state = skipUnits(state);
     const player = state.turn;
-    const stack = legalActions(state, player).find((a) => a.type === "stackSpell");
-    expect(stack).toBeDefined();
-    state = applyAction(state, stack!);
-    expect(state.stack).toHaveLength(1);
+    const cast = legalActions(state, player).find((a) => a.type === "castSpell");
+    expect(cast).toBeDefined();
+    state = applyAction(state, cast!);
+    expect(state.spellsCast).toHaveLength(1);
+    // Nobody is on the board, so it fizzles for want of a caster and the turn
+    // moves on immediately instead of waiting for a separate resolution step.
+    expect(state.resolution).toBeNull();
     expect(state.turn).not.toBe(player);
   });
 
-  it("still lets a unit go down before the spell in the same turn", () => {
+  it("scores the location once both players stop casting", () => {
     let state = newGame();
-    const player = state.turn;
-    const play = firstAction(state, player, "playUnit");
-    state = applyAction(state, play!);
-    expect(state.turn).toBe(player);
-    const stack = legalActions(state, player).find((a) => a.type === "stackSpell");
-    state = applyAction(state, stack!);
-    expect(state.turn).not.toBe(player);
+    state = skipUnits(state);
+    for (const player of ["p1", "p2"] as PlayerId[]) {
+      state = applyAction(state, { type: "declareSpellsDone", player });
+    }
+    expect(state.phase).toBe("scored");
+    expect(state.locations[0].winner).toBe("void"); // two empty boards
   });
 
-  it("shuts the rakás while an Omen stands", () => {
+  it("stops anyone casting while an Omen stands", () => {
     const state = blankState();
-    state.players.p1.unitHand = [];
+    state.phase = "battle";
     state.players.p1.spellHand = [{ uid: "s1", cardId: "explar" }];
+    expect(legalActions(state, "p1").some((a) => a.type === "castSpell")).toBe(true);
+    place(state, "omen", "p2.B1");
+    expect(legalActions(state, "p1").some((a) => a.type === "castSpell")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Diadal and Vigasz are outcome triggers, not death triggers
+// ---------------------------------------------------------------------------
+
+describe("Diadal és Vigasz", () => {
+  /** An empty-handed board that settles straight through to a score. */
+  function arena(): GameState {
+    const state = blankState();
+    for (const id of ["p1", "p2"] as PlayerId[]) {
+      state.players[id].unitHand = [];
+      state.players[id].spellHand = [];
+    }
+    return state;
+  }
+
+  const settleOut = (state: GameState) =>
+    applyAction(state, { type: "endTurn", player: state.turn });
+
+  it("pays Diadal to a unit standing on a won location", () => {
+    const state = arena();
+    place(state, "kincskereso", "p1.F1"); // 1
+    place(state, "ogre", "p1.F2"); // 7, so p1 takes it
+    place(state, "patkany", "p2.F1"); // 1
+    const scored = settleOut(state);
+    expect(scored.locations[0].winner).toBe("p1");
+    expect(scored.players.p1.bonusDraw.units).toBe(1);
+    expect(scored.log.some((l) => l.text.includes("Diadal"))).toBe(true);
+  });
+
+  it("pays Vigasz to a unit standing on a lost location", () => {
+    const state = arena();
+    place(state, "makacs_elohalott", "p1.F1"); // 3
+    place(state, "ikerhidra", "p2.F1"); // 11, so p1 loses
+    const scored = settleOut(state);
+    expect(scored.locations[0].winner).toBe("p2");
+    expect(scored.log.some((l) => l.text.includes("Vigasz"))).toBe(true);
+    // It walks off the battlefield into the hand rather than the graveyard.
+    expect(scored.players.p1.unitHand.map((c) => c.cardId)).toContain("makacs_elohalott");
+    expect(scored.board["p1.F1"]).toBeNull();
+  });
+
+  it("gives Diadal nothing when its owner lost, and Vigasz nothing when it won", () => {
+    const lost = arena();
+    place(lost, "kincskereso", "p1.F1"); // 1
+    place(lost, "ikerhidra", "p2.F1"); // 11
+    const a = settleOut(lost);
+    expect(a.locations[0].winner).toBe("p2");
+    expect(a.players.p1.bonusDraw.units).toBe(0);
+
+    const won = arena();
+    place(won, "makacs_elohalott", "p1.F1"); // 3
+    place(won, "patkany", "p2.F1"); // 1
+    const b = settleOut(won);
+    expect(b.locations[0].winner).toBe("p1");
+    // It won, so it stays spent like anything else on the board.
+    expect(b.players.p1.unitHand).toHaveLength(0);
+  });
+
+  it("fires neither on a tie, because nobody won and nobody lost", () => {
+    const state = arena();
+    place(state, "kincskereso", "p1.F1"); // 1
+    place(state, "makacs_elohalott", "p1.F2"); // 3 → 4
+    place(state, "felindori_kardforgato", "p2.F1"); // 4
+    const scored = settleOut(state);
+    expect(scored.locations[0].winner).toBe("void");
+    expect(scored.players.p1.bonusDraw.units).toBe(0);
+    expect(scored.players.p1.unitHand).toHaveLength(0);
+  });
+
+  it("skips a unit that died before the count — Vigasz is not a death trigger", () => {
+    const state = arena();
+    place(state, "makacs_elohalott", "p1.F1");
+    place(state, "ikerhidra", "p2.F1");
+    applyEffect({ state, source: null, controller: "p2", log: noop }, { kind: "destroy" }, [
+      "p1.F1",
+    ]);
+    const scored = settleOut(state);
+    expect(scored.locations[0].winner).toBe("p2");
+    expect(scored.players.p1.unitHand).toHaveLength(0);
+    expect(scored.players.p1.discard.map((c) => c.cardId)).toContain("makacs_elohalott");
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe("Mustra", () => {
+  it("advances Szarvas at the reveal rather than on placement", () => {
+    const state = blankState();
+    state.players.p1.unitHand = [{ uid: "a", cardId: "szarvas" }];
+    state.players.p1.spellHand = [];
     state.players.p2.unitHand = [];
     state.players.p2.spellHand = [];
-    expect(legalActions(state, "p1").some((a) => a.type === "stackSpell")).toBe(true);
-    place(state, "omen", "p2.B1");
-    expect(legalActions(state, "p1").some((a) => a.type === "stackSpell")).toBe(false);
+
+    const after = applyAction(state, {
+      type: "playUnit",
+      player: "p1",
+      uid: "a",
+      slot: "p1.B2",
+    });
+    // The hand emptied, so units closed, Mustra ran, and Szarvas walked into the
+    // empty front slot keeping a ring for the tile it gained.
+    expect(after.board["p1.B2"]).toBeNull();
+    expect(after.board["p1.F2"]).not.toBeNull();
+    expect(after.board["p1.F2"]!.rings).toBe(1);
+    expect(after.log.some((l) => l.text.includes("Mustra"))).toBe(true);
+  });
+
+  it("leaves it put when the slot ahead is taken", () => {
+    const state = blankState();
+    state.players.p1.unitHand = [{ uid: "a", cardId: "szarvas" }];
+    state.players.p1.spellHand = [];
+    state.players.p2.unitHand = [];
+    state.players.p2.spellHand = [];
+    place(state, "ogre", "p1.F2");
+
+    const after = applyAction(state, {
+      type: "playUnit",
+      player: "p1",
+      uid: "a",
+      slot: "p1.B2",
+    });
+    expect(after.board["p1.B2"]).not.toBeNull();
+    expect(after.board["p1.B2"]!.rings).toBe(0);
   });
 });

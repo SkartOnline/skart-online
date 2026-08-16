@@ -76,8 +76,8 @@ export function playGame(
 }
 
 function actorOf(state: GameState): PlayerId | null {
-  if (state.phase === "commitment") return state.turn;
-  if (state.phase === "spells") return state.resolution?.pending?.player ?? null;
+  if (state.resolution?.pending) return state.resolution.pending.player;
+  if (state.phase === "units" || state.phase === "battle") return state.turn;
   if (state.phase === "scored") {
     return legalActions(state, "p1").length > 0 ? "p1" : "p2";
   }

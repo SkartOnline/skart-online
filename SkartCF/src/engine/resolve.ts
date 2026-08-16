@@ -31,20 +31,23 @@ import type {
   School,
   SlotId,
   SpellCard,
-  StackEntry,
+  CastEntry,
   UnitInstance,
 } from "./types";
 
 /**
- * Stack resolution cannot be one function call, because casters and targets are
- * chosen mid-resolution and the choosing player alternates unpredictably. So it
- * is a machine: the engine advances until it needs input, parks the request in
- * `state.resolution.pending`, and stops. The caller supplies a choice, the
- * engine applies it and advances again.
+ * Resolution cannot be one function call, because the caster and the target are
+ * chosen mid-resolution. So it is a machine: the engine advances until it needs
+ * input, parks the request in `state.resolution.pending`, and stops. The caller
+ * supplies a choice, the engine applies it and advances again.
  *
- * Fizzle is not a special case — it is simply "no viable caster", which
- * advances the index without asking anyone. That is what makes stacking a spell
- * you cannot cast a legal bluff rather than an error.
+ * Spells are played open in the battle phase and resolve on the spot, one per
+ * turn, so the machine normally runs over a single entry — the one just cast.
+ * It is still written as a cursor over `spellsCast` because that costs nothing
+ * and keeps the shape honest.
+ *
+ * Fizzle is not a special case — it is simply "no viable caster", which advances
+ * the cursor without asking anyone.
  */
 
 export function log(state: GameState, text: string, player?: PlayerId): void {
@@ -202,7 +205,7 @@ export function casterIsViable(state: GameState, spell: SpellCard, casterSlot: S
   return true;
 }
 
-export function viableCasters(state: GameState, entry: StackEntry): SlotId[] {
+export function viableCasters(state: GameState, entry: CastEntry): SlotId[] {
   const spell = getSpell(entry.cardId);
   return slotsOf(entry.owner).filter((slot) => casterIsViable(state, spell, slot));
 }
@@ -211,14 +214,15 @@ export function viableCasters(state: GameState, entry: StackEntry): SlotId[] {
 // The resolution machine
 // ---------------------------------------------------------------------------
 
-export function beginResolution(state: GameState): void {
-  state.resolution = { index: 0, pending: null, chosen: {} };
+/** Starts resolving the spell that was just cast. */
+export function beginCast(state: GameState, index: number): void {
+  state.resolution = { index, pending: null, chosen: {} };
   advanceResolution(state);
 }
 
-/** True once the whole stack has resolved. */
+/** True once the spell being resolved has finished with the board. */
 export function resolutionFinished(state: GameState): boolean {
-  return state.resolution !== null && state.resolution.index >= state.stack.length;
+  return state.resolution !== null && state.resolution.index >= state.spellsCast.length;
 }
 
 export function advanceResolution(state: GameState): void {
@@ -227,11 +231,11 @@ export function advanceResolution(state: GameState): void {
 
   // Guard against a malformed card producing an unsatisfiable request loop.
   for (let guard = 0; guard < 1000; guard++) {
-    if (res.index >= state.stack.length) {
+    if (res.index >= state.spellsCast.length) {
       res.pending = null;
       return;
     }
-    const entry = state.stack[res.index];
+    const entry = state.spellsCast[res.index];
     const spell = getSpell(entry.cardId);
 
     // 1. Caster.
@@ -318,7 +322,7 @@ export function advanceResolution(state: GameState): void {
       res.chosen.handCard = options[0].uid;
     }
 
-    applyStackEntry(state, entry, spell);
+    applyCastEntry(state, entry, spell);
     res.index += 1;
     res.chosen = {};
   }
@@ -327,7 +331,7 @@ export function advanceResolution(state: GameState): void {
 
 function request(
   kind: ChoiceRequest["kind"],
-  entry: StackEntry,
+  entry: CastEntry,
   spell: SpellCard,
   options: SlotId[],
   prompt: string,
@@ -342,7 +346,7 @@ function request(
   };
 }
 
-function applyStackEntry(state: GameState, entry: StackEntry, spell: SpellCard): void {
+function applyCastEntry(state: GameState, entry: CastEntry, spell: SpellCard): void {
   const res = state.resolution!;
   const caster = res.chosen.caster ? unitAt(state, res.chosen.caster) : null;
   if (!caster) {

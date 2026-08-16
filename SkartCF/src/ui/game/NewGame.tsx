@@ -45,8 +45,10 @@ export default function NewGame({
       <div className="casket timber">
         <h2>Ki áll ki ellen</h2>
         <p className="sub">
-          Mindkét oldalt te viszed. A lefordított egységeket és a rakás tartalmát a felület
-          eltakarja attól, aki épp nem lép — hogy a megállás döntése valódi maradjon.
+          Mindkét oldalt te viszed. Előbb az egységek mennek le, amíg mindketten meg nem
+          álltok, aztán jön a Mustra és a csata. A lefordított egységeket és a kézben
+          maradt lapokat a felület eltakarja attól, aki épp nem lép — hogy a megállás
+          döntése valódi maradjon.
         </p>
 
         <div className="pair">

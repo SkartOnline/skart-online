@@ -29,8 +29,6 @@ export interface PolicyParams {
   stopMargin: number;
   /** Chance of declaring units done once already ahead by the margin. */
   stopChance: number;
-  /** Chance of stacking a spell we currently have no caster for — the bluff line. */
-  bluffRate: number;
   /** Chance of paying a card to hide a unit when hiding is legal. */
   hideRate: number;
 }
@@ -38,7 +36,6 @@ export interface PolicyParams {
 export const DEFAULT_POLICY: PolicyParams = {
   stopMargin: 2,
   stopChance: 0.7,
-  bluffRate: 0.25,
   hideRate: 0.15,
 };
 
@@ -97,10 +94,13 @@ export function chooseAction(state: GameState, player: PlayerId, ctx: PolicyCont
   const options = legalActions(state, player);
   if (options.length === 0) return null;
 
-  if (state.phase === "spells") return chooseResolution(state, player, options);
+  // A spell mid-resolution asks its caster for picks; that is the only thing
+  // on offer while it is unfinished, in either phase.
+  if (state.resolution?.pending) return chooseResolution(state, player, options);
   if (state.phase === "scored") return { type: "nextLocation" };
+  if (state.phase === "battle") return chooseBattleAction(state, player, ctx, options);
 
-  return chooseCommitment(state, player, ctx, options);
+  return chooseUnitAction(state, player, ctx, options);
 }
 
 /**
@@ -122,7 +122,7 @@ function chooseResolution(state: GameState, player: PlayerId, options: Action[])
   return best;
 }
 
-function chooseCommitment(
+function chooseUnitAction(
   state: GameState,
   player: PlayerId,
   ctx: PolicyContext,
@@ -132,22 +132,19 @@ function chooseCommitment(
   const opponent = opponentOf(player);
 
   // What the opponent can actually see is what a real player reads: face-down
-  // units and the stack are outside the visible total on both sides.
-  const mine = boardTotal(state, player);
-  const theirs = visibleTotal(state, opponent);
-  const ahead = mine - theirs;
+  // units sit outside the visible total on both sides.
+  const ahead = boardTotal(state, player) - visibleTotal(state, opponent);
 
-  // Only one unit and one spell may go down per turn, so "no play offered" has
-  // two very different meanings. Having already played this turn means wait for
-  // the next one; not having played and still being offered nothing means the
-  // flag is dead weight and should come down.
+  // Only one unit may go down per turn, so "no play offered" has two very
+  // different meanings. Having already played this turn means wait for the next
+  // one; not having played and still being offered nothing means the flag is
+  // dead weight and should come down.
   if (!p.flags.unitsClosed && !state.turnActions.unitPlayed) {
     const plays = options.filter(
       (a): a is Extract<Action, { type: "playUnit" }> => a.type === "playUnit",
     );
-    if (plays.length === 0) {
-      return { type: "declareUnitsDone", player };
-    }
+    if (plays.length === 0) return { type: "declareUnitsDone", player };
+
     const wantToStop = ahead > ctx.params.stopMargin && roll(ctx) < ctx.params.stopChance;
     if (wantToStop) return { type: "declareUnitsDone", player };
 
@@ -157,33 +154,41 @@ function chooseCommitment(
     return bestPlacement(state, candidates.length ? candidates : plays);
   }
 
-  if (!p.flags.spellsClosed && !state.turnActions.spellPlayed) {
-    const stacks = options.filter(
-      (a): a is Extract<Action, { type: "stackSpell" }> => a.type === "stackSpell",
-    );
-    const castable = stacks.filter((a) => {
-      const card = p.spellHand.find((c) => c.uid === a.uid)!;
-      return canCastNow(state, player, card.cardId);
-    });
-    if (castable.length > 0) {
-      // Most expensive castable spell first; the points deplete in resolution
-      // order, so the big one has to go in while the pool is still full.
-      const sorted = castable.sort((a, b) => {
-        const cardA = p.spellHand.find((c) => c.uid === a.uid)!;
-        const cardB = p.spellHand.find((c) => c.uid === b.uid)!;
-        return getSpell(cardB.cardId).cost - getSpell(cardA.cardId).cost;
-      });
-      return sorted[0];
-    }
-    // A spell with no legal caster fizzles and does nothing, so stacking it is
-    // still worth something: the opponent has to price it as possibly Argeo.
-    if (stacks.length > 0 && roll(ctx) < ctx.params.bluffRate) {
-      return stacks[Math.floor(roll(ctx) * stacks.length)];
-    }
-    return { type: "declareSpellsDone", player };
-  }
-
   return { type: "endTurn", player };
+}
+
+/**
+ * Spells are played open and resolve on the spot, so there is nothing to bluff
+ * with any more: an uncastable spell fizzles in front of both players and buys
+ * nothing. The bot therefore casts what it can and stops when it cannot.
+ */
+function chooseBattleAction(
+  state: GameState,
+  player: PlayerId,
+  _ctx: PolicyContext,
+  options: Action[],
+): Action {
+  const p = state.players[player];
+  const casts = options.filter(
+    (a): a is Extract<Action, { type: "castSpell" }> => a.type === "castSpell",
+  );
+  const castable = casts.filter((a) => {
+    const card = p.spellHand.find((c) => c.uid === a.uid)!;
+    return canCastNow(state, player, card.cardId);
+  });
+  if (castable.length === 0) {
+    return p.flags.spellsClosed
+      ? { type: "endTurn", player }
+      : { type: "declareSpellsDone", player };
+  }
+  // Most expensive castable spell first: a caster's pool depletes as it spends,
+  // so the big one has to go while the pool is still full.
+  const sorted = castable.slice().sort((a, b) => {
+    const cardA = p.spellHand.find((c) => c.uid === a.uid)!;
+    const cardB = p.spellHand.find((c) => c.uid === b.uid)!;
+    return getSpell(cardB.cardId).cost - getSpell(cardA.cardId).cost;
+  });
+  return sorted[0];
 }
 
 function bestPlacement(

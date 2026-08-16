@@ -772,10 +772,10 @@ export function freeCastsLeft(unit: UnitInstance, state: GameState): number {
   return Math.max(0, total - unit.freeCastsUsed);
 }
 
-/** Omen shuts the rakás. */
-export function stackingBanned(state: GameState): boolean {
+/** Omen: while it stands, nobody casts anything. */
+export function castingBanned(state: GameState): boolean {
   return allUnitsOnBoard(state).some((u) =>
-    staticsOf(u, state).some((a) => a.kind === "banStacking"),
+    staticsOf(u, state).some((a) => a.kind === "banCasting"),
   );
 }
 

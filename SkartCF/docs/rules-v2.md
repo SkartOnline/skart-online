@@ -1,6 +1,6 @@
 # Skart 2 — Rules Standing (v2)
 
-Two-player tactical card game for a summer camp. Five-minute teach, no referee, no external trackers. You fight for locations one at a time by committing units under a cost cap while feeding a hidden spell stack, then the stack resolves and the boards are compared. No player HP, no lingering damage between locations.
+Two-player tactical card game for a summer camp. Five-minute teach, no referee, no external trackers. You fight for locations one at a time: units go down under a cost cap until both players stop, the board is revealed at Mustra, and then the battle opens and spells are traded openly until both players stop again. Then the boards are compared. No player HP, no lingering damage between locations.
 
 Supersedes the migration doc. Changes from v1 are marked (v2).
 
@@ -19,26 +19,21 @@ Locations are fought one at a time in that order. After six, whoever holds more 
 ## Core loop per location
 
 1. Reveal the location: cost cap plus effect.
-2. **Commitment.** Players alternate playing units and stacking spells until all four stop flags are closed. Belépő abilities fire as units land.
-3. **Reveal.** Hidden units are turned face-up and their Belépő abilities fire now.
-4. **Spell phase.** The committed spell stack resolves in play order.
+2. **Units.** Players alternate playing units until both unit flags are closed. Belépő abilities fire as units land.
+3. **Mustra.** (v3) Hidden units turn face-up and their Belépő abilities fire now. Mustra abilities fire here too, once every unit is down.
+4. **Battle.** (v3) Players alternate playing spells — open, resolving on the spot, one per turn — until both spell flags are closed.
 5. **Totaling.** Sum both boards against the final state and compare. Higher total takes the location. **Equal totals: nobody takes it.** (v2)
-6. Spent cards are gone. Draw both hands back up to 7.
+6. Diadal fires for the winner's surviving units, Vigasz for the loser's. (v3) Spent cards are gone. Draw both hands back up to 7.
 
 ---
 
-## The commitment phase (v2)
+## Stopping (v3)
 
 There is no passing. There is only **stopping**, and stopping is permanent for the rest of the location.
 
-Each player carries two independent flags, one for units and one for spells. Turns alternate. On your turn you may do any or all of the following:
+Each player carries two flags, one per phase. **(v3) They are no longer live at the same time:** the unit flag governs the units phase, the spell flag the battle, and the battle does not open until both unit flags are down.
 
-- play one unit to a slot, if your unit flag is still open
-- slide one spell face-down onto the shared stack, if your spell flag is still open
-- declare **units done**, closing your unit flag
-- declare **spells done**, closing your spell flag
-
-You may drop the two flags at the same time or many turns apart. Once a flag is closed you may never play that card type again this location, even if the opponent keeps going. A player with both flags closed is skipped, and the opponent keeps taking turns alone. The location ends when all four flags are closed.
+In the units phase, on your turn you may play one unit to a slot, or declare **units done**. In the battle phase you may play one spell, or declare **spells done**. Either way, a closed flag never reopens, and a player who has stopped is skipped while the opponent keeps taking turns alone.
 
 Committed unit costs must stay within the location's cost cap. The cap counts unit costs only. Spells are paid for out of spellpower at resolution, not out of the cap. (v2)
 
@@ -50,13 +45,15 @@ Because you can never re-enter, declaring units done tells the opponent exactly 
 
 This makes conceding a location cost something, which passing never did. It also makes overcommitting punishable: they can just stop below you and keep their cards.
 
-What stops this from being a solved arithmetic problem is that the visible total is not the real total. Hidden units and the unresolved stack both sit outside it. Stopping units at 14 against a visible 15 is fine if you have three spells still to come, and the opponent cannot know that.
+What stops this from being a solved arithmetic problem is that the visible total is not the real total. Hidden units sit outside it, and so does every spell still in hand. Stopping units at 14 against a visible 15 is fine if you have three spells to spend in the battle, and the opponent cannot know that. (v3) The spells are open once they are played, so the uncertainty is now entirely about what is still in hand rather than about a face-down pile.
 
-### Reading the two flags
+### Reading the two flags (v3)
 
-Declaring spells done is the louder announcement of the two, because it is the moment your board total stops being able to change. As long as either player has spells open, every number on the table is provisional.
+The two announcements now land in different phases, so they say different things.
 
-The order you drop the flags is therefore a tell. Closing units early while staying open on spells reads as a small board with a big stack, threatening to flip a losing total. That is the archmage line, and it works: a player with units closed still gets a turn every round to stack, so spell volume never depends on fielding bodies.
+Declaring units done tells the opponent what board they have to beat, and invites them to beat it by the smallest margin they can afford. Declaring spells done is the louder of the two, because it is the moment your total stops being able to change at all: as long as either player has spells open, every number on the table is provisional.
+
+Since spells resolve as they are played, the battle is a live trade rather than a sealed bid. Going first in the battle costs information — you show your spell and its target before they show theirs — which is the counterweight to going first on units.
 
 ### Automatic stops
 
@@ -69,7 +66,7 @@ Nothing else auto-closes. If you hold cards you cannot legally play, that is you
 
 ### Turn order
 
-The player who brought the current battlefield goes first. (v2) This is a mild cost on units, since you spend cap and reveal intent one step ahead, and a mild gain on spells, since you get the bottom of the stack and therefore the first resolution. The two roughly cancel.
+The player who brought the current battlefield goes first, in both phases. (v3) It is a mild cost either way: on units you spend cap and reveal intent one step ahead, and in the battle you show a spell and its target before they show theirs.
 
 ---
 
@@ -110,7 +107,7 @@ A unit may be committed face-down instead of face-up, at a cost paid in card att
 
 A face-down unit's identity, power and cost are all concealed. Its Belépő fires at reveal rather than on placement, which is the main reason to pay for hiding something like Bérgyilkos.
 
-Hiding does not protect against removal, since spell targets are chosen after reveal. What it buys is the earlier decision: the opponent cannot know whether stacking removal is worth it.
+Hiding does not protect against removal, since the battle only opens after Mustra. What it buys is the earlier decision: the opponent has to commit their own units without knowing what they are committing against.
 
 ### The price: discard one unit card from hand
 
@@ -122,9 +119,13 @@ It leaks nothing, needs no verification beyond watching a card go to the discard
 
 ## Unit abilities
 
-**Belépő** fires the moment the unit is placed, during the commitment phase. (v2, replaces Mustra) It is mandatory. Bérgyilkos placed into a column kills the weaker unit already sitting across from it, right now, in front of both players. On a hidden unit the Belépő fires at reveal instead.
+**Belépő** fires the moment the unit is placed, during the units phase. It is mandatory. Bérgyilkos placed into a column kills the weaker unit already sitting across from it, right now, in front of both players. On a hidden unit the Belépő fires at reveal instead.
 
 Because Belépő resolves live, holding a column empty against a known Bérgyilkos is a real defensive line, and it costs the defender a slot. The counter is to keep committing elsewhere and force them to spend it into nothing before they run out of cap.
+
+**Mustra** (v3) fires at the reveal step, after every unit is down and every Belépő has landed. It is the timing for abilities that want to read a finished board — Szarvas advances up its column here, into whatever gap the units phase left.
+
+**Diadal** and **Vigasz** (v3) are outcome abilities, not death triggers. Both ask whether the unit is still standing when the location is decided: Diadal pays out for the winner, Vigasz for the loser. A tied location fires neither, because nobody won and nobody lost.
 
 **Static abilities** are continuous and read at totaling. Pack bonuses, isolation bonuses, adjacency effects, Vérfarkas checking who is directly opposite. A kill mid-phase changes what the survivors read, so killing a unit can buff what is left, including your own.
 
@@ -134,19 +135,19 @@ Locked terminology: **szomszédos** is a shared edge (orthogonal). **Átlósan �
 
 ## Spells
 
-### The stack
+### The battle (v3)
 
-One shared stack. Both players commit into it during the commitment phase, interleaved in true play order. At combat the whole pile flips and resolves in play order, first played first. Cost has no bearing on resolution order.
+There is no stack. Spells are played in the battle phase, alternately, one per turn, **face up and resolving on the spot**. You nominate the caster and the target as you play it, it goes off, and the turn passes.
 
-Targets and casters are chosen at resolution, not at commit. A spell with no legal caster or no legal target is skipped and the next one resolves.
+A spell with no legal caster or no legal target fizzles where it stands and does nothing. That is now a straight loss rather than a bluff, so there is no reason to play a spell you cannot fund.
 
-The stack's height and ownership order are public. Its contents are not. With units open, this is where the entire information game now lives.
+Because the battle only opens after Mustra, every spell is aimed at a board both players can see in full. The uncertainty has moved: it is no longer a face-down pile, it is what is left in hand.
 
 ### Casting
 
 Any unit with enough spellpower of the right school can cast. The caster is not precommitted. Spell cost equals the spellpower required. (v2)
 
-No pooling: two units with 3 spellpower cannot fund a 6-cost spell. Points deplete across the stack in resolution order, so a mage who funds a 6-cost spell early has nothing left for the 1-cost spell you stacked behind it.
+No pooling: two units with 3 spellpower cannot fund a 6-cost spell. A caster's pool depletes as it spends, so a mage who funds a 6-cost spell early has nothing left for the 1-cost spell you wanted from it later. A spell may name more than one school, but the whole cost still comes out of a single pool.
 
 Range is measured from whichever caster you nominate.
 
@@ -188,13 +189,13 @@ Spell cards are smaller than unit cards. A unit holds a fan of unresolved spells
 
 Hand size 7, draw to 7. **There is no toss, automatic or optional.** (v2) You keep whatever you did not spend, and refill only what left your hand. This severs card advantage from board tempo: winning cheap refills fewer cards, so a cheap win never compounds.
 
-Each card type has its own outlet for cards you cannot use, and neither one is free. A dead unit pays for hiding another unit. A dead spell goes onto the stack as a bluff (below). Both cost one card and both buy the same thing, which is a decision the opponent has to make under uncertainty.
+A dead unit is not entirely dead: it pays for hiding another unit. (v3) A spell you cannot cast has no such outlet any more — with the battle played open, an unfundable spell is simply a card you keep.
 
-### Bluffing the stack
+### What replaced bluffing (v3)
 
-Not a rule, just how the rules already work, and it should be taught as the intended play. A spell with no legal caster fizzles at resolution and does nothing. So a spell you cannot cast is still worth stacking: the opponent watches an entry go face-down and has to price it as possibly Argeo. They may hold a unit back, spend a protection spell, or stop units earlier than they wanted.
+The old design let you slide an uncastable spell face-down purely to be priced as possibly Argeo. With the battle played open that line is gone: a spell you cannot fund fizzles in front of both players and buys nothing.
 
-This is how a splash-school hand or a spell you have no caster for gets cleared, and it is the symmetric partner to paying a unit card to hide a unit.
+What is left is a real decision about the caster you field. Spellpower is per-unit and school-locked, so the threat is legible from the board — everyone can see the Nekromanta and count what it can still pay for — and the only thing hidden is which spell is coming out of your hand.
 
 **Unit deck: 30 or 40, testing both.** (v2) Thirty makes every fight a supply decision and forces conceding a location to be a real choice. Forty lets kids actually play cards instead of hoarding them across an attrition war. Camp playtest decides.
 
@@ -243,7 +244,7 @@ Probing is the natural counter and should stay cheap. One unit committed to thei
 
 Reach-tools are sharpest on hostile turf. Swarm's count-scaling debuff is best against the few big units a value deck fields; value's efficiency is best on high caps.
 
-The hidden spell stack lets skill override the tilt.
+The battle phase lets skill override the tilt.
 
 Three rats on a location is supposed to be bad. They are fodder for AoE-buff and count-payoff units, not a winning play on their own. Swarm is a build-around, and whichever class owns cheap bodies owns the AoE payoffs.
 
@@ -267,6 +268,7 @@ Harcos, Mágus, Vaják, Zsivány, Bölcs, Garabonciás. Identity across three ax
 1. Does cheap movement kill positional AoE? A 1-cost slide dodging a 6-cost row-wipe every time it is read means AoE has to lean on power thresholds rather than rows.
 2. With a 7-card spell hand and open units, is removal now too consistent? The check is spellpower and the range map. If the best unit on the board always dies, tighten spellpower rather than range.
 3. Do spells feel co-equal with the army phase, or a side dish? Armies deciding most fights with spells swinging the close ones is healthy. Spells deciding everything makes unit commitment decorative.
+4. (v3) With the battle open and sequential, does going second in it become strictly better? Every spell now shows its target before the reply, so the last caster to stop has the final word. Watch whether players start racing to declare spells done last.
 
 ---
 
@@ -313,7 +315,7 @@ engine/
   types.ts        state, card, effect type definitions
   grid.ts         slot adjacency, range lookup
   reducer.ts      applyAction(state, action) => state
-  resolve.ts      spell stack resolution
+  resolve.ts      spell resolution machine
   effects.ts      one handler per effect type
   totaling.ts     final board sum
 data/
@@ -364,16 +366,15 @@ Every effect declares which one it reads, taken straight from the card text. Thr
 
 Build a twelve-node graph once: six own slots, six enemy slots, front rows edge-connected across the centerline. Edge is weight 1, corner is weight 2, then breadth-first search. Precompute the full 12x12 distance matrix at startup and index into it forever. Write the range table from the rules doc as a unit test.
 
-## The spell stack is the hard part
+## Spell resolution is the hard part
 
-Resolution cannot be a single function call, because targets and casters are chosen mid-resolution and the choosing player alternates unpredictably. Model it explicitly:
+Resolution cannot be a single function call, because targets and casters are chosen mid-resolution. Model it explicitly:
 
 ```ts
 type ResolutionState = {
-  queue: StackEntry[];
-  index: number;
-  awaiting: null | { player: PlayerId; entry: StackEntry; legalCasters: SlotId[]; legalTargets: SlotId[] };
-  board: Board;
+  index: number;   // cursor into spellsCast
+  pending: null | ChoiceRequest;
+  chosen: { caster?: SlotId; target?: SlotId; destination?: SlotId };
 };
 ```
 
@@ -383,14 +384,14 @@ Get this shape right at the start. Retrofitting it onto async calls is miserable
 
 ## Stop flags in state
 
-Four booleans, not a turn counter:
+Four booleans, not a turn counter — but (v3) only two of them are live at any moment:
 
 ```ts
 type Flags = { unitsClosed: boolean; spellsClosed: boolean };
 type Board = { p1: Flags; p2: Flags; /* ... */ };
 ```
 
-`legalActions(state, player)` returns an empty array when both of that player's flags are closed, and the turn loop skips them rather than ending the phase. The phase ends only when all four are true. Auto-closing (empty hand, six slots filled, empty spell hand) is checked after every action and applied by the engine, not the UI, so the simulator and the hotseat agree.
+`legalActions(state, player)` returns an empty array when the player has stopped in the phase that is running, and the turn loop skips them rather than ending the phase. The units phase ends when both `unitsClosed` are true, which runs Mustra and opens the battle; the battle ends when both `spellsClosed` are true, which scores the location. Auto-closing (empty hand, six slots filled, empty spell hand, an Omen on the board) is checked after every action and applied by the engine, not the UI, so the simulator and the hotseat agree.
 
 This is also the cleanest place to hang the AI policy hooks, since "when do I stop" is the single most important decision in the game and the one you most want to sweep across parameter values.
 

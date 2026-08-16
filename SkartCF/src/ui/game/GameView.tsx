@@ -68,14 +68,11 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   if (!state) return <NewGame onStart={begin} onLeave={onLeave} />;
 
   const pending = state.resolution?.pending ?? null;
-  const actor: PlayerId | null =
-    state.phase === "commitment"
+  const actor: PlayerId | null = pending
+    ? pending.player
+    : state.phase === "units" || state.phase === "battle" || state.phase === "scored"
       ? state.turn
-      : state.phase === "spells"
-        ? (pending?.player ?? null)
-        : state.phase === "scored"
-          ? state.turn
-          : null;
+      : null;
 
   return (
     <Field
@@ -118,11 +115,11 @@ function Field(props: FieldProps) {
 
   const open = useMemo(() => {
     const set = new Set<SlotId>();
-    if (state.phase === "spells" && pending && pending.kind !== "handCard") {
+    if (pending && pending.kind !== "handCard") {
       for (const slot of pending.options) set.add(slot);
       return set;
     }
-    if (state.phase === "commitment" && held) {
+    if (state.phase === "units" && held) {
       for (const m of moves) {
         if (m.type !== "playUnit" || m.uid !== held.uid) continue;
         if ((m.faceDown === true) !== held.veiled) continue;
@@ -134,11 +131,11 @@ function Field(props: FieldProps) {
   }, [state.phase, pending, held, moves]);
 
   function pickSlot(slot: SlotId) {
-    if (state.phase === "spells" && pending) {
+    if (pending) {
       send({ type: "chooseSlot", player: pending.player, slot });
       return;
     }
-    if (state.phase === "commitment" && held && actor) {
+    if (state.phase === "units" && held && actor) {
       send({
         type: "playUnit",
         player: actor,
@@ -168,7 +165,7 @@ function Field(props: FieldProps) {
         </div>
 
         <div className="rail">
-          <Rakas state={state} bare={bare} />
+          <CastLog state={state} />
           <Wells state={state} />
           <Chronicle state={state} />
         </div>
@@ -215,9 +212,10 @@ function Ledger({
   side: PlayerId;
   bare: boolean;
 }) {
-  // Mid-commitment the idle side only shows what is actually visible: a
-  // face-down unit contributes nothing to what the opponent can read.
-  const veiledFromUs = state.phase === "commitment" && !bare && state.turn !== side;
+  // While units are still going down, the idle side only shows what is actually
+  // visible: a face-down unit contributes nothing to what the opponent can read.
+  // From Mustra onwards everything is face up, so the real total is shown.
+  const veiledFromUs = state.phase === "units" && !bare && state.turn !== side;
   const sum = veiledFromUs ? visibleTotal(state, side) : boardTotal(state, side);
   const p = state.players[side];
   const left = remainingCap(state, side);
@@ -242,27 +240,30 @@ function Ledger({
   );
 }
 
-/** The shared pile both players commit into. Not the deck they brought. */
-function Rakas({ state, bare }: { state: GameState; bare: boolean }) {
-  const shown = state.phase !== "commitment" || bare;
+/**
+ * Spells cast this location, in play order. Nothing is concealed: a spell is
+ * played open in the battle phase and goes off on the spot, so this is a record
+ * of what already happened rather than a pile waiting to resolve.
+ */
+function CastLog({ state }: { state: GameState }) {
   const at = state.resolution?.index ?? -1;
   return (
     <div className="slab timber">
-      <h3>Rakás — {state.stack.length}</h3>
+      <h3>Elsült varázslatok — {state.spellsCast.length}</h3>
       <div className="scrolls">
         <ol className="pile">
-          {state.stack.map((entry, i) => {
-            const spent = state.phase !== "commitment" && i < at;
-            const now = state.phase === "spells" && i === at;
+          {state.spellsCast.map((entry, i) => {
+            const spell = getSpell(entry.cardId);
+            const now = i === at && !!state.resolution;
             return (
-              <li key={entry.uid} className={spent ? "spent" : now ? "now" : ""}>
+              <li key={entry.uid} className={now ? "now" : "spent"}>
                 <span className={`sigil ${entry.owner}`}>{entry.owner === "p1" ? "I" : "II"}</span>
-                {shown ? getSpell(entry.cardId).name : <span className="faint">lefordítva</span>}
-                {shown && <span className="coin">{getSpell(entry.cardId).cost}</span>}
+                {spell.name}
+                <span className="coin">{spell.cost}</span>
               </li>
             );
           })}
-          {state.stack.length === 0 && <li className="faint">üres</li>}
+          {state.spellsCast.length === 0 && <li className="faint">még egy sem</li>}
         </ol>
       </div>
     </div>
@@ -366,21 +367,26 @@ function Tray(props: FieldProps & { moves: Action[] }) {
   return (
     <div className="tray">
       <div className="tray-head">
-        {state.phase === "commitment" && actor && (
+        {!pending && (state.phase === "units" || state.phase === "battle") && actor && (
           <>
-            <span className={`turn ${actor}`}>{SIDE[actor]} lép</span>
-            <button
-              disabled={!can("declareUnitsDone")}
-              onClick={() => send({ type: "declareUnitsDone", player: actor })}
-            >
-              Egységek: kész
-            </button>
-            <button
-              disabled={!can("declareSpellsDone")}
-              onClick={() => send({ type: "declareSpellsDone", player: actor })}
-            >
-              Varázslatok: kész
-            </button>
+            <span className={`turn ${actor}`}>
+              {SIDE[actor]} lép — {state.phase === "units" ? "egységek" : "csata"}
+            </span>
+            {state.phase === "units" ? (
+              <button
+                disabled={!can("declareUnitsDone")}
+                onClick={() => send({ type: "declareUnitsDone", player: actor })}
+              >
+                Egységek: kész
+              </button>
+            ) : (
+              <button
+                disabled={!can("declareSpellsDone")}
+                onClick={() => send({ type: "declareSpellsDone", player: actor })}
+              >
+                Varázslatok: kész
+              </button>
+            )}
             <button
               className="ember"
               disabled={!can("endTurn")}
@@ -391,7 +397,7 @@ function Tray(props: FieldProps & { moves: Action[] }) {
           </>
         )}
 
-        {state.phase === "spells" && pending && (
+        {pending && (
           <span className={`turn ${pending.player}`}>
             {SIDE[pending.player]}: {pending.prompt}
           </span>
@@ -426,7 +432,7 @@ function Tray(props: FieldProps & { moves: Action[] }) {
         </span>
       </div>
 
-      {actor && state.phase === "commitment" && (
+      {actor && !pending && (state.phase === "units" || state.phase === "battle") && (
         <Hand state={state} player={actor} moves={moves} held={held} setHeld={setHeld} send={send} />
       )}
 
@@ -480,14 +486,17 @@ function Hand({
       .filter((m) => m.type === "playUnit" && m.faceDown)
       .map((m) => (m as { uid: string }).uid),
   );
-  const stackable = new Set(
-    moves.filter((m) => m.type === "stackSpell").map((m) => (m as { uid: string }).uid),
+  const castable = new Set(
+    moves.filter((m) => m.type === "castSpell").map((m) => (m as { uid: string }).uid),
   );
+  // Units are only shown while units are being played, spells only in battle —
+  // the two never compete for the tray any more.
+  const unitsPhase = state.phase === "units";
 
   return (
     <>
       <div className="fan">
-        {p.unitHand.map((c) => {
+        {unitsPhase && p.unitHand.map((c) => {
           const picked = held?.uid === c.uid;
           const cls = ["slip"];
           if (playable.has(c.uid)) cls.push("playable");
@@ -519,17 +528,17 @@ function Hand({
           );
         })}
 
-        {p.spellHand.map((c) => {
+        {!unitsPhase && p.spellHand.map((c) => {
           const spell = getSpell(c.cardId);
           const cls = ["slip", "rune"];
-          if (stackable.has(c.uid)) cls.push("playable");
+          if (castable.has(c.uid)) cls.push("playable");
           return (
             <button
               key={c.uid}
               className={cls.join(" ")}
-              disabled={!stackable.has(c.uid)}
-              onClick={() => send({ type: "stackSpell", player, uid: c.uid })}
-              title="A rakásra teszed, és ezzel a kör át is száll."
+              disabled={!castable.has(c.uid)}
+              onClick={() => send({ type: "castSpell", player, uid: c.uid })}
+              title="Kijátszod, azonnal elsül, és ezzel a kör át is száll."
             >
               <span className="title">{spell.name}</span>
               <span className="row">

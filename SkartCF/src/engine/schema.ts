@@ -257,9 +257,9 @@ export const STATIC_SPECS: KindSpec[] = [
     fields: [{ name: "count", type: "number", label: "Hány darab", default: 3, min: 1 }],
   },
   {
-    kind: "banStacking",
-    label: "Rakás lezárása",
-    summary: "Amíg a táblán van, senki nem tehet varázslatot a rakásra. Ez az Omen.",
+    kind: "banCasting",
+    label: "Varázslás betiltása",
+    summary: "Amíg a táblán van, senki nem játszhat ki varázslatot. Ez az Omen.",
     fields: [],
   },
   {
@@ -877,10 +877,11 @@ export const AUTO_TARGET_SCOPES = [
 export const AUTO_TARGET_PICKS = ["all", "weakest", "strongest", "highestSpellpower"] as const;
 
 export const TRIGGER_EVENTS = [
-  "onDeath",
   "onAnyDeath",
   "onAllyMove",
+  "onMustra",
   "onLocationWon",
+  "onLocationLost",
   "onLocationStart",
 ] as const;
 

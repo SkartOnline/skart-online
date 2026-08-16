@@ -131,13 +131,20 @@ export interface AutoTargetSpec {
 // ---------------------------------------------------------------------------
 
 export type TriggerEvent =
-  /** Vigasz. */
-  | "onDeath"
+  /** Fires on every unit still standing when any unit dies. */
   | "onAnyDeath"
   /** Bodur kapitány. */
   | "onAllyMove"
-  /** Diadal. */
+  /**
+   * Diadal and Vigasz. Neither is a death trigger: both check whether the unit
+   * is standing on the battlefield when the location is decided, and fire for
+   * the winning side and the losing side respectively. A tied location fires
+   * neither, because nobody won and nobody lost.
+   */
   | "onLocationWon"
+  | "onLocationLost"
+  /** The reveal step, after every unit is down. Szarvas advances here. */
+  | "onMustra"
   | "onLocationStart";
 
 export interface Trigger {
@@ -356,7 +363,12 @@ export interface UnitInstance {
   claimedBy?: PlayerId;
 }
 
-export interface StackEntry {
+/**
+ * A spell that has been cast this location. Spells are played open in the
+ * battle phase and resolve on the spot, so this is a record of what happened
+ * rather than a pile waiting to go off.
+ */
+export interface CastEntry {
   uid: string;
   owner: PlayerId;
   cardId: string;
@@ -386,10 +398,18 @@ export interface PlayerState {
   bonusDraw: { units: number; spells: number };
 }
 
+/**
+ * One location runs: units → Mustra → battle → scored.
+ *
+ * Units go down alternately until both players stop. Mustra flips the hidden
+ * ones and is where Mustra abilities fire. Only then does the battle open, and
+ * spells are played alternately — open, resolving on the spot — until both
+ * players stop. Then the boards are summed.
+ */
 export type Phase =
-  | "commitment"
-  | "reveal"
-  | "spells"
+  | "units"
+  | "mustra"
+  | "battle"
   | "scored"
   | "gameOver";
 
@@ -453,9 +473,11 @@ export interface GameState {
   locationIndex: number;
   phase: Phase;
   turn: PlayerId;
-  /** One unit and one spell may be committed per turn. */
+  /** One unit per turn in the units phase, one spell per turn in the battle. */
   turnActions: { unitPlayed: boolean; spellPlayed: boolean };
-  stack: StackEntry[];
+  /** Spells cast this location, in play order. All of them are public. */
+  spellsCast: CastEntry[];
+  /** Non-null only while the spell just cast is still asking for picks. */
   resolution: ResolutionState | null;
   placementCounter: number;
   uidCounter: number;
@@ -470,7 +492,7 @@ export interface GameState {
 
 export type Action =
   | { type: "playUnit"; player: PlayerId; uid: string; slot: SlotId; faceDown?: boolean; discardUid?: string }
-  | { type: "stackSpell"; player: PlayerId; uid: string }
+  | { type: "castSpell"; player: PlayerId; uid: string }
   | { type: "declareUnitsDone"; player: PlayerId }
   | { type: "declareSpellsDone"; player: PlayerId }
   | { type: "endTurn"; player: PlayerId }
