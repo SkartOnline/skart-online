@@ -147,14 +147,15 @@ export default function CollectionManager({ cardSet, overlay, onChange, onLeave 
             {slice.map((card) => {
               const have = held(card);
               const limit = copyLimit((card as UnitCard).rarity);
+              // Never disabled: a greyed-out button would take the whole card
+              // down with it. A card at its copy limit is dimmed instead, and
+              // clicking it simply does nothing.
+              const room = !!open && have < limit;
               return (
-                <div
-                  className={`gallery-slot reveals${have >= limit ? " full" : ""}`}
-                  key={card.id}
-                >
+                <div className={`gallery-slot${room ? "" : " full"}`} key={card.id}>
                   <button
-                    onClick={() => bump(card, 1)}
-                    disabled={!open || have >= limit}
+                    className={room ? "addable" : ""}
+                    onClick={() => room && bump(card, 1)}
                     aria-label={card.name}
                   >
                     <CardFace card={card} className={isSpell(card) ? "spell" : ""} />

@@ -495,7 +495,6 @@ code {
   min-width: 0;
 }
 .gallery-grid {
-  --card-w: clamp(120px, min(calc((100vw - 430px) / 4.4), calc(31dvh * 63 / 88)), 250px);
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   grid-template-rows: repeat(2, auto);
@@ -503,8 +502,14 @@ code {
   place-content: center;
   place-items: center;
   min-height: 0;
+  overflow: hidden;
 }
+/* The width has to be set on the card itself: `.cardface` declares its own
+   --card-w, so a value inherited from an ancestor would never win. Two rows of
+   cards at 88/63 have to clear the sieve and the crossbar, which is what the
+   dvh term pays for. */
 .gallery-grid .cardface {
+  --card-w: clamp(104px, min(calc((100vw - 400px) / 4.2), calc((100dvh - 168px) * 63 / 176)), 250px);
   cursor: pointer;
   transition: transform 110ms, border-color 110ms;
 }
@@ -519,13 +524,19 @@ code {
   padding: 0;
   display: grid;
   place-items: center;
+  cursor: default;
 }
-.gallery-slot .cardface:hover {
+.gallery-slot > button.addable {
+  cursor: pointer;
+}
+.gallery-slot > button.addable:hover .cardface {
   border-color: var(--ember);
   transform: translateY(-3px);
 }
+/* Dim the card, never the button: `button:disabled` would take the whole face
+   down to a third of its opacity and the art would read as see-through. */
 .gallery-slot.full .cardface {
-  filter: grayscale(0.55) brightness(0.62);
+  filter: grayscale(0.5) brightness(0.68);
 }
 .gallery-slot .have {
   position: absolute;
@@ -725,70 +736,207 @@ code {
 
 /* ------------------------------------------------------------ the play area */
 
+/* Three columns: a rail, the board, a rail. Nothing crosses the screen
+   horizontally, because a bar across the top costs the board a row of tiles
+   while a column down the side costs it nothing. */
 .field {
+  --rail: 166px;
   position: relative;
   height: 100dvh;
   overflow: hidden;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-columns: var(--rail) minmax(0, 1fr) var(--rail);
   background-color: var(--oak-deep);
   background-image:
-    radial-gradient(70% 44% at 50% 46%, rgba(232, 129, 31, 0.16), transparent 68%),
+    radial-gradient(70% 44% at 50% 48%, rgba(232, 129, 31, 0.17), transparent 68%),
     var(--planks);
 }
 
-.banner {
+.rail-left,
+.rail-right {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  min-height: 0;
+  overflow: hidden;
+}
+.rail-left {
+  border-right: 1px solid rgba(116, 82, 44, 0.5);
+}
+.rail-right {
+  border-left: 1px solid rgba(116, 82, 44, 0.5);
+}
+.rail-gap {
+  flex: 1;
+}
+.rail-top {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 6px 14px;
-  border-bottom: 1px solid var(--iron);
-  background: linear-gradient(180deg, var(--oak-lit), var(--oak-deep));
-  z-index: 6;
+  justify-content: space-between;
+  gap: 6px;
 }
-.banner h2 {
-  font-size: 20px;
-}
-.banner .cap {
-  color: var(--flame);
-  font-variant-caps: small-caps;
-}
-.banner .tally {
-  margin-left: auto;
+.rail-top .score {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-size: 25px;
+  gap: 4px;
+  font-size: 20px;
   font-weight: 600;
-  font-variant-numeric: tabular-nums;
 }
-.banner .tally .p1 {
+.rail-top .score .p1 {
   color: var(--brass);
 }
-.banner .tally .p2 {
+.rail-top .score .p2 {
   color: var(--blood);
 }
 
-.field-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 246px;
-  gap: 10px;
-  padding: 4px 10px;
-  min-height: 0;
-  min-width: 0;
+.cardface.battlefield {
+  --card-w: 150px;
+  align-self: center;
+}
+.rail-note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: 12px;
+  color: var(--ash);
+  font-variant-caps: small-caps;
+}
+.rail-note .cap {
+  color: var(--flame);
+}
+.rail-tools {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
 }
 
-/* The board owns the middle. The hands hang off the top and bottom edges and
-   are excluded from the grid, so nothing they do can shrink it. */
+/* ------------------------------------------------------- player counters */
+
+.counters {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 8px;
+  background: rgba(23, 15, 8, 0.55);
+  border: 1px solid var(--iron);
+}
+.counters.p1 {
+  border-left: 3px solid var(--brass);
+}
+.counters.p2 {
+  border-left: 3px solid var(--blood);
+}
+.counters .who {
+  font-weight: 600;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.04em;
+}
+.counters .total {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--flame);
+}
+.counters .total em {
+  font-style: normal;
+  font-size: 11px;
+  font-variant-caps: small-caps;
+  color: var(--ash-dim);
+}
+.counters .cap-meter {
+  font-size: 12px;
+  font-variant-caps: small-caps;
+  color: var(--ash);
+}
+.counters .cap-meter b {
+  color: var(--tallow);
+  font-size: 14px;
+}
+.counters .flags {
+  display: flex;
+  gap: 5px;
+  font-size: 11px;
+  font-variant-caps: small-caps;
+}
+.counters .flags .shut {
+  color: var(--ash-dim);
+  text-decoration: line-through;
+}
+.counters .flags .open {
+  color: var(--sprout);
+}
+
+/* A deck or the graveyard: a stack silhouette with its depth on it. */
+.piles {
+  display: flex;
+  gap: 6px;
+}
+.pile-icon {
+  position: relative;
+  width: 30px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--iron);
+  box-shadow: 2px 2px 0 -1px var(--oak-pitch), 4px 4px 0 -2px var(--iron);
+}
+.pile-icon > b {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--tallow);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+.pile-icon.unit {
+  background: linear-gradient(160deg, #6d4423, #40260f);
+}
+.pile-icon.spell {
+  background: linear-gradient(160deg, #46375c, #241a33);
+}
+.pile-icon.grave {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(8, 5, 3, 0.9) 0 5px,
+    rgba(60, 40, 24, 0.9) 5px 10px
+  );
+  cursor: help;
+}
+.pile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: max-content;
+  max-width: 230px;
+  max-height: 60dvh;
+  overflow: hidden;
+  padding: 6px 9px;
+  background: #180f08;
+  background-image: var(--grain);
+  border: 1px solid var(--iron);
+  font-size: 12px;
+  color: var(--parchment);
+}
+.pile-list em {
+  font-style: normal;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ arena */
+
+/* The hands hang off the top and bottom edges and are excluded from the grid,
+   so nothing they do can shrink the board. */
 .arena {
   position: relative;
   display: grid;
-  grid-template-rows: auto auto auto;
   align-content: center;
-  justify-items: stretch;
-  gap: 4px;
-  padding: 78px 0 96px;
+  justify-items: center;
+  padding: 60px 4px 90px;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
@@ -796,22 +944,24 @@ code {
 
 /* ---------------------------------------------------------------- the grid */
 
+/* Four rows of tiles plus the centre line have to clear both hands. Solving
+   that for the tile width is what the dvh term is: 3*tile + chrome <= height. */
 .grids {
-  --tile: clamp(96px, min(calc((100vw - 340px) / 3.35), 17.5dvh), 250px);
+  --tile: clamp(96px, min(calc((100vw - 2 * var(--rail) - 40px) / 3), calc((100dvh - 262px) / 3)), 320px);
   display: grid;
   grid-template-rows: auto auto auto;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   min-height: 0;
 }
 .side {
   display: grid;
-  gap: 6px;
+  gap: 5px;
 }
 .rank {
   display: grid;
   grid-template-columns: repeat(3, var(--tile));
-  gap: 6px;
+  gap: 5px;
 }
 
 .line {
@@ -820,8 +970,10 @@ code {
   gap: 12px;
   color: var(--ash-dim);
   font-variant-caps: small-caps;
-  font-size: 12px;
-  margin: 2px 0;
+  font-size: 10px;
+  line-height: 1;
+  height: 10px;
+  margin: 0;
 }
 .line::before,
 .line::after {
@@ -939,8 +1091,8 @@ code {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 5px 3px;
-  min-height: 24px;
+  padding: 1px 5px 2px;
+  min-height: 20px;
   border-top: 1px solid rgba(116, 82, 44, 0.5);
 }
 .tile-foot .cf-pips {
@@ -1034,91 +1186,30 @@ code {
   padding: 6px;
 }
 
-/* ------------------------------------------------------------------- rails */
+/* --------------------------------------------------- the chronicle overlay */
 
-.ledger {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  padding: 2px 10px;
-  font-size: 13px;
-  border: 1px solid var(--iron);
-  background: rgba(23, 15, 8, 0.6);
-  justify-self: center;
-  min-width: min(560px, 90%);
-}
-.ledger.p1 {
-  border-left: 3px solid var(--brass);
-}
-.ledger.p2 {
-  border-left: 3px solid var(--blood);
-}
-.ledger .sum {
-  font-size: 19px;
-  font-weight: 600;
-  color: var(--flame);
-  font-variant-numeric: tabular-nums;
-}
-.ledger .shut {
-  color: var(--ash-dim);
-  text-decoration: line-through;
-}
-.ledger .open {
-  color: var(--sprout);
-}
-.ledger .who {
-  font-weight: 600;
-  min-width: 76px;
-}
-
-.rail {
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 8px;
-  min-height: 0;
-  min-width: 0;
-  z-index: 5;
-}
-.slab {
-  padding: 7px 10px;
-  min-height: 0;
+.chronicle-panel {
+  position: absolute;
+  left: calc(var(--rail) + 10px);
+  top: 10px;
+  bottom: 10px;
+  z-index: 30;
+  width: min(340px, 34vw);
   display: flex;
   flex-direction: column;
+  gap: 6px;
+  padding: 9px 11px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--iron) transparent;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
 }
-.slab > h3 {
-  font-size: 13px;
+.chronicle-panel .rail-top b {
   font-variant-caps: small-caps;
   letter-spacing: 0.04em;
   color: var(--ember);
-  margin-bottom: 4px;
-  flex: none;
-}
-.scrolls {
-  overflow-y: auto;
-  min-height: 0;
-  scrollbar-width: thin;
-  scrollbar-color: var(--iron) transparent;
 }
 
-.pile {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  font-size: 13px;
-}
-.pile li {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 1px 0;
-  border-bottom: 1px solid rgba(116, 82, 44, 0.32);
-}
-.pile li.spent {
-  opacity: 0.45;
-}
-.pile li.now {
-  color: var(--flame);
-}
 .sigil {
   flex: none;
   width: 16px;
@@ -1135,31 +1226,6 @@ code {
 .sigil.p2 {
   color: var(--blood);
   border-color: var(--blood);
-}
-.pile .coin {
-  margin-left: auto;
-  color: var(--ash);
-  font-variant-numeric: tabular-nums;
-}
-
-.wells {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  font-size: 13px;
-}
-.wells li {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 1px 0;
-}
-.well {
-  color: var(--frost);
-  border: 1px solid var(--frost-deep);
-  padding: 0 4px;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
 }
 
 .chronicle {
@@ -1181,8 +1247,8 @@ code {
    bottom of the screen until you reach for it; the far hand shows only backs. */
 .hand-rail {
   position: absolute;
-  left: 0;
-  right: 246px;
+  left: var(--rail);
+  right: var(--rail);
   z-index: 8;
   display: flex;
   justify-content: center;
@@ -1192,7 +1258,7 @@ code {
 }
 .hand-rail.near {
   bottom: 0;
-  transform: translateY(38%);
+  transform: translateY(44%);
   transition: transform 160ms ease-out;
 }
 .hand-rail.near:hover {
@@ -1201,7 +1267,7 @@ code {
 .hand-rail.far {
   top: 0;
   align-items: flex-start;
-  transform: translateY(-58%);
+  transform: translateY(-62%);
 }
 
 .hand-group {
@@ -1230,7 +1296,7 @@ code {
   cursor: default;
 }
 .hand-slot .cardface {
-  --card-w: 118px;
+  --card-w: 108px;
   pointer-events: none;
   box-shadow: 0 5px 14px rgba(0, 0, 0, 0.55);
 }
@@ -1273,8 +1339,8 @@ code {
 /* The far hand: backs only, units and spells cut differently. */
 .cardback {
   display: block;
-  width: 118px;
-  height: calc(118px * 88 / 63);
+  width: 108px;
+  height: calc(108px * 88 / 63);
   border: 1px solid var(--oak-pitch);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
@@ -1289,34 +1355,33 @@ code {
     linear-gradient(160deg, #46375c, #241a33);
 }
 
-/* The status bar sits under the banner, well clear of both fans. */
-.statusbar {
+/* The turn cue floats over the board, just clear of the near fan. It is the
+   only chrome the board tolerates, so it stays to one line. */
+.turn-cue {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 5px 14px;
-  font-size: 14px;
-  border-bottom: 1px solid rgba(116, 82, 44, 0.55);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 6px 8px;
+  font-size: 12.5px;
   background: rgba(23, 15, 8, 0.72);
-  z-index: 6;
+  border: 1px solid var(--iron);
 }
-.statusbar .turn {
+.turn-cue:empty {
+  display: none;
+}
+.turn-cue .turn {
   font-weight: 600;
-  font-size: 15px;
+  font-size: 13px;
+  line-height: 1.2;
 }
-.statusbar .turn.p1 {
+.turn-cue .turn.p1 {
   color: var(--brass);
 }
-.statusbar .turn.p2 {
+.turn-cue .turn.p2 {
   color: var(--blood);
 }
-.statusbar .right {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+
 .channel {
   padding: 1px 8px;
   font-size: 13px;
@@ -1355,7 +1420,7 @@ code {
 .toll {
   position: absolute;
   left: 50%;
-  bottom: 52px;
+  bottom: 96px;
   transform: translateX(-50%);
   z-index: 13;
   display: flex;
@@ -1666,23 +1731,14 @@ code {
 /* ------------------------------------------------------------------ narrow */
 
 @media (max-width: 1180px) {
-  .field-body {
-    grid-template-columns: minmax(0, 1fr);
+  .field {
+    --rail: 132px;
   }
-  .rail {
-    display: none;
-  }
-  .hand-rail {
-    right: 0;
-  }
-  .grids {
-    --tile: clamp(88px, min(calc((100vw - 60px) / 3.2), 17dvh), 250px);
+  .gallery-grid .cardface {
+    --card-w: clamp(84px, min(calc((100vw - 340px) / 4.2), calc((100dvh - 168px) * 63 / 176)), 250px);
   }
   .vault-body {
     grid-template-columns: minmax(0, 1fr) 280px;
-  }
-  .gallery-grid {
-    grid-template-columns: repeat(3, 1fr);
   }
   .shelf {
     grid-template-columns: 1fr;
