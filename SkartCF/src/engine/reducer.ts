@@ -131,6 +131,9 @@ function cardForbidsHiding(card: UnitCard): boolean {
  * running, and the turn loop skips them rather than ending the phase. Each
  * phase ends only when both of its flags are down.
  *
+ * There is no passing. Playing ends your turn on its own, so the only other
+ * thing on offer is stopping, which is permanent for the rest of the location.
+ *
  * The two flags belong to different phases now: `unitsClosed` gates the units
  * phase, `spellsClosed` the battle. There is no longer a moment where both are
  * live at once.
@@ -196,7 +199,6 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
       }
     }
     if (!p.flags.unitsClosed) out.push({ type: "declareUnitsDone", player });
-    out.push({ type: "endTurn", player });
     return out;
   }
 
@@ -219,7 +221,6 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
       }
     }
     if (!p.flags.spellsClosed) out.push({ type: "declareSpellsDone", player });
-    out.push({ type: "endTurn", player });
   }
 
   return out;
@@ -251,11 +252,6 @@ export function applyAction(state: GameState, action: Action): GameState {
       if (next.phase === "battle" && next.turn === action.player) {
         next.players[action.player].flags.spellsClosed = true;
         log(next, "Varázslatok: kész.", action.player);
-      }
-      break;
-    case "endTurn":
-      if ((next.phase === "units" || next.phase === "battle") && next.turn === action.player) {
-        passTurn(next);
       }
       break;
     case "chooseSlot":

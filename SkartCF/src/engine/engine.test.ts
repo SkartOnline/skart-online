@@ -408,7 +408,6 @@ describe("units phase", () => {
     for (const player of ["p1", "p2"] as PlayerId[]) {
       const play = firstAction(state, player, "playUnit");
       if (play && state.turn === player) state = applyAction(state, play);
-      state = applyAction(state, { type: "endTurn", player });
     }
     for (const player of ["p1", "p2"] as PlayerId[]) {
       state = applyAction(state, { type: "declareUnitsDone", player });
@@ -756,6 +755,15 @@ describe("phase flow", () => {
     expect(legalActions(state, "p1").some((a) => a.type === "castSpell")).toBe(false);
   });
 
+  it("offers no way to pass, only to stop", () => {
+    const state = newGame();
+    const moves = legalActions(state, state.turn);
+    expect(moves.some((m) => m.type === "playUnit")).toBe(true);
+    expect(moves.some((m) => m.type === "declareUnitsDone")).toBe(true);
+    // Playing ends the turn on its own, so passing is not a move.
+    expect(moves.every((m) => m.type === "playUnit" || m.type === "declareUnitsDone")).toBe(true);
+  });
+
   it("offers every card in hand as the price of hiding a unit", () => {
     const state = newGame();
     const player = state.turn;
@@ -891,7 +899,7 @@ describe("Diadal és Vigasz", () => {
   }
 
   const settleOut = (state: GameState) =>
-    applyAction(state, { type: "endTurn", player: state.turn });
+    applyAction(state, { type: "declareUnitsDone", player: state.turn });
 
   it("pays Diadal to a unit standing on a won location", () => {
     const state = arena();
