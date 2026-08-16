@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import {
   applyAction,
   boardTotal,
-  castersOf,
   createGame,
   currentLocation,
   getLocation,
@@ -119,9 +118,15 @@ interface FieldProps {
   fault: string | null;
 }
 
+/**
+ * The board owns the screen. Everything else is pushed into the two side rails,
+ * because vertical space is what the board actually needs: a bar across the top
+ * costs a row of tiles, a column down the side costs nothing the board wanted.
+ */
 function Field(props: FieldProps) {
   const { state, actor, held, send, bare } = props;
   const pending = state.resolution?.pending ?? null;
+  const [logOpen, setLogOpen] = useState(false);
 
   // The table turns: whoever is acting sits at the bottom of the screen, with
   // their hand in front of them and the enemy across the line.
@@ -168,140 +173,114 @@ function Field(props: FieldProps) {
 
   return (
     <div className="field">
-      <Banner {...props} />
-      <StatusBar {...props} moves={moves} viewer={viewer} />
+      <aside className="rail-left">
+        <Battlefield {...props} onLog={() => setLogOpen((v) => !v)} logOpen={logOpen} />
+        <TurnCue {...props} moves={moves} viewer={viewer} />
+        <span className="rail-gap" />
+        <Tools {...props} onLog={() => setLogOpen((v) => !v)} logOpen={logOpen} />
+      </aside>
 
-      <div className="field-body">
-        <div className="arena">
-          {over ? (
-            <Aftermath state={state} />
-          ) : (
-            <>
-              <Ledger state={state} side={far} bare={bare} />
-              <Board state={state} open={open} onPick={pickSlot} bare={bare} viewer={viewer} />
-              <Ledger state={state} side={viewer} bare={bare} />
-            </>
-          )}
-        </div>
-
-        <div className="rail">
-          <CastLog state={state} viewer={viewer} />
-          <Wells state={state} />
-          <Chronicle state={state} />
-        </div>
+      <div className="arena">
+        <Board state={state} open={open} onPick={pickSlot} bare={bare} viewer={viewer} />
       </div>
+
+      <aside className="rail-right">
+        <Counters state={state} side={far} bare={bare} />
+        <span className="rail-gap" />
+        <Counters state={state} side={viewer} bare={bare} />
+      </aside>
 
       {!over && <FarHand state={state} player={far} bare={bare} />}
       {!over && <NearHand {...props} moves={moves} viewer={viewer} />}
+
+      {logOpen && <Chronicle state={state} onClose={() => setLogOpen(false)} />}
+      {over && <Aftermath state={state} onLeave={props.onLeave} onQuit={props.onQuit} />}
     </div>
   );
 }
 
-function Banner({ state, onLeave, onQuit }: FieldProps) {
+// ---------------------------------------------------------------- left rail
+
+/**
+ * The battlefield being fought over, printed rather than described, plus the
+ * few controls that are not part of playing.
+ */
+function Battlefield({ state, onLeave }: FieldProps & { onLog: () => void; logOpen: boolean }) {
   const location = currentLocation(state);
   const here = state.locations[state.locationIndex];
   return (
-    <div className="banner">
-      <button className="quiet" onClick={onLeave}>
-        Menü
+    <>
+      <div className="rail-top">
+        <button className="quiet tiny" onClick={onLeave}>
+          Menü
+        </button>
+        <span className="score num">
+          <span className="p1">{state.scores.p1}</span>
+          <span className="faint">:</span>
+          <span className="p2">{state.scores.p2}</span>
+        </span>
+      </div>
+
+      <CardFace card={location} className="battlefield" />
+
+      <div className="rail-note">
+        <span className="num">
+          {state.locationIndex + 1}/{state.locations.length}
+        </span>
+        <span className="num cap">keret {location.cap === null ? "∞" : location.cap}</span>
+        <span className="faint">{SIDE[here.broughtBy]} hozta</span>
+      </div>
+    </>
+  );
+}
+
+function Tools({
+  bare,
+  setBare,
+  stepBack,
+  canStepBack,
+  onQuit,
+  onLog,
+  logOpen,
+}: FieldProps & { onLog: () => void; logOpen: boolean }) {
+  return (
+    <div className="rail-tools">
+      <button className={`tiny${logOpen ? " ember" : ""}`} onClick={onLog}>
+        Krónika
       </button>
-      <span className="label num">{state.locationIndex + 1}/6</span>
-      <h2>{location.name}</h2>
-      <span className="cap num">keret {location.cap === null ? "∞" : location.cap}</span>
-      <span className="label">hozta: {SIDE[here.broughtBy]}</span>
-      <span className="tally">
-        <span className="p1">{state.scores.p1}</span>
-        <span className="faint">:</span>
-        <span className="p2">{state.scores.p2}</span>
-      </span>
-      <button className="quiet" onClick={onQuit}>
+      <button className="quiet tiny" onClick={stepBack} disabled={!canStepBack}>
+        Vissza
+      </button>
+      <label className="swap">
+        <input type="checkbox" checked={bare} onChange={(e) => setBare(e.target.checked)} />
+        Mindent mutat
+      </label>
+      <button className="quiet tiny" onClick={onQuit}>
         Új parti
       </button>
     </div>
   );
 }
 
-/**
- * Whose turn it is, what they may still announce, and the one prompt a spell in
- * mid-resolution puts up. It lives here rather than by the hand so the fan has
- * the whole bottom of the screen to itself.
- */
-function StatusBar(props: FieldProps & { moves: Action[]; viewer: PlayerId }) {
-  const { state, actor, send, moves, bare, setBare, stepBack, canStepBack, fault, viewer } = props;
-  const pending = state.resolution?.pending ?? null;
-  const can = (type: Action["type"]) => moves.some((m) => m.type === type);
-  const channel = state.channel[viewer];
-  const enemyChannel = state.channel[other(viewer)];
+// --------------------------------------------------------------- right rail
 
-  return (
-    <div className="statusbar">
-      {pending ? (
-        <span className={`turn ${pending.player}`}>
-          {SIDE[pending.player]}: {pending.prompt}
-        </span>
-      ) : (
-        actor &&
-        (state.phase === "units" || state.phase === "battle") && (
-          <>
-            <span className={`turn ${actor}`}>
-              {SIDE[actor]} lép, {state.phase === "units" ? "egységek" : "csata"}
-            </span>
-            {state.phase === "units" ? (
-              <button
-                disabled={!can("declareUnitsDone")}
-                onClick={() => send({ type: "declareUnitsDone", player: actor })}
-              >
-                Egységek: kész
-              </button>
-            ) : (
-              <button
-                disabled={!can("declareSpellsDone")}
-                onClick={() => send({ type: "declareSpellsDone", player: actor })}
-              >
-                Varázslatok: kész
-              </button>
-            )}
-          </>
-        )
-      )}
-
-      {channel && (
-        <span className="channel mine">Mesteri: {getSpell(channel.cardId).name}</span>
-      )}
-      {enemyChannel && <span className="channel theirs">Mesteri varázslat készül</span>}
-
-      {state.phase === "scored" && (
-        <>
-          <span className="turn">{verdict(state)}</span>
-          <button className="ember" onClick={() => send({ type: "nextLocation" })}>
-            Tovább
-          </button>
-        </>
-      )}
-
-      {state.phase === "gameOver" && (
-        <span className="turn">
-          {state.winner === "draw"
-            ? "Döntetlen."
-            : `${SIDE[state.winner as PlayerId]} játékos nyert.`}
-        </span>
-      )}
-
-      <span className="right">
-        {fault && <span className="bad">{fault}</span>}
-        <label className="swap">
-          <input type="checkbox" checked={bare} onChange={(e) => setBare(e.target.checked)} />
-          Mindent mutat
-        </label>
-        <button className="quiet" onClick={stepBack} disabled={!canStepBack}>
-          Vissza
-        </button>
-      </span>
-    </div>
-  );
+function cardName(id: string): string {
+  try {
+    return getUnit(id).name;
+  } catch {
+    try {
+      return getSpell(id).name;
+    } catch {
+      return id;
+    }
+  }
 }
 
-function Ledger({
+/**
+ * One player's standing, as numbers on icons rather than a sentence: what the
+ * board is worth, what is left of the cost cap, and how deep each pile is.
+ */
+function Counters({
   state,
   side,
   bare,
@@ -311,142 +290,143 @@ function Ledger({
   bare: boolean;
 }) {
   // While units are still going down, the idle side only shows what is actually
-  // visible: a face-down unit contributes nothing to what the opponent can read.
-  const veiledFromUs = state.phase === "units" && !bare && state.turn !== side;
-  const sum = veiledFromUs ? visibleTotal(state, side) : boardTotal(state, side);
+  // visible: a face-down unit contributes nothing to what the opponent reads.
+  const veiled = state.phase === "units" && !bare && state.turn !== side;
+  const sum = veiled ? visibleTotal(state, side) : boardTotal(state, side);
   const p = state.players[side];
   const left = remainingCap(state, side);
+  const cap = left === Infinity ? null : p.capSpent + left;
+
   return (
-    <div className={`ledger ${side}`}>
+    <div className={`counters ${side}`}>
       <span className="who">{SIDE[side]}</span>
-      <span>
-        <span className="sum">{sum}</span>
-        {veiledFromUs && <span className="faint"> látható</span>}
+      <span className="total num">
+        {sum}
+        {veiled && <em>látható</em>}
       </span>
-      <span className="num dim">
-        keret {p.capSpent}
-        {left === Infinity ? "" : `/${p.capSpent + left}`}
+      <span className="cap-meter num">
+        keret <b>{p.capSpent}</b>
+        {cap === null ? "" : `/${cap}`}
       </span>
-      <span className={p.flags.unitsClosed ? "shut" : "open"}>egységek</span>
-      <span className={p.flags.spellsClosed ? "shut" : "open"}>varázslatok</span>
-      <span className="faint num">
-        kéz {p.unitHand.length}·{p.spellHand.length} · pakli {p.unitDeck.length}·
-        {p.spellDeck.length}
+
+      <span className="piles">
+        <Pile kind="unit" count={p.unitDeck.length} />
+        <Pile kind="spell" count={p.spellDeck.length} />
+        <Pile kind="grave" count={p.discard.length} cards={p.discard} />
+      </span>
+
+      <span className="flags">
+        <span className={p.flags.unitsClosed ? "shut" : "open"}>egység</span>
+        <span className={p.flags.spellsClosed ? "shut" : "open"}>varázs</span>
       </span>
     </div>
   );
 }
 
-// --------------------------------------------------------------------- rail
-
-function CastLog({ state, viewer }: { state: GameState; viewer: PlayerId }) {
-  const at = state.resolution?.index ?? -1;
+/** A deck or the graveyard: a stack silhouette with its depth on it. */
+function Pile({
+  kind,
+  count,
+  cards,
+}: {
+  kind: "unit" | "spell" | "grave";
+  count: number;
+  cards?: HandCard[];
+}) {
   return (
-    <div className="slab timber">
-      <h3>Elsült varázslatok · {state.spellsCast.length}</h3>
-      <div className="scrolls">
-        <ol className="pile">
-          {state.spellsCast.map((entry, i) => {
-            const spell = getSpell(entry.cardId);
-            const now = i === at && !!state.resolution;
-            return (
-              <li key={entry.uid} className={now ? "now" : "spent"}>
-                <span className={`sigil ${entry.owner}`}>{entry.owner === "p1" ? "I" : "II"}</span>
-                {spell.name}
-                <span className="coin">{spell.cost}</span>
-              </li>
-            );
-          })}
-          {(["p1", "p2"] as PlayerId[]).map((id) => {
-            const channel = state.channel[id];
-            if (!channel) return null;
-            return (
-              <li key={`ch-${id}`} className="now">
-                <span className={`sigil ${id}`}>{id === "p1" ? "I" : "II"}</span>
-                {id === viewer ? getSpell(channel.cardId).name : "Mesteri varázslat"}
-                <span className="coin">készül</span>
-              </li>
-            );
-          })}
-          {state.spellsCast.length === 0 && <li className="faint">még egy sem</li>}
-        </ol>
-      </div>
-    </div>
-  );
-}
-
-function Wells({ state }: { state: GameState }) {
-  const empty = castersOf(state, "p1").length + castersOf(state, "p2").length === 0;
-  return (
-    <div className="slab timber">
-      <h3>Varázserő a táblán</h3>
-      <div className="scrolls">
-        {(["p1", "p2"] as PlayerId[]).map((player) => (
-          <ul className="wells" key={player}>
-            {castersOf(state, player).map(({ unit, pools }) => (
-              <li key={unit.uid}>
-                <span className={`sigil ${player}`}>{player === "p1" ? "I" : "II"}</span>
-                {getUnit(unit.cardId).name}
-                <span className="faint">{unit.slot.slice(3)}</span>
-                {Object.entries(pools).map(([school, left]) => (
-                  <span className="well" key={school}>
-                    {school} {left}
-                  </span>
-                ))}
-              </li>
-            ))}
-          </ul>
-        ))}
-        {empty && <p className="faint">Senki nem tud varázsolni.</p>}
-      </div>
-    </div>
-  );
-}
-
-function Chronicle({ state }: { state: GameState }) {
-  const lines = state.log.filter((l) => l.location === state.locationIndex).slice(-60);
-  return (
-    <div className="slab timber">
-      <h3>Krónika</h3>
-      <div className="scrolls">
-        <ul className="chronicle">
-          {lines.map((line, i) => (
-            <li key={i}>
-              {line.player && (
-                <span className={`sigil ${line.player}`}>{line.player === "p1" ? "I" : "II"}</span>
-              )}
-              {line.text}
-            </li>
+    <span className={`pile-icon ${kind}${cards ? " reveals" : ""}`}>
+      <b className="num">{count}</b>
+      {cards && count > 0 && (
+        <span className="revealed beside pile-list">
+          {cards.map((c, i) => (
+            <em key={`${c.uid}-${i}`}>{cardName(c.cardId)}</em>
           ))}
-        </ul>
-      </div>
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ------------------------------------------------------------------ overlays
+
+/**
+ * Whose turn it is and the one thing they may announce, floated just above the
+ * near hand. It is the only chrome the board tolerates, so it stays to a line.
+ */
+function TurnCue(props: FieldProps & { moves: Action[]; viewer: PlayerId }) {
+  const { state, actor, send, moves, fault, viewer } = props;
+  const pending = state.resolution?.pending ?? null;
+  const can = (type: Action["type"]) => moves.some((m) => m.type === type);
+  const channel = state.channel[viewer];
+  const enemyChannel = state.channel[other(viewer)];
+  if (state.phase === "gameOver") return null;
+
+  return (
+    <div className="turn-cue">
+      {fault && <span className="bad">{fault}</span>}
+
+      {pending ? (
+        <span className={`turn ${pending.player}`}>{pending.prompt}</span>
+      ) : (
+        actor &&
+        (state.phase === "units" || state.phase === "battle") && (
+          <>
+            <span className={`turn ${actor}`}>
+              {SIDE[actor]} lép, {state.phase === "units" ? "egységek" : "csata"}
+            </span>
+            {state.phase === "units"
+              ? can("declareUnitsDone") && (
+                  <button
+                    className="tiny"
+                    onClick={() => send({ type: "declareUnitsDone", player: actor })}
+                  >
+                    Egységek: kész
+                  </button>
+                )
+              : can("declareSpellsDone") && (
+                  <button
+                    className="tiny"
+                    onClick={() => send({ type: "declareSpellsDone", player: actor })}
+                  >
+                    Varázslatok: kész
+                  </button>
+                )}
+          </>
+        )
+      )}
+
+      {channel && <span className="channel mine">{getSpell(channel.cardId).name} készül</span>}
+      {enemyChannel && <span className="channel theirs">Mesteri varázslat készül</span>}
+
+      {state.phase === "scored" && (
+        <>
+          <span className="turn">{verdict(state)}</span>
+          <button className="ember tiny" onClick={() => send({ type: "nextLocation" })}>
+            Tovább
+          </button>
+        </>
+      )}
     </div>
   );
 }
 
-function Aftermath({ state }: { state: GameState }) {
-  const played = state.locations.filter((l) => l.winner !== null);
+function Chronicle({ state, onClose }: { state: GameState; onClose: () => void }) {
+  const lines = state.log.filter((l) => l.location === state.locationIndex).slice(-80);
   return (
-    <div className="slab timber scrolls">
-      <h3>Vége</h3>
-      <p className="tally" style={{ fontSize: 34, marginLeft: 0 }}>
-        <span className="p1">{state.scores.p1}</span>
-        <span className="faint">:</span>
-        <span className="p2">{state.scores.p2}</span>
-      </p>
+    <div className="chronicle-panel timber">
+      <div className="rail-top">
+        <b>Krónika</b>
+        <button className="quiet tiny" onClick={onClose}>
+          ✕
+        </button>
+      </div>
       <ul className="chronicle">
-        {played.map((l, i) => (
+        {lines.map((line, i) => (
           <li key={i}>
-            <span className="faint num">{i + 1}.</span>
-            <b>{getLocation(l.cardId).name}</b>
-            {l.totals && (
-              <span className="num dim">
-                {l.totals.p1}:{l.totals.p2}
-              </span>
+            {line.player && (
+              <span className={`sigil ${line.player}`}>{line.player === "p1" ? "I" : "II"}</span>
             )}
-            <span className={l.winner === "void" ? "faint" : ""}>
-              {l.winner === "void" ? "senkié" : SIDE[l.winner as PlayerId]}
-            </span>
+            {line.text}
           </li>
         ))}
       </ul>
@@ -454,13 +434,63 @@ function Aftermath({ state }: { state: GameState }) {
   );
 }
 
+function Aftermath({
+  state,
+  onLeave,
+  onQuit,
+}: {
+  state: GameState;
+  onLeave: () => void;
+  onQuit: () => void;
+}) {
+  const played = state.locations.filter((l) => l.winner !== null);
+  return (
+    <div className="veilcloth">
+      <div className="casket timber">
+        <h2>
+          {state.winner === "draw"
+            ? "Döntetlen"
+            : `${SIDE[state.winner as PlayerId]} játékos nyert`}
+        </h2>
+        <p className="tally" style={{ fontSize: 40 }}>
+          <span className="p1">{state.scores.p1}</span>
+          <span className="faint">:</span>
+          <span className="p2">{state.scores.p2}</span>
+        </p>
+        <ul className="chronicle">
+          {played.map((l, i) => (
+            <li key={i}>
+              <span className="faint num">{i + 1}.</span>
+              <b>{getLocation(l.cardId).name}</b>
+              {l.totals && (
+                <span className="num dim">
+                  {l.totals.p1}:{l.totals.p2}
+                </span>
+              )}
+              <span className={l.winner === "void" ? "faint" : ""}>
+                {l.winner === "void" ? "senkié" : SIDE[l.winner as PlayerId]}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <div className="tail">
+          <span className="grow" />
+          <button onClick={onQuit}>Új parti</button>
+          <button className="ember" onClick={onLeave}>
+            Menü
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function verdict(state: GameState): string {
   const here = state.locations[state.locationIndex];
-  const name = getLocation(here.cardId).name;
   const t = here.totals;
-  if (!t) return name;
-  if (here.winner === "void") return `${name}: ${t.p1}:${t.p2}, senkié.`;
-  return `${name}: ${SIDE[here.winner as PlayerId]} viszi, ${t.p1}:${t.p2}.`;
+  if (!t) return getLocation(here.cardId).name;
+  if (here.winner === "void") return `${t.p1}:${t.p2}, senkié`;
+  return `${SIDE[here.winner as PlayerId]} viszi, ${t.p1}:${t.p2}`;
 }
 
 // -------------------------------------------------------------------- hands
@@ -545,7 +575,7 @@ function NearHand(props: FieldProps & { moves: Action[]; viewer: PlayerId }) {
       .map((m) => (m as { discardUid: string }).discardUid),
   );
 
-  // A spell asking for a card out of hand takes over the tray entirely.
+  // A spell asking for a card out of hand takes over the hand entirely.
   if (pending?.kind === "handCard") {
     const options = pending.handOptions ?? [];
     return (
