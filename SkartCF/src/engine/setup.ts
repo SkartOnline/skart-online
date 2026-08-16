@@ -1,7 +1,7 @@
 import { getDeck, getLocation, getUnit } from "./cards";
 import { ALL_SLOTS } from "./grid";
 import { log } from "./resolve";
-import { settle } from "./reducer";
+import { applyLocationStart, settle } from "./reducer";
 import { hashSeed, shuffle } from "./rng";
 import type {
   DeckList,
@@ -65,6 +65,7 @@ function emptyPlayer(id: PlayerId, unitDeck: HandCard[], spellDeck: HandCard[]):
     flags: { unitsClosed: false, spellsClosed: false },
     capSpent: 0,
     hiddenThisLocation: 0,
+    bonusDraw: { units: 0, spells: 0 },
   };
 }
 
@@ -133,6 +134,7 @@ export function createGame(options: GameOptions): GameState {
     state,
     `${first.name} — költségkeret ${first.cap === null ? "nincs" : first.cap}. Kezd: ${state.turn}.`,
   );
+  applyLocationStart(state);
   settle(state);
   return state;
 }

@@ -278,7 +278,7 @@ function DeckSheet({
         options={allSpells().map((s) => ({
           id: s.id,
           label: s.name,
-          note: `${s.school} ${s.cost}`,
+          note: `${s.schools.join(" · ")} ${s.cost}`,
         }))}
         value={draft.spells}
         onChange={(v) => set("spells", v)}
@@ -429,7 +429,7 @@ export function describeCard(id: string): string {
   } catch {
     try {
       const spell = getSpell(id);
-      return `${spell.name} — ${spell.school} ${spell.cost}`;
+      return `${spell.name} — ${spell.schools.join(" · ")} ${spell.cost}`;
     } catch {
       return id;
     }

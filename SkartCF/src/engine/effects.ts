@@ -1,8 +1,10 @@
-import { getUnit } from "./cards";
+import { getSpell, getUnit } from "./cards";
 import {
   ALL_SLOTS,
+  columnSlotsOf,
   diagonalNeighbours,
   distance,
+  frontOfSlot,
   opponentOf,
   opposedSlot,
   orthogonalNeighbours,
@@ -10,24 +12,43 @@ import {
   slotsOf,
 } from "./grid";
 import {
+  abilitiesActive,
   allUnitsOnBoard,
   basePower,
+  canMove,
+  cannotDie,
+  cardKeywords,
   cardOf,
-  isDead,
+  conditionHolds,
+  currentLocation,
+  effectiveRange,
+  isUntargetable,
+  keywordMatches,
   matchesFilter,
+  power,
+  printedSpellpower,
   readStat,
+  slotsInScope,
   unitAt,
+  unitsOf,
 } from "./power";
+import { randomInt } from "./rng";
 import { EFFECT_SPECS, specFor } from "./schema";
+import type { Scope } from "./power";
 import type {
   AutoTargetSpec,
   Effect,
   GameState,
+  HandCard,
   PlayerId,
   SlotId,
+  SpellCard,
+  StaticCondition,
   TargetSpec,
+  TriggerEvent,
   UnitInstance,
 } from "./types";
+import { PLAYERS } from "./types";
 
 /**
  * One handler per effect kind, keyed by string. The engine never branches on a
@@ -46,6 +67,10 @@ export interface EffectContext {
   /** Extra picks the resolution loop collected before applying. */
   destination?: SlotId;
   handCardUid?: string;
+  /** The spell card this effect came off, when it came off one. */
+  spell?: SpellCard;
+  /** The unit that fired the trigger — the mover, or the one that died. */
+  trigger?: UnitInstance | null;
   log: (text: string) => void;
 }
 
@@ -55,11 +80,20 @@ export type EffectHandler = (ctx: EffectContext, effect: Effect, targets: SlotId
 // Board mutation helpers
 // ---------------------------------------------------------------------------
 
-export function removeUnit(state: GameState, slot: SlotId): UnitInstance | null {
+export function removeUnit(
+  state: GameState,
+  slot: SlotId,
+  destination: "graveyard" | "hand" | "deckBottom" = "graveyard",
+  toPlayer?: PlayerId,
+): UnitInstance | null {
   const unit = state.board[slot];
   if (!unit) return null;
   state.board[slot] = null;
-  state.players[unit.owner].discard.push({ uid: unit.uid, cardId: unit.cardId });
+  const owner = state.players[toPlayer ?? unit.owner];
+  const card: HandCard = { uid: unit.uid, cardId: unit.cardId };
+  if (destination === "hand") owner.unitHand.push(card);
+  else if (destination === "deckBottom") owner.unitDeck.push(card);
+  else owner.discard.push(card);
   return unit;
 }
 
@@ -68,20 +102,97 @@ export function removeUnit(state: GameState, slot: SlotId): UnitInstance | null 
  * power, leaves its slot immediately. Run after every effect application: a
  * set-power followed by a −2 can kill, and the survivors' static abilities have
  * to read the new board straight away.
+ *
+ * Deaths fire `onDeath` (Vigasz) and `onAnyDeath` before the sweep continues,
+ * so a board-wipe pays out every Temetkezési vállalkozó ring it owes.
  */
 export function sweepDead(state: GameState, log: (text: string) => void): void {
   let changed = true;
-  while (changed) {
+  let guard = 0;
+  while (changed && guard++ < 24) {
     changed = false;
     for (const slot of ALL_SLOTS) {
       const unit = state.board[slot];
       if (!unit) continue;
-      if (isDead(unit, state)) {
-        log(`${cardOf(unit).name} elesik.`);
-        removeUnit(state, slot);
-        changed = true;
-      }
+      if (!isDeadNow(unit, state)) continue;
+      log(`${cardOf(unit).name} elesik.`);
+      killUnit(state, unit, log);
+      changed = true;
     }
+  }
+}
+
+function isDeadNow(unit: UnitInstance, state: GameState): boolean {
+  if (cannotDie(state, unit)) return false;
+  const current = power(unit, state);
+  return current <= 0 || unit.damage >= current;
+}
+
+/** Removes a unit and pays out both death triggers. */
+export function killUnit(state: GameState, unit: UnitInstance, log: (text: string) => void): void {
+  const ownDeath = abilitiesActive(unit, state)
+    ? (cardOf(unit).triggers ?? []).filter((t) => t.on === "onDeath")
+    : [];
+  const returning = ownDeath.some((t) => t.effects.some((e) => e.kind === "returnToHand"));
+  removeUnit(state, unit.slot, returning ? "hand" : "graveyard");
+  for (const trigger of ownDeath) {
+    if (trigger.effects.every((e) => e.kind === "returnToHand")) {
+      log(`${cardOf(unit).name}: Vigasz — visszakerül a kézbe.`);
+      continue;
+    }
+    runEffects(state, unit, unit.owner, trigger.effects, [], log, unit);
+  }
+  fireTrigger(state, "onAnyDeath", unit, log);
+}
+
+/**
+ * Fires an event-driven ability on every unit standing on the board. This is
+ * what makes the gyűrű possible: the condition happens once, the ring is paid
+ * out once, and the granting unit is free to die afterwards.
+ */
+export function fireTrigger(
+  state: GameState,
+  event: TriggerEvent,
+  cause: UnitInstance | null,
+  log: (text: string) => void,
+): void {
+  for (const unit of allUnitsOnBoard(state)) {
+    if (!abilitiesActive(unit, state)) continue;
+    for (const trigger of cardOf(unit).triggers ?? []) {
+      if (trigger.on !== event) continue;
+      if (event === "onAllyMove" && (!cause || cause.owner !== unit.owner)) continue;
+      if (event === "onAllyMove" && cause?.uid === unit.uid) continue;
+      const targets = resolveAutoTargets(state, unit, trigger.target, cause);
+      log(`${cardOf(unit).name}: ${TRIGGER_LABEL[event]}.`);
+      runEffects(state, unit, unit.owner, trigger.effects, targets, log, cause);
+    }
+  }
+}
+
+const TRIGGER_LABEL: Record<TriggerEvent, string> = {
+  onDeath: "Vigasz",
+  onAnyDeath: "kiváltó — egység elesett",
+  onAllyMove: "kiváltó — szövetséges mozgott",
+  onLocationWon: "Diadal",
+  onLocationStart: "kiváltó — csata kezdete",
+};
+
+/** Applies a list of effects with a freshly built context. */
+export function runEffects(
+  state: GameState,
+  source: UnitInstance | null,
+  controller: PlayerId,
+  effects: Effect[],
+  targets: SlotId[],
+  log: (text: string) => void,
+  trigger?: UnitInstance | null,
+): void {
+  const ctx: EffectContext = { state, source, controller, log, trigger };
+  for (const effect of effects) {
+    const needsTargets = (effect.on ?? "target") === "target";
+    const spec = specFor(effect.kind, EFFECT_SPECS);
+    if (needsTargets && !spec?.selfTargeting && targets.length === 0) continue;
+    applyEffect(ctx, effect, targets);
   }
 }
 
@@ -89,6 +200,25 @@ function targetUnits(ctx: EffectContext, effect: Effect, targets: SlotId[]): Uni
   const on = effect.on ?? "target";
   if (on === "caster") return ctx.source ? [ctx.source] : [];
   return targets.map((s) => unitAt(ctx.state, s)).filter((u): u is UnitInstance => !!u);
+}
+
+function deckOf(state: GameState, player: PlayerId, kind: string): HandCard[] {
+  return kind === "unit" ? state.players[player].unitDeck : state.players[player].spellDeck;
+}
+
+function handOf(state: GameState, player: PlayerId, kind: string): HandCard[] {
+  return kind === "unit" ? state.players[player].unitHand : state.players[player].spellHand;
+}
+
+function sidesFor(ctx: EffectContext, who: string): PlayerId[] {
+  if (who === "opponent") return [opponentOf(ctx.controller)];
+  if (who === "both") return [...PLAYERS];
+  return [ctx.controller];
+}
+
+function grantRings(unit: UnitInstance, amount: number, ctx: EffectContext): void {
+  unit.rings += amount;
+  ctx.log(`${cardOf(unit).name}: ${amount >= 0 ? "+" : ""}${amount} gyűrű (összesen ${unit.rings}).`);
 }
 
 // ---------------------------------------------------------------------------
@@ -102,6 +232,16 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
       unit.powerDelta += amount;
       ctx.log(`${cardOf(unit).name}: ${amount >= 0 ? "+" : ""}${amount} erő.`);
     }
+  },
+
+  /**
+   * The gyűrű. Power handed over because a condition already happened, so it
+   * survives the granting unit leaving the board — which is exactly why it is
+   * a separate number from `powerDelta` and gets its own mark on the card.
+   */
+  grantRing(ctx, effect, targets) {
+    const amount = Number(effect.amount ?? 1);
+    for (const unit of targetUnits(ctx, effect, targets)) grantRings(unit, amount, ctx);
   },
 
   setPower(ctx, effect, targets) {
@@ -122,8 +262,40 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
 
   destroy(ctx, effect, targets) {
     for (const unit of targetUnits(ctx, effect, targets)) {
+      if (cannotDie(ctx.state, unit)) {
+        ctx.log(`${cardOf(unit).name} sérthetetlen — nem semmisül meg.`);
+        continue;
+      }
       ctx.log(`${cardOf(unit).name} megsemmisül.`);
-      removeUnit(ctx.state, unit.slot);
+      killUnit(ctx.state, unit, ctx.log);
+    }
+  },
+
+  /**
+   * Káoszkolera, Homályhimlő, Valóságtörés and Umbradog are one effect with
+   * four parameter sets. Read the board as one set first, then apply, so units
+   * removed part-way through cannot change who the threshold caught.
+   */
+  massDestroy(ctx, effect, _targets) {
+    const stat = (effect.stat === "power" ? "power" : "basePower") as "power" | "basePower";
+    const atMost = Number(effect.atMost ?? -1);
+    const side = String(effect.side ?? "all");
+    const requires = String(effect.requires ?? "any");
+    const excludeSelf = effect.excludeSelf !== false;
+    const caught = allUnitsOnBoard(ctx.state).filter((unit) => {
+      if (excludeSelf && ctx.source && unit.uid === ctx.source.uid) return false;
+      if (side === "enemy" && unit.owner === ctx.controller) return false;
+      if (side === "ally" && unit.owner !== ctx.controller) return false;
+      if (cannotDie(ctx.state, unit)) return false;
+      if (requires === "damaged" && unit.damage <= 0) return false;
+      if (requires === "placed" && unit.placed.length === 0) return false;
+      if (atMost >= 0 && readStat(unit, ctx.state, stat) > atMost) return false;
+      return true;
+    });
+    for (const unit of caught) {
+      if (ctx.state.board[unit.slot]?.uid !== unit.uid) continue;
+      ctx.log(`${cardOf(unit).name} elpusztul.`);
+      killUnit(ctx.state, unit, ctx.log);
     }
   },
 
@@ -131,11 +303,32 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     const destination = ctx.destination;
     if (!destination || ctx.state.board[destination]) return;
     const [unit] = targetUnits(ctx, effect, targets);
-    if (!unit) return;
+    if (!unit || !canMove(unit, ctx.state)) return;
     ctx.state.board[unit.slot] = null;
     unit.slot = destination;
     ctx.state.board[destination] = unit;
     ctx.log(`${cardOf(unit).name} ide lép: ${destination}.`);
+    fireTrigger(ctx.state, "onAllyMove", unit, ctx.log);
+  },
+
+  /** Szarvas walks up its own column and keeps a ring for every tile it gained. */
+  advance(ctx, effect, _targets) {
+    const unit = ctx.source;
+    if (!unit || !canMove(unit, ctx.state)) return;
+    const ringPerTile = Number(effect.ringPerTile ?? 1);
+    let tiles = 0;
+    for (;;) {
+      const ahead = frontOfSlot(unit.slot);
+      if (!ahead || ctx.state.board[ahead] || isBlocked(ctx.state, ahead)) break;
+      ctx.state.board[unit.slot] = null;
+      unit.slot = ahead;
+      ctx.state.board[ahead] = unit;
+      tiles += 1;
+    }
+    if (tiles === 0) return;
+    ctx.log(`${cardOf(unit).name} ${tiles} mezőt nyomul előre.`);
+    grantRings(unit, tiles * ringPerTile, ctx);
+    fireTrigger(ctx.state, "onAllyMove", unit, ctx.log);
   },
 
   transform(ctx, effect, targets) {
@@ -152,11 +345,30 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     }
   },
 
+  /**
+   * The lasting half of a spell. The physical card goes on the unit, so taking
+   * it off takes the effect off — no duration to track anywhere.
+   */
   attach(ctx, effect, targets) {
     const attachment = String(effect.attachment ?? "");
     for (const unit of targetUnits(ctx, effect, targets)) {
-      unit.attachments.push(attachment);
-      ctx.log(`${cardOf(unit).name} kap egy ${attachment} lapot.`);
+      unit.placed.push({
+        spellId: ctx.spell?.id ?? attachment,
+        owner: ctx.controller,
+        attachment,
+      });
+      ctx.log(`${cardOf(unit).name} kap egy lapot: ${attachment}.`);
+    }
+  },
+
+  clearPlaced(ctx, effect, targets) {
+    const count = Number(effect.count ?? 0);
+    const units =
+      effect.everyUnit === true ? allUnitsOnBoard(ctx.state) : targetUnits(ctx, effect, targets);
+    for (const unit of units) {
+      if (unit.placed.length === 0) continue;
+      const removed = count > 0 ? unit.placed.splice(0, count) : unit.placed.splice(0);
+      ctx.log(`${cardOf(unit).name}: ${removed.length} lap lekerül róla.`);
     }
   },
 
@@ -182,6 +394,64 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
       unit.locked = true;
       unit.lockedPower = lockedPower;
       ctx.log(`${cardOf(unit).name} befagy: célozhatatlan, nem varázsol, ereje ${lockedPower}.`);
+    }
+  },
+
+  /** Párbaj: the two units compare, and the stronger one walks away. */
+  duel(ctx, _effect, targets) {
+    const caster = ctx.source;
+    const target = targets.map((s) => unitAt(ctx.state, s)).find((u) => !!u);
+    if (!caster || !target) return;
+    const mine = power(caster, ctx.state);
+    const theirs = power(target, ctx.state);
+    if (mine === theirs) {
+      ctx.log("Párbaj: azonos erő, mindketten állva maradnak.");
+      return;
+    }
+    const loser = mine > theirs ? target : caster;
+    if (cannotDie(ctx.state, loser)) {
+      ctx.log(`${cardOf(loser).name} sérthetetlen — a párbaj eldöntetlen marad.`);
+      return;
+    }
+    ctx.log(`Párbaj ${mine}–${theirs}: ${cardOf(loser).name} elesik.`);
+    killUnit(ctx.state, loser, ctx.log);
+  },
+
+  /** Októ-abnormitás eats the corner-touching stragglers if there is enough meat. */
+  devour(ctx, effect, _targets) {
+    const unit = ctx.source;
+    if (!unit) return;
+    const scope = (effect.scope ?? "diagonal") as Scope;
+    const prey = slotsInScope(unit, scope)
+      .map((s) => unitAt(ctx.state, s))
+      .filter((u): u is UnitInstance => !!u)
+      .filter((u) => u.uid !== unit.uid && basePower(u) < basePower(unit) && !cannotDie(ctx.state, u));
+    const total = prey.reduce((sum, u) => sum + power(u, ctx.state), 0);
+    if (total < Number(effect.minTotalPower ?? 8)) return;
+    ctx.log(`${cardOf(unit).name} felfalja a környezetét (${total} összerő).`);
+    for (const victim of prey) killUnit(ctx.state, victim, ctx.log);
+    grantRings(unit, Number(effect.gain ?? 8), ctx);
+  },
+
+  modifySpellpower(ctx, effect, targets) {
+    const amount = Number(effect.amount ?? 0);
+    for (const unit of targetUnits(ctx, effect, targets)) {
+      for (const school of Object.keys(cardOf(unit).spellpower ?? {})) {
+        unit.spellSpent[school] = (unit.spellSpent[school] ?? 0) + amount;
+      }
+      ctx.log(`${cardOf(unit).name} varázsereje ${amount}-vel csökken.`);
+    }
+  },
+
+  revealHidden(ctx, effect, _targets) {
+    const count = Number(effect.count ?? 1);
+    const hidden = unitsOf(ctx.state, opponentOf(ctx.controller))
+      .filter((u) => u.faceDown)
+      .sort((a, b) => a.order - b.order)
+      .slice(0, count);
+    for (const unit of hidden) {
+      unit.faceDown = false;
+      ctx.log(`Felfedve: ${cardOf(unit).name} (${unit.slot}).`);
     }
   },
 
@@ -211,7 +481,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     const caught = allUnitsOnBoard(ctx.state).filter((unit) => {
       if (side === "enemy" && unit.owner === ctx.controller) return false;
       if (side === "ally" && unit.owner !== ctx.controller) return false;
-      if (unit.locked) return false; // untargetable
+      if (isUntargetable(ctx.state, unit)) return false;
       return readStat(unit, ctx.state, stat) <= atMost;
     });
     for (const unit of caught) {
@@ -219,11 +489,267 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
       ctx.log(`${cardOf(unit).name}: ${amount >= 0 ? "+" : ""}${amount} (küszöb ${atMost}).`);
     }
   },
+
+  // -------------------------------------------------------------------------
+  // Card economy
+  // -------------------------------------------------------------------------
+
+  draw(ctx, effect, _targets) {
+    const kind = String(effect.cardKind ?? "spell");
+    const count = Number(effect.count ?? 1);
+    for (const player of sidesFor(ctx, String(effect.who ?? "self"))) {
+      const deck = deckOf(ctx.state, player, kind);
+      const hand = handOf(ctx.state, player, kind);
+      let drawn = 0;
+      for (let i = 0; i < count && deck.length > 0; i++) {
+        hand.push(deck.shift()!);
+        drawn += 1;
+      }
+      if (drawn > 0) ctx.log(`${player}: ${drawn} lap húzva (${kind}).`);
+    }
+  },
+
+  drawNextLocation(ctx, effect, _targets) {
+    const kind = String(effect.cardKind ?? "unit");
+    const count = Number(effect.count ?? 1);
+    const bonus = ctx.state.players[ctx.controller].bonusDraw;
+    if (kind === "unit") bonus.units += count;
+    else bonus.spells += count;
+    ctx.log(`Diadal: a következő csata előtt ${count} extra lap (${kind}).`);
+  },
+
+  /**
+   * Discarding is the one place a Belépő pays for itself. The engine picks the
+   * cheapest legal cards, because a Belépő never asks the player anything.
+   */
+  discard(ctx, effect, _targets) {
+    const kind = String(effect.cardKind ?? "unit");
+    const wanted = Number(effect.count ?? 1);
+    const keyword = effect.keyword ? String(effect.keyword) : undefined;
+    const ringPer = Number(effect.ringPer ?? 0);
+    for (const player of sidesFor(ctx, String(effect.who ?? "self"))) {
+      const kinds = kind === "both" ? ["unit", "spell"] : [kind];
+      let discarded = 0;
+      for (const k of kinds) {
+        const hand = handOf(ctx.state, player, k);
+        const eligible = hand.filter((c) => {
+          if (!keyword || k !== "unit") return true;
+          const card = tryUnit(c.cardId);
+          return !!card && keywordMatches(cardKeywords(card), keyword);
+        });
+        const take = wanted < 0 ? eligible.length : Math.min(wanted, eligible.length);
+        const cheapest = eligible
+          .slice()
+          .sort((a, b) => costOfCard(a, k) - costOfCard(b, k))
+          .slice(0, take);
+        for (const card of cheapest) {
+          const index = hand.findIndex((c) => c.uid === card.uid);
+          if (index === -1) continue;
+          ctx.state.players[player].discard.push(...hand.splice(index, 1));
+          discarded += 1;
+        }
+      }
+      if (discarded > 0) ctx.log(`${player}: ${discarded} lap eldobva.`);
+      if (ringPer !== 0 && player === ctx.controller && ctx.source && discarded > 0) {
+        grantRings(ctx.source, ringPer * discarded, ctx);
+      }
+    }
+  },
+
+  searchDeck(ctx, effect, _targets) {
+    const kind = String(effect.cardKind ?? "spell");
+    const source = String(effect.source ?? "deck");
+    const count = Number(effect.count ?? 1);
+    const maxPower = Number(effect.maxPower ?? 0);
+    const excludeRarity = effect.excludeRarity ? String(effect.excludeRarity) : undefined;
+    for (const player of sidesFor(ctx, String(effect.who ?? "self"))) {
+      const p = ctx.state.players[player];
+      const pile = source === "graveyard" ? p.discard : deckOf(ctx.state, player, kind);
+      const hand = handOf(ctx.state, player, kind);
+      let found = 0;
+      for (let i = 0; i < count; i++) {
+        const index = pile.findIndex((c) => {
+          const card = kind === "unit" ? tryUnit(c.cardId) : trySpell(c.cardId);
+          if (!card) return false;
+          if (excludeRarity && card.rarity === excludeRarity) return false;
+          if (maxPower > 0 && card.kind === "unit" && card.power > maxPower) return false;
+          return true;
+        });
+        if (index === -1) break;
+        hand.push(...pile.splice(index, 1));
+        found += 1;
+      }
+      if (found > 0) ctx.log(`${player}: ${found} lap kikeresve (${source}).`);
+    }
+  },
+
+  revive(ctx, effect, _targets) {
+    const count = Number(effect.count ?? 1);
+    const maxPower = Number(effect.maxPower ?? 3);
+    const player = ctx.state.players[ctx.controller];
+    for (let i = 0; i < count; i++) {
+      const free = slotsOf(ctx.controller).filter(
+        (s) => !ctx.state.board[s] && !isBlocked(ctx.state, s),
+      );
+      if (free.length === 0) break;
+      const index = player.discard.findIndex((c) => {
+        const card = tryUnit(c.cardId);
+        return !!card && card.power <= maxPower;
+      });
+      if (index === -1) break;
+      const [card] = player.discard.splice(index, 1);
+      const unitCard = getUnit(card.cardId);
+      if (effect.ignoreCap !== true) player.capSpent += unitCard.cost;
+      ctx.state.board[free[0]] = makeUnitInstance(card.uid, card.cardId, ctx.controller, free[0], {
+        order: ctx.state.placementCounter++,
+        paidCost: unitCard.cost,
+      });
+      ctx.log(`${unitCard.name} feltámad ide: ${free[0]}.`);
+    }
+  },
+
+  returnToHand(ctx, effect, targets) {
+    const toCaster = effect.toOwner === "caster";
+    for (const unit of targetUnits(ctx, effect, targets)) {
+      if (effect.afterLocation === true) {
+        unit.claimedBy = toCaster ? ctx.controller : unit.owner;
+        ctx.log(`${cardOf(unit).name} a csata után a ${unit.claimedBy} kezébe kerül.`);
+        continue;
+      }
+      ctx.log(`${cardOf(unit).name} visszakerül a kézbe.`);
+      removeUnit(ctx.state, unit.slot, "hand", toCaster ? ctx.controller : unit.owner);
+    }
+  },
+
+  stealCard(ctx, effect, _targets) {
+    const from = String(effect.from ?? "deckTop");
+    const kind = String(effect.cardKind ?? "unit");
+    const count = Number(effect.count ?? 1);
+    const victim = opponentOf(ctx.controller);
+    const pile = from === "hand" ? handOf(ctx.state, victim, kind) : deckOf(ctx.state, victim, kind);
+    const mine = handOf(ctx.state, ctx.controller, kind);
+    let taken = 0;
+    for (let i = 0; i < count && pile.length > 0; i++) {
+      mine.push(pile.shift()!);
+      taken += 1;
+    }
+    if (taken > 0) ctx.log(`${taken} lap elemelve az ellenféltől (${from}).`);
+  },
+
+  bounceToDeckBottom(ctx, effect, _targets) {
+    const side = String(effect.side ?? "any");
+    const candidates = allUnitsOnBoard(ctx.state).filter((u) => {
+      if (ctx.source && u.uid === ctx.source.uid) return false;
+      if (side === "enemy" && u.owner === ctx.controller) return false;
+      if (side === "ally" && u.owner !== ctx.controller) return false;
+      return !cannotDie(ctx.state, u);
+    });
+    const latest = candidates.sort((a, b) => b.order - a.order)[0];
+    if (!latest) return;
+    ctx.log(`${cardOf(latest).name} visszakerül a pakli aljára.`);
+    removeUnit(ctx.state, latest.slot, "deckBottom");
+  },
+
+  swapHandGraveyard(ctx, effect, _targets) {
+    const kind = String(effect.cardKind ?? "unit");
+    const p = ctx.state.players[ctx.controller];
+    const kinds = kind === "both" ? ["unit", "spell"] : [kind];
+    for (const k of kinds) {
+      const hand = handOf(ctx.state, ctx.controller, k);
+      const fromGrave = p.discard.filter((c) => (k === "unit" ? tryUnit(c.cardId) : trySpell(c.cardId)));
+      const kept = p.discard.filter((c) => !fromGrave.includes(c));
+      const goingDown = hand.splice(0, hand.length);
+      hand.push(...fromGrave);
+      p.discard.length = 0;
+      p.discard.push(...kept, ...goingDown);
+    }
+    ctx.log("A kéz és a temető helyet cserél.");
+  },
+
+  /** Szerencsejátékos. Deterministic off the game seed, like every other roll. */
+  coinFlip(ctx, effect, _targets) {
+    const unit = ctx.source;
+    if (!unit) return;
+    let stake = Number(effect.amount ?? 1);
+    let flips = 1 + Math.max(0, Number(effect.reflips ?? 0));
+    let won = 0;
+    while (flips-- > 0) {
+      const [roll, seed] = randomInt(ctx.state.rng, 2);
+      ctx.state.rng = seed;
+      if (roll === 0) {
+        won += stake;
+        stake *= 2;
+        ctx.log(`Érme: unikornis (+${won} összesen).`);
+      } else {
+        ctx.log("Érme: írás — minden nyeremény odavész.");
+        won = 0;
+        break;
+      }
+    }
+    if (won > 0) grantRings(unit, won, ctx);
+  },
+
+  /**
+   * Pure information. In hotseat the "Mindent mutat" switch already shows both
+   * hands, and the simulator has no hidden knowledge to gain, so this writes to
+   * the chronicle and nothing else.
+   */
+  peek(ctx, effect, _targets) {
+    ctx.log(`Betekintés: ${String(effect.what ?? "spellHand")}.`);
+    // Fejvadász turns the look into something the board can feel.
+    const ring = Number(effect.ringIfCostlier ?? 0);
+    if (ring <= 0 || !ctx.source) return;
+    const enemyHand = ctx.state.players[opponentOf(ctx.controller)].unitHand;
+    const revealed = enemyHand.map((c) => tryUnit(c.cardId)).find(Boolean);
+    if (!revealed) return;
+    ctx.log(`Felfedve: ${revealed.name} (${revealed.cost}).`);
+    if (revealed.cost > cardOf(ctx.source).cost) grantRings(ctx.source, ring, ctx);
+  },
+
+  note(ctx, effect, _targets) {
+    ctx.log(String(effect.text ?? "Ez a képesség még nincs gépesítve."));
+  },
 };
+
+function costOfCard(card: HandCard, kind: string): number {
+  const found = kind === "unit" ? tryUnit(card.cardId) : trySpell(card.cardId);
+  return found?.cost ?? 0;
+}
+
+function tryUnit(id: string) {
+  try {
+    return getUnit(id);
+  } catch {
+    return undefined;
+  }
+}
+
+function trySpell(id: string) {
+  try {
+    return getSpell(id);
+  } catch {
+    return undefined;
+  }
+}
 
 export function applyEffect(ctx: EffectContext, effect: Effect, targets: SlotId[]): void {
   const handler = EFFECT_HANDLERS[effect.kind];
   if (!handler) throw new Error(`No handler for effect kind "${effect.kind}"`);
+  // The universal gate. Read against the acting unit, because a Belépő resolves
+  // without asking anyone: "if nobody else is out there, +2" has to be data.
+  const gate = effect.if ? String(effect.if) : "always";
+  if (gate !== "always") {
+    const subject =
+      (effect.on ?? "target") === "caster"
+        ? ctx.source
+        : (targets.map((s) => unitAt(ctx.state, s)).find(Boolean) ?? ctx.source);
+    if (
+      !subject ||
+      !conditionHolds(ctx.state, subject, gate as StaticCondition, Number(effect.ifValue ?? 0))
+    ) {
+      return;
+    }
+  }
   handler(ctx, effect, targets);
   sweepDead(ctx.state, ctx.log);
 }
@@ -250,13 +776,32 @@ export function makeUnitInstance(
     setPower: null,
     damage: 0,
     powerDelta: 0,
-    attachments: [],
+    rings: 0,
+    placed: [],
     immunities: [],
     fizzleShields: [],
     locked: false,
     lockedPower: 0,
     spellSpent: {},
+    freeCastsUsed: 0,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Board rules that live on the location card
+// ---------------------------------------------------------------------------
+
+/** A Pék hídja turns the two outer front slots into a chasm. */
+export function isBlocked(state: GameState, slot: SlotId): boolean {
+  for (const effect of currentLocation(state).effects ?? []) {
+    if (effect.kind !== "blockedSlots") continue;
+    const names = String(effect.slots ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (names.includes(slot.slice(3))) return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -299,26 +844,62 @@ function sideMatches(
 }
 
 /**
- * Legal targets for one spell, measured from a nominated caster. Immunity and
- * the Jéghegy lock remove a unit from the list rather than making the spell
- * fizzle after the fact.
+ * Dionzosz: a spell about to land on a neighbour lands on him instead. Applied
+ * after the target is picked, so the redirect is not something the caster can
+ * play around by choosing differently.
+ */
+export function redirectTarget(state: GameState, slot: SlotId): SlotId {
+  const target = unitAt(state, slot);
+  if (!target) return slot;
+  for (const guard of allUnitsOnBoard(state)) {
+    if (guard.uid === target.uid) continue;
+    for (const ability of staticsOfSafe(state, guard)) {
+      if (ability.kind !== "redirectSpells") continue;
+      if (!slotsInScope(guard, (ability.scope ?? "adjacent") as Scope).includes(slot)) continue;
+      const side = String(ability.side ?? "ally");
+      if (side === "ally" && target.owner !== guard.owner) continue;
+      if (side === "enemy" && target.owner === guard.owner) continue;
+      if (isUntargetable(state, guard)) continue;
+      return guard.slot;
+    }
+  }
+  return slot;
+}
+
+function staticsOfSafe(state: GameState, unit: UnitInstance) {
+  return abilitiesActive(unit, state) ? (cardOf(unit).statics ?? []) : [];
+}
+
+/**
+ * Legal targets for one spell, measured from a nominated caster. Immunity, the
+ * Jéghegy lock and every flavour of Sérthetetlen remove a unit from the list
+ * rather than making the spell fizzle after the fact.
  */
 export function legalTargets(
   state: GameState,
   spec: TargetSpec,
   casterSlot: SlotId,
   controller: PlayerId,
-  school: string,
+  spell: SpellCard,
 ): SlotId[] {
+  const range = effectiveRange(state, spec.range);
   return ALL_SLOTS.filter((slot) => {
-    if (distance(casterSlot, slot) > spec.range) return false;
+    if (distance(casterSlot, slot) > range) return false;
     if (!sideMatches(slot, spec, controller, casterSlot)) return false;
     const unit = state.board[slot];
-    if (spec.emptyOnly) return !unit;
+    if (spec.emptyOnly) return !unit && !isBlocked(state, slot);
     if (!unit) return false;
-    if (unit.locked) return false;
-    if (unit.immunities.includes(school)) return false;
-    return matchesFilter(unit, spec.filter);
+    if (slot !== casterSlot && isUntargetable(state, unit)) return false;
+    for (const tag of [...spell.schools, ...(spell.tags ?? [])]) {
+      if (unit.immunities.includes(tag)) return false;
+    }
+    // Marcangolás measures "weaker than me" against the nominated caster, which
+    // only exists at resolution — so it lives here rather than in the filter.
+    if (spec.filter?.weakerThanCaster) {
+      const caster = state.board[casterSlot];
+      if (!caster || basePower(unit) >= basePower(caster)) return false;
+    }
+    return matchesFilter(unit, spec.filter, state);
   });
 }
 
@@ -327,20 +908,30 @@ export function legalDestinations(
   state: GameState,
   unit: UnitInstance,
   mode: "adjacent" | "anyEmpty",
+  crossSide = false,
 ): SlotId[] {
   const candidates =
-    mode === "adjacent" ? orthogonalNeighbours(unit.slot) : slotsOf(unit.owner);
-  return candidates.filter((s) => ownerOfSlot(s) === unit.owner && !state.board[s]);
+    mode === "adjacent"
+      ? orthogonalNeighbours(unit.slot)
+      : crossSide
+        ? ALL_SLOTS
+        : slotsOf(unit.owner);
+  return candidates.filter(
+    (s) =>
+      (crossSide || ownerOfSlot(s) === unit.owner) && !state.board[s] && !isBlocked(state, s),
+  );
 }
 
 /**
- * Belépő target sets. The engine resolves these itself — a Belépő is mandatory
- * and never asks the player anything.
+ * Belépő and trigger target sets. The engine resolves these itself — a Belépő is
+ * mandatory and never asks the player anything, which is why `pick` exists: the
+ * card text says "one", so the data has to say which one.
  */
 export function resolveAutoTargets(
   state: GameState,
   source: UnitInstance,
   spec: AutoTargetSpec,
+  cause?: UnitInstance | null,
 ): SlotId[] {
   const owner = source.owner;
   const enemy = opponentOf(owner);
@@ -348,8 +939,9 @@ export function resolveAutoTargets(
 
   switch (spec.scope) {
     case "self":
-      slots = [source.slot];
-      break;
+      return [source.slot];
+    case "trigger":
+      return cause && state.board[cause.slot]?.uid === cause.uid ? [cause.slot] : [];
     case "opposed": {
       const across = opposedSlot(source.slot);
       slots = across ? [across] : [];
@@ -360,6 +952,9 @@ export function resolveAutoTargets(
       break;
     case "allAlly":
       slots = slotsOf(owner).filter((s) => s !== source.slot);
+      break;
+    case "allOther":
+      slots = ALL_SLOTS.filter((s) => s !== source.slot);
       break;
     case "adjacentAlly":
       slots = orthogonalNeighbours(source.slot).filter((s) => ownerOfSlot(s) === owner);
@@ -373,18 +968,48 @@ export function resolveAutoTargets(
     case "diagonalEnemy":
       slots = diagonalNeighbours(source.slot).filter((s) => ownerOfSlot(s) === enemy);
       break;
+    case "diagonalAny":
+      slots = diagonalNeighbours(source.slot);
+      break;
+    case "columnEnemy":
+      slots = columnSlotsOf(enemy, Number(source.slot[4]));
+      break;
+    case "columnFrontAlly": {
+      const front = frontOfSlot(source.slot);
+      slots = front ? [front] : [];
+      break;
+    }
     default:
       return [];
   }
 
-  return slots.filter((slot) => {
-    if (spec.scope === "self") return true;
+  const matching = slots.filter((slot) => {
     const unit = state.board[slot];
     if (!unit) return false;
-    if (unit.locked) return false;
-    if (!matchesFilter(unit, spec.filter)) return false;
+    if (isUntargetable(state, unit) && unit.uid !== source.uid) return false;
+    if (!matchesFilter(unit, spec.filter, state)) return false;
     if (spec.compare === "weakerThanSelf" && basePower(unit) >= basePower(source)) return false;
     if (spec.compare === "strongerThanSelf" && basePower(unit) <= basePower(source)) return false;
     return true;
   });
+
+  const pick = spec.pick ?? "all";
+  if (pick === "all" || matching.length <= 1) return matching;
+  const score = (slot: SlotId): number => {
+    const unit = unitAt(state, slot)!;
+    if (pick === "highestSpellpower") {
+      return Object.keys(cardOf(unit).spellpower ?? {}).reduce(
+        (best, school) => Math.max(best, printedSpellpower(unit, school, state)),
+        0,
+      );
+    }
+    return power(unit, state);
+  };
+  const sorted = matching.slice().sort((a, b) => score(b) - score(a));
+  return [pick === "weakest" ? sorted[sorted.length - 1] : sorted[0]];
+}
+
+/** Every slot a player may still legally commit a unit into. */
+export function openSlots(state: GameState, player: PlayerId): SlotId[] {
+  return slotsOf(player).filter((s) => !state.board[s] && !isBlocked(state, s));
 }

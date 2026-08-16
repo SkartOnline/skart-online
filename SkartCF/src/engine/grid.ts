@@ -48,6 +48,22 @@ export function opposedSlot(slot: SlotId): SlotId | null {
   return slotId(opponentOf(ownerOfSlot(slot)), "F", colOfSlot(slot));
 }
 
+/** The slot one step towards the centerline on my own side. Bol'Jin reads this. */
+export function frontOfSlot(slot: SlotId): SlotId | null {
+  if (rowOfSlot(slot) !== "B") return null;
+  return slotId(ownerOfSlot(slot), "F", colOfSlot(slot));
+}
+
+/** The three slots of one player's row. */
+export function rowSlotsOf(player: PlayerId, row: Row): SlotId[] {
+  return COLS.map((c) => slotId(player, row, c));
+}
+
+/** Both slots of one player's column. */
+export function columnSlotsOf(player: PlayerId, col: number): SlotId[] {
+  return ROWS.map((r) => slotId(player, r, col));
+}
+
 function buildAdjacency(): Record<SlotId, SlotId[]> {
   const adj: Record<SlotId, SlotId[]> = {};
   for (const s of ALL_SLOTS) adj[s] = [];

@@ -127,13 +127,25 @@ export function allAttachments(): Attachment[] {
 export function knownSchools(): string[] {
   const set = new Set<string>();
   for (const u of units.values()) for (const s of Object.keys(u.spellpower ?? {})) set.add(s);
-  for (const s of spells.values()) set.add(s.school);
+  for (const s of spells.values()) for (const school of s.schools ?? []) set.add(school);
   return [...set].sort();
 }
 
+/** Everything the filters can match on: free keywords plus Eredet plus Rend. */
 export function knownKeywords(): string[] {
   const set = new Set<string>();
-  for (const u of units.values()) for (const k of u.keywords ?? []) set.add(k);
+  for (const u of units.values()) {
+    for (const k of u.keywords ?? []) set.add(k);
+    if (u.origin) set.add(u.origin);
+    if (u.order) set.add(u.order);
+  }
+  return [...set].sort();
+}
+
+/** Element and grade tags a spell can carry, for the editor's dropdown. */
+export function knownSpellTags(): string[] {
+  const set = new Set<string>();
+  for (const s of spells.values()) for (const t of s.tags ?? []) set.add(t);
   return [...set].sort();
 }
 
@@ -165,6 +177,27 @@ export function validateCardSet(set: CardSet): ValidationIssue[] {
       if (e.kind === "transform" && !unitIds.has(String(e.into))) {
         issues.push({ path: `unit ${u.id}.belepo[${i}].into`, message: `unknown unit "${String(e.into)}"` });
       }
+      if (e.kind === "attach" && !attachmentIds.has(String(e.attachment))) {
+        issues.push({
+          path: `unit ${u.id}.belepo[${i}].attachment`,
+          message: `unknown attachment "${String(e.attachment)}"`,
+        });
+      }
+    }
+    for (const [t, trigger] of (u.triggers ?? []).entries()) {
+      for (const [i, e] of (trigger.effects ?? []).entries()) {
+        issues.push(
+          ...validateAgainstSpec(e, EFFECT_SPECS, `unit ${u.id}.triggers[${t}].effects[${i}]`),
+        );
+      }
+    }
+  }
+
+  // An attachment carries the same statics a unit does, so it goes through the
+  // same validation — that is what lets Falanx and Vérszomj skip having code.
+  for (const a of set.attachments) {
+    for (const [i, s] of (a.statics ?? []).entries()) {
+      issues.push(...validateAgainstSpec(s, STATIC_SPECS, `attachment ${a.id}.statics[${i}]`));
     }
   }
 
@@ -174,7 +207,9 @@ export function validateCardSet(set: CardSet): ValidationIssue[] {
     if (typeof s.cost !== "number" || s.cost < 0) {
       issues.push({ path: `spell ${s.id}.cost`, message: "cost must be a non-negative number" });
     }
-    if (!s.school) issues.push({ path: `spell ${s.id}.school`, message: "school is required" });
+    if (!Array.isArray(s.schools) || s.schools.length === 0) {
+      issues.push({ path: `spell ${s.id}.schools`, message: "at least one school is required" });
+    }
     if (!Array.isArray(s.effects) || s.effects.length === 0) {
       issues.push({ path: `spell ${s.id}.effects`, message: "at least one effect is required" });
     }

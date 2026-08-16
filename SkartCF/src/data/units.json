@@ -3,299 +3,1111 @@
     "id": "patkany",
     "name": "Patkány",
     "kind": "unit",
-    "cost": 0,
+    "cost": 1,
     "power": 1,
-    "keywords": [
-      "Állat",
-      "Fodder"
-    ],
+    "keywords": [],
     "spellpower": {},
+    "rarity": "Gyakori",
+    "origin": "Állat",
     "tags": [
       "swarm"
     ],
     "text": "Egy patkány sosem elég."
   },
   {
-    "id": "koldus",
-    "name": "Koldus",
+    "id": "papagaj",
+    "name": "Papagáj",
     "kind": "unit",
-    "cost": 0,
+    "cost": 1,
     "power": 1,
-    "keywords": [
-      "Fodder"
-    ],
+    "keywords": [],
     "spellpower": {},
+    "rarity": "Kivételes",
+    "origin": "Állat",
+    "order": "Kalóz",
+    "statics": [
+      {
+        "kind": "placementRule",
+        "requireAdjacentKeyword": "Kalóz"
+      },
+      {
+        "kind": "countBonus",
+        "amount": 1,
+        "side": "ally",
+        "scope": "board",
+        "keyword": "Kalóz",
+        "atLeast": 3
+      }
+    ],
+    "tags": [
+      "swarm",
+      "kaloz"
+    ],
+    "text": "Csak szövetséges Kalózzal szomszédos mezőre játszhatsz ki. +1 erőt kapok, ha legalább 3 másik Kalóz szövetségessel együtt harcolok."
+  },
+  {
+    "id": "felindori_polgar",
+    "name": "Felindori polgár",
+    "kind": "unit",
+    "cost": 1,
+    "power": 1,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Gyakori",
+    "origin": "Felindori",
+    "tags": [
+      "swarm",
+      "felindori"
+    ],
+    "text": "A város nevében jöttem, kaszával."
+  },
+  {
+    "id": "hektor",
+    "name": "Hektor",
+    "kind": "unit",
+    "cost": 1,
+    "power": 1,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Gyakori",
+    "order": "Kalóz",
+    "tags": [
+      "swarm",
+      "kaloz"
+    ],
+    "text": "Egy név a legénységi listán."
+  },
+  {
+    "id": "kem",
+    "name": "Kém",
+    "kind": "unit",
+    "cost": 1,
+    "power": 1,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Gyakori",
+    "order": "Csempész",
+    "statics": [
+      {
+        "kind": "auraGrant",
+        "side": "ally",
+        "scope": "adjacent",
+        "grant": "untargetable",
+        "cardId": "maffiavezer"
+      }
+    ],
+    "tags": [
+      "swarm",
+      "csempesz"
+    ],
+    "text": "Ha van velem szomszédos Maffiavezér, nem lehet őt varázslattal megcélozni."
+  },
+  {
+    "id": "kincskereso",
+    "name": "Kincskereső",
+    "kind": "unit",
+    "cost": 2,
+    "power": 1,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Gyakori",
+    "triggers": [
+      {
+        "on": "onLocationWon",
+        "target": {
+          "scope": "self"
+        },
+        "effects": [
+          {
+            "kind": "drawNextLocation",
+            "cardKind": "unit",
+            "count": 1
+          }
+        ]
+      }
+    ],
     "tags": [
       "swarm"
     ],
-    "text": "Semmim sincs, csak a helyem a rácson."
+    "text": "Diadal: a következő csata előtt húzz egy extra egységet!"
   },
   {
-    "id": "csirke",
-    "name": "Csirke",
+    "id": "szerencsejatekos",
+    "name": "Szerencsejátékos",
     "kind": "unit",
-    "cost": 0,
+    "cost": 2,
     "power": 1,
-    "keywords": [
-      "Állat",
-      "Fodder"
-    ],
-    "spellpower": {
-      "Állat": 1
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Kivételes",
+    "order": "Csempész",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "coinFlip",
+          "amount": 1,
+          "reflips": 1
+        }
+      ]
     },
     "tags": [
-      "swarm"
+      "csempesz"
     ],
-    "text": "Egyetlen pont Állat mágiát adok, semmi többet."
+    "text": "Belépő: dobj fel egy érmét! Unikornis: +1 gyűrű, és újra dobhatsz duplázni. Írás: minden kapott gyűrűt elvesztek."
   },
   {
-    "id": "nyul",
-    "name": "Nyúl",
+    "id": "caecus",
+    "name": "Caecus",
     "kind": "unit",
-    "cost": 0,
+    "cost": 2,
     "power": 1,
-    "keywords": [
-      "Állat"
-    ],
-    "spellpower": {},
+    "keywords": [],
+    "spellpower": {
+      "Mágus": 2
+    },
+    "rarity": "Gyakori",
+    "order": "Mágus",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "draw",
+          "cardKind": "spell",
+          "count": 1
+        }
+      ]
+    },
     "tags": [
-      "token"
+      "caster"
     ],
-    "text": "Képesség nélküli Állat vagyok."
+    "text": "Belépő: húzz egy varázslatot!"
   },
   {
-    "id": "paraszt",
-    "name": "Paraszt",
+    "id": "bandita",
+    "name": "Bandita",
     "kind": "unit",
-    "cost": 1,
-    "power": 2,
-    "keywords": [
-      "Melee",
-      "Fodder"
-    ],
-    "spellpower": {},
-    "tags": [
-      "swarm"
-    ],
-    "text": "Kaszával jöttem, mert az volt kéznél."
-  },
-  {
-    "id": "tolvaj",
-    "name": "Tolvaj",
-    "kind": "unit",
-    "cost": 1,
+    "cost": 2,
     "power": 2,
     "keywords": [],
     "spellpower": {},
-    "tags": [
-      "swarm"
-    ],
-    "statics": [
-      {
-        "kind": "isolationBonus",
-        "amount": 1
-      }
-    ],
-    "text": "+1-et kapok, amíg nem áll mellettem szövetséges."
-  },
-  {
-    "id": "milicia",
-    "name": "Milícia",
-    "kind": "unit",
-    "cost": 2,
-    "power": 3,
-    "keywords": [
-      "Melee"
-    ],
-    "spellpower": {
-      "Harcos": 1
-    },
+    "rarity": "Gyakori",
+    "order": "Csempész",
     "tags": [
       "swarm",
-      "value"
+      "csempesz"
     ],
-    "text": "Hatan tanultuk ugyanazt a három mozdulatot."
+    "text": "Az úton mindig van vám."
   },
   {
-    "id": "farkas",
-    "name": "Farkas",
+    "id": "burastya",
+    "name": "Burastya",
     "kind": "unit",
     "cost": 2,
-    "power": 3,
-    "keywords": [
-      "Állat"
-    ],
-    "spellpower": {
-      "Állat": 1
-    },
+    "power": 2,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Gyakori",
+    "origin": "Élettelen",
     "tags": [
-      "beast",
-      "swarm"
+      "swarm",
+      "elettelen"
     ],
+    "text": "Nem alszik, mert nem is él."
+  },
+  {
+    "id": "hetvenkedo_katona",
+    "name": "Hetvenkedő katona",
+    "kind": "unit",
+    "cost": 2,
+    "power": 2,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Gyakori",
+    "order": "Harcos",
     "statics": [
       {
-        "kind": "packBonus",
+        "kind": "powerBonus",
         "amount": 1,
-        "keyword": "Állat"
+        "condition": "noHidden"
       }
     ],
-    "text": "+1-et kapok minden szomszédos szövetséges Állat után."
+    "tags": [
+      "harcos"
+    ],
+    "text": "Ha ebben a csatában egy egységet sem rejtettél el, +1 erőt kapok."
+  },
+  {
+    "id": "greta",
+    "name": "Greta",
+    "kind": "unit",
+    "cost": 2,
+    "power": 1,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Gyakori",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "peek",
+          "what": "nextLocation"
+        }
+      ]
+    },
+    "tags": [
+      "swarm"
+    ],
+    "text": "Belépő: nézd meg a következő csateret!"
+  },
+  {
+    "id": "kovacs",
+    "name": "Kovács",
+    "kind": "unit",
+    "cost": 3,
+    "power": 1,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Ritka",
+    "origin": "Törp",
+    "statics": [
+      {
+        "kind": "aura",
+        "amount": 1,
+        "side": "ally",
+        "scope": "adjacent"
+      }
+    ],
+    "tags": [
+      "support"
+    ],
+    "text": "Minden szomszédos szövetségesnek +1 erőt adok."
   },
   {
     "id": "felderito",
     "name": "Felderítő",
     "kind": "unit",
-    "cost": 2,
+    "cost": 3,
+    "power": 1,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Gyakori",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "revealHidden",
+          "count": 1
+        }
+      ]
+    },
+    "tags": [
+      "support"
+    ],
+    "text": "Belépő: felfedek egy rejtett ellenséget."
+  },
+  {
+    "id": "zsalu",
+    "name": "Zsalu",
+    "kind": "unit",
+    "cost": 3,
     "power": 2,
     "keywords": [],
     "spellpower": {
-      "Harcos": 2
+      "Ravaszság": 2
     },
-    "tags": [
-      "value"
-    ],
+    "rarity": "Kivételes",
+    "origin": "Felindori",
+    "order": "Csempész",
     "statics": [
       {
-        "kind": "rowBonus",
-        "row": "B",
-        "amount": 1
+        "kind": "countBonus",
+        "amount": 3,
+        "side": "ally",
+        "scope": "board",
+        "keyword": "Csempész",
+        "atLeast": 3
       }
     ],
-    "text": "+1-et kapok a hátsó sorban."
+    "tags": [
+      "csempesz",
+      "caster"
+    ],
+    "text": "Ha legalább 3 másik Csempész szövetségessel harcolok együtt, +3 erőt kapok."
   },
   {
-    "id": "ijasz",
-    "name": "Íjász",
+    "id": "farkas",
+    "name": "Farkas",
     "kind": "unit",
     "cost": 3,
-    "power": 4,
+    "power": 2,
+    "keywords": [
+      "Farkas"
+    ],
+    "spellpower": {
+      "Bestia": 1
+    },
+    "rarity": "Gyakori",
+    "origin": "Állat",
+    "statics": [
+      {
+        "kind": "countBonus",
+        "amount": 1,
+        "side": "ally",
+        "scope": "board",
+        "keyword": "Farkas"
+      }
+    ],
+    "tags": [
+      "beast",
+      "swarm"
+    ],
+    "text": "Minden további szövetséges Farkasért +1 erőt kapok."
+  },
+  {
+    "id": "vadasz",
+    "name": "Vadász",
+    "kind": "unit",
+    "cost": 3,
+    "power": 2,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Ritka",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "discard",
+          "cardKind": "unit",
+          "count": 1,
+          "keyword": "Állat,Bestia",
+          "ringPer": 2
+        }
+      ]
+    },
+    "tags": [
+      "beast"
+    ],
+    "text": "Belépő: dobj el egy Állatot vagy Bestiát, hogy +2 gyűrűt kapjak!"
+  },
+  {
+    "id": "novicius",
+    "name": "Novícius",
+    "kind": "unit",
+    "cost": 3,
+    "power": 1,
+    "keywords": [],
+    "spellpower": {
+      "Mágus": 3
+    },
+    "rarity": "Gyakori",
+    "order": "Mágus",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "draw",
+          "cardKind": "spell",
+          "count": 1
+        }
+      ]
+    },
+    "tags": [
+      "caster"
+    ],
+    "text": "Belépő: húzz egy varázslatot!"
+  },
+  {
+    "id": "kereskedo",
+    "name": "Kereskedő",
+    "kind": "unit",
+    "cost": 3,
+    "power": 2,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Gyakori",
+    "order": "Csempész",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "draw",
+          "cardKind": "unit",
+          "count": 1
+        }
+      ]
+    },
+    "tags": [
+      "csempesz"
+    ],
+    "text": "Belépő: húzz egy lapot!"
+  },
+  {
+    "id": "barkakedvenc",
+    "name": "Bárkakedvenc",
+    "kind": "unit",
+    "cost": 3,
+    "power": 2,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Gyakori",
+    "origin": "Bestia",
+    "order": "Kalóz",
+    "statics": [
+      {
+        "kind": "countBonus",
+        "amount": 1,
+        "side": "enemy",
+        "scope": "board",
+        "requires": "damaged"
+      }
+    ],
+    "tags": [
+      "beast",
+      "kaloz"
+    ],
+    "text": "Minden sérült ellenség után +1 erőt kapok."
+  },
+  {
+    "id": "temetkezesi_vallalkozo",
+    "name": "Temetkezési vállalkozó",
+    "kind": "unit",
+    "cost": 3,
+    "power": 2,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Ritka",
+    "triggers": [
+      {
+        "on": "onAnyDeath",
+        "target": {
+          "scope": "self"
+        },
+        "effects": [
+          {
+            "kind": "grantRing",
+            "amount": 1,
+            "on": "caster"
+          }
+        ]
+      }
+    ],
+    "tags": [
+      "elettelen"
+    ],
+    "text": "Amikor egy egység meghal, +1 gyűrűt kapok."
+  },
+  {
+    "id": "makacs_elohalott",
+    "name": "Makacs élőhalott",
+    "kind": "unit",
+    "cost": 3,
+    "power": 3,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Gyakori",
+    "origin": "Élettelen",
+    "triggers": [
+      {
+        "on": "onDeath",
+        "target": {
+          "scope": "self"
+        },
+        "effects": [
+          {
+            "kind": "returnToHand",
+            "toOwner": "owner",
+            "on": "caster"
+          }
+        ]
+      }
+    ],
+    "tags": [
+      "elettelen"
+    ],
+    "text": "Vigasz: visszakerülök a kezedbe."
+  },
+  {
+    "id": "dionzosz",
+    "name": "Dionzosz",
+    "kind": "unit",
+    "cost": 3,
+    "power": 3,
+    "keywords": [
+      "Farkas"
+    ],
+    "spellpower": {
+      "Druida": 1
+    },
+    "rarity": "Gyakori",
+    "origin": "Druida",
+    "statics": [
+      {
+        "kind": "redirectSpells",
+        "side": "ally",
+        "scope": "adjacent"
+      }
+    ],
+    "tags": [
+      "druida"
+    ],
+    "text": "Ha egy szomszédos szövetségesre varázslat kerülne, rám kerül helyette."
+  },
+  {
+    "id": "felindori_fegyverhordozo",
+    "name": "Felindori fegyverhordozó",
+    "kind": "unit",
+    "cost": 3,
+    "power": 3,
     "keywords": [],
     "spellpower": {
       "Harcos": 1
     },
+    "rarity": "Gyakori",
+    "origin": "Felindori",
+    "order": "Harcos",
     "tags": [
-      "value"
+      "felindori",
+      "harcos"
     ],
-    "text": "Messziről dolgozom, és nem kérdezek."
+    "text": "Viszem a pajzsot, és tudom, hova kell állni."
   },
   {
-    "id": "konnyulandzsas",
-    "name": "Könnyűlándzsás",
+    "id": "vizkopo",
+    "name": "Vízköpő",
     "kind": "unit",
-    "cost": 3,
-    "power": 4,
-    "keywords": [
-      "Melee"
-    ],
+    "cost": 4,
+    "power": 2,
+    "keywords": [],
     "spellpower": {},
-    "tags": [
-      "value"
+    "rarity": "Ritka",
+    "origin": "Keleti",
+    "statics": [
+      {
+        "kind": "powerBonus",
+        "amount": 3,
+        "condition": "aloneInRow"
+      }
     ],
-    "text": "Amíg a lándzsám ér el, addig tart a sorunk."
+    "tags": [
+      "keleti"
+    ],
+    "text": "Ha nincs rajtam kívül szövetséges a soromban, +3 erőt kapok."
   },
   {
-    "id": "remete",
-    "name": "Remete",
+    "id": "griff_hamiskartyas",
+    "name": "Griff, a hamiskártyás",
     "kind": "unit",
-    "cost": 3,
+    "cost": 4,
     "power": 2,
     "keywords": [],
     "spellpower": {
-      "Mágus": 2
+      "Ravaszság": 2
+    },
+    "rarity": "Legendás",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "note",
+          "text": "Griff kézcseréje asztal mellett dől el — a motor nem gépesíti."
+        }
+      ]
     },
     "tags": [
-      "caster"
+      "csempesz"
     ],
+    "text": "Belépő: húzz legfeljebb 3 egységet az ellenfeled kezéből, majd adj neki ugyanennyit a tiédből!"
+  },
+  {
+    "id": "magusinkvizitor",
+    "name": "Mágusinkvizítor",
+    "kind": "unit",
+    "cost": 4,
+    "power": 2,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Kivételes",
+    "origin": "Keleti",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "peek",
+          "what": "spellHand"
+        }
+      ]
+    },
+    "tags": [
+      "keleti"
+    ],
+    "text": "Belépő: fedd fel az ellenfeled kezében lévő varázslatokat!"
+  },
+  {
+    "id": "varju",
+    "name": "Varjú",
+    "kind": "unit",
+    "cost": 4,
+    "power": 2,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Kivételes",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "discard",
+          "cardKind": "unit",
+          "count": 2,
+          "ringPer": 1
+        }
+      ]
+    },
+    "tags": [
+      "elettelen"
+    ],
+    "text": "Belépő: eldobok két egységet a kezedből, és minden eldobott egység után +1 gyűrűt kapok."
+  },
+  {
+    "id": "siraso",
+    "name": "Sírásó",
+    "kind": "unit",
+    "cost": 4,
+    "power": 2,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Ritka",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "searchDeck",
+          "cardKind": "unit",
+          "source": "graveyard",
+          "count": 1,
+          "excludeRarity": "Legendás"
+        }
+      ]
+    },
+    "tags": [
+      "elettelen"
+    ],
+    "text": "Belépő: kikeresek egy nem-Legendás egységet a temetődből. Húzd fel!"
+  },
+  {
+    "id": "rablo",
+    "name": "Rabló",
+    "kind": "unit",
+    "cost": 4,
+    "power": 3,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Ritka",
+    "order": "Csempész",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "stealCard",
+          "from": "deckTop",
+          "cardKind": "unit",
+          "count": 1
+        }
+      ]
+    },
+    "tags": [
+      "csempesz"
+    ],
+    "text": "Belépő: elrabolom az ellenfelem paklijának felső lapját!"
+  },
+  {
+    "id": "sir_werdzsell",
+    "name": "Sir Werdzsell",
+    "kind": "unit",
+    "cost": 4,
+    "power": 3,
+    "keywords": [],
+    "spellpower": {
+      "Harcos": 2
+    },
+    "rarity": "Ritka",
+    "origin": "Felindori",
+    "order": "Harcos",
     "statics": [
       {
-        "kind": "isolationBonus",
-        "amount": 3
+        "kind": "powerBonus",
+        "amount": 2,
+        "condition": "opposedStronger"
       }
     ],
-    "text": "+3-at kapok, amíg nem áll mellettem szövetséges."
+    "tags": [
+      "felindori",
+      "harcos"
+    ],
+    "text": "Ha nálam erősebb ellenség áll előttem, +2 erőt kapok."
   },
   {
-    "id": "tanonc",
-    "name": "Tanonc",
+    "id": "hajnalmadar",
+    "name": "Hajnalmadár",
     "kind": "unit",
-    "cost": 3,
-    "power": 1,
-    "keywords": [
-      "Mágus"
-    ],
+    "cost": 4,
+    "power": 3,
+    "keywords": [],
     "spellpower": {
-      "Mágus": 3
+      "Bestia": 2
+    },
+    "rarity": "Ritka",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "grantRing",
+          "amount": 2,
+          "on": "caster",
+          "if": "aloneOnBoard"
+        }
+      ]
     },
     "tags": [
-      "caster"
+      "beast"
     ],
-    "text": "Három pont varázserőt hozok, és még remegek tőle."
+    "text": "Belépő: ha nincs rajtam kívül szövetséges a csatatéren, +2 gyűrűt kapok."
   },
   {
-    "id": "vador",
-    "name": "Vadőr",
+    "id": "fuedrax",
+    "name": "Fuedrax",
     "kind": "unit",
-    "cost": 3,
+    "cost": 4,
     "power": 2,
-    "keywords": [
-      "Állat"
-    ],
+    "keywords": [],
     "spellpower": {
-      "Állat": 3
+      "Ravaszság": 2
+    },
+    "rarity": "Ritka",
+    "origin": "Felindori",
+    "order": "Orgyilkos",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "note",
+          "text": "Fuedrax csapdazónája még nincs gépesítve."
+        }
+      ]
     },
     "tags": [
-      "beast",
+      "felindori",
+      "orgyilkos"
+    ],
+    "text": "Belépő: a következő varázslatodat a rakás helyett az egyik ellenséges mezőre helyezd csapdaként!"
+  },
+  {
+    "id": "fejvadasz",
+    "name": "Fejvadász",
+    "kind": "unit",
+    "cost": 4,
+    "power": 3,
+    "keywords": [],
+    "spellpower": {
+      "Ravaszság": 2
+    },
+    "rarity": "Ritka",
+    "order": "Orgyilkos",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "peek",
+          "what": "hand",
+          "ringIfCostlier": 2
+        }
+      ]
+    },
+    "tags": [
+      "orgyilkos"
+    ],
+    "text": "Belépő: felfedek egy lapot az ellenfél kezében! Ha nálam nagyobb költségű egység, +2 gyűrűt kapok."
+  },
+  {
+    "id": "pirato_sanchez",
+    "name": "Piráto Sanchez",
+    "kind": "unit",
+    "cost": 4,
+    "power": 3,
+    "keywords": [],
+    "spellpower": {
+      "Harcos": 2
+    },
+    "rarity": "Ritka",
+    "order": "Kalóz",
+    "statics": [
+      {
+        "kind": "countBonus",
+        "amount": 1,
+        "side": "ally",
+        "scope": "board",
+        "keyword": "Kalóz"
+      }
+    ],
+    "tags": [
+      "kaloz",
+      "harcos"
+    ],
+    "text": "Minden szövetséges Kalóz után +1 erőt kapok."
+  },
+  {
+    "id": "magiacenzor",
+    "name": "Mágiacenzor",
+    "kind": "unit",
+    "cost": 4,
+    "power": 3,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Kivételes",
+    "origin": "Keleti",
+    "order": "Bölcs",
+    "belepo": {
+      "target": {
+        "scope": "columnEnemy",
+        "pick": "highestSpellpower"
+      },
+      "effects": [
+        {
+          "kind": "modifySpellpower",
+          "amount": 2
+        }
+      ]
+    },
+    "tags": [
+      "keleti",
+      "control"
+    ],
+    "text": "Belépő: a velem egy oszlopban álló legnagyobb varázserejű ellenség varázserejét 2-vel csökkentem."
+  },
+  {
+    "id": "adeptus",
+    "name": "Adeptus",
+    "kind": "unit",
+    "cost": 4,
+    "power": 2,
+    "keywords": [],
+    "spellpower": {
+      "Mágus": 4
+    },
+    "rarity": "Ritka",
+    "order": "Mágus",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "draw",
+          "cardKind": "spell",
+          "count": 1
+        }
+      ]
+    },
+    "tags": [
       "caster"
     ],
-    "text": "Az erdő nyelvén beszélek, három pontnyit."
+    "text": "Belépő: húzz egy varázslatot!"
+  },
+  {
+    "id": "felindori_ijasz",
+    "name": "Felindori íjász",
+    "kind": "unit",
+    "cost": 4,
+    "power": 3,
+    "keywords": [
+      "Távolsági"
+    ],
+    "spellpower": {},
+    "rarity": "Gyakori",
+    "origin": "Felindori",
+    "order": "Harcos",
+    "tags": [
+      "felindori",
+      "harcos"
+    ],
+    "text": "Távolsági: a hátsó sorban +2 erőt kapok."
+  },
+  {
+    "id": "altus",
+    "name": "Altus",
+    "kind": "unit",
+    "cost": 4,
+    "power": 3,
+    "keywords": [],
+    "spellpower": {
+      "Druida": 3
+    },
+    "rarity": "Kivételes",
+    "origin": "Felindori",
+    "order": "Druida",
+    "statics": [
+      {
+        "kind": "aura",
+        "amount": 1,
+        "side": "ally",
+        "scope": "board",
+        "maxBasePower": 1
+      }
+    ],
+    "tags": [
+      "felindori",
+      "druida",
+      "swarm"
+    ],
+    "text": "Minden 1 alaperejű szövetségesnek +1 erőt adok."
   },
   {
     "id": "felindori_kardforgato",
     "name": "Felindori kardforgató",
     "kind": "unit",
     "cost": 4,
-    "power": 5,
-    "keywords": [
-      "Melee"
-    ],
+    "power": 4,
+    "keywords": [],
     "spellpower": {
       "Harcos": 2
     },
+    "rarity": "Gyakori",
+    "origin": "Felindori",
+    "order": "Harcos",
     "tags": [
+      "felindori",
+      "harcos",
       "value"
     ],
     "text": "A mérce. Minden más hozzám képest drága vagy olcsó."
   },
   {
-    "id": "ogre",
-    "name": "Ogre",
+    "id": "chupacabra",
+    "name": "Chupacabra",
     "kind": "unit",
     "cost": 4,
-    "power": 6,
-    "keywords": [
-      "Melee"
-    ],
-    "spellpower": {},
+    "power": 5,
+    "keywords": [],
+    "spellpower": {
+      "Bestia": 2
+    },
+    "rarity": "Ritka",
+    "origin": "Bestia",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "discard",
+          "cardKind": "both",
+          "count": 1
+        }
+      ]
+    },
     "tags": [
-      "value"
+      "beast"
     ],
-    "text": "Hatot ütök négyért. Ennyi az egész."
+    "text": "Belépő: dobj el egy lapot!"
+  },
+  {
+    "id": "lenyidomar",
+    "name": "Lényidomár",
+    "kind": "unit",
+    "cost": 5,
+    "power": 2,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Ritka",
+    "statics": [
+      {
+        "kind": "aura",
+        "amount": 2,
+        "side": "ally",
+        "scope": "adjacent",
+        "keyword": "Állat,Bestia"
+      }
+    ],
+    "tags": [
+      "beast",
+      "support"
+    ],
+    "text": "Minden szomszédos Állatnak vagy Bestiának +2 erőt adok."
+  },
+  {
+    "id": "maffiavezer",
+    "name": "Maffiavezér",
+    "kind": "unit",
+    "cost": 5,
+    "power": 4,
+    "keywords": [],
+    "spellpower": {
+      "Ravaszság": 3
+    },
+    "rarity": "Kivételes",
+    "order": "Csempész",
+    "statics": [
+      {
+        "kind": "aura",
+        "amount": 1,
+        "side": "ally",
+        "scope": "adjacent",
+        "keyword": "Csempész"
+      }
+    ],
+    "tags": [
+      "csempesz",
+      "caster"
+    ],
+    "text": "Minden szomszédos Csempésznek +1 erőt adok."
   },
   {
     "id": "bergyilkos",
     "name": "Bérgyilkos",
     "kind": "unit",
-    "cost": 4,
-    "power": 2,
+    "cost": 5,
+    "power": 4,
     "keywords": [],
-    "spellpower": {},
-    "tags": [
-      "control"
-    ],
+    "spellpower": {
+      "Ravaszság": 3
+    },
+    "rarity": "Ritka",
+    "order": "Orgyilkos",
     "belepo": {
       "target": {
-        "scope": "opposed",
-        "compare": "weakerThanSelf"
+        "scope": "columnEnemy",
+        "compare": "weakerThanSelf",
+        "pick": "weakest"
       },
       "effects": [
         {
@@ -303,309 +1115,1129 @@
         }
       ]
     },
-    "text": "Belépő: megölöm a velem szemben álló gyengébb egységet."
-  },
-  {
-    "id": "patkanykiraly",
-    "name": "Patkánykirály",
-    "kind": "unit",
-    "cost": 4,
-    "power": 2,
-    "keywords": [
-      "Állat"
-    ],
-    "spellpower": {
-      "Állat": 2
-    },
     "tags": [
-      "swarm"
-    ],
-    "statics": [
-      {
-        "kind": "countBonus",
-        "amount": 1,
-        "keyword": "Fodder",
-        "side": "ally"
-      }
-    ],
-    "text": "+1-et kapok minden szövetséges Fodder egység után."
-  },
-  {
-    "id": "okto",
-    "name": "Októ",
-    "kind": "unit",
-    "cost": 5,
-    "power": 3,
-    "keywords": [],
-    "spellpower": {
-      "Mágus": 2
-    },
-    "tags": [
-      "swarm",
+      "orgyilkos",
       "control"
     ],
-    "statics": [
-      {
-        "kind": "diagonalBonus",
-        "amount": 1,
-        "includeEnemy": true
-      }
-    ],
-    "text": "+1-et kapok minden átlósan érintkező egység után, a sajátjaimat is beleértve."
+    "text": "Belépő: megölöm a leggyengébb ellenséget az oszlopomban, ha gyengébb nálam!"
   },
   {
-    "id": "veteran",
-    "name": "Veterán",
+    "id": "sir_ton",
+    "name": "Sir Ton",
     "kind": "unit",
     "cost": 5,
     "power": 6,
-    "keywords": [
-      "Melee"
-    ],
-    "spellpower": {
-      "Harcos": 3
-    },
-    "tags": [
-      "value"
-    ],
-    "text": "Már láttam ezt a csatateret. Kétszer."
-  },
-  {
-    "id": "lovag",
-    "name": "Lovag",
-    "kind": "unit",
-    "cost": 5,
-    "power": 6,
-    "keywords": [
-      "Melee"
-    ],
+    "keywords": [],
     "spellpower": {},
+    "rarity": "Ritka",
     "tags": [
-      "value"
+      "wip",
+      "felindori"
     ],
-    "statics": [
-      {
-        "kind": "auraAdjacentAlly",
-        "amount": 1,
-        "keyword": "Melee"
-      }
-    ],
-    "text": "+1-et adok minden szomszédos szövetséges Melee egységnek."
+    "text": "Kidolgozás alatt — az erő és a képesség még nincs véglegesítve."
   },
   {
     "id": "medve",
     "name": "Medve",
     "kind": "unit",
     "cost": 5,
-    "power": 6,
-    "keywords": [
-      "Állat"
-    ],
+    "power": 5,
+    "keywords": [],
     "spellpower": {
-      "Állat": 2
+      "Bestia": 3
     },
+    "rarity": "Ritka",
+    "origin": "Állat",
+    "statics": [
+      {
+        "kind": "powerBonus",
+        "amount": 1,
+        "condition": "isolatedDiagonal"
+      }
+    ],
     "tags": [
       "beast"
     ],
-    "text": "Nem vagyok szelíd, csak lassú."
+    "text": "Ha nincs velem átlósan érintkező szövetséges, +1 erőt kapok."
   },
   {
-    "id": "magus",
-    "name": "Mágus",
+    "id": "nyominger_melak",
+    "name": "Nyominger melák",
     "kind": "unit",
     "cost": 5,
-    "power": 2,
-    "keywords": [
-      "Mágus"
-    ],
+    "power": 5,
+    "keywords": [],
     "spellpower": {
-      "Mágus": 5
+      "Bestia": 3
     },
+    "rarity": "Gyakori",
+    "origin": "Bestia",
     "tags": [
-      "caster"
+      "beast"
     ],
-    "text": "Öt pont varázserőt hozok, erőt alig."
+    "text": "Nagy vagyok, és ennyi."
   },
   {
-    "id": "troll",
-    "name": "Troll",
+    "id": "liderc",
+    "name": "Lidérc",
     "kind": "unit",
-    "cost": 6,
-    "power": 7,
-    "keywords": [
-      "Melee"
-    ],
+    "cost": 5,
+    "power": 6,
+    "keywords": [],
     "spellpower": {},
+    "rarity": "Gyakori",
+    "origin": "Élettelen",
     "tags": [
-      "value"
+      "elettelen"
     ],
-    "text": "Kőből vagyok, és rosszkedvű."
+    "text": "Fény, ami nem melegít."
   },
   {
-    "id": "bajnok",
-    "name": "Bajnok",
-    "kind": "unit",
-    "cost": 6,
-    "power": 7,
-    "keywords": [
-      "Melee"
-    ],
-    "spellpower": {
-      "Harcos": 4
-    },
-    "tags": [
-      "value"
-    ],
-    "text": "Engem küldenek, ha egy ember is elég kell legyen."
-  },
-  {
-    "id": "bestiaidomar",
-    "name": "Bestiaidomár",
+    "id": "simorf",
+    "name": "Simorf, a pestisdoktor",
     "kind": "unit",
     "cost": 6,
     "power": 3,
     "keywords": [],
     "spellpower": {
-      "Bestia": 5,
-      "Állat": 2
+      "Feketemágus": 2
     },
-    "tags": [
-      "beast",
-      "caster"
-    ],
-    "text": "A bestiák hallgatnak rám, öt pontnyit."
-  },
-  {
-    "id": "fomagus",
-    "name": "Főmágus",
-    "kind": "unit",
-    "cost": 7,
-    "power": 2,
-    "keywords": [
-      "Mágus"
-    ],
-    "spellpower": {
-      "Mágus": 7
-    },
-    "tags": [
-      "caster"
-    ],
-    "text": "Hét pont varázserő, kettő erő. Nem verekedni jöttem."
-  },
-  {
-    "id": "hadur",
-    "name": "Hadúr",
-    "kind": "unit",
-    "cost": 7,
-    "power": 8,
-    "keywords": [
-      "Melee"
-    ],
-    "spellpower": {
-      "Harcos": 4
-    },
-    "tags": [
-      "value"
-    ],
+    "rarity": "Legendás",
     "statics": [
       {
-        "kind": "auraAdjacentAlly",
-        "amount": 1
+        "kind": "aura",
+        "amount": -1,
+        "side": "enemy",
+        "scope": "board"
       }
     ],
-    "text": "+1-et adok minden szomszédos szövetségesemnek."
+    "tags": [
+      "control",
+      "caster"
+    ],
+    "text": "Minden ellenség -1 erőt kap."
   },
   {
-    "id": "verfarkas",
-    "name": "Vérfarkas",
+    "id": "felix",
+    "name": "Felix, a Hajnali Utas",
     "kind": "unit",
-    "cost": 8,
-    "power": 8,
-    "keywords": [
-      "Melee",
-      "Állat"
-    ],
+    "cost": 6,
+    "power": 3,
+    "keywords": [],
     "spellpower": {
-      "Bestia": 2
+      "Mágus": 5
+    },
+    "rarity": "Legendás",
+    "origin": "Felindori",
+    "order": "Mágus",
+    "triggers": [
+      {
+        "on": "onDeath",
+        "target": {
+          "scope": "self"
+        },
+        "effects": [
+          {
+            "kind": "note",
+            "text": "Felix portálja a következő csatatérre még nincs gépesítve."
+          }
+        ]
+      }
+    ],
+    "tags": [
+      "felindori",
+      "caster"
+    ],
+    "text": "Vigasz: portált nyitok a következő csatatérre. Ha így érkezem, nem számítok bele a költséglimitbe."
+  },
+  {
+    "id": "artifex",
+    "name": "Artifex, a ködfejtő könyvtáros",
+    "kind": "unit",
+    "cost": 6,
+    "power": 3,
+    "keywords": [],
+    "spellpower": {
+      "Mágus": 5
+    },
+    "rarity": "Legendás",
+    "origin": "Felindori",
+    "order": "Mágus",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "searchDeck",
+          "cardKind": "spell",
+          "source": "deck",
+          "count": 1
+        }
+      ]
     },
     "tags": [
-      "beast",
-      "value"
+      "felindori",
+      "caster"
     ],
+    "text": "Belépő: kikeresek egy tetszőleges varázslatot a pakliból. Húzd fel!"
+  },
+  {
+    "id": "explodus",
+    "name": "Explodus, a Néma Tüzek Őre",
+    "kind": "unit",
+    "cost": 6,
+    "power": 3,
+    "keywords": [],
+    "spellpower": {
+      "Mágus": 5
+    },
+    "rarity": "Legendás",
+    "origin": "Felindori",
+    "order": "Mágus",
     "statics": [
       {
-        "kind": "opposedBonus",
+        "kind": "spellMod",
+        "what": "cost",
+        "amount": -1,
+        "tag": "Tűz"
+      }
+    ],
+    "tags": [
+      "felindori",
+      "caster"
+    ],
+    "text": "Minden Tűz varázslatod 1-gyel kevesebbe kerül."
+  },
+  {
+    "id": "magister",
+    "name": "Magister",
+    "kind": "unit",
+    "cost": 6,
+    "power": 4,
+    "keywords": [],
+    "spellpower": {
+      "Mágus": 6
+    },
+    "rarity": "Kivételes",
+    "order": "Mágus",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "draw",
+          "cardKind": "spell",
+          "count": 2
+        }
+      ]
+    },
+    "tags": [
+      "caster"
+    ],
+    "text": "Belépő: húzz két varázslatot!"
+  },
+  {
+    "id": "ninja",
+    "name": "Ninja",
+    "kind": "unit",
+    "cost": 6,
+    "power": 5,
+    "keywords": [],
+    "spellpower": {
+      "Ravaszság": 3
+    },
+    "rarity": "Kivételes",
+    "origin": "Keleti",
+    "order": "Orgyilkos",
+    "statics": [
+      {
+        "kind": "powerBonus",
         "amount": 3,
-        "condition": "weaker"
+        "condition": "isolated"
       }
     ],
-    "text": "+3-at kapok, ha a velem szemben álló egység nyomtatott ereje kisebb az enyémnél."
+    "tags": [
+      "keleti",
+      "orgyilkos"
+    ],
+    "text": "Ha nincs velem szomszédos szövetséges, +3 erőt kapok."
   },
   {
-    "id": "griff",
-    "name": "Griff",
+    "id": "szarvas",
+    "name": "Szarvas",
     "kind": "unit",
-    "cost": 8,
-    "power": 9,
-    "keywords": [
-      "Állat"
+    "cost": 6,
+    "power": 5,
+    "keywords": [],
+    "spellpower": {
+      "Bestia": 3
+    },
+    "rarity": "Ritka",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "advance",
+          "ringPerTile": 1
+        }
+      ]
+    },
+    "tags": [
+      "beast"
     ],
+    "text": "Belépő: előrenyomulok, amíg van előttem üres mező az oszlopban. Minden megtett mezőért +1 gyűrűt kapok."
+  },
+  {
+    "id": "elfina",
+    "name": "Elfina",
+    "kind": "unit",
+    "cost": 6,
+    "power": 7,
+    "keywords": [],
     "spellpower": {},
+    "rarity": "Kivételes",
+    "origin": "Felindori",
+    "order": "Druida",
+    "tags": [
+      "wip",
+      "felindori",
+      "druida"
+    ],
+    "text": "Kidolgozás alatt — az erő és a képesség még nincs véglegesítve."
+  },
+  {
+    "id": "felindori_bajnok",
+    "name": "Felindori bajnok",
+    "kind": "unit",
+    "cost": 6,
+    "power": 7,
+    "keywords": [],
+    "spellpower": {
+      "Harcos": 3
+    },
+    "rarity": "Ritka",
+    "origin": "Felindori",
+    "order": "Harcos",
+    "tags": [
+      "felindori",
+      "harcos",
+      "value"
+    ],
+    "text": "Engem küldenek, ha egy ember is elég kell legyen."
+  },
+  {
+    "id": "ogre",
+    "name": "Ogre",
+    "kind": "unit",
+    "cost": 6,
+    "power": 7,
+    "keywords": [],
+    "spellpower": {
+      "Bestia": 3
+    },
+    "rarity": "Kivételes",
+    "origin": "Bestia",
     "tags": [
       "beast",
       "value"
     ],
-    "text": "Fentről nézem, hol szakad a soruk."
+    "text": "Hetet ütök hatért. Ennyi az egész."
   },
   {
-    "id": "nekromanta",
-    "name": "Nekromanta",
+    "id": "bodur_kapitany",
+    "name": "Bodur kapitány",
     "kind": "unit",
-    "cost": 9,
-    "power": 2,
+    "cost": 6,
+    "power": 6,
+    "keywords": [],
+    "spellpower": {
+      "Harcos": 3
+    },
+    "rarity": "Kivételes",
+    "origin": "Felindori",
+    "order": "Harcos",
+    "triggers": [
+      {
+        "on": "onAllyMove",
+        "target": {
+          "scope": "trigger"
+        },
+        "effects": [
+          {
+            "kind": "grantRing",
+            "amount": 1
+          }
+        ]
+      }
+    ],
+    "tags": [
+      "felindori",
+      "harcos",
+      "support"
+    ],
+    "text": "Amikor egy szövetséges mozog, +1 gyűrűt kap. A gyűrű akkor is megmarad, ha én már nem vagyok a táblán."
+  },
+  {
+    "id": "serpens_tuzer",
+    "name": "Serpens tüzér",
+    "kind": "unit",
+    "cost": 6,
+    "power": 6,
     "keywords": [
-      "Mágus"
+      "Távolsági"
     ],
     "spellpower": {
-      "Feketemágus": 8
+      "Harcos": 3
+    },
+    "rarity": "Ritka",
+    "origin": "Sárkány",
+    "order": "Harcos",
+    "tags": [
+      "harcos"
+    ],
+    "text": "Távolsági: a hátsó sorban +2 erőt kapok."
+  },
+  {
+    "id": "carnifex",
+    "name": "Carnifex",
+    "kind": "unit",
+    "cost": 7,
+    "power": 3,
+    "keywords": [],
+    "spellpower": {
+      "Feketemágus": 6
+    },
+    "rarity": "Kivételes",
+    "belepo": {
+      "target": {
+        "scope": "allEnemy",
+        "pick": "strongest",
+        "filter": {
+          "maxBasePower": 4
+        }
+      },
+      "effects": [
+        {
+          "kind": "destroy"
+        }
+      ]
     },
     "tags": [
       "caster",
       "control"
     ],
-    "text": "Nyolc pont Feketemágia, és a hozzá tartozó szag."
+    "text": "Belépő: megölök egy legfeljebb 4 alaperejű ellenséget."
   },
   {
-    "id": "orias",
-    "name": "Óriás",
+    "id": "korgon",
+    "name": "Korgon",
     "kind": "unit",
-    "cost": 9,
-    "power": 11,
+    "cost": 7,
+    "power": 4,
+    "keywords": [],
+    "spellpower": {
+      "Druida": 4,
+      "Feketemágus": 4
+    },
+    "rarity": "Kivételes",
+    "statics": [
+      {
+        "kind": "countBonus",
+        "amount": 1,
+        "side": "enemy",
+        "scope": "board",
+        "keyword": "Élettelen"
+      }
+    ],
+    "tags": [
+      "caster",
+      "druida"
+    ],
+    "text": "Minden ellenséges Élettelen egység után +1 erőt kapok."
+  },
+  {
+    "id": "derfoldi_deoren",
+    "name": "Dérföldi Deoren",
+    "kind": "unit",
+    "cost": 7,
+    "power": 8,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Kivételes",
+    "tags": [
+      "wip"
+    ],
+    "text": "Kidolgozás alatt — az erő és a képesség még nincs véglegesítve."
+  },
+  {
+    "id": "guner",
+    "name": "Guner",
+    "kind": "unit",
+    "cost": 7,
+    "power": 5,
+    "keywords": [],
+    "spellpower": {
+      "Ravaszság": 5
+    },
+    "rarity": "Kivételes",
+    "origin": "Felindori",
+    "order": "Orgyilkos",
+    "statics": [
+      {
+        "kind": "powerBonus",
+        "amount": 4,
+        "condition": "enemyHalf"
+      }
+    ],
+    "tags": [
+      "felindori",
+      "orgyilkos"
+    ],
+    "text": "Az ellenség térfelén +4 erőt kapok."
+  },
+  {
+    "id": "boljin",
+    "name": "Bol'Jin",
+    "kind": "unit",
+    "cost": 7,
+    "power": 5,
     "keywords": [
-      "Melee"
+      "Távolsági"
     ],
     "spellpower": {},
-    "tags": [
-      "value"
+    "rarity": "Kivételes",
+    "statics": [
+      {
+        "kind": "auraGrant",
+        "side": "ally",
+        "scope": "columnFront",
+        "grant": "invulnerable"
+      }
     ],
-    "text": "Ha elférek a mezőn, ti nem fértek el."
+    "tags": [
+      "support"
+    ],
+    "text": "Távolsági. Az előttem álló szövetséges Sérthetetlen."
   },
   {
-    "id": "wyvern",
-    "name": "Wyvern",
+    "id": "verfarkas",
+    "name": "Vérfarkas",
     "kind": "unit",
-    "cost": 10,
-    "power": 12,
+    "cost": 7,
+    "power": 7,
     "keywords": [
-      "Állat"
+      "Farkas"
     ],
     "spellpower": {
-      "Bestia": 3
+      "Bestia": 4
     },
+    "rarity": "Kivételes",
+    "origin": "Bestia",
+    "statics": [
+      {
+        "kind": "powerBonus",
+        "amount": 2,
+        "condition": "opposedWeaker"
+      },
+      {
+        "kind": "suppressOpposed",
+        "condition": "opposedWeaker"
+      }
+    ],
     "tags": [
       "beast",
       "value"
     ],
-    "text": "Tizenkettőt érek, és tudom is."
+    "text": "Ha nálam gyengébb egység áll előttem, +2 erőt kapok, és az ő képessége nem aktív."
+  },
+  {
+    "id": "welsing",
+    "name": "Welsing, a Suttogó",
+    "kind": "unit",
+    "cost": 8,
+    "power": 4,
+    "keywords": [],
+    "spellpower": {
+      "Feketemágus": 8
+    },
+    "rarity": "Legendás",
+    "statics": [
+      {
+        "kind": "aura",
+        "amount": 2,
+        "side": "ally",
+        "scope": "board"
+      },
+      {
+        "kind": "auraGrant",
+        "side": "ally",
+        "scope": "board",
+        "grant": "keyword",
+        "keyword": "Élettelen"
+      }
+    ],
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "swapHandGraveyard",
+          "cardKind": "unit"
+        }
+      ]
+    },
+    "tags": [
+      "elettelen",
+      "caster"
+    ],
+    "text": "Belépő: cseréld ki a kezed a temetőddel! Minden szövetséges ebben a csatában Élettelen és +2 erőt kap."
+  },
+  {
+    "id": "erif_mester",
+    "name": "Erif mester",
+    "kind": "unit",
+    "cost": 8,
+    "power": 5,
+    "keywords": [],
+    "spellpower": {
+      "Mágus": 7
+    },
+    "rarity": "Ritka",
+    "statics": [
+      {
+        "kind": "spellMod",
+        "what": "damage",
+        "amount": 1,
+        "tag": "Tűz"
+      }
+    ],
+    "tags": [
+      "caster"
+    ],
+    "text": "Minden Tűz varázslatod +1-et sebez."
+  },
+  {
+    "id": "viator",
+    "name": "Viator",
+    "kind": "unit",
+    "cost": 8,
+    "power": 5,
+    "keywords": [],
+    "spellpower": {
+      "Mágus": 8
+    },
+    "rarity": "Kivételes",
+    "order": "Mágus",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "draw",
+          "cardKind": "spell",
+          "count": 2
+        }
+      ]
+    },
+    "tags": [
+      "caster"
+    ],
+    "text": "Belépő: húzz két varázslatot!"
+  },
+  {
+    "id": "charon",
+    "name": "Charon",
+    "kind": "unit",
+    "cost": 8,
+    "power": 9,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Kivételes",
+    "tags": [
+      "wip",
+      "elettelen"
+    ],
+    "text": "Kidolgozás alatt — az erő és a képesség még nincs véglegesítve."
+  },
+  {
+    "id": "calcas",
+    "name": "Calcas",
+    "kind": "unit",
+    "cost": 5,
+    "power": 6,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Kivételes",
+    "tags": [
+      "wip"
+    ],
+    "text": "Kidolgozás alatt — a költség, az erő és a képesség még nincs véglegesítve."
+  },
+  {
+    "id": "iniquus",
+    "name": "I. Iniquus császár",
+    "kind": "unit",
+    "cost": 8,
+    "power": 6,
+    "keywords": [],
+    "spellpower": {
+      "Harcos": 5
+    },
+    "rarity": "Legendás",
+    "origin": "Felindori",
+    "order": "Harcos",
+    "statics": [
+      {
+        "kind": "aura",
+        "amount": 1,
+        "side": "ally",
+        "scope": "board",
+        "keyword": "Felindori"
+      },
+      {
+        "kind": "countBonus",
+        "amount": 1,
+        "side": "enemy",
+        "scope": "board",
+        "keyword": "Bestia"
+      }
+    ],
+    "tags": [
+      "felindori",
+      "harcos",
+      "value"
+    ],
+    "text": "Minden további szövetséges Felindori +1 erőt kap. Minden ellenséges Bestia után +1 erőt kapok."
+  },
+  {
+    "id": "okto_abnormitas",
+    "name": "Októ-abnormitás",
+    "kind": "unit",
+    "cost": 8,
+    "power": 8,
+    "keywords": [],
+    "spellpower": {
+      "Bestia": 8
+    },
+    "rarity": "Legendás",
+    "origin": "Bestia",
+    "order": "Kalóz",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "devour",
+          "scope": "diagonal",
+          "minTotalPower": 8,
+          "gain": 8
+        }
+      ]
+    },
+    "tags": [
+      "beast",
+      "kaloz"
+    ],
+    "text": "Belépő: ha a velem átlósan érintkező, nálam gyengébb egységek összereje legalább 8, felfalom őket és +8 gyűrűt kapok!"
+  },
+  {
+    "id": "husgolem",
+    "name": "Húsgólem",
+    "kind": "unit",
+    "cost": 8,
+    "power": 9,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Ritka",
+    "origin": "Élettelen",
+    "tags": [
+      "elettelen",
+      "value"
+    ],
+    "text": "Valakikből készültem."
+  },
+  {
+    "id": "azman",
+    "name": "Azman",
+    "kind": "unit",
+    "cost": 9,
+    "power": 9,
+    "keywords": [],
+    "spellpower": {
+      "Bestia": 8
+    },
+    "rarity": "Legendás",
+    "origin": "Bestia",
+    "belepo": {
+      "target": {
+        "scope": "allAlly",
+        "pick": "weakest"
+      },
+      "effects": [
+        {
+          "kind": "destroy"
+        },
+        {
+          "kind": "grantRing",
+          "amount": 4,
+          "on": "caster"
+        }
+      ]
+    },
+    "tags": [
+      "beast"
+    ],
+    "text": "Belépő: megölök egy szövetséges egységet, hogy +4 gyűrűt kapjak."
+  },
+  {
+    "id": "kirkar",
+    "name": "Kirkar, a Garabonciás Diák",
+    "kind": "unit",
+    "cost": 9,
+    "power": 5,
+    "keywords": [],
+    "spellpower": {
+      "Feketemágus": 8
+    },
+    "rarity": "Legendás",
+    "order": "Feketemágus",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "bounceToDeckBottom",
+          "side": "any"
+        }
+      ]
+    },
+    "tags": [
+      "caster",
+      "control"
+    ],
+    "text": "Belépő: visszaküldöm a legutoljára kijátszott egységet az időben. Helyezd a paklija aljára!"
+  },
+  {
+    "id": "ikerhidra",
+    "name": "Ikerhidra",
+    "kind": "unit",
+    "cost": 9,
+    "power": 11,
+    "keywords": [],
+    "spellpower": {
+      "Bestia": 7
+    },
+    "rarity": "Ritka",
+    "origin": "Bestia",
+    "tags": [
+      "beast",
+      "value"
+    ],
+    "text": "Két fej, egy éhség."
+  },
+  {
+    "id": "faun",
+    "name": "Faun",
+    "kind": "unit",
+    "cost": 9,
+    "power": 7,
+    "keywords": [],
+    "spellpower": {
+      "Druida": 8
+    },
+    "rarity": "Legendás",
+    "order": "Druida",
+    "statics": [
+      {
+        "kind": "powerFloor",
+        "side": "ally",
+        "scope": "board"
+      }
+    ],
+    "tags": [
+      "druida",
+      "caster"
+    ],
+    "text": "A szövetséges egységek ereje nem csökkenhet az alaperejük alá."
+  },
+  {
+    "id": "a_faarcu",
+    "name": "A Faarcú",
+    "kind": "unit",
+    "cost": 9,
+    "power": 10,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Legendás",
+    "tags": [
+      "wip"
+    ],
+    "text": "Kidolgozás alatt — az erő és a képesség még nincs véglegesítve."
+  },
+  {
+    "id": "umbradog",
+    "name": "Umbradog",
+    "kind": "unit",
+    "cost": 10,
+    "power": 10,
+    "keywords": [],
+    "spellpower": {
+      "Bestia": 8
+    },
+    "rarity": "Legendás",
+    "origin": "Bestia",
+    "statics": [
+      {
+        "kind": "selfGrant",
+        "grant": "cannotHide"
+      }
+    ],
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "massDestroy",
+          "side": "all",
+          "stat": "power",
+          "atMost": -1,
+          "excludeSelf": true
+        },
+        {
+          "kind": "discard",
+          "cardKind": "both",
+          "count": -1
+        }
+      ]
+    },
+    "tags": [
+      "beast",
+      "control"
+    ],
+    "text": "Nem rejthetsz el. Belépő: megölök minden más egységet a csatatéren. Dobd el a kezed!"
+  },
+  {
+    "id": "celebrant",
+    "name": "Celebrant",
+    "kind": "unit",
+    "cost": 10,
+    "power": 7,
+    "keywords": [],
+    "spellpower": {
+      "Mágus": 10
+    },
+    "rarity": "Legendás",
+    "order": "Mágus",
+    "tags": [
+      "caster"
+    ],
+    "text": "Tíz pont Mágus varázserő, és semmi más."
+  },
+  {
+    "id": "omnifex",
+    "name": "Omnifex",
+    "kind": "unit",
+    "cost": 10,
+    "power": 7,
+    "keywords": [],
+    "spellpower": {
+      "Feketemágus": 8
+    },
+    "rarity": "Kivételes",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "fizzleShield",
+          "maxCost": 5,
+          "on": "caster"
+        }
+      ]
+    },
+    "tags": [
+      "caster"
+    ],
+    "text": "Álomfogóm van: a rám szálló első, legfeljebb 5 költségű varázslat elszáll."
+  },
+  {
+    "id": "galaxismadar",
+    "name": "Galaxismadár",
+    "kind": "unit",
+    "cost": 10,
+    "power": 12,
+    "keywords": [
+      "Mezsgye-szegő"
+    ],
+    "spellpower": {},
+    "rarity": "Kivételes",
+    "origin": "Sárkány",
+    "tags": [
+      "value"
+    ],
+    "text": "A mezsgyén túlról jöttem."
+  },
+  {
+    "id": "omen",
+    "name": "Omen",
+    "kind": "unit",
+    "cost": 10,
+    "power": 10,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Legendás",
+    "statics": [
+      {
+        "kind": "banStacking"
+      }
+    ],
+    "tags": [
+      "control"
+    ],
+    "text": "Nem lehet varázslatot játszani a rakásra."
+  },
+  {
+    "id": "cassanus",
+    "name": "Cassanus, a halhatatlan",
+    "kind": "unit",
+    "cost": 12,
+    "power": 12,
+    "keywords": [],
+    "spellpower": {
+      "Harcos": 5
+    },
+    "rarity": "Legendás",
+    "origin": "Felindori",
+    "order": "Harcos",
+    "statics": [
+      {
+        "kind": "powerBonus",
+        "amount": 3,
+        "condition": "graveyardAtLeast",
+        "value": 12
+      },
+      {
+        "kind": "selfGrant",
+        "grant": "invulnerable",
+        "condition": "graveyardAtLeast",
+        "value": 12
+      }
+    ],
+    "tags": [
+      "felindori",
+      "harcos",
+      "value"
+    ],
+    "text": "Ha legalább 12 egység van a temetődben, +3 erőt kapok és Sérthetetlen vagyok."
+  },
+  {
+    "id": "feher_pasztor",
+    "name": "Fehér Pásztor",
+    "kind": "unit",
+    "cost": 12,
+    "power": 12,
+    "keywords": [
+      "Kapuőr"
+    ],
+    "spellpower": {},
+    "rarity": "Legendás",
+    "statics": [
+      {
+        "kind": "selfGrant",
+        "grant": "invulnerable"
+      },
+      {
+        "kind": "auraGrant",
+        "side": "ally",
+        "scope": "board",
+        "grant": "cannotDie"
+      }
+    ],
+    "tags": [
+      "support",
+      "value"
+    ],
+    "text": "Sérthetetlen vagyok. A szövetséges egységek nem tudnak meghalni."
+  },
+  {
+    "id": "gouraldir",
+    "name": "Gouraldir, az ezüstköpenyes",
+    "kind": "unit",
+    "cost": 13,
+    "power": 9,
+    "keywords": [],
+    "spellpower": {
+      "Feketemágus": 11
+    },
+    "rarity": "Legendás",
+    "order": "Feketemágus",
+    "belepo": {
+      "target": {
+        "scope": "self"
+      },
+      "effects": [
+        {
+          "kind": "note",
+          "text": "A Három Ereklye lap nem létezik a készletben — Gouraldir győzelmi feltétele nincs gépesítve."
+        }
+      ]
+    },
+    "tags": [
+      "caster",
+      "control"
+    ],
+    "text": "A játék elején rejtsd el a Három Ereklyét a paklidban! Ha én és a Három Ereklye egyszerre a csatatéren van, megnyerem a csatát."
+  },
+  {
+    "id": "a_moirak",
+    "name": "A Moirák",
+    "kind": "unit",
+    "cost": 18,
+    "power": 15,
+    "keywords": [
+      "Sorsszövők"
+    ],
+    "spellpower": {},
+    "rarity": "Legendás",
+    "statics": [
+      {
+        "kind": "selfGrant",
+        "grant": "invulnerable"
+      },
+      {
+        "kind": "freeCasts",
+        "count": 3
+      }
+    ],
+    "tags": [
+      "value",
+      "caster"
+    ],
+    "text": "Sérthetetlen vagyok. Három varázslatot kijátszhatok költség nélkül."
+  },
+  {
+    "id": "nyul",
+    "name": "Nyúl",
+    "kind": "unit",
+    "cost": 0,
+    "power": 1,
+    "keywords": [],
+    "spellpower": {},
+    "rarity": "Gyakori",
+    "origin": "Állat",
+    "tags": [
+      "token"
+    ],
+    "text": "Képesség nélküli Állat vagyok. A Lépumorf hagy maga után."
   }
 ]

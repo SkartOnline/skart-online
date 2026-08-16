@@ -100,7 +100,7 @@ export function FieldInput({
           <input
             list={id}
             value={String(value ?? field.default ?? "")}
-            placeholder={field.type === "keyword" ? "bármelyik" : ""}
+            placeholder={field.type === "keyword" ? "bármelyik — vesszővel több is" : ""}
             onChange={(e) => onChange(e.target.value || undefined)}
           />
           <datalist id={id}>

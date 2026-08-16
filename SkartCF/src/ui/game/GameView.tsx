@@ -534,7 +534,7 @@ function Hand({
               <span className="title">{spell.name}</span>
               <span className="row">
                 <span className="might-n">{spell.cost}</span>
-                <span className="traits">{spell.school}</span>
+                <span className="traits">{spell.schools.join(" · ")}</span>
               </span>
               <span className="said">{spell.text}</span>
             </button>

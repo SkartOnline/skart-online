@@ -1,7 +1,14 @@
 import { getLocation, getSpell, getUnit } from "./cards";
-import { makeUnitInstance } from "./effects";
-import { ALL_SLOTS, ownerOfSlot, slotsOf } from "./grid";
-import { cardOf, currentLocation, unitsOf } from "./power";
+import { fireTrigger, isBlocked, makeUnitInstance, openSlots, runEffects } from "./effects";
+import { ALL_SLOTS, orthogonalNeighbours, ownerOfSlot, slotsOf } from "./grid";
+import {
+  cardKeywords,
+  cardOf,
+  currentLocation,
+  effectiveCost,
+  stackingBanned,
+  unitsOf,
+} from "./power";
 import {
   advanceResolution,
   beginResolution,
@@ -12,7 +19,7 @@ import {
   resolutionFinished,
 } from "./resolve";
 import { locationWinner, scoreboard, totals } from "./totaling";
-import type { Action, GameState, PlayerId, SlotId } from "./types";
+import type { Action, GameState, HandCard, PlayerId, SlotId, UnitCard } from "./types";
 import { PLAYERS } from "./types";
 
 /**
@@ -37,7 +44,80 @@ export function remainingCap(state: GameState, player: PlayerId): number {
 }
 
 export function emptySlotsOf(state: GameState, player: PlayerId): SlotId[] {
-  return slotsOf(player).filter((s) => !state.board[s]);
+  return openSlots(state, player);
+}
+
+// ---------------------------------------------------------------------------
+// Location rules that gate placement
+// ---------------------------------------------------------------------------
+
+/** Umbra lets the graveyard act as an extension of the hand. */
+function playablePile(state: GameState, player: PlayerId): HandCard[] {
+  const p = state.players[player];
+  const fromGrave = (currentLocation(state).effects ?? []).some(
+    (e) => e.kind === "playFromGraveyard",
+  );
+  if (!fromGrave) return p.unitHand;
+  return [...p.unitHand, ...p.discard.filter((c) => tryUnit(c.cardId))];
+}
+
+function tryUnit(id: string): UnitCard | undefined {
+  try {
+    return getUnit(id);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Papagáj may only land next to a Kalóz. */
+function placementAllowed(
+  state: GameState,
+  card: UnitCard,
+  player: PlayerId,
+  slot: SlotId,
+): boolean {
+  for (const ability of card.statics ?? []) {
+    if (ability.kind !== "placementRule") continue;
+    const keyword = String(ability.requireAdjacentKeyword ?? "");
+    if (!keyword) continue;
+    const ok = orthogonalNeighbours(slot).some((s) => {
+      const neighbour = state.board[s];
+      return (
+        neighbour &&
+        neighbour.owner === player &&
+        cardKeywords(getUnit(neighbour.cardId)).includes(keyword)
+      );
+    });
+    if (!ok) return false;
+  }
+  return true;
+}
+
+/** Feketepiac and Ködrét turn units face-down on arrival, for free. */
+function autoHidden(state: GameState, card: UnitCard): boolean {
+  for (const effect of currentLocation(state).effects ?? []) {
+    if (effect.kind !== "autoHide") continue;
+    const keyword = effect.keyword ? String(effect.keyword) : "";
+    if (!keyword || cardKeywords(card).includes(keyword)) return true;
+  }
+  return false;
+}
+
+/** How many unit cards hiding this one costs. Feketepiac charges double. */
+export function hideCost(state: GameState, card: UnitCard): number {
+  let cost = 1;
+  for (const effect of currentLocation(state).effects ?? []) {
+    if (effect.kind !== "hideCostMod") continue;
+    const except = effect.exceptKeyword ? String(effect.exceptKeyword) : "";
+    if (except && cardKeywords(card).includes(except)) continue;
+    cost = Math.max(cost, Number(effect.cost ?? 1));
+  }
+  return cost;
+}
+
+/** Umbradog refuses to be hidden. */
+function cardForbidsHiding(card: UnitCard): boolean {
+  return (card.statics ?? []).some((a) => a.kind === "selfGrant" && a.grant === "cannotHide");
 }
 
 // ---------------------------------------------------------------------------
@@ -75,13 +155,21 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
   const p = state.players[player];
   const free = emptySlotsOf(state, player);
   const cap = remainingCap(state, player);
+  const pile = playablePile(state, player);
 
   if (!p.flags.unitsClosed && !state.turnActions.unitPlayed) {
-    for (const card of p.unitHand) {
-      if (getUnit(card.cardId).cost > cap) continue;
+    for (const card of pile) {
+      const unitCard = getUnit(card.cardId);
+      if (effectiveCost(unitCard, state) > cap) continue;
+      const toll = hideCost(state, unitCard);
+      const canPay =
+        !cardForbidsHiding(unitCard) &&
+        !autoHidden(state, unitCard) &&
+        p.unitHand.filter((c) => c.uid !== card.uid).length >= toll;
       for (const slot of free) {
+        if (!placementAllowed(state, unitCard, player, slot)) continue;
         out.push({ type: "playUnit", player, uid: card.uid, slot });
-        if (canHide(state, player, card.uid)) {
+        if (canPay) {
           const payment = p.unitHand.find((c) => c.uid !== card.uid);
           if (payment) {
             out.push({
@@ -98,27 +186,18 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
     }
   }
 
-  if (!p.flags.spellsClosed && !state.turnActions.spellPlayed) {
+  // Omen shuts the rakás for both players while it stands.
+  if (!p.flags.spellsClosed && !state.turnActions.spellPlayed && !stackingBanned(state)) {
     for (const card of p.spellHand) {
       out.push({ type: "stackSpell", player, uid: card.uid });
     }
   }
-
 
   if (!p.flags.unitsClosed) out.push({ type: "declareUnitsDone", player });
   if (!p.flags.spellsClosed) out.push({ type: "declareSpellsDone", player });
   out.push({ type: "endTurn", player });
 
   return out;
-}
-
-/**
- * Hiding costs one unit card out of hand, and there is no limit on how many
- * units you may hide per location. The only gate is being able to pay: you
- * cannot hide the last card in your hand, because nothing is left to discard.
- */
-function canHide(state: GameState, player: PlayerId, committedUid: string): boolean {
-  return state.players[player].unitHand.some((c) => c.uid !== committedUid);
 }
 
 // ---------------------------------------------------------------------------
@@ -163,38 +242,64 @@ export function applyAction(state: GameState, action: Action): GameState {
   return next;
 }
 
-function doPlayUnit(
-  state: GameState,
-  action: Extract<Action, { type: "playUnit" }>,
-): void {
+/** Pulls a card out of the hand, or out of the graveyard when Umbra allows it. */
+function takeFromPile(state: GameState, player: PlayerId, uid: string): HandCard | null {
+  const p = state.players[player];
+  const handIndex = p.unitHand.findIndex((c) => c.uid === uid);
+  if (handIndex !== -1) return p.unitHand.splice(handIndex, 1)[0];
+  const fromGrave = (currentLocation(state).effects ?? []).some(
+    (e) => e.kind === "playFromGraveyard",
+  );
+  if (!fromGrave) return null;
+  const graveIndex = p.discard.findIndex((c) => c.uid === uid && tryUnit(c.cardId));
+  if (graveIndex === -1) return null;
+  return p.discard.splice(graveIndex, 1)[0];
+}
+
+function doPlayUnit(state: GameState, action: Extract<Action, { type: "playUnit" }>): void {
   if (state.phase !== "commitment" || state.turn !== action.player) return;
   const p = state.players[action.player];
   if (p.flags.unitsClosed || state.turnActions.unitPlayed) return;
   if (ownerOfSlot(action.slot) !== action.player || state.board[action.slot]) return;
+  if (isBlocked(state, action.slot)) return;
 
-  const index = p.unitHand.findIndex((c) => c.uid === action.uid);
-  if (index === -1) return;
-  const card = getUnit(p.unitHand[index].cardId);
-  if (card.cost > remainingCap(state, action.player)) return;
+  const source = playablePile(state, action.player).find((c) => c.uid === action.uid);
+  if (!source) return;
+  const card = getUnit(source.cardId);
+  const cost = effectiveCost(card, state);
+  if (cost > remainingCap(state, action.player)) return;
+  if (!placementAllowed(state, card, action.player, action.slot)) return;
 
-  const faceDown = action.faceDown === true;
+  let faceDown = action.faceDown === true;
   if (faceDown) {
-    if (!canHide(state, action.player, action.uid)) return;
-    const payIndex = p.unitHand.findIndex((c) => c.uid === action.discardUid && c.uid !== action.uid);
-    if (payIndex === -1) return;
-    const [paid] = p.unitHand.splice(payIndex, 1);
-    p.discard.push(paid);
+    if (cardForbidsHiding(card) || autoHidden(state, card)) return;
+    const toll = hideCost(state, card);
+    const payable = p.unitHand.filter((c) => c.uid !== action.uid);
+    if (payable.length < toll) return;
+    // The named card goes first, then the cheapest others make up the difference.
+    const chosen = payable.filter((c) => c.uid === action.discardUid);
+    for (const c of payable) {
+      if (chosen.length >= toll) break;
+      if (!chosen.includes(c)) chosen.push(c);
+    }
+    for (const c of chosen.slice(0, toll)) {
+      const index = p.unitHand.findIndex((x) => x.uid === c.uid);
+      if (index !== -1) p.discard.push(...p.unitHand.splice(index, 1));
+    }
     p.hiddenThisLocation += 1;
-    log(state, `Rejtett egység, ára: ${getUnit(paid.cardId).name} eldobva.`, action.player);
+    log(state, `Rejtett egység, ára ${toll} egységlap.`, action.player);
+  } else if (autoHidden(state, card)) {
+    // Feketepiac and Ködrét hide on arrival, and it costs nothing.
+    faceDown = true;
   }
 
-  const handIndex = p.unitHand.findIndex((c) => c.uid === action.uid);
-  const [handCard] = p.unitHand.splice(handIndex, 1);
-  p.capSpent += card.cost;
+  const handCard = takeFromPile(state, action.player, action.uid);
+  if (!handCard) return;
+  p.capSpent += cost;
 
   const unit = makeUnitInstance(handCard.uid, handCard.cardId, action.player, action.slot, {
     order: state.placementCounter++,
-    paidCost: card.cost,
+    paidCost: cost,
     faceDown,
   });
   state.board[action.slot] = unit;
@@ -214,6 +319,7 @@ function doStackSpell(state: GameState, action: Extract<Action, { type: "stackSp
   if (state.phase !== "commitment" || state.turn !== action.player) return;
   const p = state.players[action.player];
   if (p.flags.spellsClosed || state.turnActions.spellPlayed) return;
+  if (stackingBanned(state)) return;
   const index = p.spellHand.findIndex((c) => c.uid === action.uid);
   if (index === -1) return;
   const [card] = p.spellHand.splice(index, 1);
@@ -244,15 +350,15 @@ function autoCloseFlags(state: GameState): void {
     const p = state.players[id];
     if (!p.flags.unitsClosed) {
       const boardFull = emptySlotsOf(state, id).length === 0;
-      const nothingAffordable = p.unitHand.length === 0;
+      const nothingAffordable = playablePile(state, id).length === 0;
       if (boardFull || nothingAffordable) {
         p.flags.unitsClosed = true;
         log(state, boardFull ? "Egységek: kész (tele a rács)." : "Egységek: kész (üres kéz).", id);
       }
     }
-    if (!p.flags.spellsClosed && p.spellHand.length === 0) {
+    if (!p.flags.spellsClosed && (p.spellHand.length === 0 || stackingBanned(state))) {
       p.flags.spellsClosed = true;
-      log(state, "Varázslatok: kész (üres kéz).", id);
+      log(state, "Varázslatok: kész (nincs mit tenni a rakásra).", id);
     }
   }
 }
@@ -326,6 +432,17 @@ function scoreLocation(state: GameState): void {
       ? `${name}: döntetlen (${t.p1}–${t.p2}), senki nem szerzi meg.`
       : `${name}: ${winner} nyeri (${t.p1}–${t.p2}).`,
   );
+
+  // Diadal fires for the winner only, before the board is cleared.
+  if (winner !== "void") {
+    for (const unit of unitsOf(state, winner)) {
+      for (const trigger of cardOf(unit).triggers ?? []) {
+        if (trigger.on !== "onLocationWon") continue;
+        runEffects(state, unit, winner, trigger.effects, [unit.slot], (text) => log(state, text, winner));
+      }
+    }
+  }
+
   state.scores = scoreboard(state);
 }
 
@@ -336,10 +453,14 @@ function scoreLocation(state: GameState): void {
 function startNextLocation(state: GameState): void {
   if (state.phase !== "scored") return;
 
-  // Spent cards are gone, win or lose.
+  // Spent cards are gone, win or lose — except what Csábítás claimed.
   for (const slot of ALL_SLOTS) {
     const unit = state.board[slot];
-    if (unit) state.players[unit.owner].discard.push({ uid: unit.uid, cardId: unit.cardId });
+    if (unit) {
+      const card = { uid: unit.uid, cardId: unit.cardId };
+      if (unit.claimedBy) state.players[unit.claimedBy].unitHand.push(card);
+      else state.players[unit.owner].discard.push(card);
+    }
     state.board[slot] = null;
   }
   for (const entry of state.stack) {
@@ -354,8 +475,9 @@ function startNextLocation(state: GameState): void {
     p.flags = { unitsClosed: false, spellsClosed: false };
     p.capSpent = 0;
     p.hiddenThisLocation = 0;
-    drawUpTo(p.unitHand, p.unitDeck, state.config.handSize);
-    drawUpTo(p.spellHand, p.spellDeck, state.config.spellHandSize);
+    drawUpTo(p.unitHand, p.unitDeck, state.config.handSize + p.bonusDraw.units);
+    drawUpTo(p.spellHand, p.spellDeck, state.config.spellHandSize + p.bonusDraw.spells);
+    p.bonusDraw = { units: 0, spells: 0 };
   }
 
   const played = state.locationIndex + 1;
@@ -381,7 +503,32 @@ function startNextLocation(state: GameState): void {
     state,
     `${loc.name} — költségkeret ${loc.cap === null ? "nincs" : loc.cap}. Kezd: ${state.turn}.`,
   );
+  applyLocationStart(state);
   settle(state);
+}
+
+/**
+ * Lingadori könyvtár, Malom and Bőségkert all hand both players the same thing
+ * before a card is committed. One location effect, three parameter sets.
+ */
+export function applyLocationStart(state: GameState): void {
+  for (const effect of currentLocation(state).effects ?? []) {
+    if (effect.kind !== "startEffect") continue;
+    const kinds = effect.cardKind === "both" ? ["unit", "spell"] : [String(effect.cardKind ?? "spell")];
+    for (const player of PLAYERS) {
+      for (const cardKind of kinds) {
+        runEffects(
+          state,
+          null,
+          player,
+          [{ kind: String(effect.effect ?? "draw"), cardKind, count: Number(effect.count ?? 1) }],
+          [],
+          (text) => log(state, text, player),
+        );
+      }
+    }
+  }
+  fireTrigger(state, "onLocationStart", null, (text) => log(state, text));
 }
 
 function finishGame(state: GameState): void {
@@ -392,7 +539,7 @@ function finishGame(state: GameState): void {
   log(state, `Vége: ${board.p1}–${board.p2} (${state.winner}).`);
 }
 
-function drawUpTo(hand: { uid: string; cardId: string }[], deck: { uid: string; cardId: string }[], size: number): void {
+function drawUpTo(hand: HandCard[], deck: HandCard[], size: number): void {
   while (hand.length < size && deck.length > 0) {
     hand.push(deck.shift()!);
   }
@@ -409,7 +556,9 @@ export function activePlayer(state: GameState): PlayerId | null {
   return null;
 }
 
-export function stackDescription(state: GameState): { owner: PlayerId; revealed: boolean; cardId: string }[] {
+export function stackDescription(
+  state: GameState,
+): { owner: PlayerId; revealed: boolean; cardId: string }[] {
   const revealed = state.phase === "spells" || state.phase === "scored" || state.phase === "gameOver";
   return state.stack.map((e) => ({ owner: e.owner, revealed, cardId: e.cardId }));
 }
@@ -421,3 +570,9 @@ export function spellName(cardId: string): string {
 export function boardUnits(state: GameState, player: PlayerId) {
   return unitsOf(state, player);
 }
+
+/** Exposed for the UI's slot rendering — a chasm draws differently. */
+export function blockedSlotsOf(state: GameState, player: PlayerId): SlotId[] {
+  return slotsOf(player).filter((s) => isBlocked(state, s));
+}
+

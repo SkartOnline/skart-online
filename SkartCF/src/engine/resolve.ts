@@ -6,10 +6,21 @@ import {
   needsDestination,
   needsHandCard,
   needsChosenTarget,
+  redirectTarget,
   resolveAutoTargets,
 } from "./effects";
 import type { EffectContext } from "./effects";
-import { cardOf, currentLocation, remainingSpellpower, unitAt, unitsOf } from "./power";
+import {
+  abilitiesActive,
+  cardOf,
+  currentLocation,
+  freeCastsLeft,
+  remainingSpellpower,
+  spellCost,
+  spellDamageBonus,
+  unitAt,
+  unitsOf,
+} from "./power";
 import { slotsOf } from "./grid";
 import type {
   ChoiceRequest,
@@ -17,6 +28,7 @@ import type {
   GameState,
   HandCard,
   PlayerId,
+  School,
   SlotId,
   SpellCard,
   StackEntry,
@@ -39,7 +51,12 @@ export function log(state: GameState, text: string, player?: PlayerId): void {
   state.log.push({ location: state.locationIndex, phase: state.phase, player, text });
 }
 
-function contextFor(state: GameState, source: UnitInstance | null, controller: PlayerId, extra: Partial<EffectContext> = {}): EffectContext {
+function contextFor(
+  state: GameState,
+  source: UnitInstance | null,
+  controller: PlayerId,
+  extra: Partial<EffectContext> = {},
+): EffectContext {
   return {
     state,
     source,
@@ -60,7 +77,7 @@ function contextFor(state: GameState, source: UnitInstance | null, controller: P
  */
 export function fireBelepo(state: GameState, unit: UnitInstance): void {
   const card = cardOf(unit);
-  if (unit.abilitiesSuppressed) return;
+  if (!abilitiesActive(unit, state)) return;
   const belepo = card.belepo;
   if (!belepo || !belepo.effects?.length) return;
   const targets = resolveAutoTargets(state, unit, belepo.target);
@@ -68,10 +85,30 @@ export function fireBelepo(state: GameState, unit: UnitInstance): void {
   const ctx = contextFor(state, unit, unit.owner);
   for (const effect of belepo.effects) {
     const needsTargets = (effect.on ?? "target") === "target";
-    if (needsTargets && targets.length === 0) continue;
+    if (needsTargets && targets.length === 0 && !SELF_PICKING.has(effect.kind)) continue;
     applyEffect(ctx, effect, targets);
   }
 }
+
+/** Effects that build their own target set and must run even with none passed in. */
+const SELF_PICKING = new Set([
+  "massDestroy",
+  "thresholdAoe",
+  "draw",
+  "drawNextLocation",
+  "discard",
+  "searchDeck",
+  "revive",
+  "stealCard",
+  "bounceToDeckBottom",
+  "swapHandGraveyard",
+  "coinFlip",
+  "peek",
+  "note",
+  "devour",
+  "advance",
+  "revealHidden",
+]);
 
 // ---------------------------------------------------------------------------
 // Caster / target legality
@@ -89,28 +126,56 @@ export function legalTargetsFor(
 ): SlotId[] {
   if (!spell.target) return [];
   const controller = casterSlot.slice(0, 2) as PlayerId;
-  const base = legalTargets(state, spell.target, casterSlot, controller, spell.school);
+  const base = legalTargets(state, spell.target, casterSlot, controller, spell);
   const move = moveEffectOf(spell);
   if (!move || (move.on ?? "target") !== "target") return base;
   const mode = (move.destination === "anyEmpty" ? "anyEmpty" : "adjacent") as "adjacent" | "anyEmpty";
   return base.filter((slot) => {
     const unit = unitAt(state, slot);
-    return unit ? legalDestinations(state, unit, mode).length > 0 : false;
+    return unit ? legalDestinations(state, unit, mode, move.crossSide === true).length > 0 : false;
   });
 }
 
-function summonableHandCards(state: GameState, player: PlayerId, ignoreCap: boolean): HandCard[] {
+function summonableHandCards(
+  state: GameState,
+  player: PlayerId,
+  ignoreCap: boolean,
+  maxCost: number,
+): HandCard[] {
   const p = state.players[player];
   const location = currentLocation(state);
   const remaining = location.cap === null ? Infinity : location.cap - p.capSpent;
-  return p.unitHand.filter((c) => ignoreCap || getUnit(c.cardId).cost <= remaining);
+  return p.unitHand.filter((c) => {
+    const cost = getUnit(c.cardId).cost;
+    if (maxCost > 0 && cost > maxCost) return false;
+    return ignoreCap || cost <= remaining;
+  });
+}
+
+/**
+ * Which school this caster can actually pay from. A spell may name more than
+ * one (Kegyelemdöfés), but the whole cost comes out of a single pool — never
+ * two added together. `null` means the caster cannot fund it at all; `""` means
+ * it is one of A Moirák's free casts.
+ */
+export function payingSchool(
+  state: GameState,
+  spell: SpellCard,
+  caster: UnitInstance,
+): School | "" | null {
+  const cost = spellCost(spell, state, caster);
+  for (const school of spell.schools) {
+    if (remainingSpellpower(caster, school, state) >= cost) return school;
+  }
+  if (freeCastsLeft(caster, state) > 0) return "";
+  return null;
 }
 
 /** Would nominating this caster produce a resolvable spell? */
 export function casterIsViable(state: GameState, spell: SpellCard, casterSlot: SlotId): boolean {
   const unit = unitAt(state, casterSlot);
   if (!unit) return false;
-  if (remainingSpellpower(unit, spell.school, state) < spell.cost) return false;
+  if (payingSchool(state, spell, unit) === null) return false;
 
   if (needsChosenTarget(spell.effects)) {
     if (!spell.target) return false;
@@ -120,14 +185,18 @@ export function casterIsViable(state: GameState, spell: SpellCard, casterSlot: S
   const move = moveEffectOf(spell);
   if (move && (move.on ?? "target") === "caster") {
     const mode = (move.destination === "anyEmpty" ? "anyEmpty" : "adjacent") as "adjacent" | "anyEmpty";
-    if (legalDestinations(state, unit, mode).length === 0) return false;
+    if (legalDestinations(state, unit, mode, move.crossSide === true).length === 0) return false;
   }
 
   if (needsHandCard(spell.effects)) {
-    const summonEffect = spell.effects.find((e) => e.kind === "summon");
-    if (summonableHandCards(state, unit.owner, summonEffect?.ignoreCap === true).length === 0) {
-      return false;
-    }
+    const summon = spell.effects.find((e) => e.kind === "summon");
+    const cards = summonableHandCards(
+      state,
+      unit.owner,
+      summon?.ignoreCap === true,
+      Number(summon?.maxCost ?? 0),
+    );
+    if (cards.length === 0) return false;
   }
 
   return true;
@@ -203,7 +272,9 @@ export function advanceResolution(state: GameState): void {
       const moverSlot = (move.on ?? "target") === "caster" ? res.chosen.caster : res.chosen.target;
       const mover = moverSlot ? unitAt(state, moverSlot) : null;
       const mode = (move.destination === "anyEmpty" ? "anyEmpty" : "adjacent") as "adjacent" | "anyEmpty";
-      const destinations = mover ? legalDestinations(state, mover, mode) : [];
+      const destinations = mover
+        ? legalDestinations(state, mover, mode, move.crossSide === true)
+        : [];
       if (destinations.length === 0) {
         log(state, `${spell.name} elszáll — nincs hova lépni.`, entry.owner);
         res.index += 1;
@@ -219,8 +290,13 @@ export function advanceResolution(state: GameState): void {
 
     // 4. A card out of hand, when something is summoned.
     if (needsHandCard(spell.effects) && !res.chosen.handCard) {
-      const summonEffect = spell.effects.find((e) => e.kind === "summon");
-      const options = summonableHandCards(state, entry.owner, summonEffect?.ignoreCap === true);
+      const summon = spell.effects.find((e) => e.kind === "summon");
+      const options = summonableHandCards(
+        state,
+        entry.owner,
+        summon?.ignoreCap === true,
+        Number(summon?.maxCost ?? 0),
+      );
       if (options.length === 0) {
         log(state, `${spell.name} elszáll — nincs megidézhető lap.`, entry.owner);
         res.index += 1;
@@ -274,13 +350,31 @@ function applyStackEntry(state: GameState, entry: StackEntry, spell: SpellCard):
     return;
   }
 
+  const cost = spellCost(spell, state, caster);
+  const school = payingSchool(state, spell, caster);
+  if (school === null) {
+    log(state, `${spell.name} elszáll — a varázsló nem tudja kifizetni.`, entry.owner);
+    return;
+  }
   // The caster pays out of its own school-locked pool. No pooling across units,
   // and the points are gone for anything stacked behind this.
-  caster.spellSpent[spell.school] = (caster.spellSpent[spell.school] ?? 0) + spell.cost;
+  if (school === "") caster.freeCastsUsed += 1;
+  else caster.spellSpent[school] = (caster.spellSpent[school] ?? 0) + cost;
 
-  const targetUnit = res.chosen.target ? unitAt(state, res.chosen.target) : null;
+  // Dionzosz steps in front of his neighbour after the target is picked, so the
+  // caster cannot play around it by choosing differently.
+  let targetSlot = res.chosen.target;
+  if (targetSlot) {
+    const redirected = redirectTarget(state, targetSlot);
+    if (redirected !== targetSlot) {
+      log(state, `${cardOf(unitAt(state, redirected)!).name} magára veszi a varázslatot.`, entry.owner);
+      targetSlot = redirected;
+    }
+  }
+
+  const targetUnit = targetSlot ? unitAt(state, targetSlot) : null;
   if (targetUnit) {
-    const shieldIndex = targetUnit.fizzleShields.findIndex((s) => s.maxCost >= spell.cost);
+    const shieldIndex = targetUnit.fizzleShields.findIndex((s) => s.maxCost >= cost);
     if (shieldIndex !== -1) {
       targetUnit.fizzleShields.splice(shieldIndex, 1);
       log(
@@ -296,10 +390,27 @@ function applyStackEntry(state: GameState, entry: StackEntry, spell: SpellCard):
   const ctx = contextFor(state, caster, entry.owner, {
     destination: res.chosen.destination,
     handCardUid: res.chosen.handCard,
+    spell,
   });
-  const targets = res.chosen.target ? [res.chosen.target] : [];
+  const targets = targetSlot ? [targetSlot] : [];
+  const damageBonus = spellDamageBonus(spell, state, entry.owner);
+
   for (const effect of spell.effects) {
-    applyEffect(ctx, effect, targets);
+    const boosted =
+      damageBonus !== 0 && effect.kind === "damage"
+        ? { ...effect, amount: Number(effect.amount ?? 0) + damageBonus }
+        : effect;
+    applyEffect(ctx, boosted, targets);
+  }
+
+  // Every spell that landed on a unit stays on it, resolved or not, so hovering
+  // the unit shows the whole fan. Lasting effects already added their own entry
+  // through `attach`; this records the one-shots.
+  if (targetUnit && state.board[targetUnit.slot]?.uid === targetUnit.uid) {
+    const alreadyAttached = spell.effects.some((e) => e.kind === "attach");
+    if (!alreadyAttached) {
+      targetUnit.placed.push({ spellId: spell.id, owner: entry.owner, spent: true });
+    }
   }
 }
 
@@ -325,7 +436,10 @@ export function chooseHandCard(state: GameState, uid: string): void {
 }
 
 /** Casters that still have unspent spellpower, for the UI's caster panel. */
-export function castersOf(state: GameState, player: PlayerId): { unit: UnitInstance; pools: Record<string, number> }[] {
+export function castersOf(
+  state: GameState,
+  player: PlayerId,
+): { unit: UnitInstance; pools: Record<string, number> }[] {
   return unitsOf(state, player)
     .map((unit) => {
       const pools: Record<string, number> = {};
@@ -333,6 +447,8 @@ export function castersOf(state: GameState, player: PlayerId): { unit: UnitInsta
         const left = remainingSpellpower(unit, school, state);
         if (left > 0) pools[school] = left;
       }
+      const free = freeCastsLeft(unit, state);
+      if (free > 0) pools["ingyen"] = free;
       return { unit, pools };
     })
     .filter((c) => Object.keys(c.pools).length > 0);

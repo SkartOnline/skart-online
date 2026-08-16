@@ -4,8 +4,12 @@ import {
   BASE_CARD_SET,
   EFFECT_SPECS,
   LOCATION_EFFECT_SPECS,
+  RARITIES,
+  STATIC_CONDITIONS,
   STATIC_SPECS,
   TARGET_SIDES,
+  TRIGGER_EVENTS,
+  knownKeywords,
   knownSchools,
 } from "../../engine";
 import type {
@@ -14,6 +18,7 @@ import type {
   Effect,
   LocationCard,
   SpellCard,
+  Trigger,
   UnitCard,
 } from "../../engine";
 import { clearOverlay, download, issuesFor } from "../cardSet";
@@ -292,18 +297,7 @@ function CardForm({
       {kind === "units" && <UnitFields draft={draft} set={set} />}
       {kind === "spells" && <SpellFields draft={draft} set={set} />}
       {kind === "locations" && <LocationFields draft={draft} set={set} />}
-      {kind === "attachments" && (
-        <div className="fields">
-          <label className="f">
-            <span>Erőmódosító</span>
-            <input
-              type="number"
-              value={Number(draft.powerDelta ?? 0)}
-              onChange={(e) => set("powerDelta", Number(e.target.value))}
-            />
-          </label>
-        </div>
-      )}
+      {kind === "attachments" && <AttachmentFields draft={draft} set={set} />}
 
       <label className="f wide">
         <span>Szöveg</span>
@@ -334,6 +328,37 @@ function UnitFields({ draft, set }: { draft: Record<string, unknown>; set: SetFn
         <NumberField label="Költség" value={draft.cost} onChange={(v) => set("cost", v)} />
         <NumberField label="Nyomtatott erő" value={draft.power} onChange={(v) => set("power", v)} />
         <label className="f">
+          <span>Eredet</span>
+          <input
+            list="keywords"
+            value={String(draft.origin ?? "")}
+            onChange={(e) => set("origin", e.target.value || undefined)}
+          />
+          <small>Felindori, Állat, Bestia, Élettelen, Keleti, Törp, Sárkány, Druida…</small>
+        </label>
+        <label className="f">
+          <span>Rend</span>
+          <input
+            list="keywords"
+            value={String(draft.order ?? "")}
+            onChange={(e) => set("order", e.target.value || undefined)}
+          />
+          <small>Harcos, Mágus, Kalóz, Csempész, Orgyilkos, Bölcs, Feketemágus…</small>
+        </label>
+        <label className="f">
+          <span>Ritkaság</span>
+          <select
+            value={String(draft.rarity ?? "Gyakori")}
+            onChange={(e) => set("rarity", e.target.value)}
+          >
+            {RARITIES.map((r) => (
+              <option key={r} value={r}>
+                {r}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="f">
           <span>Kulcsszavak (vesszővel)</span>
           <input
             value={((draft.keywords ?? []) as string[]).join(", ")}
@@ -347,7 +372,10 @@ function UnitFields({ draft, set }: { draft: Record<string, unknown>; set: SetFn
               )
             }
           />
-          <small>Melee kapja az első sor bónuszt. A többi kulcsszó szabad szöveg.</small>
+          <small>
+            A Melee az első sorban +1-et kap, a Távolsági a hátsóban +2-t. A többi
+            kulcsszó szabad szöveg, és az Eredet meg a Rend automatikusan hozzáadódik.
+          </small>
         </label>
         <label className="f">
           <span>Címkék (paklihoz)</span>
@@ -446,9 +474,112 @@ function UnitFields({ draft, set }: { draft: Record<string, unknown>; set: SetFn
           </>
         )}
       </div>
+
+      <TriggerEditor
+        value={(draft.triggers ?? []) as Trigger[]}
+        onChange={(v) => set("triggers", v)}
+      />
+
+      <datalist id="keywords">
+        {knownKeywords().map((k) => (
+          <option key={k} value={k} />
+        ))}
+      </datalist>
     </>
   );
 }
+
+/**
+ * Vigasz, Diadal and Bodur's ring all come from here. A trigger is an event
+ * name, a target set and the same effect list a Belépő uses — which is why
+ * granting a gyűrű on an ally's move takes no code, only a row of data.
+ */
+function TriggerEditor({
+  value,
+  onChange,
+}: {
+  value: Trigger[];
+  onChange: (v: Trigger[]) => void;
+}) {
+  const update = (i: number, next: Trigger) =>
+    onChange(value.map((t, n) => (n === i ? next : t)));
+
+  return (
+    <div className="block">
+      <div className="block-head">
+        <b>Kiváltók</b>
+        <button
+          className="tiny"
+          onClick={() =>
+            onChange([...value, { on: "onDeath", target: { scope: "self" }, effects: [] }])
+          }
+        >
+          + hozzáad
+        </button>
+      </div>
+      {value.length === 0 && (
+        <p className="faint">
+          A Belépőn kívüli események. Az <code>onAllyMove</code> + <code>trigger</code> célzás +
+          gyűrűadás együtt adja ki a Bodur kapitányt: a kapott erő akkor is megmarad, ha az
+          adományozó lekerül a tábláról.
+        </p>
+      )}
+      {value.map((trigger, i) => (
+        <div className="block" key={i}>
+          <div className="fields">
+            <label className="f">
+              <span>Esemény</span>
+              <select
+                value={trigger.on}
+                onChange={(e) => update(i, { ...trigger, on: e.target.value as Trigger["on"] })}
+              >
+                {TRIGGER_EVENTS.map((event) => (
+                  <option key={event} value={event}>
+                    {event}
+                  </option>
+                ))}
+              </select>
+              <small>onDeath = Vigasz, onLocationWon = Diadal.</small>
+            </label>
+            <label className="f">
+              <span>Kit érint</span>
+              <select
+                value={trigger.target.scope}
+                onChange={(e) =>
+                  update(i, {
+                    ...trigger,
+                    target: { ...trigger.target, scope: e.target.value as AutoScope },
+                  })
+                }
+              >
+                {AUTO_TARGET_SCOPES.map((scope) => (
+                  <option key={scope} value={scope}>
+                    {scope}
+                  </option>
+                ))}
+              </select>
+              <small>A „trigger” az eseményt kiváltó egységre mutat.</small>
+            </label>
+            <label className="f">
+              <span />
+              <button className="grim tiny" onClick={() => onChange(value.filter((_, n) => n !== i))}>
+                eltávolít
+              </button>
+            </label>
+          </div>
+          <KindListEditor
+            label="Kiváltó hatásai"
+            table={EFFECT_SPECS}
+            value={(trigger.effects ?? []) as unknown as Record<string, unknown>[]}
+            onChange={(v) => update(i, { ...trigger, effects: v as unknown as Effect[] })}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+type AutoScope = Trigger["target"]["scope"];
 
 function SpellFields({ draft, set }: { draft: Record<string, unknown>; set: SetFn }) {
   const target = (draft.target ?? null) as SpellCard["target"];
@@ -456,24 +587,51 @@ function SpellFields({ draft, set }: { draft: Record<string, unknown>; set: SetF
     <>
       <div className="fields">
         <label className="f">
-          <span>Iskola</span>
+          <span>Iskolák (vesszővel)</span>
           <input
             list="schools"
-            value={String(draft.school ?? "")}
-            onChange={(e) => set("school", e.target.value)}
+            value={((draft.schools ?? []) as string[]).join(", ")}
+            onChange={(e) =>
+              set(
+                "schools",
+                e.target.value
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean),
+              )
+            }
           />
           <datalist id="schools">
             {knownSchools().map((s) => (
               <option key={s} value={s} />
             ))}
           </datalist>
-          <small>A varázsló ebből az iskolából fizet, és a készlete iskolánként külön fogy.</small>
+          <small>
+            A varázsló egyetlen iskolából fizeti ki az egészet — több iskola több lehetséges
+            fizetőt jelent, nem összeadást. A készlet iskolánként külön fogy.
+          </small>
         </label>
         <NumberField label="Költség (= szükséges varázserő)" value={draft.cost} onChange={(v) => set("cost", v)} />
         <label className="f">
+          <span>Címkék (vesszővel)</span>
+          <input
+            value={((draft.tags ?? []) as string[]).join(", ")}
+            onChange={(e) =>
+              set(
+                "tags",
+                e.target.value
+                  .split(",")
+                  .map((s) => s.trim())
+                  .filter(Boolean),
+              )
+            }
+          />
+          <small>Tűz, Fagy, Mesteri. Erre hivatkozik az immunitás és az Explodus kedvezménye.</small>
+        </label>
+        <label className="f">
           <span>Ritkaság</span>
           <select value={String(draft.rarity ?? "Gyakori")} onChange={(e) => set("rarity", e.target.value)}>
-            {["Gyakori", "Ritka", "Kivételes", "Legendás"].map((r) => (
+            {RARITIES.map((r) => (
               <option key={r} value={r}>
                 {r}
               </option>
@@ -564,6 +722,72 @@ function SpellFields({ draft, set }: { draft: Record<string, unknown>; set: SetF
         value={(draft.effects ?? []) as Record<string, unknown>[]}
         onChange={(v) => set("effects", v)}
         emptyHint="A későbbi hatás később fut le, és a szöveg dönti el a végeredményt: egy erőt beállító hatás után a −2 már az új értékre vonatkozik."
+      />
+    </>
+  );
+}
+
+/**
+ * A ráakasztott lap a varázslat tartós fele. Ugyanazokat az állandó
+ * képességeket hordozhatja, mint egy egység, ezért a Falanx, a Vérszomj, a
+ * Halálfélelem és a Csordaszellem egyetlen sor kódot sem igényel.
+ */
+function AttachmentFields({ draft, set }: { draft: Record<string, unknown>; set: SetFn }) {
+  const flag = (key: string, label: string, help?: string) => (
+    <label className="f tick" key={key}>
+      <input
+        type="checkbox"
+        checked={draft[key] === true}
+        onChange={(e) => set(key, e.target.checked || undefined)}
+      />
+      <span>{label}</span>
+      {help && <small>{help}</small>}
+    </label>
+  );
+
+  return (
+    <>
+      <div className="fields">
+        <NumberField
+          label="Erőmódosító"
+          value={draft.powerDelta ?? 0}
+          onChange={(v) => set("powerDelta", v)}
+        />
+        <NumberField
+          label="Erő beállítása (0 = nem állít)"
+          value={draft.setPower ?? 0}
+          onChange={(v) => set("setPower", v > 0 ? v : undefined)}
+        />
+        {flag("ring", "Gyűrű", "⊙ jellel látszik a lapon.")}
+        {flag("preventsMove", "Nem mozoghat")}
+        {flag("preventsCasting", "Nem varázsolhat")}
+        {flag("suppressesAbilities", "Nincs képessége")}
+        {flag("powerEqualsBase", "Az ereje az alapereje", "Minden mást felülír.")}
+        {flag("untargetable", "Nem célozható")}
+        {flag("spellImmune", "Varázslat nem hat rá")}
+        <label className="f">
+          <span>Feltételes célozhatatlanság</span>
+          <select
+            value={String(draft.untargetableCondition ?? "")}
+            onChange={(e) => set("untargetableCondition", e.target.value || undefined)}
+          >
+            <option value="">nincs</option>
+            {STATIC_CONDITIONS.filter((c) => c !== "always").map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <small>Az Odú az isolated-et használja, a Kopja az opposedOccupied-et.</small>
+        </label>
+      </div>
+
+      <KindListEditor
+        label="Állandó képességek"
+        table={STATIC_SPECS}
+        value={(draft.statics ?? []) as Record<string, unknown>[]}
+        onChange={(v) => set("statics", v)}
+        emptyHint="Ugyanaz a tábla, amiből az egységek is válogatnak. A lap levétele megszünteti a hatást — nincs mit követni."
       />
     </>
   );
@@ -717,6 +941,8 @@ function blankCard(kind: Kind, id: string): Record<string, unknown> {
         spellpower: {},
         statics: [],
         belepo: null,
+        triggers: [],
+        rarity: "Gyakori",
         tags: [],
         text: "",
       };
@@ -725,7 +951,7 @@ function blankCard(kind: Kind, id: string): Record<string, unknown> {
         id,
         name: "Új varázslat",
         kind: "spell",
-        school: "Mágus",
+        schools: ["Mágus"],
         cost: 1,
         rarity: "Gyakori",
         target: { side: "any", range: 2 },

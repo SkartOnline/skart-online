@@ -23,7 +23,10 @@ export default function MainMenu({ onEnter }: { onEnter: (room: Room) => void })
     {
       room: "editor",
       name: "Kártyaműhely",
-      key: `${allUnits().length} egység · ${allSpells().length} varázslat`,
+      // Tokens (the Nyúl a Lépumorf leaves behind) are not part of the set.
+      key: `${allUnits().filter((u) => !(u.tags ?? []).includes("token")).length} egység · ${
+        allSpells().length
+      } varázslat`,
       note: "Új lapokat írsz, a hatásaikat a motor sémájából állítod össze.",
     },
   ];
