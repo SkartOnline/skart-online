@@ -2,3 +2,12 @@ node_modules/
 dist/
 *.local
 .vite/
+
+# Training checkpoints are scratch, except the one the app and the simulator
+# actually load, which has to travel with the code that reads it.
+src/bot/weights/*
+!src/bot/weights/latest.json
+
+# Scratch from one-off training and sweep scripts.
+final.*
+sweep.*

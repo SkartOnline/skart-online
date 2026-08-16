@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   applyAction,
   boardTotal,
@@ -25,6 +25,8 @@ import CardFace from "../card/CardFace";
 import Board from "./Board";
 import NewGame from "./NewGame";
 import type { Sides } from "./NewGame";
+import { makeBot } from "./bot";
+import type { Agent } from "../../bot/agent";
 
 interface Held {
   uid: string;
@@ -42,10 +44,14 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   const [held, setHeld] = useState<Held | null>(null);
   const [bare, setBare] = useState(false);
   const [fault, setFault] = useState<string | null>(null);
+  const [botSide, setBotSide] = useState<PlayerId | null>(null);
+  const bot = useRef<Agent | null>(null);
 
   function begin(sides: Sides) {
     try {
       setState(createGame({ seed: sides.seed, decks: { p1: sides.p1, p2: sides.p2 } }));
+      bot.current = sides.bot ? makeBot(sides.difficulty, Date.now() >>> 0) : null;
+      setBotSide(bot.current ? sides.bot : null);
       setPast([]);
       setHeld(null);
       setFault(null);
@@ -89,6 +95,8 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
     <Field
       state={state}
       actor={actor}
+      botSide={botSide}
+      bot={bot}
       held={held}
       setHeld={setHeld}
       send={send}
@@ -106,6 +114,9 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
 interface FieldProps {
   state: GameState;
   actor: PlayerId | null;
+  /** The seat the machine is playing, or `null` for hotseat. */
+  botSide: PlayerId | null;
+  bot: React.MutableRefObject<Agent | null>;
   held: Held | null;
   setHeld: (h: Held | null) => void;
   send: (a: Action) => void;
@@ -124,14 +135,29 @@ interface FieldProps {
  * costs a row of tiles, a column down the side costs nothing the board wanted.
  */
 function Field(props: FieldProps) {
-  const { state, actor, held, send, bare } = props;
+  const { state, actor, held, send, bare, botSide, bot } = props;
   const pending = state.resolution?.pending ?? null;
   const [logOpen, setLogOpen] = useState(false);
 
-  // The table turns: whoever is acting sits at the bottom of the screen, with
-  // their hand in front of them and the enemy across the line.
-  const viewer: PlayerId = actor ?? state.turn;
+  // The table turns so whoever is acting sits at the bottom of the screen, with
+  // their hand in front of them and the enemy across the line. Against the
+  // machine it does not turn: the camera stays with the person holding the
+  // keyboard, and the machine plays from the far side like an opponent would.
+  const human: PlayerId | null = botSide ? other(botSide) : null;
+  const viewer: PlayerId = human ?? actor ?? state.turn;
   const far = other(viewer);
+
+  // The machine moves on a timer rather than instantly, so its turn is
+  // something you watch happen instead of a board that has already changed.
+  const botToMove = botSide !== null && actor === botSide && state.phase !== "gameOver";
+  useEffect(() => {
+    if (!botToMove || !bot.current) return;
+    const timer = setTimeout(() => {
+      const action = bot.current?.choose(state, botSide!);
+      if (action) send(action);
+    }, 550);
+    return () => clearTimeout(timer);
+  }, [botToMove, state, botSide, bot, send]);
 
   const moves = useMemo(() => (actor ? legalActions(state, actor) : []), [state, actor]);
 
