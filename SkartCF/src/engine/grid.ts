@@ -89,12 +89,12 @@ function buildAdjacency(): Record<SlotId, SlotId[]> {
 
 export const ADJACENCY = buildAdjacency();
 
-/** Shared edge — `szomszédos` in the rules. Never crosses to a diagonal. */
+/** Shared edge, `szomszédos` in the rules. Never crosses to a diagonal. */
 export function orthogonalNeighbours(slot: SlotId): SlotId[] {
   return ADJACENCY[slot] ?? [];
 }
 
-/** Corner contact only — `átlósan érintkező`. A separate relationship. */
+/** Corner contact only, `átlósan érintkező`. A separate relationship. */
 export function diagonalNeighbours(slot: SlotId): SlotId[] {
   const owner = ownerOfSlot(slot);
   const row = rowOfSlot(slot);

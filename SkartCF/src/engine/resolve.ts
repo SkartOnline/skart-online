@@ -42,11 +42,11 @@ import type {
  * supplies a choice, the engine applies it and advances again.
  *
  * Spells are played open in the battle phase and resolve on the spot, one per
- * turn, so the machine normally runs over a single entry — the one just cast.
+ * turn, so the machine normally runs over a single entry, the one just cast.
  * It is still written as a cursor over `spellsCast` because that costs nothing
  * and keeps the shape honest.
  *
- * Fizzle is not a special case — it is simply "no viable caster", which advances
+ * Fizzle is not a special case, it is simply "no viable caster", which advances
  * the cursor without asking anyone.
  */
 
@@ -157,7 +157,7 @@ function summonableHandCards(
 
 /**
  * Which school this caster can actually pay from. A spell may name more than
- * one (Kegyelemdöfés), but the whole cost comes out of a single pool — never
+ * one (Kegyelemdöfés), but the whole cost comes out of a single pool, never
  * two added together. `null` means the caster cannot fund it at all; `""` means
  * it is one of A Moirák's free casts.
  */
@@ -210,6 +210,14 @@ export function viableCasters(state: GameState, entry: CastEntry): SlotId[] {
   return slotsOf(entry.owner).filter((slot) => casterIsViable(state, spell, slot));
 }
 
+/**
+ * Asked before the card leaves the hand. A spell nobody on your board can fund
+ * or aim is simply not castable, so it is never offered.
+ */
+export function hasViableCaster(state: GameState, spell: SpellCard, player: PlayerId): boolean {
+  return slotsOf(player).some((slot) => casterIsViable(state, spell, slot));
+}
+
 // ---------------------------------------------------------------------------
 // The resolution machine
 // ---------------------------------------------------------------------------
@@ -242,7 +250,7 @@ export function advanceResolution(state: GameState): void {
     if (!res.chosen.caster) {
       const casters = viableCasters(state, entry);
       if (casters.length === 0) {
-        log(state, `${spell.name} elszáll — nincs érvényes varázsló vagy cél.`, entry.owner);
+        log(state, `${spell.name} elszáll, nincs érvényes varázsló vagy cél.`, entry.owner);
         res.index += 1;
         res.chosen = {};
         continue;
@@ -258,7 +266,7 @@ export function advanceResolution(state: GameState): void {
     if (needsChosenTarget(spell.effects) && !res.chosen.target) {
       const targets = legalTargetsFor(state, spell, res.chosen.caster);
       if (targets.length === 0) {
-        log(state, `${spell.name} elszáll — nincs érvényes cél.`, entry.owner);
+        log(state, `${spell.name} elszáll, nincs érvényes cél.`, entry.owner);
         res.index += 1;
         res.chosen = {};
         continue;
@@ -280,7 +288,7 @@ export function advanceResolution(state: GameState): void {
         ? legalDestinations(state, mover, mode, move.crossSide === true)
         : [];
       if (destinations.length === 0) {
-        log(state, `${spell.name} elszáll — nincs hova lépni.`, entry.owner);
+        log(state, `${spell.name} elszáll, nincs hova lépni.`, entry.owner);
         res.index += 1;
         res.chosen = {};
         continue;
@@ -302,7 +310,7 @@ export function advanceResolution(state: GameState): void {
         Number(summon?.maxCost ?? 0),
       );
       if (options.length === 0) {
-        log(state, `${spell.name} elszáll — nincs megidézhető lap.`, entry.owner);
+        log(state, `${spell.name} elszáll, nincs megidézhető lap.`, entry.owner);
         res.index += 1;
         res.chosen = {};
         continue;
@@ -326,7 +334,7 @@ export function advanceResolution(state: GameState): void {
     res.index += 1;
     res.chosen = {};
   }
-  throw new Error("Resolution did not converge — check the card data for an unsatisfiable spell.");
+  throw new Error("Resolution did not converge, check the card data for an unsatisfiable spell.");
 }
 
 function request(
@@ -350,14 +358,14 @@ function applyCastEntry(state: GameState, entry: CastEntry, spell: SpellCard): v
   const res = state.resolution!;
   const caster = res.chosen.caster ? unitAt(state, res.chosen.caster) : null;
   if (!caster) {
-    log(state, `${spell.name} elszáll — a varázsló eltűnt.`, entry.owner);
+    log(state, `${spell.name} elszáll, a varázsló eltűnt.`, entry.owner);
     return;
   }
 
   const cost = spellCost(spell, state, caster);
   const school = payingSchool(state, spell, caster);
   if (school === null) {
-    log(state, `${spell.name} elszáll — a varázsló nem tudja kifizetni.`, entry.owner);
+    log(state, `${spell.name} elszáll, a varázsló nem tudja kifizetni.`, entry.owner);
     return;
   }
   // The caster pays out of its own school-locked pool. No pooling across units,
@@ -383,7 +391,7 @@ function applyCastEntry(state: GameState, entry: CastEntry, spell: SpellCard): v
       targetUnit.fizzleShields.splice(shieldIndex, 1);
       log(
         state,
-        `${spell.name} elszáll — ${cardOf(targetUnit).name} álomfogója elnyeli.`,
+        `${spell.name} elszáll, ${cardOf(targetUnit).name} álomfogója elnyeli.`,
         entry.owner,
       );
       return;

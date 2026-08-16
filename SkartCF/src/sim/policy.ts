@@ -16,7 +16,7 @@ import {
 import type { Action, GameState, PlayerId, SlotId } from "../engine";
 
 /**
- * A deliberately dumb greedy policy. Its job is not to play well — it is to
+ * A deliberately dumb greedy policy. Its job is not to play well, it is to
  * play *consistently*, so that a win-rate difference between two decks over ten
  * thousand games is a property of the cards rather than of the bot.
  *
@@ -104,8 +104,8 @@ export function chooseAction(state: GameState, player: PlayerId, ctx: PolicyCont
 }
 
 /**
- * Resolution choices get a one-ply greedy search. Every choice kind — caster,
- * target, destination, hand card — goes through the same code, because the
+ * Resolution choices get a one-ply greedy search. Every choice kind, caster,
+ * target, destination, hand card, goes through the same code, because the
  * engine hands them all back as plain actions.
  */
 function chooseResolution(state: GameState, player: PlayerId, options: Action[]): Action {
@@ -169,6 +169,16 @@ function chooseBattleAction(
   options: Action[],
 ): Action {
   const p = state.players[player];
+
+  // A Mesteri spell begun last turn has to be paid off before anything else.
+  // The cheapest card in hand is the one thrown away.
+  const finishes = options.filter(
+    (a): a is Extract<Action, { type: "finishChannel" }> => a.type === "finishChannel",
+  );
+  if (finishes.length > 0) {
+    return finishes.slice().sort((a, b) => tossCost(state, player, a) - tossCost(state, player, b))[0];
+  }
+
   const casts = options.filter(
     (a): a is Extract<Action, { type: "castSpell" }> => a.type === "castSpell",
   );
@@ -189,6 +199,15 @@ function chooseBattleAction(
     return getSpell(cardB.cardId).cost - getSpell(cardA.cardId).cost;
   });
   return sorted[0];
+}
+
+function tossCost(
+  state: GameState,
+  player: PlayerId,
+  action: Extract<Action, { type: "finishChannel" }>,
+): number {
+  const card = state.players[player].spellHand.find((c) => c.uid === action.discardUid);
+  return card ? getSpell(card.cardId).cost : 0;
 }
 
 function bestPlacement(

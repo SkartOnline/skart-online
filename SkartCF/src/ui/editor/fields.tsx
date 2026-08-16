@@ -100,7 +100,7 @@ export function FieldInput({
           <input
             list={id}
             value={String(value ?? field.default ?? "")}
-            placeholder={field.type === "keyword" ? "bármelyik — vesszővel több is" : ""}
+            placeholder={field.type === "keyword" ? "bármelyik, vesszővel több is" : ""}
             onChange={(e) => onChange(e.target.value || undefined)}
           />
           <datalist id={id}>
@@ -126,7 +126,7 @@ export function FieldInput({
 }
 
 /**
- * Edits a list of schema-described objects — spell effects, static abilities,
+ * Edits a list of schema-described objects, spell effects, static abilities,
  * location effects. All three use this same component against a different
  * spec table.
  */

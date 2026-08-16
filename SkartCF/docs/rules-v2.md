@@ -19,7 +19,7 @@ Locations are fought one at a time in that order. After six, whoever holds more 
 ## Core loop per location
 
 1. Reveal the location: cost cap plus effect.
-2. **Units.** Players alternate playing units until both unit flags are closed. Belépő abilities fire as units land.
+2. **Units.** Players alternate playing units until both unit flags are closed. Belépő abilities fire as units land. (v3) Committing a unit is your whole turn: the turn passes the moment it lands, and declaring units done is what you do *instead* of committing one, never after.
 3. **Mustra.** (v3) Hidden units turn face-up and their Belépő abilities fire now. Mustra abilities fire here too, once every unit is down.
 4. **Battle.** (v3) Players alternate playing spells — open, resolving on the spot, one per turn — until both spell flags are closed.
 5. **Totaling.** Sum both boards against the final state and compare. Higher total takes the location. **Equal totals: nobody takes it.** (v2)
@@ -33,7 +33,7 @@ There is no passing. There is only **stopping**, and stopping is permanent for t
 
 Each player carries two flags, one per phase. **(v3) They are no longer live at the same time:** the unit flag governs the units phase, the spell flag the battle, and the battle does not open until both unit flags are down.
 
-In the units phase, on your turn you may play one unit to a slot, or declare **units done**. In the battle phase you may play one spell, or declare **spells done**. Either way, a closed flag never reopens, and a player who has stopped is skipped while the opponent keeps taking turns alone.
+In the units phase, on your turn you may play one unit to a slot, or declare **units done**. In the battle phase you may play one spell, or declare **spells done**. (v3) The two are alternatives, not a sequence: playing ends your turn, so stopping is something you announce on a turn where you chose not to play. Either way, a closed flag never reopens, and a player who has stopped is skipped while the opponent keeps taking turns alone.
 
 Committed unit costs must stay within the location's cost cap. The cap counts unit costs only. Spells are paid for out of spellpower at resolution, not out of the cap. (v2)
 
@@ -143,6 +143,20 @@ A spell with no legal caster or no legal target fizzles where it stands and does
 
 Because the battle only opens after Mustra, every spell is aimed at a board both players can see in full. The uncertainty has moved: it is no longer a face-down pile, it is what is left in hand.
 
+A spell no unit of yours can fund or aim is not castable at all. It stays in hand rather than being played into a fizzle, so nothing is lost by holding it. (v3)
+
+### Mesteri spells (v3)
+
+A Mesteri spell takes two turns to come out.
+
+Playing one costs your whole turn and does nothing. The card goes down face-down: the opponent learns that a Mesteri spell is being channelled, never which one. The turn passes and they act normally.
+
+On your next turn, finishing it is the **only** thing you may do, and it costs a second spell out of your hand, discarded. Only then is the card revealed, its caster and target chosen, and its effect resolved. Both halves are mandatory: if the board has changed and the spell can no longer do anything, you still pay and it still fizzles.
+
+If you have no second spell to discard when your turn comes, the channelled spell is lost with no effect.
+
+The point is that the biggest spells in the game announce themselves a turn early and cost two cards. An Argeo you can see coming is a different card from an Argeo that lands out of nowhere.
+
 ### Casting
 
 Any unit with enough spellpower of the right school can cast. The caster is not precommitted. Spell cost equals the spellpower required. (v2)
@@ -182,6 +196,31 @@ Later effects resolve later, but the wording decides the outcome. A set-power ef
 ### Physical tracking
 
 Spell cards are smaller than unit cards. A unit holds a fan of unresolved spells and a fan of resolved ones. The pile is the record.
+
+---
+
+## Rarity and copies (v3)
+
+Every card carries a rarity, and the rarity is the only thing that limits how many copies of it a deck may hold.
+
+| Ritkaság | Példány / pakli |
+|---|---|
+| Gyakori | 4 |
+| Ritka | 3 |
+| Kivételes | 2 |
+| Legendás | 1 |
+
+The limit is per deck, counted separately for the unit deck and the spell deck, since a card is only ever in one of the two.
+
+---
+
+## The card face
+
+Cost sits top left, the name across the top, the art window under it at 4:3. The type line under the art reads the card type first, then the rarity and the traits: `Egység — Kivételes Felindori Harcos`, `Varázslat — Legendás Mesteri Feketemágia`. Rules text goes in the box below it.
+
+The two bottom corners hold what you check last. Bottom left is what can pay for the card: a unit's spellpower pools, or the school a spell has to be cast out of, with the number inside the school's symbol. Bottom right is what it is worth: a unit's power, or a spell's range.
+
+Every spell carries one magic school as its trait: **Tűzmágia**, **Fagymágia**, **Természeti erő**, **Feketemágia**, **Portálmágia**, **Felszerelés** or **Támadás**. Immunity effects read this trait, which is why the element and the school are the same word.
 
 ---
 

@@ -1,0 +1,233 @@
+/*
+ * The printed card, and the pips that go with it.
+ *
+ * Proportions are the paper ones: a 63x88 card, a frame margin of about 4%, an
+ * art window at 4:3, a type line the width of the frame, and a rules box that
+ * takes whatever height is left. Everything is sized in `em` off the card's own
+ * font size, so one `--card-w` scales the whole thing.
+ */
+
+.cardface {
+  --card-w: 208px;
+  width: var(--card-w);
+  /* Height is derived rather than left to aspect-ratio: the rules box would
+     otherwise push a small card taller than its own proportions. */
+  height: calc(var(--card-w) * 88 / 63);
+  flex: none;
+  font-size: calc(var(--card-w) / 15);
+  display: flex;
+  flex-direction: column;
+  gap: 0.28em;
+  padding: 0.5em;
+  background: linear-gradient(168deg, var(--vellum), var(--vellum-deep));
+  border: 1px solid var(--ink-edge);
+  color: var(--ink);
+  text-align: left;
+  overflow: hidden;
+}
+
+.cardface.spell {
+  background: linear-gradient(168deg, var(--rune), var(--rune-deep));
+}
+
+/* ------------------------------------------------------------------- head */
+
+.cf-head {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4em;
+  min-height: 1.5em;
+}
+.cf-art-empty {
+  display: block;
+  height: 100%;
+}
+.cf-cost {
+  flex: none;
+  width: 1.5em;
+  height: 1.5em;
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  font-size: 1em;
+  color: var(--vellum);
+  background: var(--ink);
+  border: 1px solid var(--ink-edge);
+  border-radius: 50%;
+}
+.cf-name {
+  flex: 1;
+  margin: 0;
+  text-align: center;
+  font-size: 0.94em;
+  font-weight: 600;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+  align-self: center;
+}
+
+/* -------------------------------------------------------------------- art */
+
+.cf-art {
+  position: relative;
+  flex: none;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--ink-edge);
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(60, 44, 26, 0.09) 0 6px,
+    rgba(60, 44, 26, 0.02) 6px 12px
+  );
+  overflow: hidden;
+}
+.cf-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* -------------------------------------------------------------- type line */
+
+.cf-type {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5em;
+  margin: 0;
+  padding: 0.06em 0.3em;
+  font-size: 0.62em;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.03em;
+  background: rgba(60, 44, 26, 0.14);
+  border-top: 1px solid var(--ink-edge);
+  border-bottom: 1px solid var(--ink-edge);
+}
+.cf-kind {
+  font-weight: 600;
+  flex: none;
+}
+.cf-traits {
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* -------------------------------------------------------------- rules box */
+
+.cf-box {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2em;
+  padding: 0.3em 0.35em;
+  font-size: 0.66em;
+  line-height: 1.28;
+  overflow: hidden;
+}
+.cf-keywords {
+  font-weight: 600;
+  font-variant-caps: small-caps;
+}
+.cf-rules {
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------------- foot */
+
+.cf-foot {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.4em;
+  min-height: 1.5em;
+}
+.cf-power,
+.cf-range {
+  flex: none;
+  min-width: 1.6em;
+  height: 1.5em;
+  padding: 0 0.25em;
+  display: grid;
+  place-items: center;
+  font-size: 1em;
+  font-weight: 600;
+  color: var(--vellum);
+}
+/* Power is a shield, range is a notched marker: two silhouettes, so the corner
+   reads without a caption. */
+.cf-power {
+  background: var(--might);
+  clip-path: polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%);
+  padding-bottom: 0.35em;
+}
+.cf-range {
+  background: var(--reach);
+  clip-path: polygon(50% 0, 100% 28%, 100% 100%, 0 100%, 0 28%);
+}
+
+/* ------------------------------------------------------------------- pips */
+
+.cf-pips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.22em;
+  min-width: 0;
+}
+.pip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  font-size: 0.62em;
+}
+.pip > b {
+  width: 1.9em;
+  height: 1.9em;
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  color: #f6ecd8;
+  background: var(--pip);
+  border: 1px solid rgba(0, 0, 0, 0.35);
+}
+.pip > em {
+  font-style: normal;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+}
+
+/* Six schools, six silhouettes. Colour alone would fail in a screenshot. */
+.pip.magus > b {
+  --pip: #3c6790;
+  border-radius: 50%;
+}
+.pip.fekete > b {
+  --pip: #4a3358;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.pip.harcos > b {
+  --pip: #94402f;
+  clip-path: polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%);
+}
+.pip.ravasz > b {
+  --pip: #5a5a3a;
+  clip-path: polygon(50% 0, 100% 38%, 82% 100%, 18% 100%, 0 38%);
+}
+.pip.druida > b {
+  --pip: #3f6b46;
+  clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+}
+.pip.bestia > b {
+  --pip: #7a5220;
+  clip-path: polygon(12% 0, 88% 0, 100% 100%, 0 100%);
+}
+.pip.egyeb > b {
+  --pip: #4b4038;
+}

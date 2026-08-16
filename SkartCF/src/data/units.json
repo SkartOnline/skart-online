@@ -11,8 +11,7 @@
     "origin": "Állat",
     "tags": [
       "swarm"
-    ],
-    "text": "Egy patkány sosem elég."
+    ]
   },
   {
     "id": "papagaj",
@@ -58,8 +57,7 @@
     "tags": [
       "swarm",
       "felindori"
-    ],
-    "text": "A város nevében jöttem, kaszával."
+    ]
   },
   {
     "id": "hektor",
@@ -74,8 +72,7 @@
     "tags": [
       "swarm",
       "kaloz"
-    ],
-    "text": "Egy név a legénységi listán."
+    ]
   },
   {
     "id": "kem",
@@ -200,8 +197,7 @@
     "tags": [
       "swarm",
       "csempesz"
-    ],
-    "text": "Az úton mindig van vám."
+    ]
   },
   {
     "id": "burastya",
@@ -216,8 +212,7 @@
     "tags": [
       "swarm",
       "elettelen"
-    ],
-    "text": "Nem alszik, mert nem is él."
+    ]
   },
   {
     "id": "hetvenkedo_katona",
@@ -583,8 +578,7 @@
     "tags": [
       "felindori",
       "harcos"
-    ],
-    "text": "Viszem a pajzsot, és tudom, hova kell állni."
+    ]
   },
   {
     "id": "vizkopo",
@@ -626,7 +620,7 @@
       "effects": [
         {
           "kind": "note",
-          "text": "Griff kézcseréje asztal mellett dől el — a motor nem gépesíti."
+          "text": "Griff kézcseréje asztal mellett dől el, a motor nem gépesíti."
         }
       ]
     },
@@ -959,8 +953,7 @@
     "tags": [
       "felindori",
       "harcos"
-    ],
-    "text": "Távolsági: a hátsó sorban +2 erőt kapok."
+    ]
   },
   {
     "id": "altus",
@@ -1008,8 +1001,7 @@
       "felindori",
       "harcos",
       "value"
-    ],
-    "text": "A mérce. Minden más hozzám képest drága vagy olcsó."
+    ]
   },
   {
     "id": "chupacabra",
@@ -1134,7 +1126,7 @@
       "wip",
       "felindori"
     ],
-    "text": "Kidolgozás alatt — az erő és a képesség még nincs véglegesítve."
+    "text": "Kidolgozás alatt, a lap még nincs véglegesítve."
   },
   {
     "id": "medve",
@@ -1174,8 +1166,7 @@
     "origin": "Bestia",
     "tags": [
       "beast"
-    ],
-    "text": "Nagy vagyok, és ennyi."
+    ]
   },
   {
     "id": "liderc",
@@ -1189,8 +1180,7 @@
     "origin": "Élettelen",
     "tags": [
       "elettelen"
-    ],
-    "text": "Fény, ami nem melegít."
+    ]
   },
   {
     "id": "simorf",
@@ -1300,14 +1290,14 @@
         "kind": "spellMod",
         "what": "cost",
         "amount": -1,
-        "tag": "Tűz"
+        "tag": "Tűzmágia"
       }
     ],
     "tags": [
       "felindori",
       "caster"
     ],
-    "text": "Minden Tűz varázslatod 1-gyel kevesebbe kerül."
+    "text": "Minden Tűzmágia varázslatod 1-gyel kevesebbe kerül."
   },
   {
     "id": "magister",
@@ -1410,7 +1400,7 @@
       "felindori",
       "druida"
     ],
-    "text": "Kidolgozás alatt — az erő és a képesség még nincs véglegesítve."
+    "text": "Kidolgozás alatt, a lap még nincs véglegesítve."
   },
   {
     "id": "felindori_bajnok",
@@ -1429,8 +1419,7 @@
       "felindori",
       "harcos",
       "value"
-    ],
-    "text": "Engem küldenek, ha egy ember is elég kell legyen."
+    ]
   },
   {
     "id": "ogre",
@@ -1447,8 +1436,7 @@
     "tags": [
       "beast",
       "value"
-    ],
-    "text": "Hetet ütök hatért. Ennyi az egész."
+    ]
   },
   {
     "id": "bodur_kapitany",
@@ -1501,8 +1489,7 @@
     "order": "Harcos",
     "tags": [
       "harcos"
-    ],
-    "text": "Távolsági: a hátsó sorban +2 erőt kapok."
+    ]
   },
   {
     "id": "carnifex",
@@ -1574,7 +1561,7 @@
     "tags": [
       "wip"
     ],
-    "text": "Kidolgozás alatt — az erő és a képesség még nincs véglegesítve."
+    "text": "Kidolgozás alatt, a lap még nincs véglegesítve."
   },
   {
     "id": "guner",
@@ -1716,13 +1703,13 @@
         "kind": "spellMod",
         "what": "damage",
         "amount": 1,
-        "tag": "Tűz"
+        "tag": "Tűzmágia"
       }
     ],
     "tags": [
       "caster"
     ],
-    "text": "Minden Tűz varázslatod +1-et sebez."
+    "text": "Minden Tűzmágia varázslatod +1-et sebez."
   },
   {
     "id": "viator",
@@ -1766,7 +1753,7 @@
       "wip",
       "elettelen"
     ],
-    "text": "Kidolgozás alatt — az erő és a képesség még nincs véglegesítve."
+    "text": "Kidolgozás alatt, a lap még nincs véglegesítve."
   },
   {
     "id": "calcas",
@@ -1780,7 +1767,7 @@
     "tags": [
       "wip"
     ],
-    "text": "Kidolgozás alatt — a költség, az erő és a képesség még nincs véglegesítve."
+    "text": "Kidolgozás alatt, a lap még nincs véglegesítve."
   },
   {
     "id": "iniquus",
@@ -1863,8 +1850,7 @@
     "tags": [
       "elettelen",
       "value"
-    ],
-    "text": "Valakikből készültem."
+    ]
   },
   {
     "id": "azman",
@@ -1943,8 +1929,7 @@
     "tags": [
       "beast",
       "value"
-    ],
-    "text": "Két fej, egy éhség."
+    ]
   },
   {
     "id": "faun",
@@ -1983,7 +1968,7 @@
     "tags": [
       "wip"
     ],
-    "text": "Kidolgozás alatt — az erő és a képesség még nincs véglegesítve."
+    "text": "Kidolgozás alatt, a lap még nincs véglegesítve."
   },
   {
     "id": "umbradog",
@@ -2042,8 +2027,7 @@
     "order": "Mágus",
     "tags": [
       "caster"
-    ],
-    "text": "Tíz pont Mágus varázserő, és semmi más."
+    ]
   },
   {
     "id": "omnifex",
@@ -2087,8 +2071,7 @@
     "origin": "Sárkány",
     "tags": [
       "value"
-    ],
-    "text": "A mezsgyén túlról jöttem."
+    ]
   },
   {
     "id": "omen",
@@ -2191,7 +2174,7 @@
       "effects": [
         {
           "kind": "note",
-          "text": "A Három Ereklye lap nem létezik a készletben — Gouraldir győzelmi feltétele nincs gépesítve."
+          "text": "A Három Ereklye lap nem létezik a készletben, Gouraldir győzelmi feltétele nincs gépesítve."
         }
       ]
     },
@@ -2240,7 +2223,6 @@
     "origin": "Állat",
     "tags": [
       "token"
-    ],
-    "text": "Képesség nélküli Állat vagyok. A Lépumorf hagy maga után."
+    ]
   }
 ]

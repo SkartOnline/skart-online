@@ -8,11 +8,21 @@ import {
   getLocation,
   getSpell,
   getUnit,
+  isMasterSpell,
   legalActions,
   remainingCap,
   visibleTotal,
 } from "../../engine";
-import type { Action, GameState, PlayerId, SlotId } from "../../engine";
+import type {
+  Action,
+  GameState,
+  HandCard,
+  PlayerId,
+  SlotId,
+  SpellCard,
+  UnitCard,
+} from "../../engine";
+import CardFace from "../card/CardFace";
 import Board from "./Board";
 import NewGame from "./NewGame";
 import type { Sides } from "./NewGame";
@@ -24,6 +34,8 @@ interface Held {
 }
 
 const SIDE: Record<PlayerId, string> = { p1: "Első", p2: "Második" };
+
+const other = (player: PlayerId): PlayerId => (player === "p1" ? "p2" : "p1");
 
 export default function GameView({ onLeave }: { onLeave: () => void }) {
   const [state, setState] = useState<GameState | null>(null);
@@ -111,6 +123,11 @@ function Field(props: FieldProps) {
   const { state, actor, held, send, bare } = props;
   const pending = state.resolution?.pending ?? null;
 
+  // The table turns: whoever is acting sits at the bottom of the screen, with
+  // their hand in front of them and the enemy across the line.
+  const viewer: PlayerId = actor ?? state.turn;
+  const far = other(viewer);
+
   const moves = useMemo(() => (actor ? legalActions(state, actor) : []), [state, actor]);
 
   const open = useMemo(() => {
@@ -147,31 +164,35 @@ function Field(props: FieldProps) {
     }
   }
 
+  const over = state.phase === "gameOver";
+
   return (
     <div className="field">
       <Banner {...props} />
+      <StatusBar {...props} moves={moves} viewer={viewer} />
 
       <div className="field-body">
         <div className="arena">
-          {state.phase === "gameOver" ? (
+          {over ? (
             <Aftermath state={state} />
           ) : (
             <>
-              <Ledger state={state} side="p2" bare={bare} />
-              <Board state={state} open={open} onPick={pickSlot} bare={bare} />
-              <Ledger state={state} side="p1" bare={bare} />
+              <Ledger state={state} side={far} bare={bare} />
+              <Board state={state} open={open} onPick={pickSlot} bare={bare} viewer={viewer} />
+              <Ledger state={state} side={viewer} bare={bare} />
             </>
           )}
         </div>
 
         <div className="rail">
-          <CastLog state={state} />
+          <CastLog state={state} viewer={viewer} />
           <Wells state={state} />
           <Chronicle state={state} />
         </div>
       </div>
 
-      <Tray {...props} moves={moves} />
+      {!over && <FarHand state={state} player={far} bare={bare} />}
+      {!over && <NearHand {...props} moves={moves} viewer={viewer} />}
     </div>
   );
 }
@@ -181,24 +202,101 @@ function Banner({ state, onLeave, onQuit }: FieldProps) {
   const here = state.locations[state.locationIndex];
   return (
     <div className="banner">
-      <button className="quiet" onClick={onLeave} title="Vissza a főmenübe">
-        ‹ Menü
+      <button className="quiet" onClick={onLeave}>
+        Menü
       </button>
       <span className="label num">{state.locationIndex + 1}/6</span>
       <h2>{location.name}</h2>
-      <span className="cap num">
-        keret {location.cap === null ? "∞" : location.cap}
-      </span>
+      <span className="cap num">keret {location.cap === null ? "∞" : location.cap}</span>
       <span className="label">hozta: {SIDE[here.broughtBy]}</span>
-      <span className="flavour">{location.text}</span>
       <span className="tally">
         <span className="p1">{state.scores.p1}</span>
-        <span className="faint">–</span>
+        <span className="faint">:</span>
         <span className="p2">{state.scores.p2}</span>
       </span>
       <button className="quiet" onClick={onQuit}>
         Új parti
       </button>
+    </div>
+  );
+}
+
+/**
+ * Whose turn it is, what they may still announce, and the one prompt a spell in
+ * mid-resolution puts up. It lives here rather than by the hand so the fan has
+ * the whole bottom of the screen to itself.
+ */
+function StatusBar(props: FieldProps & { moves: Action[]; viewer: PlayerId }) {
+  const { state, actor, send, moves, bare, setBare, stepBack, canStepBack, fault, viewer } = props;
+  const pending = state.resolution?.pending ?? null;
+  const can = (type: Action["type"]) => moves.some((m) => m.type === type);
+  const channel = state.channel[viewer];
+  const enemyChannel = state.channel[other(viewer)];
+
+  return (
+    <div className="statusbar">
+      {pending ? (
+        <span className={`turn ${pending.player}`}>
+          {SIDE[pending.player]}: {pending.prompt}
+        </span>
+      ) : (
+        actor &&
+        (state.phase === "units" || state.phase === "battle") && (
+          <>
+            <span className={`turn ${actor}`}>
+              {SIDE[actor]} lép, {state.phase === "units" ? "egységek" : "csata"}
+            </span>
+            {state.phase === "units" ? (
+              <button
+                disabled={!can("declareUnitsDone")}
+                onClick={() => send({ type: "declareUnitsDone", player: actor })}
+              >
+                Egységek: kész
+              </button>
+            ) : (
+              <button
+                disabled={!can("declareSpellsDone")}
+                onClick={() => send({ type: "declareSpellsDone", player: actor })}
+              >
+                Varázslatok: kész
+              </button>
+            )}
+          </>
+        )
+      )}
+
+      {channel && (
+        <span className="channel mine">Mesteri: {getSpell(channel.cardId).name}</span>
+      )}
+      {enemyChannel && <span className="channel theirs">Mesteri varázslat készül</span>}
+
+      {state.phase === "scored" && (
+        <>
+          <span className="turn">{verdict(state)}</span>
+          <button className="ember" onClick={() => send({ type: "nextLocation" })}>
+            Tovább
+          </button>
+        </>
+      )}
+
+      {state.phase === "gameOver" && (
+        <span className="turn">
+          {state.winner === "draw"
+            ? "Döntetlen."
+            : `${SIDE[state.winner as PlayerId]} játékos nyert.`}
+        </span>
+      )}
+
+      <span className="right">
+        {fault && <span className="bad">{fault}</span>}
+        <label className="swap">
+          <input type="checkbox" checked={bare} onChange={(e) => setBare(e.target.checked)} />
+          Mindent mutat
+        </label>
+        <button className="quiet" onClick={stepBack} disabled={!canStepBack}>
+          Vissza
+        </button>
+      </span>
     </div>
   );
 }
@@ -214,7 +312,6 @@ function Ledger({
 }) {
   // While units are still going down, the idle side only shows what is actually
   // visible: a face-down unit contributes nothing to what the opponent can read.
-  // From Mustra onwards everything is face up, so the real total is shown.
   const veiledFromUs = state.phase === "units" && !bare && state.turn !== side;
   const sum = veiledFromUs ? visibleTotal(state, side) : boardTotal(state, side);
   const p = state.players[side];
@@ -233,23 +330,20 @@ function Ledger({
       <span className={p.flags.unitsClosed ? "shut" : "open"}>egységek</span>
       <span className={p.flags.spellsClosed ? "shut" : "open"}>varázslatok</span>
       <span className="faint num">
-        kéz {p.unitHand.length}·{p.spellHand.length} — pakli {p.unitDeck.length}·
+        kéz {p.unitHand.length}·{p.spellHand.length} · pakli {p.unitDeck.length}·
         {p.spellDeck.length}
       </span>
     </div>
   );
 }
 
-/**
- * Spells cast this location, in play order. Nothing is concealed: a spell is
- * played open in the battle phase and goes off on the spot, so this is a record
- * of what already happened rather than a pile waiting to resolve.
- */
-function CastLog({ state }: { state: GameState }) {
+// --------------------------------------------------------------------- rail
+
+function CastLog({ state, viewer }: { state: GameState; viewer: PlayerId }) {
   const at = state.resolution?.index ?? -1;
   return (
     <div className="slab timber">
-      <h3>Elsült varázslatok — {state.spellsCast.length}</h3>
+      <h3>Elsült varázslatok · {state.spellsCast.length}</h3>
       <div className="scrolls">
         <ol className="pile">
           {state.spellsCast.map((entry, i) => {
@@ -263,6 +357,17 @@ function CastLog({ state }: { state: GameState }) {
               </li>
             );
           })}
+          {(["p1", "p2"] as PlayerId[]).map((id) => {
+            const channel = state.channel[id];
+            if (!channel) return null;
+            return (
+              <li key={`ch-${id}`} className="now">
+                <span className={`sigil ${id}`}>{id === "p1" ? "I" : "II"}</span>
+                {id === viewer ? getSpell(channel.cardId).name : "Mesteri varázslat"}
+                <span className="coin">készül</span>
+              </li>
+            );
+          })}
           {state.spellsCast.length === 0 && <li className="faint">még egy sem</li>}
         </ol>
       </div>
@@ -271,32 +376,28 @@ function CastLog({ state }: { state: GameState }) {
 }
 
 function Wells({ state }: { state: GameState }) {
+  const empty = castersOf(state, "p1").length + castersOf(state, "p2").length === 0;
   return (
     <div className="slab timber">
       <h3>Varázserő a táblán</h3>
       <div className="scrolls">
-        {(["p1", "p2"] as PlayerId[]).map((player) => {
-          const casters = castersOf(state, player);
-          return (
-            <ul className="wells" key={player}>
-              {casters.map(({ unit, pools }) => (
-                <li key={unit.uid}>
-                  <span className={`sigil ${player}`}>{player === "p1" ? "I" : "II"}</span>
-                  {getUnit(unit.cardId).name}
-                  <span className="faint">{unit.slot.slice(3)}</span>
-                  {Object.entries(pools).map(([school, left]) => (
-                    <span className="well" key={school}>
-                      {school} {left}
-                    </span>
-                  ))}
-                </li>
-              ))}
-            </ul>
-          );
-        })}
-        {castersOf(state, "p1").length + castersOf(state, "p2").length === 0 && (
-          <p className="faint">Senki nem tud varázsolni.</p>
-        )}
+        {(["p1", "p2"] as PlayerId[]).map((player) => (
+          <ul className="wells" key={player}>
+            {castersOf(state, player).map(({ unit, pools }) => (
+              <li key={unit.uid}>
+                <span className={`sigil ${player}`}>{player === "p1" ? "I" : "II"}</span>
+                {getUnit(unit.cardId).name}
+                <span className="faint">{unit.slot.slice(3)}</span>
+                {Object.entries(pools).map(([school, left]) => (
+                  <span className="well" key={school}>
+                    {school} {left}
+                  </span>
+                ))}
+              </li>
+            ))}
+          </ul>
+        ))}
+        {empty && <p className="faint">Senki nem tud varázsolni.</p>}
       </div>
     </div>
   );
@@ -330,125 +431,25 @@ function Aftermath({ state }: { state: GameState }) {
       <h3>Vége</h3>
       <p className="tally" style={{ fontSize: 34, marginLeft: 0 }}>
         <span className="p1">{state.scores.p1}</span>
-        <span className="faint">–</span>
+        <span className="faint">:</span>
         <span className="p2">{state.scores.p2}</span>
       </p>
       <ul className="chronicle">
-        {played.map((l, i) => {
-          const card = getLocation(l.cardId);
-          return (
-            <li key={i}>
-              <span className="faint num">{i + 1}.</span>
-              <b>{card.name}</b>
-              {l.totals && (
-                <span className="num dim">
-                  {l.totals.p1}–{l.totals.p2}
-                </span>
-              )}
-              <span className={l.winner === "void" ? "faint" : ""}>
-                {l.winner === "void" ? "senkié" : SIDE[l.winner as PlayerId]}
+        {played.map((l, i) => (
+          <li key={i}>
+            <span className="faint num">{i + 1}.</span>
+            <b>{getLocation(l.cardId).name}</b>
+            {l.totals && (
+              <span className="num dim">
+                {l.totals.p1}:{l.totals.p2}
               </span>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-
-function Tray(props: FieldProps & { moves: Action[] }) {
-  const { state, actor, held, setHeld, send, moves, bare, setBare, stepBack, canStepBack, fault } =
-    props;
-  const pending = state.resolution?.pending ?? null;
-  const can = (type: Action["type"]) => moves.some((m) => m.type === type);
-
-  return (
-    <div className="tray">
-      <div className="tray-head">
-        {!pending && (state.phase === "units" || state.phase === "battle") && actor && (
-          <>
-            <span className={`turn ${actor}`}>
-              {SIDE[actor]} lép — {state.phase === "units" ? "egységek" : "csata"}
-            </span>
-            {state.phase === "units" ? (
-              <button
-                disabled={!can("declareUnitsDone")}
-                onClick={() => send({ type: "declareUnitsDone", player: actor })}
-              >
-                Egységek: kész
-              </button>
-            ) : (
-              <button
-                disabled={!can("declareSpellsDone")}
-                onClick={() => send({ type: "declareSpellsDone", player: actor })}
-              >
-                Varázslatok: kész
-              </button>
             )}
-            <button
-              className="ember"
-              disabled={!can("endTurn")}
-              onClick={() => send({ type: "endTurn", player: actor })}
-            >
-              Kör vége
-            </button>
-          </>
-        )}
-
-        {pending && (
-          <span className={`turn ${pending.player}`}>
-            {SIDE[pending.player]}: {pending.prompt}
-          </span>
-        )}
-
-        {state.phase === "scored" && (
-          <>
-            <span className="turn">{verdict(state)}</span>
-            <button className="ember" onClick={() => send({ type: "nextLocation" })}>
-              Tovább
-            </button>
-          </>
-        )}
-
-        {state.phase === "gameOver" && (
-          <span className="turn">
-            {state.winner === "draw"
-              ? "Döntetlen."
-              : `${SIDE[state.winner as PlayerId]} játékos nyert.`}
-          </span>
-        )}
-
-        <span className="right">
-          {fault && <span className="bad">{fault}</span>}
-          <label className="swap">
-            <input type="checkbox" checked={bare} onChange={(e) => setBare(e.target.checked)} />
-            Mindent mutat
-          </label>
-          <button className="quiet" onClick={stepBack} disabled={!canStepBack}>
-            Vissza
-          </button>
-        </span>
-      </div>
-
-      {actor && !pending && (state.phase === "units" || state.phase === "battle") && (
-        <Hand state={state} player={actor} moves={moves} held={held} setHeld={setHeld} send={send} />
-      )}
-
-      {pending?.kind === "handCard" && (
-        <div className="fan">
-          {(pending.handOptions ?? []).map((c) => (
-            <button
-              key={c.uid}
-              className="slip playable"
-              onClick={() => send({ type: "chooseHandCard", player: pending.player, uid: c.uid })}
-            >
-              <UnitFace cardId={c.cardId} />
-            </button>
-          ))}
-        </div>
-      )}
+            <span className={l.winner === "void" ? "faint" : ""}>
+              {l.winner === "void" ? "senkié" : SIDE[l.winner as PlayerId]}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -458,26 +459,75 @@ function verdict(state: GameState): string {
   const name = getLocation(here.cardId).name;
   const t = here.totals;
   if (!t) return name;
-  if (here.winner === "void") return `${name}: ${t.p1}–${t.p2}, senkié.`;
-  return `${name}: ${SIDE[here.winner as PlayerId]} viszi, ${t.p1}–${t.p2}.`;
+  if (here.winner === "void") return `${name}: ${t.p1}:${t.p2}, senkié.`;
+  return `${name}: ${SIDE[here.winner as PlayerId]} viszi, ${t.p1}:${t.p2}.`;
 }
 
-function Hand({
+// -------------------------------------------------------------------- hands
+
+/** Where card `i` of `n` sits on the arc. */
+function arc(i: number, n: number, flip = false): React.CSSProperties {
+  const mid = (n - 1) / 2;
+  const offset = i - mid;
+  const angle = offset * 4.5 * (flip ? -1 : 1);
+  const drop = offset * offset * 2.6 * (flip ? -1 : 1);
+  return { transform: `rotate(${angle}deg) translateY(${drop}px)`, zIndex: 10 + i };
+}
+
+/**
+ * The enemy's hand: backs only, units on their left and spells on their right,
+ * hanging off the top of the screen. The peek switch turns them over.
+ */
+function FarHand({
   state,
   player,
-  moves,
-  held,
-  setHeld,
-  send,
+  bare,
 }: {
   state: GameState;
   player: PlayerId;
-  moves: Action[];
-  held: Held | null;
-  setHeld: (h: Held | null) => void;
-  send: (a: Action) => void;
+  bare: boolean;
 }) {
   const p = state.players[player];
+  const groups: { cards: HandCard[]; kind: "unit" | "spell" }[] = [
+    { cards: p.unitHand, kind: "unit" },
+    { cards: p.spellHand, kind: "spell" },
+  ];
+  return (
+    <div className="hand-rail far">
+      {groups.map(({ cards, kind }) => (
+        <div className="hand-group" key={kind}>
+          {cards.map((c, i) => (
+            <div className="hand-slot" key={c.uid} style={arc(i, cards.length, true)}>
+              {bare ? (
+                <CardFace
+                  card={kind === "unit" ? getUnit(c.cardId) : getSpell(c.cardId)}
+                  className={kind === "spell" ? "spell" : ""}
+                />
+              ) : (
+                <span className={`cardback ${kind}`} />
+              )}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Your own hand, cut by the bottom of the screen until you reach for it. Units
+ * sit on the left and spells on the right, and the half that cannot be played
+ * this phase stays visible but dimmed: what you are holding in spells decides
+ * where you put your units, so hiding it would hide the decision.
+ */
+function NearHand(props: FieldProps & { moves: Action[]; viewer: PlayerId }) {
+  const { state, actor, held, setHeld, send, moves, viewer } = props;
+  const pending = state.resolution?.pending ?? null;
+  const p = state.players[viewer];
+  const mine = actor === viewer;
+  const unitsPhase = state.phase === "units";
+  const channel = state.channel[viewer];
+
   const playable = new Set(
     moves.filter((m) => m.type === "playUnit").map((m) => (m as { uid: string }).uid),
   );
@@ -489,71 +539,38 @@ function Hand({
   const castable = new Set(
     moves.filter((m) => m.type === "castSpell").map((m) => (m as { uid: string }).uid),
   );
-  // Units are only shown while units are being played, spells only in battle —
-  // the two never compete for the tray any more.
-  const unitsPhase = state.phase === "units";
+  const tossable = new Set(
+    moves
+      .filter((m) => m.type === "finishChannel")
+      .map((m) => (m as { discardUid: string }).discardUid),
+  );
+
+  // A spell asking for a card out of hand takes over the tray entirely.
+  if (pending?.kind === "handCard") {
+    const options = pending.handOptions ?? [];
+    return (
+      <div className="hand-rail near">
+        <div className="hand-group">
+          {options.map((c, i) => (
+            <Slot
+              key={c.uid}
+              style={arc(i, options.length)}
+              playable
+              onClick={() => send({ type: "chooseHandCard", player: pending.player, uid: c.uid })}
+            >
+              <CardFace card={getUnit(c.cardId)} />
+            </Slot>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
-      <div className="fan">
-        {unitsPhase && p.unitHand.map((c) => {
-          const picked = held?.uid === c.uid;
-          const cls = ["slip"];
-          if (playable.has(c.uid)) cls.push("playable");
-          if (picked) cls.push("picked");
-          return (
-            <button
-              key={c.uid}
-              className={cls.join(" ")}
-              disabled={!playable.has(c.uid)}
-              onClick={() =>
-                setHeld(picked ? null : { uid: c.uid, veiled: false, tollUid: null })
-              }
-            >
-              <UnitFace cardId={c.cardId} />
-              {veilable.has(c.uid) && (
-                <span
-                  className="veil-tag"
-                  title="Lefordítva — ára egy egységlap a kezedből"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const toll = p.unitHand.find((x) => x.uid !== c.uid);
-                    setHeld({ uid: c.uid, veiled: true, tollUid: toll?.uid ?? null });
-                  }}
-                >
-                  fordít
-                </span>
-              )}
-            </button>
-          );
-        })}
-
-        {!unitsPhase && p.spellHand.map((c) => {
-          const spell = getSpell(c.cardId);
-          const cls = ["slip", "rune"];
-          if (castable.has(c.uid)) cls.push("playable");
-          return (
-            <button
-              key={c.uid}
-              className={cls.join(" ")}
-              disabled={!castable.has(c.uid)}
-              onClick={() => send({ type: "castSpell", player, uid: c.uid })}
-              title="Kijátszod, azonnal elsül, és ezzel a kör át is száll."
-            >
-              <span className="title">{spell.name}</span>
-              <span className="row">
-                <span className="might-n">{spell.cost}</span>
-                <span className="traits">{spell.schools.join(" · ")}</span>
-              </span>
-              <span className="said">{spell.text}</span>
-            </button>
-          );
-        })}
-      </div>
-
       {held?.veiled && (
         <div className="toll">
-          <span className="label">Ára — eldobott egységlap:</span>
+          <span className="label">Ára, eldobott egységlap:</span>
           {p.unitHand
             .filter((c) => c.uid !== held.uid)
             .map((c) => (
@@ -570,31 +587,117 @@ function Hand({
           </button>
         </div>
       )}
+
+      {channel && mine && (
+        <div className="toll">
+          <span className="label">
+            {getSpell(channel.cardId).name} befejezéséhez dobj el egy varázslatot.
+          </span>
+        </div>
+      )}
+
+      <div className="hand-rail near">
+        <div className={`hand-group${unitsPhase && mine ? "" : " muted"}`}>
+          {p.unitHand.map((c, i) => {
+            const card: UnitCard = getUnit(c.cardId);
+            const live = mine && unitsPhase && playable.has(c.uid);
+            return (
+              <Slot
+                key={c.uid}
+                style={arc(i, p.unitHand.length)}
+                playable={live}
+                picked={held?.uid === c.uid}
+                onClick={
+                  live
+                    ? () =>
+                        setHeld(
+                          held?.uid === c.uid ? null : { uid: c.uid, veiled: false, tollUid: null },
+                        )
+                    : undefined
+                }
+              >
+                <CardFace card={card} />
+                {live && veilable.has(c.uid) && (
+                  <button
+                    className="veil-tag"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const toll = p.unitHand.find((x) => x.uid !== c.uid);
+                      setHeld({ uid: c.uid, veiled: true, tollUid: toll?.uid ?? null });
+                    }}
+                  >
+                    fordít
+                  </button>
+                )}
+              </Slot>
+            );
+          })}
+        </div>
+
+        <div className={`hand-group${!unitsPhase && mine ? "" : " muted"}`}>
+          {p.spellHand.map((c, i) => {
+            const card: SpellCard = getSpell(c.cardId);
+            const toss = mine && tossable.has(c.uid);
+            const cast = mine && !channel && castable.has(c.uid);
+            return (
+              <Slot
+                key={c.uid}
+                style={arc(i, p.spellHand.length)}
+                playable={toss || cast}
+                dead={mine && !unitsPhase && !toss && !cast}
+                onClick={
+                  toss
+                    ? () => send({ type: "finishChannel", player: viewer, discardUid: c.uid })
+                    : cast
+                      ? () => send({ type: "castSpell", player: viewer, uid: c.uid })
+                      : undefined
+                }
+              >
+                <CardFace card={card} className="spell" />
+                {isMasterSpell(card) && <span className="master-tag">Mesteri</span>}
+              </Slot>
+            );
+          })}
+        </div>
+      </div>
     </>
   );
 }
 
-function UnitFace({ cardId }: { cardId: string }) {
-  const card = getUnit(cardId);
-  const wells = Object.entries(card.spellpower ?? {}).filter(([, v]) => v > 0);
+function Slot({
+  style,
+  playable,
+  picked,
+  dead,
+  onClick,
+  children,
+}: {
+  style: React.CSSProperties;
+  playable?: boolean;
+  picked?: boolean;
+  dead?: boolean;
+  onClick?: () => void;
+  children: React.ReactNode;
+}) {
+  const classes = ["hand-slot"];
+  if (playable) classes.push("playable");
+  if (picked) classes.push("picked");
+  if (dead) classes.push("dead");
   return (
-    <>
-      <span className="title">{card.name}</span>
-      <span className="row">
-        <span className="might-n">{card.power}</span>
-        <span className="coin-n">{card.cost}</span>
-        <span className="traits">{card.keywords.join(" · ")}</span>
-      </span>
-      {wells.length > 0 && (
-        <span className="arcana">
-          {wells.map(([school, value]) => (
-            <span key={school}>
-              {school} {value}
-            </span>
-          ))}
-        </span>
-      )}
-      {card.text && <span className="said">{card.text}</span>}
-    </>
+    <div
+      className={classes.join(" ")}
+      style={style}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (onClick && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+    >
+      {children}
+    </div>
   );
 }

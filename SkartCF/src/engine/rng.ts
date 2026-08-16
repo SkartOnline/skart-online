@@ -1,6 +1,6 @@
 /**
  * Deterministic RNG. The seed lives in `GameState.rng` and every draw threads a
- * new seed back into the state, so a whole game replays exactly from its seed —
+ * new seed back into the state, so a whole game replays exactly from its seed,
  * which is the only way simulator results are reproducible when a run turns up
  * something suspicious.
  */

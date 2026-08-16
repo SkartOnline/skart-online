@@ -5,7 +5,7 @@ import type { CardSet } from "../engine";
  * Cards authored in the in-app editor are stored as an overlay on top of the
  * shipped JSON, in localStorage. Same id replaces, new id adds.
  *
- * The site is static — there is no server to write `src/data/*.json` — so the
+ * The site is static, there is no server to write `src/data/*.json`, so the
  * editor's Export button is the bridge back into the repo: download the merged
  * file, drop it into `src/data`, and the overlay becomes the baseline.
  */
@@ -24,7 +24,7 @@ export function readOverlay(): CardOverlay {
 }
 
 /**
- * Storage can be unavailable — a sandboxed iframe, private browsing, a full
+ * Storage can be unavailable, a sandboxed iframe, private browsing, a full
  * quota. Losing persistence is survivable; losing the edit you just made
  * because the write threw is not, so failures here are swallowed and the
  * in-memory card set carries on.

@@ -34,14 +34,14 @@ import type {
  *   power(unit, state)      printed + positional + location + statics + tokens
  *
  * Every effect declares which one it reads, taken straight from the card text.
- * Static abilities are never applied as state mutations — they are computed
+ * Static abilities are never applied as state mutations, they are computed
  * here on read, which is what makes "killing a unit buffs the survivors" fall
  * out for free instead of needing recalculation hooks.
  *
  * Nothing in this file may call power() recursively. Statics read printed
  * values, keywords and slot occupancy only, so the whole computation is one
- * pass with no fixed point to chase. The one apparent exception —
- * `strongestPenalty`, which has to know who the strongest unit is — is resolved
+ * pass with no fixed point to chase. The one apparent exception,
+ * `strongestPenalty`, which has to know who the strongest unit is, is resolved
  * against `rawPower`, the same computation minus that one location effect.
  */
 
@@ -104,7 +104,7 @@ export function allUnitsOnBoard(state: GameState): UnitInstance[] {
 }
 
 // ---------------------------------------------------------------------------
-// Attachments — the lasting half of a spell placed on a unit
+// Attachments, the lasting half of a spell placed on a unit
 // ---------------------------------------------------------------------------
 
 /** The attachment definitions currently sitting on this unit, in play order. */
@@ -157,7 +157,7 @@ function opposedSuppresses(unit: UnitInstance, state: GameState): boolean {
 
 /**
  * The statics that actually count right now. An attached spell keeps working
- * even when the unit's own abilities are switched off — it is a separate card.
+ * even when the unit's own abilities are switched off, it is a separate card.
  */
 export function staticsOf(unit: UnitInstance, state: GameState): StaticAbility[] {
   const attached = attachmentsOn(unit).flatMap((a) => a.statics ?? []);
@@ -173,7 +173,7 @@ export function abilitiesActive(unit: UnitInstance, state: GameState): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Scopes and conditions — shared by every static kind
+// Scopes and conditions, shared by every static kind
 // ---------------------------------------------------------------------------
 
 export type Scope = "adjacent" | "diagonal" | "board" | "row" | "column" | "columnFront";
@@ -207,7 +207,7 @@ function sideOk(other: UnitInstance, source: UnitInstance, side: string): boolea
 }
 
 /**
- * The units a static reaches. `includeSelf` is off by default — every card that
+ * The units a static reaches. `includeSelf` is off by default, every card that
  * says "minden további" or "minden szomszédos" means somebody else.
  */
 export function unitsInScope(
@@ -485,7 +485,7 @@ function attachmentBonus(unit: UnitInstance): number {
 }
 
 // ---------------------------------------------------------------------------
-// Grants — untargetable, invulnerable, cannot die, extra keywords
+// Grants, untargetable, invulnerable, cannot die, extra keywords
 // ---------------------------------------------------------------------------
 
 export interface Grants {
@@ -620,7 +620,7 @@ function hasPowerFloor(state: GameState, unit: UnitInstance): boolean {
  * clamped at 0.
  *
  * Damage is deliberately NOT subtracted here. Sebzés buys you nothing on the
- * scoreboard unless it kills — a unit at 6 power carrying 5 damage still counts
+ * scoreboard unless it kills, a unit at 6 power carrying 5 damage still counts
  * 6 at totaling. That is what separates the two removal styles: a −2 always
  * shifts the comparison, while damage is dead weight until it crosses the line.
  */
@@ -669,9 +669,19 @@ export function effectiveCost(card: UnitCard, state: GameState): number {
 }
 
 /**
+ * Mesteri is a grade rather than a school: the spell takes two turns to come
+ * out, and the second one costs another spell out of hand.
+ */
+export const MASTER_TAG = "Mesteri";
+
+export function isMasterSpell(spell: SpellCard): boolean {
+  return (spell.tags ?? []).includes(MASTER_TAG);
+}
+
+/**
  * What this caster actually pays. Máguskör discounts everything; Explodus
- * discounts the controller's Tűz spells. The floor comes from the location so a
- * discount can never make a spell free by accident.
+ * discounts the controller's Tűzmágia spells. The floor comes from the location
+ * so a discount can never make a spell free by accident.
  */
 export function spellCost(spell: SpellCard, state: GameState, caster: UnitInstance | null): number {
   let cost = spell.cost;

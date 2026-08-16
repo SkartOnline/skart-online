@@ -18,7 +18,7 @@ export type SlotId = string;
 /**
  * Spell school. Six of them: `"Mágus"`, `"Feketemágus"`, `"Harcos"`,
  * `"Ravaszság"`, `"Druida"`, `"Bestia"`. The old `"Állat"` school was folded
- * into `"Bestia"` — `Állat` survives only as a keyword (Eredet), never as a
+ * into `"Bestia"`, `Állat` survives only as a keyword (Eredet), never as a
  * spellpower pool.
  */
 export type School = string;
@@ -98,7 +98,7 @@ export interface TargetSpec {
   filter?: TargetFilter;
 }
 
-/** A target set the engine resolves on its own — Belépő abilities never ask. */
+/** A target set the engine resolves on its own, Belépő abilities never ask. */
 export interface AutoTargetSpec {
   scope:
     | "self"
@@ -113,7 +113,7 @@ export interface AutoTargetSpec {
     | "diagonalAny"
     | "columnEnemy"
     | "columnFrontAlly"
-    /** The unit that fired the trigger — the mover, the unit that died. */
+    /** The unit that fired the trigger, the mover, the unit that died. */
     | "trigger"
     | "none";
   /** Extra gate relative to the acting unit, e.g. Bérgyilkos only kills weaker. */
@@ -127,7 +127,7 @@ export interface AutoTargetSpec {
 }
 
 // ---------------------------------------------------------------------------
-// Triggers — the mechanism behind the gyűrű
+// Triggers, the mechanism behind the gyűrű
 // ---------------------------------------------------------------------------
 
 export type TriggerEvent =
@@ -154,7 +154,7 @@ export interface Trigger {
 }
 
 // ---------------------------------------------------------------------------
-// Static abilities — continuous, computed on read inside power()
+// Static abilities, continuous, computed on read inside power()
 //
 // Every static reads only printed values, keywords and slot occupancy. None of
 // them read power(), which is what keeps power() non-recursive.
@@ -200,9 +200,9 @@ export interface UnitCard {
   power: number;
   /** Mechanical tags plus any extra tribe not covered by origin/order. */
   keywords: Keyword[];
-  /** Eredet — Felindori, Állat, Bestia, Élettelen, Keleti, Törp, Sárkány, Druida. */
+  /** Eredet, Felindori, Állat, Bestia, Élettelen, Keleti, Törp, Sárkány, Druida. */
   origin?: string;
-  /** Rend — Harcos, Mágus, Kalóz, Csempész, Orgyilkos, Bölcs, Feketemágus… */
+  /** Rend, Harcos, Mágus, Kalóz, Csempész, Orgyilkos, Bölcs, Feketemágus… */
   order?: string;
   /** School-locked pools. No pooling across units, depletes across the stack. */
   spellpower: Record<School, number>;
@@ -223,7 +223,7 @@ export interface SpellCard {
   kind: "spell";
   /**
    * A spell may name more than one school (Kegyelemdöfés). The caster pays the
-   * whole cost out of ONE of them — no adding two pools together.
+   * whole cost out of ONE of them, no adding two pools together.
    */
   schools: School[];
   /** Cost equals the spellpower the nominated caster must have available. */
@@ -233,7 +233,7 @@ export interface SpellCard {
   effects: Effect[];
   rarity?: string;
   text?: string;
-  /** Element and grade: `"Tűz"`, `"Fagy"`, `"Mesteri"`. */
+  /** Element and grade: `"Tűzmágia"`, `"Feketemágia"`, `"Mesteri"`. */
   tags?: string[];
 }
 
@@ -339,7 +339,7 @@ export interface UnitInstance {
   /** Power modifiers from spells (+/−). Separate from damage on purpose. */
   powerDelta: number;
   /**
-   * Gyűrű. Power granted by a condition that has already happened — it stays
+   * Gyűrű. Power granted by a condition that has already happened, it stays
    * even if whoever granted it leaves the board. Drawn with a ring mark.
    */
   rings: number;
@@ -381,6 +381,20 @@ export interface Flags {
   spellsClosed: boolean;
 }
 
+/**
+ * A Mesteri spell begun on one turn and not yet finished.
+ *
+ * Playing one costs the turn and does nothing: the opponent only learns that a
+ * Mesteri spell is being channelled, never which. On the caster's next turn
+ * finishing it is the only thing they may do, and it costs a second spell out
+ * of hand. Only then is the card revealed, targeted and resolved, which is why
+ * a Mesteri spell can be started and still fizzle.
+ */
+export interface ChannelState {
+  uid: string;
+  cardId: string;
+}
+
 export interface PlayerState {
   id: PlayerId;
   unitDeck: HandCard[];
@@ -403,7 +417,7 @@ export interface PlayerState {
  *
  * Units go down alternately until both players stop. Mustra flips the hidden
  * ones and is where Mustra abilities fire. Only then does the battle open, and
- * spells are played alternately — open, resolving on the spot — until both
+ * spells are played alternately, open, resolving on the spot, until both
  * players stop. Then the boards are summed.
  */
 export type Phase =
@@ -477,6 +491,8 @@ export interface GameState {
   turnActions: { unitPlayed: boolean; spellPlayed: boolean };
   /** Spells cast this location, in play order. All of them are public. */
   spellsCast: CastEntry[];
+  /** A Mesteri spell each player has begun but not yet finished. */
+  channel: Record<PlayerId, ChannelState | null>;
   /** Non-null only while the spell just cast is still asking for picks. */
   resolution: ResolutionState | null;
   placementCounter: number;
@@ -493,6 +509,7 @@ export interface GameState {
 export type Action =
   | { type: "playUnit"; player: PlayerId; uid: string; slot: SlotId; faceDown?: boolean; discardUid?: string }
   | { type: "castSpell"; player: PlayerId; uid: string }
+  | { type: "finishChannel"; player: PlayerId; discardUid: string }
   | { type: "declareUnitsDone"; player: PlayerId }
   | { type: "declareSpellsDone"; player: PlayerId }
   | { type: "endTurn"; player: PlayerId }

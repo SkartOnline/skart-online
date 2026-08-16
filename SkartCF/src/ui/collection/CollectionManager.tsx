@@ -5,19 +5,29 @@ import {
   allLocations,
   allSpells,
   allUnits,
-  getLocation,
   getSpell,
   getUnit,
 } from "../../engine";
-import type { CardSet, DeckList } from "../../engine";
-import { download, issuesFor } from "../cardSet";
+import type { CardSet, DeckList, SpellCard, UnitCard } from "../../engine";
+import CardFace from "../card/CardFace";
+import {
+  compareCards,
+  copyLimit,
+  haystackOf,
+  isSpell,
+  isUnit,
+} from "../card/model";
+import type { AnyCard } from "../card/model";
+import { download } from "../cardSet";
 import type { CardOverlay } from "../cardSet";
 
 /**
- * Your own decks. The shipped ones are just starting points — anything you build
- * here is saved to the browser and shows up in the deck picker straight away.
+ * The collection. Every card in the set is laid out eight at a time on the
+ * left; the decks live on the right, and opening one replaces the deck list
+ * with that deck's contents in the same rail.
  *
- * A deck is thirty units, thirty spells and the three battlefields it brings.
+ * Clicking a card in the gallery puts a copy in the open deck. Clicking a line
+ * in the deck takes one out. Edits save as they happen.
  */
 
 interface Props {
@@ -27,14 +37,43 @@ interface Props {
   onLeave: () => void;
 }
 
+const PAGE = 8;
+type KindFilter = "all" | "unit" | "spell";
+
 export default function CollectionManager({ cardSet, overlay, onChange, onLeave }: Props) {
   const decks = cardSet.decks;
-  const [openId, setOpenId] = useState<string | null>(decks[0]?.id ?? null);
-  const open = decks.find((d) => d.id === openId) ?? null;
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [kind, setKind] = useState<KindFilter>("all");
+  const [cost, setCost] = useState<number | null>(null);
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(0);
 
-  const issues = useMemo(() => issuesFor(overlay), [overlay]);
+  const open = decks.find((d) => d.id === openId) ?? null;
   const mine = new Set((overlay.decks ?? []).map((d) => d.id));
   const shipped = new Set(BASE_CARD_SET.decks.map((d) => d.id));
+
+  const everything = useMemo<AnyCard[]>(() => {
+    const units = allUnits().filter((u) => !(u.tags ?? []).includes("token"));
+    return [...units, ...allSpells()].sort(compareCards);
+  }, [cardSet]);
+
+  const shown = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return everything.filter((card) => {
+      if (kind === "unit" && !isUnit(card)) return false;
+      if (kind === "spell" && !isSpell(card)) return false;
+      if (cost !== null) {
+        const c = "cost" in card ? card.cost : 0;
+        if (cost === 8 ? c < 8 : c !== cost) return false;
+      }
+      if (needle && !haystackOf(card).includes(needle)) return false;
+      return true;
+    });
+  }, [everything, kind, cost, query]);
+
+  const pages = Math.max(1, Math.ceil(shown.length / PAGE));
+  const at = Math.min(page, pages - 1);
+  const slice = shown.slice(at * PAGE, at * PAGE + PAGE);
 
   function save(deck: DeckList) {
     const existing = overlay.decks ?? [];
@@ -42,7 +81,6 @@ export default function CollectionManager({ cardSet, overlay, onChange, onLeave 
       ? existing.map((d) => (d.id === deck.id ? deck : d))
       : [...existing, deck];
     onChange({ ...overlay, decks: next });
-    setOpenId(deck.id);
   }
 
   function drop(id: string) {
@@ -52,31 +90,49 @@ export default function CollectionManager({ cardSet, overlay, onChange, onLeave 
 
   function forge(from?: DeckList) {
     const id = freshId(from ? `${from.id}_masolat` : "sajat_pakli", decks);
-    save(
-      from
-        ? { ...structuredClone(from), id, name: `${from.name} (másolat)` }
-        : {
-            id,
-            name: "Új pakli",
-            archetype: "sajat",
-            battlefields: allLocations()
-              .filter((l) => !l.tiebreaker)
-              .slice(0, 3)
-              .map((l) => l.id),
-            units: {},
-            spells: {},
-          },
-    );
+    const deck = from
+      ? { ...structuredClone(from), id, name: `${from.name} (másolat)` }
+      : {
+          id,
+          name: "Új pakli",
+          archetype: "sajat",
+          battlefields: allLocations()
+            .filter((l) => !l.tiebreaker)
+            .slice(0, 3)
+            .map((l) => l.id),
+          units: {},
+          spells: {},
+        };
+    save(deck);
+    setOpenId(id);
+  }
+
+  /** How many copies of this card the open deck already holds. */
+  function held(card: AnyCard): number {
+    if (!open) return 0;
+    const pile = isUnit(card) ? open.units : open.spells;
+    return pile[card.id] ?? 0;
+  }
+
+  function bump(card: AnyCard, by: number) {
+    if (!open) return;
+    const key = isUnit(card) ? "units" : "spells";
+    const pile = { ...(open[key] as Record<string, number>) };
+    const limit = copyLimit((card as UnitCard).rarity);
+    const next = Math.min(limit, (pile[card.id] ?? 0) + by);
+    if (next <= 0) delete pile[card.id];
+    else pile[card.id] = next;
+    save({ ...open, [key]: pile });
   }
 
   return (
-    <div className="workshop">
+    <div className="vault">
       <div className="crossbar">
         <button className="quiet" onClick={onLeave}>
-          ‹ Menü
+          Vissza
         </button>
         <h2>Gyűjtemény</h2>
-        <span className="label">{decks.length} pakli</span>
+        <span className="label num">{shown.length} lap</span>
         <span className="right">
           <button onClick={() => download("decks.json", JSON.stringify(decks, null, 2))}>
             Fájlba ír
@@ -85,60 +141,285 @@ export default function CollectionManager({ cardSet, overlay, onChange, onLeave 
         </span>
       </div>
 
-      <div className="shelf">
-        <aside className="timber">
-          <div className="block-head">
-            <b>Paklik</b>
-            <button className="ember tiny" onClick={() => forge()}>
-              + új
-            </button>
-          </div>
-          <ul className="index">
-            {decks.map((deck) => (
-              <li key={deck.id}>
-                <button
-                  className={deck.id === openId ? "here" : ""}
-                  onClick={() => setOpenId(deck.id)}
+      <div className="vault-body">
+        <section className="gallery">
+          <div className="gallery-grid">
+            {slice.map((card) => {
+              const have = held(card);
+              const limit = copyLimit((card as UnitCard).rarity);
+              return (
+                <div
+                  className={`gallery-slot reveals${have >= limit ? " full" : ""}`}
+                  key={card.id}
                 >
-                  <span>{deck.name}</span>
-                  {mine.has(deck.id) && (
-                    <span className="stamp">{shipped.has(deck.id) ? "átírva" : "saját"}</span>
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </aside>
+                  <button
+                    onClick={() => bump(card, 1)}
+                    disabled={!open || have >= limit}
+                    aria-label={card.name}
+                  >
+                    <CardFace card={card} className={isSpell(card) ? "spell" : ""} />
+                  </button>
+                  {have > 0 && <span className="have num">{have}</span>}
+                </div>
+              );
+            })}
+          </div>
 
-        <section className="timber">
+          <div className="sieve timber">
+            <span className="costs">
+              <button className={cost === null ? "here" : ""} onClick={() => setCost(null)}>
+                mind
+              </button>
+              {[0, 1, 2, 3, 4, 5, 6, 7].map((n) => (
+                <button
+                  key={n}
+                  className={cost === n ? "here" : ""}
+                  onClick={() => {
+                    setCost(n);
+                    setPage(0);
+                  }}
+                >
+                  {n}
+                </button>
+              ))}
+              <button
+                className={cost === 8 ? "here" : ""}
+                onClick={() => {
+                  setCost(8);
+                  setPage(0);
+                }}
+              >
+                8+
+              </button>
+            </span>
+
+            <span className="costs">
+              {(["all", "unit", "spell"] as KindFilter[]).map((k) => (
+                <button
+                  key={k}
+                  className={kind === k ? "here" : ""}
+                  onClick={() => {
+                    setKind(k);
+                    setPage(0);
+                  }}
+                >
+                  {k === "all" ? "mind" : k === "unit" ? "egység" : "varázslat"}
+                </button>
+              ))}
+            </span>
+
+            <span className="grow">
+              <input
+                placeholder="Név, címke, szabályszöveg"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  setPage(0);
+                }}
+              />
+            </span>
+
+            <span className="pager">
+              <button className="tiny" disabled={at === 0} onClick={() => setPage(at - 1)}>
+                ‹
+              </button>
+              {at + 1} / {pages}
+              <button className="tiny" disabled={at >= pages - 1} onClick={() => setPage(at + 1)}>
+                ›
+              </button>
+            </span>
+          </div>
+        </section>
+
+        <aside className="rail-deck timber">
           {open ? (
-            <DeckSheet
-              key={open.id}
+            <DeckRail
               deck={open}
+              isMine={mine.has(open.id)}
+              isShipped={shipped.has(open.id)}
+              onBack={() => setOpenId(null)}
               onSave={save}
               onDrop={() => drop(open.id)}
               onCopy={() => forge(open)}
-              isMine={mine.has(open.id)}
-              isShipped={shipped.has(open.id)}
-              issues={issues.filter((i) => i.path.startsWith(`deck ${open.id}`))}
+              onRemove={(card) => bump(card, -1)}
             />
           ) : (
-            <div className="empty">
-              <h2>Nincs pakli kiválasztva</h2>
-              <p>
-                Válassz egyet balról, vagy rakj össze újat. Egy pakli harminc egységből,
-                harminc varázslatból és három csatatérből áll — a hat csatatér mind a két
-                oldalon nyilvános, mielőtt az első lap lekerülne.
-              </p>
-              <p className="faint">
-                A paklik a böngésződben maradnak. A „Fájlba ír” gomb adja ki őket
-                JSON-ként, ha be akarod tenni a repóba.
-              </p>
-            </div>
+            <DeckList
+              decks={decks}
+              mine={mine}
+              onOpen={setOpenId}
+              onForge={() => forge()}
+            />
           )}
-        </section>
+        </aside>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+function DeckList({
+  decks,
+  mine,
+  onOpen,
+  onForge,
+}: {
+  decks: DeckList[];
+  mine: Set<string>;
+  onOpen: (id: string) => void;
+  onForge: () => void;
+}) {
+  return (
+    <>
+      <div className="rail-head">
+        <h3>Paklik</h3>
+        <button className="ember tiny" onClick={onForge}>
+          + új
+        </button>
+      </div>
+      <span />
+      <div className="rail-scroll">
+        <ul className="deck-index">
+          {decks.map((deck) => (
+            <li key={deck.id}>
+              <button onClick={() => onOpen(deck.id)}>
+                <span>{deck.name}</span>
+                <span className="count">
+                  {total(deck.units)}/{total(deck.spells)}
+                  {mine.has(deck.id) ? " · saját" : ""}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <span />
+    </>
+  );
+}
+
+function DeckRail({
+  deck,
+  isMine,
+  isShipped,
+  onBack,
+  onSave,
+  onDrop,
+  onCopy,
+  onRemove,
+}: {
+  deck: DeckList;
+  isMine: boolean;
+  isShipped: boolean;
+  onBack: () => void;
+  onSave: (d: DeckList) => void;
+  onDrop: () => void;
+  onCopy: () => void;
+  onRemove: (card: AnyCard) => void;
+}) {
+  const units = entries(deck.units, tryUnit);
+  const spells = entries(deck.spells, trySpell);
+  const locations = allLocations().filter((l) => !l.tiebreaker);
+
+  return (
+    <>
+      <div className="rail-head">
+        <button className="quiet tiny" onClick={onBack}>
+          ‹
+        </button>
+        <h3>
+          <input
+            value={deck.name}
+            onChange={(e) => onSave({ ...deck, name: e.target.value })}
+            style={{ width: "100%", fontSize: 16, fontWeight: 600 }}
+          />
+        </h3>
+      </div>
+
+      <div className="bf-picks">
+        <span className="tally-row">
+          <span className={total(deck.units) === DEFAULT_CONFIG.unitDeckSize ? "" : "off"}>
+            egység <b>{total(deck.units)}</b>/{DEFAULT_CONFIG.unitDeckSize}
+          </span>
+          <span className={total(deck.spells) === DEFAULT_CONFIG.spellDeckSize ? "" : "off"}>
+            varázslat <b>{total(deck.spells)}</b>/{DEFAULT_CONFIG.spellDeckSize}
+          </span>
+        </span>
+        {[0, 1, 2].map((i) => (
+          <select
+            key={i}
+            value={deck.battlefields[i] ?? ""}
+            onChange={(e) => {
+              const next = deck.battlefields.slice();
+              next[i] = e.target.value;
+              onSave({ ...deck, battlefields: next });
+            }}
+          >
+            <option value="">{i + 1}. csatatér</option>
+            {locations.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name} ({l.cap})
+              </option>
+            ))}
+          </select>
+        ))}
+      </div>
+
+      <div className="rail-scroll">
+        <Lines title="Egységek" rows={units} onRemove={onRemove} />
+        <Lines title="Varázslatok" rows={spells} onRemove={onRemove} />
+        {units.length + spells.length === 0 && (
+          <p className="faint">Kattints egy lapra balra, és bekerül.</p>
+        )}
+      </div>
+
+      <div className="rail-head">
+        <button className="tiny" onClick={onCopy}>
+          Másolat
+        </button>
+        {isMine && (
+          <button className="grim tiny" onClick={onDrop}>
+            {isShipped ? "Eredeti" : "Törlés"}
+          </button>
+        )}
+      </div>
+    </>
+  );
+}
+
+/** One line per card: cost, name, copies. The full card is one hover away. */
+function Lines({
+  title,
+  rows,
+  onRemove,
+}: {
+  title: string;
+  rows: { card: AnyCard; count: number }[];
+  onRemove: (card: AnyCard) => void;
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <ul className="deck-lines">
+      <li className="head">
+        {title} · {rows.reduce((n, r) => n + r.count, 0)}
+      </li>
+      {rows.map(({ card, count }) => (
+        <li key={card.id} className="reveals">
+          <button
+            className={`deck-line${copyLimit((card as UnitCard).rarity) === 1 ? " legendary" : ""}`}
+            onClick={() => onRemove(card)}
+          >
+            <span className="cost num">{"cost" in card ? card.cost : 0}</span>
+            <span className="name">{card.name}</span>
+            <span className="copies num">{count}</span>
+          </button>
+          <span className="revealed beside">
+            <CardFace card={card} className={isSpell(card) ? "spell" : ""} />
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -169,249 +450,35 @@ function Load({ onLoad }: { onLoad: (rows: { id: string }[]) => void }) {
 
 // ---------------------------------------------------------------------------
 
-function DeckSheet({
-  deck,
-  onSave,
-  onDrop,
-  onCopy,
-  isMine,
-  isShipped,
-  issues,
-}: {
-  deck: DeckList;
-  onSave: (d: DeckList) => void;
-  onDrop: () => void;
-  onCopy: () => void;
-  isMine: boolean;
-  isShipped: boolean;
-  issues: { path: string; message: string }[];
-}) {
-  const [draft, setDraft] = useState<DeckList>(() => structuredClone(deck));
-  const dirty = JSON.stringify(draft) !== JSON.stringify(deck);
-  const set = <K extends keyof DeckList>(key: K, value: DeckList[K]) =>
-    setDraft((d) => ({ ...d, [key]: value }));
-
-  const unitCount = total(draft.units);
-  const spellCount = total(draft.spells);
-  const locations = allLocations().filter((l) => !l.tiebreaker);
-
-  return (
-    <div className="sheet">
-      <div className="sheet-head">
-        <h2>{draft.name}</h2>
-        <span className="acts">
-          <button className="ember" disabled={!dirty} onClick={() => onSave(draft)}>
-            {dirty ? "Mentés" : "Mentve"}
-          </button>
-          <button onClick={onCopy}>Másolat</button>
-          {isMine && (
-            <button className="grim" onClick={onDrop}>
-              {isShipped ? "Vissza az eredetihez" : "Törlés"}
-            </button>
-          )}
-        </span>
-      </div>
-
-      <div className="fields">
-        <label className="f">
-          <span>Név</span>
-          <input value={draft.name} onChange={(e) => set("name", e.target.value)} />
-        </label>
-        <label className="f">
-          <span>Azonosító</span>
-          <input value={draft.id} onChange={(e) => set("id", e.target.value)} />
-          <small>Más azonosító új paklit hoz létre mentéskor.</small>
-        </label>
-        <label className="f">
-          <span>Stílus</span>
-          <input value={draft.archetype} onChange={(e) => set("archetype", e.target.value)} />
-        </label>
-      </div>
-
-      <div className="block">
-        <div className="block-head">
-          <b>A három csatatér</b>
-          <span className="tally-note">amit ez a pakli hoz</span>
-        </div>
-        <div className="fields">
-          {[0, 1, 2].map((i) => (
-            <label className="f" key={i}>
-              <span>{i + 1}.</span>
-              <select
-                value={draft.battlefields[i] ?? ""}
-                onChange={(e) => {
-                  const next = draft.battlefields.slice();
-                  next[i] = e.target.value;
-                  set("battlefields", next);
-                }}
-              >
-                <option value="">—</option>
-                {locations.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name} — keret {l.cap}
-                  </option>
-                ))}
-              </select>
-              <small>{safeText(draft.battlefields[i])}</small>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <Counts
-        title="Egységek"
-        want={DEFAULT_CONFIG.unitDeckSize}
-        have={unitCount}
-        options={allUnits().map((u) => ({
-          id: u.id,
-          label: u.name,
-          note: `${u.cost} költség · ${u.power} erő`,
-        }))}
-        value={draft.units}
-        onChange={(v) => set("units", v)}
-      />
-
-      <Counts
-        title="Varázslatok"
-        want={DEFAULT_CONFIG.spellDeckSize}
-        have={spellCount}
-        options={allSpells().map((s) => ({
-          id: s.id,
-          label: s.name,
-          note: `${s.schools.join(" · ")} ${s.cost}`,
-        }))}
-        value={draft.spells}
-        onChange={(v) => set("spells", v)}
-      />
-
-      {issues.length > 0 && (
-        <div className="verdict torn">
-          {issues.map((i, n) => (
-            <div key={n}>
-              <code>{i.path}</code> — {i.message}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function safeText(id: string | undefined): string {
-  if (!id) return "";
-  try {
-    return getLocation(id).text ?? "";
-  } catch {
-    return "ismeretlen csatatér";
-  }
-}
-
 function total(counts: Record<string, number>): number {
   return Object.values(counts).reduce((a, b) => a + b, 0);
 }
 
-function Counts({
-  title,
-  want,
-  have,
-  options,
-  value,
-  onChange,
-}: {
-  title: string;
-  want: number;
-  have: number;
-  options: { id: string; label: string; note: string }[];
-  value: Record<string, number>;
-  onChange: (v: Record<string, number>) => void;
-}) {
-  const [filter, setFilter] = useState("");
-  const chosen = Object.entries(value);
-  const rest = options.filter(
-    (o) => value[o.id] === undefined && o.label.toLowerCase().includes(filter.toLowerCase()),
-  );
+function tryUnit(id: string): UnitCard | undefined {
+  try {
+    return getUnit(id);
+  } catch {
+    return undefined;
+  }
+}
 
-  const bump = (id: string, by: number) => {
-    const next = { ...value };
-    const n = (next[id] ?? 0) + by;
-    if (n <= 0) delete next[id];
-    else next[id] = n;
-    onChange(next);
-  };
+function trySpell(id: string): SpellCard | undefined {
+  try {
+    return getSpell(id);
+  } catch {
+    return undefined;
+  }
+}
 
-  return (
-    <div className="block">
-      <div className="block-head">
-        <b>
-          {title}{" "}
-          <span className={have === want ? "tally-note" : "tally-note off"}>
-            {have}/{want}
-          </span>
-        </b>
-        <span className="f inline" style={{ maxWidth: 260 }}>
-          <input
-            placeholder="keresés…"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
-        </span>
-      </div>
-
-      {have !== want && (
-        <p className="faint" style={{ margin: "0 0 8px" }}>
-          {have < want
-            ? `A hiányzó ${want - have} lapot a motor a meglévőkből tölti fel, hogy félkész paklival is lehessen játszani.`
-            : `${have - want} lap lemarad a keverésnél.`}
-        </p>
-      )}
-
-      <div className="fields">
-        {chosen.map(([id, count]) => {
-          const option = options.find((o) => o.id === id);
-          return (
-            <div className="f" key={id}>
-              <span>{option?.label ?? id}</span>
-              <span className="inline">
-                <button className="tiny" onClick={() => bump(id, -1)}>
-                  −
-                </button>
-                <input
-                  type="number"
-                  min={1}
-                  value={count}
-                  style={{ width: 58 }}
-                  onChange={(e) => {
-                    const n = Number(e.target.value);
-                    const next = { ...value };
-                    if (n <= 0) delete next[id];
-                    else next[id] = n;
-                    onChange(next);
-                  }}
-                />
-                <button className="tiny" onClick={() => bump(id, 1)}>
-                  +
-                </button>
-              </span>
-              <small>{option?.note ?? "ismeretlen lap"}</small>
-            </div>
-          );
-        })}
-      </div>
-
-      {chosen.length === 0 && <p className="faint">Még egy lap sincs benne.</p>}
-
-      <div className="block-head" style={{ marginTop: 10, marginBottom: 4 }}>
-        <span className="label">Hozzáadható</span>
-      </div>
-      <div className="fan" style={{ flexWrap: "wrap", maxHeight: 132, overflowY: "auto" }}>
-        {rest.slice(0, 60).map((o) => (
-          <button key={o.id} className="tiny" onClick={() => bump(o.id, 1)} title={o.note}>
-            {o.label} <span className="faint">{o.note}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+/** Deck contents, sorted the same way the gallery is. */
+function entries(
+  counts: Record<string, number>,
+  lookup: (id: string) => AnyCard | undefined,
+): { card: AnyCard; count: number }[] {
+  return Object.entries(counts)
+    .map(([id, count]) => ({ card: lookup(id), count }))
+    .filter((r): r is { card: AnyCard; count: number } => !!r.card)
+    .sort((a, b) => compareCards(a.card, b.card));
 }
 
 function freshId(base: string, decks: { id: string }[]): string {
@@ -419,19 +486,4 @@ function freshId(base: string, decks: { id: string }[]): string {
   let n = 2;
   while (decks.some((d) => d.id === id)) id = `${base}_${n++}`;
   return id;
-}
-
-/** Used by the deck sheet's card notes; kept here so the imports stay honest. */
-export function describeCard(id: string): string {
-  try {
-    const unit = getUnit(id);
-    return `${unit.name} — ${unit.cost}/${unit.power}`;
-  } catch {
-    try {
-      const spell = getSpell(id);
-      return `${spell.name} — ${spell.schools.join(" · ")} ${spell.cost}`;
-    } catch {
-      return id;
-    }
-  }
 }

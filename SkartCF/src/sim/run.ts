@@ -55,7 +55,7 @@ export function playGame(
   if (state.phase !== "gameOver") {
     throw new Error(
       `Game did not terminate after ${actions} actions (phase ${state.phase}). ` +
-        "That is an engine bug, not a policy one — some action stopped making progress.",
+        "That is an engine bug, not a policy one, some action stopped making progress.",
     );
   }
 
@@ -127,7 +127,7 @@ function record(tally: Tally, result: GameResult, decks: Record<PlayerId, string
 }
 
 function pct(n: number, d: number): string {
-  return d === 0 ? "  —  " : `${((100 * n) / d).toFixed(1).padStart(5)}%`;
+  return d === 0 ? "     -" : `${((100 * n) / d).toFixed(1).padStart(5)}%`;
 }
 
 function reportPair(deckA: string, deckB: string, tally: Tally): boolean {

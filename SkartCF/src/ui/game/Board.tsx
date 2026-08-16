@@ -8,28 +8,32 @@ import {
   rowOfSlot,
 } from "../../engine";
 import type { GameState, PlayerId, Row, SlotId, UnitInstance } from "../../engine";
+import CardFace, { CardTile } from "../card/CardFace";
 
 interface Props {
   state: GameState;
   open: Set<SlotId>;
   onPick: (slot: SlotId) => void;
-  /** Reveal face-down units — the hotseat testing switch. */
+  /** Reveal face-down units: the hotseat testing switch. */
   bare: boolean;
+  /** Whose side of the table we are sitting on. Their half is the near one. */
+  viewer: PlayerId;
 }
 
 const COLS = [1, 2, 3];
 
 /**
- * Twelve cells. Column 1 faces column 1, so both grids keep the same left-to-
- * right order and p2's ranks are drawn back-first, putting its front rank
- * against the line.
+ * Twelve tiles. Column 1 faces column 1, so both grids keep the same left-to-
+ * right order, and the viewer's half is always the near one: the far side is
+ * drawn back rank first so its front rank meets the line.
  */
-export default function Board({ state, open, onPick, bare }: Props) {
+export default function Board({ state, open, onPick, bare, viewer }: Props) {
+  const far: PlayerId = viewer === "p1" ? "p2" : "p1";
   return (
     <div className="grids">
-      <Side player="p2" ranks={["B", "F"]} state={state} open={open} onPick={onPick} bare={bare} />
+      <Side player={far} ranks={["B", "F"]} {...{ state, open, onPick, bare, viewer }} />
       <div className="line">arcvonal</div>
-      <Side player="p1" ranks={["F", "B"]} state={state} open={open} onPick={onPick} bare={bare} />
+      <Side player={viewer} ranks={["F", "B"]} {...{ state, open, onPick, bare, viewer }} />
     </div>
   );
 }
@@ -41,6 +45,7 @@ function Side({
   open,
   onPick,
   bare,
+  viewer,
 }: Props & { player: PlayerId; ranks: Row[] }) {
   return (
     <div className="side">
@@ -56,6 +61,7 @@ function Side({
                 open={open.has(slot)}
                 onPick={() => onPick(slot)}
                 bare={bare}
+                viewer={viewer}
               />
             );
           })}
@@ -71,12 +77,14 @@ function Cell({
   open,
   onPick,
   bare,
+  viewer,
 }: {
   slot: SlotId;
   state: GameState;
   open: boolean;
   onPick: () => void;
   bare: boolean;
+  viewer: PlayerId;
 }) {
   const unit = state.board[slot];
   const classes = ["cell"];
@@ -94,6 +102,7 @@ function Cell({
   }
 
   if (!unit) {
+    classes.push("empty-slot");
     return (
       <button className={classes.join(" ")} onClick={onPick} disabled={!open}>
         <span className="coord">{slot.slice(3)}</span>
@@ -112,114 +121,98 @@ function Cell({
   }
 
   const card = cardOf(unit);
-  classes.push("held", unit.owner === "p1" ? "mine" : "theirs");
+  classes.push("held", "reveals", unit.owner === viewer ? "mine" : "theirs");
   if (unit.locked) classes.push("frozen");
   if (unit.placed.length > 0) classes.push("laden");
 
-  const wells = Object.entries(card.spellpower ?? {}).filter(([, v]) => v > 0);
-  // Both kinds of gyűrű wear the same mark: the ring a trigger paid out, and a
-  // ring-flagged card lying on the unit (Vaskarom).
+  return (
+    <button className={classes.join(" ")} onClick={onPick} disabled={!open}>
+      <span className="coord">{slot.slice(3)}</span>
+      <Marks unit={unit} state={state} />
+      <CardTile card={card} power={power(unit, state)} />
+      {/* The far side's cards open downwards, so a popover never runs off the
+          top of the screen. */}
+      <span className={`revealed ${unit.owner === viewer ? "above" : "below"}`}>
+        <Loaded unit={unit} state={state} />
+      </span>
+    </button>
+  );
+}
+
+/** The full card, plus whatever is lying on top of the unit. */
+function Loaded({ unit, state }: { unit: UnitInstance; state: GameState }) {
+  const card = cardOf(unit);
+  const lasting = new Set(attachmentsOn(unit).map((a) => a.id));
+  if (unit.placed.length === 0) return <CardFace card={card} livePower={power(unit, state)} />;
+  return (
+    <span className="card-with-fan">
+      <CardFace card={card} livePower={power(unit, state)} />
+      <ul className="laden-fan">
+        {unit.placed.map((placed, i) => {
+          const attachment = placed.attachment ? getAttachment(placed.attachment) : undefined;
+          const name = trySpellName(placed.spellId) ?? attachment?.name ?? placed.spellId;
+          const active = !!attachment && lasting.has(attachment.id);
+          return (
+            <li key={i} className={active ? "active" : "used"}>
+              <span className={`sigil ${placed.owner}`}>
+                {placed.owner === "p1" ? "I" : "II"}
+              </span>
+              {name}
+            </li>
+          );
+        })}
+      </ul>
+    </span>
+  );
+}
+
+/**
+ * The counters a tile has to carry that are not on the printed card: damage,
+ * modifiers, rings, shields and the count of spells lying on the unit.
+ */
+function Marks({ unit, state }: { unit: UnitInstance; state: GameState }) {
+  void state;
   const rings =
     unit.rings + attachmentsOn(unit).reduce((n, a) => n + (a.ring ? (a.powerDelta ?? 0) : 0), 0);
-  const hasMarks =
+  const any =
     unit.damage > 0 ||
     unit.powerDelta !== 0 ||
     rings !== 0 ||
     unit.placed.length > 0 ||
     unit.fizzleShields.length > 0 ||
-    unit.immunities.length > 0 ||
-    wells.length > 0;
+    unit.immunities.length > 0;
+  if (!any) return null;
 
   return (
-    <button className={classes.join(" ")} onClick={onPick} disabled={!open}>
-      <span className="coord">{slot.slice(3)}</span>
-      <span className="who">{card.name}</span>
-      <span className="might">
-        <b>{power(unit, state)}</b>
-        <span className="coin">{card.cost}</span>
-      </span>
-      {hasMarks && (
-        <span className="marks">
-          {wells.map(([school, value]) => (
-            <span className="arcane" key={school} title={`${school} varázserő`}>
-              {school.slice(0, 2)}
-              {value}
-            </span>
-          ))}
-          {/* Damage is shown as a wound count, never folded into power — it
-              scores nothing until it reaches the unit's power. */}
-          {unit.damage > 0 && (
-            <span className="wound" title="sebzés">
-              ✕{unit.damage}
-            </span>
-          )}
-          {unit.powerDelta !== 0 && (
-            <span className={unit.powerDelta > 0 ? "boon" : "hex"}>
-              {unit.powerDelta > 0 ? "+" : ""}
-              {unit.powerDelta}
-            </span>
-          )}
-          {/* Gyűrű: power a condition already paid out. It stays even if
-              whoever granted it has left the board, so it gets its own mark. */}
-          {rings !== 0 && (
-            <span className="ring" title="gyűrű — végleges erő, az adományozótól függetlenül">
-              ⊙{rings > 0 ? "+" : ""}
-              {rings}
-            </span>
-          )}
-          {/* One symbol per spell sitting on the unit. The full fan is on hover. */}
-          {unit.placed.length > 0 && (
-            <span className="scroll-count" title="ráhelyezett varázslatok">
-              ✦{unit.placed.length}
-            </span>
-          )}
-          {unit.fizzleShields.map((s, i) => (
-            <span className="bound" key={`f${i}`} title="álomfogó">
-              ≤{s.maxCost}
-            </span>
-          ))}
-          {unit.immunities.map((school, i) => (
-            <span className="bound" key={`i${i}`} title={`immunis: ${school}`}>
-              {school.slice(0, 2)}∅
-            </span>
-          ))}
+    <span className="marks">
+      {/* Damage is a wound count, never folded into power: it scores nothing
+          until it reaches the unit's power. */}
+      {unit.damage > 0 && <span className="wound">✕{unit.damage}</span>}
+      {unit.powerDelta !== 0 && (
+        <span className={unit.powerDelta > 0 ? "boon" : "hex"}>
+          {unit.powerDelta > 0 ? "+" : ""}
+          {unit.powerDelta}
         </span>
       )}
-      <Fan unit={unit} card={card} />
-    </button>
-  );
-}
-
-/**
- * The fan of cards on the unit, revealed on hover. A spell with a lasting
- * effect is a physical card lying on the unit, so removing it removes the
- * effect — and a spent one-shot stays visible as a record of what happened.
- */
-function Fan({ unit, card }: { unit: UnitInstance; card: ReturnType<typeof cardOf> }) {
-  const lasting = new Set(attachmentsOn(unit).map((a) => a.id));
-  return (
-    <span className="fan-hover">
-      <b>{card.name}</b>
-      {card.text && <em>{card.text}</em>}
-      {unit.placed.length > 0 && (
-        <ul>
-          {unit.placed.map((placed, i) => {
-            const attachment = placed.attachment ? getAttachment(placed.attachment) : undefined;
-            const spell = trySpellName(placed.spellId);
-            const active = !!attachment && lasting.has(attachment.id);
-            return (
-              <li key={i} className={active ? "active" : "used"}>
-                <span className={`sigil ${placed.owner}`}>
-                  {placed.owner === "p1" ? "I" : "II"}
-                </span>
-                {attachment?.ring && <span className="ring">⊙</span>}
-                {spell ?? attachment?.name ?? placed.spellId}
-                <em>{attachment?.text ?? "elsült, nyoma marad"}</em>
-              </li>
-            );
-          })}
-        </ul>
+      {/* Gyűrű: power a condition already paid out. It stays even if whoever
+          granted it has left the board, so it gets its own mark. */}
+      {rings !== 0 && (
+        <span className="ring">
+          ⊙{rings > 0 ? "+" : ""}
+          {rings}
+        </span>
       )}
+      {unit.placed.length > 0 && <span className="scroll-count">✦{unit.placed.length}</span>}
+      {unit.fizzleShields.map((s, i) => (
+        <span className="bound" key={`f${i}`}>
+          ≤{s.maxCost}
+        </span>
+      ))}
+      {unit.immunities.map((school, i) => (
+        <span className="bound" key={`i${i}`}>
+          {school.slice(0, 3)}∅
+        </span>
+      ))}
     </span>
   );
 }
