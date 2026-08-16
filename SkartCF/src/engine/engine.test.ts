@@ -30,6 +30,7 @@ function blankState(locationId = "plazs"): GameState {
     turn: "p1",
     turnActions: { unitPlayed: false, spellPlayed: false },
     spellsCast: [],
+    channel: { p1: null, p2: null },
     resolution: null,
     placementCounter: 0,
     uidCounter: 0,
@@ -539,7 +540,7 @@ describe("hiding a unit", () => {
       faceDown: true,
       discardUid: "b",
     });
-    // Placement is over — hands are empty, so the location runs straight to a
+    // Placement is over, hands are empty, so the location runs straight to a
     // score, and the Belépő fired at reveal rather than on placement.
     expect(hidden.board["p2.F1"]).toBeNull();
     expect(hidden.log.some((l) => l.text.includes("Felfedve"))).toBe(true);
@@ -641,7 +642,7 @@ describe("sebzés", () => {
     expect(isDead(hydra, state)).toBe(true);
   });
 
-  it("is what Explar does — one damage, no points", () => {
+  it("is what Explar does, one damage, no points", () => {
     const explar = getSpell("explar");
     expect(explar.effects[0].kind).toBe("damage");
     expect(explar.effects[0].amount).toBe(1);
@@ -688,26 +689,44 @@ describe("phase flow", () => {
     expect(state.turn).toBe(state.locations[0].broughtBy);
   });
 
+  /**
+   * One caster, one spell, and it is the only unit on the board, so it is also
+   * the only legal target. Nothing is left for the player to choose.
+   */
+  function seatCaster(state: GameState, player: PlayerId, spellId = "explar"): void {
+    place(state, "celebrant", `${player}.B2`);
+    state.players[player].spellHand = [{ uid: `${player}-x`, cardId: spellId }];
+  }
+
   it("offers units in the units phase and spells in the battle, never both", () => {
     let state = newGame();
     expect(legalActions(state, state.turn).some((a) => a.type === "playUnit")).toBe(true);
     state = skipUnits(state);
     expect(state.phase).toBe("battle");
+    seatCaster(state, state.turn);
     const moves = legalActions(state, state.turn);
     expect(moves.some((a) => a.type === "playUnit")).toBe(false);
     expect(moves.some((a) => a.type === "castSpell")).toBe(true);
+  });
+
+  it("never offers a spell no unit of yours can fund", () => {
+    let state = newGame();
+    state = skipUnits(state);
+    // An empty board funds nothing, so an uncastable spell is simply not on
+    // offer rather than being played into a fizzle.
+    state.players[state.turn].spellHand = [{ uid: "s1", cardId: "explar" }];
+    expect(legalActions(state, state.turn).some((a) => a.type === "castSpell")).toBe(false);
   });
 
   it("resolves a spell on the spot and then passes the turn", () => {
     let state = newGame();
     state = skipUnits(state);
     const player = state.turn;
+    seatCaster(state, player);
     const cast = legalActions(state, player).find((a) => a.type === "castSpell");
     expect(cast).toBeDefined();
     state = applyAction(state, cast!);
     expect(state.spellsCast).toHaveLength(1);
-    // Nobody is on the board, so it fizzles for want of a caster and the turn
-    // moves on immediately instead of waiting for a separate resolution step.
     expect(state.resolution).toBeNull();
     expect(state.turn).not.toBe(player);
   });
@@ -725,10 +744,89 @@ describe("phase flow", () => {
   it("stops anyone casting while an Omen stands", () => {
     const state = blankState();
     state.phase = "battle";
+    place(state, "celebrant", "p1.B2");
     state.players.p1.spellHand = [{ uid: "s1", cardId: "explar" }];
     expect(legalActions(state, "p1").some((a) => a.type === "castSpell")).toBe(true);
     place(state, "omen", "p2.B1");
     expect(legalActions(state, "p1").some((a) => a.type === "castSpell")).toBe(false);
+  });
+
+  it("ends the turn the moment a unit is committed", () => {
+    let state = newGame();
+    const player = state.turn;
+    const play = firstAction(state, player, "playUnit");
+    expect(play).toBeDefined();
+    state = applyAction(state, play!);
+    expect(state.turn).not.toBe(player);
+    expect(legalActions(state, player)).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Mesteri spells take two turns and cost a second spell to finish
+// ---------------------------------------------------------------------------
+
+describe("Mesteri varázslatok", () => {
+  function battle(): GameState {
+    const state = blankState();
+    state.phase = "battle";
+    state.turn = "p1";
+    return state;
+  }
+
+  it("holds the spell back a turn and passes without doing anything", () => {
+    const state = battle();
+    place(state, "welsing", "p1.B2");
+    place(state, "patkany", "p2.F2");
+    state.players.p1.spellHand = [
+      { uid: "s1", cardId: "argeo" },
+      { uid: "s2", cardId: "senyvesztes" },
+    ];
+    state.players.p2.spellHand = [{ uid: "e1", cardId: "harapas" }];
+
+    const next = applyAction(state, { type: "castSpell", player: "p1", uid: "s1" });
+    expect(next.channel.p1).toEqual({ uid: "s1", cardId: "argeo" });
+    expect(next.spellsCast).toHaveLength(0);
+    expect(next.board["p2.F2"]).not.toBeNull(); // nothing has happened yet
+    expect(next.turn).toBe("p2");
+    // The opponent sees a Mesteri spell, never which one.
+    expect(next.log.some((l) => l.text.includes("argeo") || l.text.includes("Argeo"))).toBe(false);
+  });
+
+  it("makes finishing the only legal move, and charges a spell for it", () => {
+    let state = battle();
+    place(state, "welsing", "p1.B2");
+    place(state, "patkany", "p2.F2");
+    state.players.p1.spellHand = [
+      { uid: "s1", cardId: "argeo" },
+      { uid: "s2", cardId: "senyvesztes" },
+    ];
+    state = applyAction(state, { type: "castSpell", player: "p1", uid: "s1" });
+    state = applyAction(state, { type: "declareSpellsDone", player: "p2" });
+    expect(state.turn).toBe("p1");
+
+    const moves = legalActions(state, "p1");
+    expect(moves.every((m) => m.type === "finishChannel")).toBe(true);
+    expect(moves).toHaveLength(1); // one spell left in hand to pay with
+
+    state = applyAction(state, { type: "finishChannel", player: "p1", discardUid: "s2" });
+    expect(state.channel.p1).toBeNull();
+    expect(state.players.p1.discard.some((c) => c.uid === "s2")).toBe(true);
+    // Only now is the card named and aimed, in front of both players.
+    expect(state.resolution?.pending?.cardId).toBe("argeo");
+    state = applyAction(state, { type: "chooseSlot", player: "p1", slot: "p2.F2" });
+    expect(state.board["p2.F2"]).toBeNull();
+  });
+
+  it("loses the spell when there is nothing left to pay the finish with", () => {
+    let state = battle();
+    place(state, "welsing", "p1.B2");
+    place(state, "patkany", "p2.F2");
+    state.players.p1.spellHand = [{ uid: "s1", cardId: "argeo" }];
+    state = applyAction(state, { type: "castSpell", player: "p1", uid: "s1" });
+    expect(state.channel.p1).toBeNull();
+    expect(state.board["p2.F2"]).not.toBeNull();
+    expect(state.players.p1.discard.some((c) => c.uid === "s1")).toBe(true);
   });
 });
 
@@ -801,7 +899,7 @@ describe("Diadal és Vigasz", () => {
     expect(scored.players.p1.unitHand).toHaveLength(0);
   });
 
-  it("skips a unit that died before the count — Vigasz is not a death trigger", () => {
+  it("skips a unit that died before the count, Vigasz is not a death trigger", () => {
     const state = arena();
     place(state, "makacs_elohalott", "p1.F1");
     place(state, "ikerhidra", "p2.F1");

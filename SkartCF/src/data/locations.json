@@ -53,7 +53,7 @@
         "slots": "F1,F3"
       }
     ],
-    "text": "Az első sor két szélső mezője szakadék — nem kerülhet ide egység."
+    "text": "Az első sor két szélső mezője szakadék, nem kerülhet ide egység."
   },
   {
     "id": "maguskor",
@@ -171,8 +171,7 @@
     "id": "plazs",
     "name": "Plázs",
     "cap": 24,
-    "effects": [],
-    "text": "Semmi különös. Tág keret, tiszta aritmetika."
+    "effects": []
   },
   {
     "id": "umbra",
@@ -191,6 +190,6 @@
     "cap": null,
     "tiebreaker": true,
     "effects": [],
-    "text": "Nincs költséglimit, és semmi más nem változik."
+    "text": "Nincs költségkeret."
   }
 ]

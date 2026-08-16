@@ -9,7 +9,7 @@ import {
 
 /**
  * The distance table straight out of the rules document. If this test ever goes
- * red, either the graph changed or the rules did — check which before touching
+ * red, either the graph changed or the rules did, check which before touching
  * anything else.
  */
 const RANGE_TABLE: Record<string, [number, number, number]> = {

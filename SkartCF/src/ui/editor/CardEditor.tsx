@@ -27,7 +27,7 @@ import { FieldInput, KindListEditor } from "./fields";
 
 /**
  * The developer tool. Every card is a JSON row, so the editor is a form over
- * that row — and the effect pickers are generated from `schema.ts`, which is
+ * that row, and the effect pickers are generated from `schema.ts`, which is
  * the same declaration the engine validates against. There is no card-specific
  * code anywhere in here.
  *
@@ -97,11 +97,11 @@ export default function CardEditor({ cardSet, overlay, onChange, onLeave }: Prop
     <div className="workshop">
       <div className="crossbar">
         <button className="quiet" onClick={onLeave}>
-          ‹ Menü
+          Vissza
         </button>
         <h2>Kártyaműhely</h2>
         <span className="label">
-          minden lap adatsor — a hatásokat a motor sémája kínálja fel
+          minden lap adatsor
         </span>
       </div>
 
@@ -128,7 +128,7 @@ export default function CardEditor({ cardSet, overlay, onChange, onLeave }: Prop
             onChange={(e) => setFilter(e.target.value)}
             style={{ flex: 1, minWidth: 0 }}
           />
-          <button className="tiny" onClick={createNew} title="Új lap ebben a kategóriában">
+          <button className="tiny" onClick={createNew}>
             + új
           </button>
         </div>
@@ -141,7 +141,7 @@ export default function CardEditor({ cardSet, overlay, onChange, onLeave }: Prop
               >
                 {card.name}
                 {overriddenIds.has(card.id) && (
-                  <span className="stamp" title="Ez a lap a helyi rétegben él">
+                  <span className="stamp">
                     {baseIds.has(card.id) ? "módosítva" : "új"}
                   </span>
                 )}
@@ -166,14 +166,11 @@ export default function CardEditor({ cardSet, overlay, onChange, onLeave }: Prop
           <div className="empty">
             <h2>Kártyaszerkesztő</h2>
             <p>
-              Válassz egy lapot balról, vagy hozz létre újat. A hatásokat a motor
-              sémájából generált űrlap kínálja fel, tehát amit itt beállítasz, azt a
-              játék pontosan úgy fogja lejátszani — nincs lapra szabott kód sehol.
+              Válassz egy lapot balról, vagy hozz létre újat.
             </p>
             <p className="dim">
-              A módosítások a böngésző tárolójában élnek, a beszállított JSON-ra
-              rétegezve. Ha véglegesíted, exportáld a fájlt és tedd be a{" "}
-              <code>src/data</code> mappába.
+              A módosítások a böngészőben maradnak. Exportáld a fájlt a{" "}
+              <code>src/data</code> mappába, ha véglegesíted.
             </p>
           </div>
         )}
@@ -184,7 +181,7 @@ export default function CardEditor({ cardSet, overlay, onChange, onLeave }: Prop
               ? "A teljes lapkészlet érvényes."
               : issues.map((i, n) => (
                   <div key={n}>
-                    <code>{i.path}</code> — {i.message}
+                    <code>{i.path}</code>, {i.message}
                   </div>
                 ))}
           </div>
@@ -401,7 +398,7 @@ function UnitFields({ draft, set }: { draft: Record<string, unknown>; set: SetFn
         table={STATIC_SPECS}
         value={(draft.statics ?? []) as Record<string, unknown>[]}
         onChange={(v) => set("statics", v)}
-        emptyHint="Az állandó képességeket a motor olvasáskor számolja, nem állapotként tárolja — ezért egy egység halála magától felerősíti a túlélőket."
+        emptyHint="Folyamatos képesség. A motor olvasáskor számolja."
       />
 
       <div className="block">
@@ -422,8 +419,7 @@ function UnitFields({ draft, set }: { draft: Record<string, unknown>; set: SetFn
         {belepo && (
           <>
             <p className="faint">
-              Kötelező, és lerakáskor sül el — rejtett egységnél a felfedéskor. A célt a
-              motor maga választja ki, a játékos nem dönt.
+              Kötelező. Lerakáskor sül el, rejtett egységnél a felfedéskor.
             </p>
             <div className="fields">
               <label className="f">
@@ -491,7 +487,7 @@ function UnitFields({ draft, set }: { draft: Record<string, unknown>; set: SetFn
 
 /**
  * Vigasz, Diadal and Bodur's ring all come from here. A trigger is an event
- * name, a target set and the same effect list a Belépő uses — which is why
+ * name, a target set and the same effect list a Belépő uses, which is why
  * granting a gyűrű on an ally's move takes no code, only a row of data.
  */
 function TriggerEditor({
@@ -519,10 +515,7 @@ function TriggerEditor({
       </div>
       {value.length === 0 && (
         <p className="faint">
-          A Belépőn kívüli események. Az <code>onAllyMove</code> + <code>trigger</code> célzás +
-          gyűrűadás együtt adja ki a Bodur kapitányt: a kapott erő akkor is megmarad, ha az
-          adományozó lekerül a tábláról. A <code>onMustra</code> a felfedés pillanatában sül el,
-          amikor már minden egység lent van.
+          A Belépőn kívüli események: haláleset, mozgás, Mustra, csata vége.
         </p>
       )}
       {value.map((trigger, i) => (
@@ -611,8 +604,7 @@ function SpellFields({ draft, set }: { draft: Record<string, unknown>; set: SetF
             ))}
           </datalist>
           <small>
-            A varázsló egyetlen iskolából fizeti ki az egészet — több iskola több lehetséges
-            fizetőt jelent, nem összeadást. A készlet iskolánként külön fogy.
+            A varázsló egyetlen iskolából fizeti ki az egészet, nem összeadva.
           </small>
         </label>
         <NumberField label="Költség (= szükséges varázserő)" value={draft.cost} onChange={(v) => set("cost", v)} />
@@ -714,8 +706,7 @@ function SpellFields({ draft, set }: { draft: Record<string, unknown>; set: SetF
           </div>
         ) : (
           <p className="faint">
-            Nincs választott cél. A hatások maguk döntik el, kit érintenek (küszöbös terület),
-            vagy a varázslóra hatnak.
+            Nincs választott cél. A hatások maguk döntik el, kit érintenek.
           </p>
         )}
       </div>
@@ -725,7 +716,7 @@ function SpellFields({ draft, set }: { draft: Record<string, unknown>; set: SetF
         table={EFFECT_SPECS}
         value={(draft.effects ?? []) as Record<string, unknown>[]}
         onChange={(v) => set("effects", v)}
-        emptyHint="A későbbi hatás később fut le, és a szöveg dönti el a végeredményt: egy erőt beállító hatás után a −2 már az új értékre vonatkozik."
+        emptyHint="A hatások sorrendben futnak le."
       />
     </>
   );
@@ -791,7 +782,7 @@ function AttachmentFields({ draft, set }: { draft: Record<string, unknown>; set:
         table={STATIC_SPECS}
         value={(draft.statics ?? []) as Record<string, unknown>[]}
         onChange={(v) => set("statics", v)}
-        emptyHint="Ugyanaz a tábla, amiből az egységek is válogatnak. A lap levétele megszünteti a hatást — nincs mit követni."
+        emptyHint="A lap levétele megszünteti a hatást."
       />
     </>
   );
@@ -828,7 +819,7 @@ function LocationFields({ draft, set }: { draft: Record<string, unknown>; set: S
         table={LOCATION_EFFECT_SPECS}
         value={(draft.effects ?? []) as Record<string, unknown>[]}
         onChange={(v) => set("effects", v)}
-        emptyHint="A hatás a hatékonyságot billenti, sosem tilt ki laptípust. A cél 3–6 pont elmozdulás a kedvezményezett pakli felé."
+        emptyHint="A hatás a hatékonyságot billenti, sosem tilt ki laptípust."
       />
     </>
   );
@@ -872,8 +863,7 @@ function SpellpowerEditor({
       </div>
       {Object.keys(value).length === 0 && (
         <p className="faint">
-          Nem varázsló. A varázserő egységenként külön készlet, iskolára zárva, és nem
-          összeadható másik egységével.
+          Nem varázsló. A varázserő egységenként külön készlet, iskolára zárva.
         </p>
       )}
       <div className="fields">

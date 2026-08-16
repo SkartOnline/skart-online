@@ -5,6 +5,7 @@ import CardEditor from "./editor/CardEditor";
 import GameView from "./game/GameView";
 import MainMenu from "./MainMenu";
 import type { Room } from "./MainMenu";
+import Rulebook from "./Rulebook";
 import { installOverlay, readOverlay, writeOverlay } from "./cardSet";
 import type { CardOverlay } from "./cardSet";
 
@@ -32,6 +33,7 @@ export default function App() {
 
   if (room === "menu") return <MainMenu onEnter={setRoom} />;
   if (room === "play") return <GameView key={revision} onLeave={home} />;
+  if (room === "rules") return <Rulebook onLeave={home} />;
   if (room === "collection") {
     return (
       <CollectionManager

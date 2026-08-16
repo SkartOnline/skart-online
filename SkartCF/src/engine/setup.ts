@@ -115,6 +115,7 @@ export function createGame(options: GameOptions): GameState {
     turn: ordered[0].broughtBy,
     turnActions: { unitPlayed: false, spellPlayed: false },
     spellsCast: [],
+    channel: { p1: null, p2: null },
     resolution: null,
     placementCounter: 0,
     uidCounter: 0,
@@ -132,7 +133,7 @@ export function createGame(options: GameOptions): GameState {
   const first = getLocation(ordered[0].cardId);
   log(
     state,
-    `${first.name} — költségkeret ${first.cap === null ? "nincs" : first.cap}. Kezd: ${state.turn}.`,
+    `${first.name}, költségkeret ${first.cap === null ? "nincs" : first.cap}. Kezd: ${state.turn}.`,
   );
   applyLocationStart(state);
   settle(state);

@@ -7,6 +7,7 @@ import {
   currentLocation,
   effectiveCost,
   castingBanned,
+  isMasterSpell,
   unitsOf,
 } from "./power";
 import {
@@ -15,6 +16,7 @@ import {
   chooseHandCard,
   chooseSlot,
   fireBelepo,
+  hasViableCaster,
   log,
   resolutionFinished,
 } from "./resolve";
@@ -197,9 +199,20 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
   }
 
   if (state.phase === "battle") {
+    // A Mesteri spell begun last turn owns this one. Finishing it is mandatory
+    // and costs a spell out of hand, so nothing else is on offer.
+    const channel = state.channel[player];
+    if (channel) {
+      for (const card of p.spellHand) {
+        out.push({ type: "finishChannel", player, discardUid: card.uid });
+      }
+      return out;
+    }
     // Omen stops anyone casting at all while it stands.
     if (!p.flags.spellsClosed && !state.turnActions.spellPlayed && !castingBanned(state)) {
       for (const card of p.spellHand) {
+        // A spell no unit of yours can fund or aim is not castable at all.
+        if (!hasViableCaster(state, getSpell(card.cardId), player)) continue;
         out.push({ type: "castSpell", player, uid: card.uid });
       }
     }
@@ -222,6 +235,9 @@ export function applyAction(state: GameState, action: Action): GameState {
       break;
     case "castSpell":
       doCastSpell(next, action);
+      break;
+    case "finishChannel":
+      doFinishChannel(next, action);
       break;
     case "declareUnitsDone":
       if (next.phase === "units" && next.turn === action.player) {
@@ -322,25 +338,43 @@ function doPlayUnit(state: GameState, action: Extract<Action, { type: "playUnit"
     action.player,
   );
 
-  // Belépő fires the moment the unit is placed — unless it is hidden, in which
+  // Belépő fires the moment the unit is placed, unless it is hidden, in which
   // case it waits for reveal. That delay is the main reason to pay for hiding.
   if (!faceDown) fireBelepo(state, unit);
+
+  // Committing a unit is the whole turn. Stopping is the alternative to playing
+  // one, never something you announce after having played.
+  passTurn(state);
 }
 
 /**
  * A spell is played open in the battle phase and goes off on the spot. The turn
- * does not pass here — `settle` releases it once the spell has stopped asking
+ * does not pass here, `settle` releases it once the spell has stopped asking
  * for picks, which may be several actions later.
  */
 function doCastSpell(state: GameState, action: Extract<Action, { type: "castSpell" }>): void {
   if (state.phase !== "battle" || state.turn !== action.player) return;
   const p = state.players[action.player];
+  if (state.channel[action.player]) return; // finish what you started first
   if (p.flags.spellsClosed || state.turnActions.spellPlayed) return;
   if (state.resolution) return; // one spell finishes before the next begins
   if (castingBanned(state)) return;
   const index = p.spellHand.findIndex((c) => c.uid === action.uid);
   if (index === -1) return;
+  const spell = getSpell(p.spellHand[index].cardId);
+  if (!hasViableCaster(state, spell, action.player)) return;
   const [card] = p.spellHand.splice(index, 1);
+
+  // A Mesteri spell goes down face-down and does nothing this turn. The
+  // opponent learns only that one is coming.
+  if (isMasterSpell(spell)) {
+    state.channel[action.player] = { uid: card.uid, cardId: card.cardId };
+    state.turnActions.spellPlayed = true;
+    log(state, "Mesteri varázslatba kezdett.", action.player);
+    passTurn(state);
+    return;
+  }
+
   state.spellsCast.push({
     uid: card.uid,
     owner: action.player,
@@ -348,7 +382,41 @@ function doCastSpell(state: GameState, action: Extract<Action, { type: "castSpel
     order: state.spellsCast.length,
   });
   state.turnActions.spellPlayed = true;
-  log(state, `${getSpell(card.cardId).name} kijátszva.`, action.player);
+  log(state, `${spell.name} kijátszva.`, action.player);
+  beginCast(state, state.spellsCast.length - 1);
+}
+
+/**
+ * The second half of a Mesteri cast. It costs a spell out of hand and is
+ * mandatory, so it happens whether or not the spell can still do anything.
+ */
+function doFinishChannel(
+  state: GameState,
+  action: Extract<Action, { type: "finishChannel" }>,
+): void {
+  if (state.phase !== "battle" || state.turn !== action.player) return;
+  if (state.resolution) return;
+  const channel = state.channel[action.player];
+  if (!channel) return;
+  const p = state.players[action.player];
+  const index = p.spellHand.findIndex((c) => c.uid === action.discardUid);
+  if (index === -1) return;
+
+  const [toss] = p.spellHand.splice(index, 1);
+  p.discard.push(toss);
+  state.channel[action.player] = null;
+  state.spellsCast.push({
+    uid: channel.uid,
+    owner: action.player,
+    cardId: channel.cardId,
+    order: state.spellsCast.length,
+  });
+  state.turnActions.spellPlayed = true;
+  log(
+    state,
+    `${getSpell(channel.cardId).name} befejezve, ára ${getSpell(toss.cardId).name}.`,
+    action.player,
+  );
   beginCast(state, state.spellsCast.length - 1);
 }
 
@@ -358,7 +426,7 @@ function passTurn(state: GameState): void {
 }
 
 // ---------------------------------------------------------------------------
-// settle — auto-closing, phase transitions, skipping finished players
+// settle, auto-closing, phase transitions, skipping finished players
 // ---------------------------------------------------------------------------
 
 function autoCloseUnits(state: GameState): void {
@@ -374,11 +442,27 @@ function autoCloseUnits(state: GameState): void {
   }
 }
 
+/**
+ * Finishing a Mesteri spell costs a spell out of hand. With nothing left to pay
+ * with, or with casting shut down entirely, the channelled spell is lost.
+ */
+function fizzleDeadChannels(state: GameState): void {
+  const banned = castingBanned(state);
+  for (const id of PLAYERS) {
+    const channel = state.channel[id];
+    if (!channel) continue;
+    if (state.players[id].spellHand.length > 0 && !banned) continue;
+    state.channel[id] = null;
+    state.players[id].discard.push({ uid: channel.uid, cardId: channel.cardId });
+    log(state, `${getSpell(channel.cardId).name} elszáll, nincs mivel befejezni.`, id);
+  }
+}
+
 function autoCloseSpells(state: GameState): void {
   const banned = castingBanned(state);
   for (const id of PLAYERS) {
     const p = state.players[id];
-    if (p.flags.spellsClosed) continue;
+    if (p.flags.spellsClosed || state.channel[id]) continue;
     if (p.spellHand.length === 0 || banned) {
       p.flags.spellsClosed = true;
       log(state, banned ? "Varázslatok: kész (nem lehet varázsolni)." : "Varázslatok: kész (üres kéz).", id);
@@ -389,10 +473,19 @@ function autoCloseSpells(state: GameState): void {
 const bothStopped = (state: GameState, flag: "unitsClosed" | "spellsClosed"): boolean =>
   PLAYERS.every((id) => state.players[id].flags[flag]);
 
-/** Hands the turn on until it lands on somebody who can still act. */
+/**
+ * Hands the turn on until it lands on somebody who can still act. A player
+ * owing an unfinished Mesteri spell always can, whatever their flag says.
+ */
 function skipStopped(state: GameState, flag: "unitsClosed" | "spellsClosed"): void {
   let guard = 0;
-  while (state.players[state.turn].flags[flag] && guard++ < 4) passTurn(state);
+  while (
+    state.players[state.turn].flags[flag] &&
+    !(flag === "spellsClosed" && state.channel[state.turn]) &&
+    guard++ < 4
+  ) {
+    passTurn(state);
+  }
 }
 
 export function settle(state: GameState): void {
@@ -418,8 +511,12 @@ export function settle(state: GameState): void {
       passTurn(state);
     }
 
+    fizzleDeadChannels(state);
     autoCloseSpells(state);
-    if (bothStopped(state, "spellsClosed")) {
+    // A player still owing a Mesteri spell has not finished the battle, even
+    // with both flags down.
+    const owing = PLAYERS.some((id) => state.channel[id]);
+    if (!owing && bothStopped(state, "spellsClosed")) {
       scoreLocation(state);
       return;
     }
@@ -429,13 +526,13 @@ export function settle(state: GameState): void {
 
 /**
  * Mustra: every unit is down, the hidden ones turn face up, and the battle
- * opens. A face-down unit's Belépő waited for this moment — that delay is the
+ * opens. A face-down unit's Belépő waited for this moment, that delay is the
  * main reason to pay for hiding one. Mustra abilities fire here too, after
  * every Belépő has landed, so Szarvas advances into a settled board.
  */
 function runMustra(state: GameState): void {
   state.phase = "mustra";
-  log(state, "Mustra — a rejtett egységek felfedve, jöhet a csata.");
+  log(state, "Mustra, a rejtett egységek felfedve, jöhet a csata.");
 
   const hidden = ALL_SLOTS.map((s) => state.board[s])
     .filter((u): u is NonNullable<typeof u> => !!u && u.faceDown)
@@ -452,7 +549,7 @@ function runMustra(state: GameState): void {
 
   state.phase = "battle";
   // The player who brought the battlefield opens the battle too, same as the
-  // units phase — casting first now costs information rather than buying it.
+  // units phase, casting first now costs information rather than buying it.
   state.turn = state.locations[state.locationIndex].broughtBy;
   state.turnActions = { unitPlayed: false, spellPlayed: false };
 }
@@ -493,7 +590,7 @@ function scoreLocation(state: GameState): void {
 function startNextLocation(state: GameState): void {
   if (state.phase !== "scored") return;
 
-  // Spent cards are gone, win or lose — except what Csábítás claimed.
+  // Spent cards are gone, win or lose, except what Csábítás claimed.
   for (const slot of ALL_SLOTS) {
     const unit = state.board[slot];
     if (unit) {
@@ -505,6 +602,11 @@ function startNextLocation(state: GameState): void {
   }
   for (const entry of state.spellsCast) {
     state.players[entry.owner].discard.push({ uid: entry.uid, cardId: entry.cardId });
+  }
+  for (const id of PLAYERS) {
+    const channel = state.channel[id];
+    if (channel) state.players[id].discard.push({ uid: channel.uid, cardId: channel.cardId });
+    state.channel[id] = null;
   }
   state.spellsCast = [];
   state.placementCounter = 0;
@@ -541,7 +643,7 @@ function startNextLocation(state: GameState): void {
   const loc = getLocation(state.locations[state.locationIndex].cardId);
   log(
     state,
-    `${loc.name} — költségkeret ${loc.cap === null ? "nincs" : loc.cap}. Kezd: ${state.turn}.`,
+    `${loc.name}, költségkeret ${loc.cap === null ? "nincs" : loc.cap}. Kezd: ${state.turn}.`,
   );
   applyLocationStart(state);
   settle(state);
@@ -608,7 +710,7 @@ export function boardUnits(state: GameState, player: PlayerId) {
   return unitsOf(state, player);
 }
 
-/** Exposed for the UI's slot rendering — a chasm draws differently. */
+/** Exposed for the UI's slot rendering, a chasm draws differently. */
 export function blockedSlotsOf(state: GameState, player: PlayerId): SlotId[] {
   return slotsOf(player).filter((s) => isBlocked(state, s));
 }

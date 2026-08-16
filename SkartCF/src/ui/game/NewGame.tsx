@@ -10,10 +10,7 @@ export interface Sides {
 
 const SIDE_NAME: Record<PlayerId, string> = { p1: "Első játékos", p2: "Második játékos" };
 
-/**
- * Deck choice and a seed. Deck size, the melee bonus and how many units you may
- * hide are settled rules now, so there is nothing else to set.
- */
+/** Deck choice and a seed. Everything else is a settled rule. */
 export default function NewGame({
   onStart,
   onLeave,
@@ -44,12 +41,6 @@ export default function NewGame({
     <div className="veilcloth">
       <div className="casket timber">
         <h2>Ki áll ki ellen</h2>
-        <p className="sub">
-          Mindkét oldalt te viszed. Előbb az egységek mennek le, amíg mindketten meg nem
-          álltok, aztán jön a Mustra és a csata. A lefordított egységeket és a kézben
-          maradt lapokat a felület eltakarja attól, aki épp nem lép — hogy a megállás
-          döntése valódi maradjon.
-        </p>
 
         <div className="pair">
           {(["p1", "p2"] as PlayerId[]).map((side) => (

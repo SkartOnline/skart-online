@@ -150,7 +150,7 @@ export function knownSpellTags(): string[] {
 }
 
 // ---------------------------------------------------------------------------
-// Validation — run over the whole set at startup so a malformed hand-edit or a
+// Validation, run over the whole set at startup so a malformed hand-edit or a
 // card built in the editor surfaces as a message instead of a crash mid-game.
 // ---------------------------------------------------------------------------
 
@@ -194,7 +194,7 @@ export function validateCardSet(set: CardSet): ValidationIssue[] {
   }
 
   // An attachment carries the same statics a unit does, so it goes through the
-  // same validation — that is what lets Falanx and Vérszomj skip having code.
+  // same validation, that is what lets Falanx and Vérszomj skip having code.
   for (const a of set.attachments) {
     for (const [i, s] of (a.statics ?? []).entries()) {
       issues.push(...validateAgainstSpec(s, STATIC_SPECS, `attachment ${a.id}.statics[${i}]`));
@@ -230,7 +230,7 @@ export function validateCardSet(set: CardSet): ValidationIssue[] {
     }
     // An effect needs a nominated target unless it picks its own set (AoE) or
     // lands on the caster. Must stay in step with `needsChosenTarget` in
-    // effects.ts — the two answer the same question at different times.
+    // effects.ts, the two answer the same question at different times.
     const needsTarget = (s.effects ?? []).some((e) => {
       if (EFFECT_SPECS.find((spec) => spec.kind === e.kind)?.selfTargeting) return false;
       return (e.on ?? "target") === "target";

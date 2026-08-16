@@ -3,7 +3,7 @@
  * like. Two consumers read it and nothing else:
  *
  *   1. `cards.ts` validates card data against it at load time.
- *   2. The in-app card editor renders its forms from it — no per-effect UI code.
+ *   2. The in-app card editor renders its forms from it, no per-effect UI code.
  *
  * Adding a new kind is therefore exactly two edits, next to each other: a
  * `KindSpec` block here and a handler in `effects.ts` (or a case in `power.ts`
@@ -194,7 +194,7 @@ export const STATIC_SPECS: KindSpec[] = [
   {
     kind: "selfGrant",
     label: "Saját tulajdonság",
-    summary: "Sérthetetlen, célozhatatlan, nem rejthető, varázslatra immunis — akár feltételhez kötve.",
+    summary: "Sérthetetlen, célozhatatlan, nem rejthető, varázslatra immunis, akár feltételhez kötve.",
     fields: [
       {
         name: "grant",
@@ -246,7 +246,7 @@ export const STATIC_SPECS: KindSpec[] = [
     fields: [
       { name: "what", type: "select", label: "Mit módosít", default: "cost", options: ["cost", "damage"] },
       { name: "amount", type: "number", label: "Mennyiség", default: -1, step: 1 },
-      { name: "tag", type: "text", label: "Csak ilyen címkéjű varázslat", default: "Tűz" },
+      { name: "tag", type: "text", label: "Csak ilyen címkéjű varázslat", default: "Tűzmágia" },
       { name: "school", type: "school", label: "Csak ilyen iskolájú varázslat", default: "" },
     ],
   },
@@ -314,7 +314,7 @@ export const EFFECT_SPECS: KindSpec[] = [
   {
     kind: "setPower",
     label: "Erő beállítása",
-    summary: "Felülírja a nyomtatott értéket ahelyett, hogy módosítaná — így nincs halmozódási számolgatás.",
+    summary: "Felülírja a nyomtatott értéket ahelyett, hogy módosítaná, így nincs halmozódási számolgatás.",
     fields: [{ name: "value", type: "number", label: "Új erő", default: 6, min: 0 }, ON_FIELD],
   },
   {
@@ -327,7 +327,7 @@ export const EFFECT_SPECS: KindSpec[] = [
     kind: "destroy",
     label: "Megsemmisítés",
     summary:
-      "Az egység azonnal lekerül a mezőjéről. Az Óriásölő, a Fojtás, a Rajtaütés és a Kegyelemdöfés mind ez — csak a célzószűrőjük más.",
+      "Az egység azonnal lekerül a mezőjéről. Az Óriásölő, a Fojtás, a Rajtaütés és a Kegyelemdöfés mind ez, csak a célzószűrőjük más.",
     fields: [ON_FIELD],
   },
   {
@@ -437,7 +437,7 @@ export const EFFECT_SPECS: KindSpec[] = [
     kind: "grantImmunity",
     label: "Immunitás adása",
     summary: "Az egységet nem célozhatja többé az adott címkéjű vagy iskolájú varázslat.",
-    fields: [{ name: "school", type: "school", label: "Iskola vagy címke", default: "Tűz" }, ON_FIELD],
+    fields: [{ name: "school", type: "school", label: "Iskola vagy címke", default: "Tűzmágia" }, ON_FIELD],
   },
   {
     kind: "fizzleShield",

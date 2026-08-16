@@ -52,7 +52,7 @@ import { PLAYERS } from "./types";
 
 /**
  * One handler per effect kind, keyed by string. The engine never branches on a
- * card id — a card is a row of data naming a kind and its parameters, and this
+ * card id, a card is a row of data naming a kind and its parameters, and this
  * table is the only place those names turn into behaviour.
  *
  * To add an effect: add a `KindSpec` in `schema.ts` and a handler here. The
@@ -69,7 +69,7 @@ export interface EffectContext {
   handCardUid?: string;
   /** The spell card this effect came off, when it came off one. */
   spell?: SpellCard;
-  /** The unit that fired the trigger — the mover, or the one that died. */
+  /** The unit that fired the trigger, the mover, or the one that died. */
   trigger?: UnitInstance | null;
   log: (text: string) => void;
 }
@@ -131,8 +131,8 @@ function isDeadNow(unit: UnitInstance, state: GameState): boolean {
 /**
  * Removes a unit and pays out the death trigger the survivors are owed.
  *
- * There is deliberately no self-death trigger. Vigasz turned out not to be one
- * — it fires when the unit's owner loses the location, not when the unit dies —
+ * There is deliberately no self-death trigger. Vigasz turned out not to be one:
+ * it fires when the unit's owner loses the location, not when the unit dies,
  * and a genuine "when I die" effect would have to act on a unit that
  * `sweepDead` has already taken off the board, which is how loops start.
  */
@@ -169,12 +169,12 @@ export function fireTrigger(
 }
 
 const TRIGGER_LABEL: Record<TriggerEvent, string> = {
-  onAnyDeath: "kiváltó — egység elesett",
-  onAllyMove: "kiváltó — szövetséges mozgott",
+  onAnyDeath: "kiváltó, egység elesett",
+  onAllyMove: "kiváltó, szövetséges mozgott",
   onMustra: "Mustra",
   onLocationWon: "Diadal",
   onLocationLost: "Vigasz",
-  onLocationStart: "kiváltó — csata kezdete",
+  onLocationStart: "kiváltó, csata kezdete",
 };
 
 /** Applies a list of effects with a freshly built context. */
@@ -236,7 +236,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
 
   /**
    * The gyűrű. Power handed over because a condition already happened, so it
-   * survives the granting unit leaving the board — which is exactly why it is
+   * survives the granting unit leaving the board, which is exactly why it is
    * a separate number from `powerDelta` and gets its own mark on the card.
    */
   grantRing(ctx, effect, targets) {
@@ -263,7 +263,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
   destroy(ctx, effect, targets) {
     for (const unit of targetUnits(ctx, effect, targets)) {
       if (cannotDie(ctx.state, unit)) {
-        ctx.log(`${cardOf(unit).name} sérthetetlen — nem semmisül meg.`);
+        ctx.log(`${cardOf(unit).name} sérthetetlen, nem semmisül meg.`);
         continue;
       }
       ctx.log(`${cardOf(unit).name} megsemmisül.`);
@@ -347,7 +347,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
 
   /**
    * The lasting half of a spell. The physical card goes on the unit, so taking
-   * it off takes the effect off — no duration to track anywhere.
+   * it off takes the effect off, no duration to track anywhere.
    */
   attach(ctx, effect, targets) {
     const attachment = String(effect.attachment ?? "");
@@ -410,7 +410,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     }
     const loser = mine > theirs ? target : caster;
     if (cannotDie(ctx.state, loser)) {
-      ctx.log(`${cardOf(loser).name} sérthetetlen — a párbaj eldöntetlen marad.`);
+      ctx.log(`${cardOf(loser).name} sérthetetlen, a párbaj eldöntetlen marad.`);
       return;
     }
     ctx.log(`Párbaj ${mine}–${theirs}: ${cardOf(loser).name} elesik.`);
@@ -681,7 +681,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
         stake *= 2;
         ctx.log(`Érme: unikornis (+${won} összesen).`);
       } else {
-        ctx.log("Érme: írás — minden nyeremény odavész.");
+        ctx.log("Érme: írás, minden nyeremény odavész.");
         won = 0;
         break;
       }
@@ -894,7 +894,7 @@ export function legalTargets(
       if (unit.immunities.includes(tag)) return false;
     }
     // Marcangolás measures "weaker than me" against the nominated caster, which
-    // only exists at resolution — so it lives here rather than in the filter.
+    // only exists at resolution, so it lives here rather than in the filter.
     if (spec.filter?.weakerThanCaster) {
       const caster = state.board[casterSlot];
       if (!caster || basePower(unit) >= basePower(caster)) return false;
@@ -923,7 +923,7 @@ export function legalDestinations(
 }
 
 /**
- * Belépő and trigger target sets. The engine resolves these itself — a Belépő is
+ * Belépő and trigger target sets. The engine resolves these itself, a Belépő is
  * mandatory and never asks the player anything, which is why `pick` exists: the
  * card text says "one", so the data has to say which one.
  */
