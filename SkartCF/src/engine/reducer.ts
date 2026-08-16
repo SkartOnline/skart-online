@@ -131,6 +131,9 @@ function cardForbidsHiding(card: UnitCard): boolean {
  * running, and the turn loop skips them rather than ending the phase. Each
  * phase ends only when both of its flags are down.
  *
+ * There is no passing. Playing ends your turn on its own, so the only other
+ * thing on offer is stopping, which is permanent for the rest of the location.
+ *
  * The two flags belong to different phases now: `unitsClosed` gates the units
  * phase, `spellsClosed` the battle. There is no longer a moment where both are
  * live at once.
@@ -177,9 +180,11 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
         for (const slot of free) {
           if (!placementAllowed(state, unitCard, player, slot)) continue;
           out.push({ type: "playUnit", player, uid: card.uid, slot });
+          // Hiding is offered once per card that could pay for it, so the
+          // player picks what to lose rather than being handed a default.
           if (canPay) {
-            const payment = p.unitHand.find((c) => c.uid !== card.uid);
-            if (payment) {
+            for (const payment of p.unitHand) {
+              if (payment.uid === card.uid) continue;
               out.push({
                 type: "playUnit",
                 player,
@@ -194,7 +199,6 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
       }
     }
     if (!p.flags.unitsClosed) out.push({ type: "declareUnitsDone", player });
-    out.push({ type: "endTurn", player });
     return out;
   }
 
@@ -217,7 +221,6 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
       }
     }
     if (!p.flags.spellsClosed) out.push({ type: "declareSpellsDone", player });
-    out.push({ type: "endTurn", player });
   }
 
   return out;
@@ -249,11 +252,6 @@ export function applyAction(state: GameState, action: Action): GameState {
       if (next.phase === "battle" && next.turn === action.player) {
         next.players[action.player].flags.spellsClosed = true;
         log(next, "Varázslatok: kész.", action.player);
-      }
-      break;
-    case "endTurn":
-      if ((next.phase === "units" || next.phase === "battle") && next.turn === action.player) {
-        passTurn(next);
       }
       break;
     case "chooseSlot":
@@ -627,6 +625,13 @@ function startNextLocation(state: GameState): void {
   const regularCount = state.locations.filter((l) => !getLocation(l.cardId).tiebreaker).length;
 
   if (played >= state.locations.length) {
+    finishGame(state);
+    return;
+  }
+  // Taking more than half the regular battlefields settles it: the rest cannot
+  // be caught up, so there is nothing left to play for.
+  const majority = Math.floor(regularCount / 2) + 1;
+  if (board.p1 >= majority || board.p2 >= majority) {
     finishGame(state);
     return;
   }

@@ -154,7 +154,9 @@ function chooseUnitAction(
     return bestPlacement(state, candidates.length ? candidates : plays);
   }
 
-  return { type: "endTurn", player };
+  // Playing ends the turn on its own, so reaching here means there is nothing
+  // to play and the only move left is to stop.
+  return options[0];
 }
 
 /**
@@ -187,9 +189,7 @@ function chooseBattleAction(
     return canCastNow(state, player, card.cardId);
   });
   if (castable.length === 0) {
-    return p.flags.spellsClosed
-      ? { type: "endTurn", player }
-      : { type: "declareSpellsDone", player };
+    return p.flags.spellsClosed ? options[0] : { type: "declareSpellsDone", player };
   }
   // Most expensive castable spell first: a caster's pool depletes as it spends,
   // so the big one has to go while the pool is still full.

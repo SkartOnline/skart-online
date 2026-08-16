@@ -9,19 +9,24 @@
  *   npm run sim -- --games 2000
  *   npm run sim -- --games 500 --decks value,swarm
  *   npm run sim -- --games 2000 --stop-margin 0,2,4
+ *   npm run sim -- --games 500 --policy bot
+ *
+ * Which policy plays the games is the number's biggest hidden assumption. The
+ * greedy policy stops on a coin flip and always casts its most expensive spell
+ * first, so a battlefield it loses badly may simply be one that punishes bad
+ * play. Re-running a flagged pair under `--policy bot` is how that gets told
+ * apart from a battlefield that is genuinely broken.
  */
 
-import {
-  allDecks,
-  applyAction,
-  createGame,
-  getLocation,
-  hashSeed,
-  legalActions,
-} from "../engine";
-import type { GameState, PlayerId } from "../engine";
-import { DEFAULT_POLICY, chooseAction } from "./policy";
+import { allDecks, getLocation, hashSeed } from "../engine";
+import type { PlayerId } from "../engine";
+import { DEFAULT_POLICY } from "./policy";
 import type { PolicyParams } from "./policy";
+import { Agent, DEFAULT_AGENT } from "../bot/agent";
+import { loadModel } from "../bot/arena";
+import { greedySeat, playGame as playRecorded } from "../bot/selfplay";
+import type { Seat } from "../bot/selfplay";
+import type { ValueModel } from "../bot/model";
 
 interface GameResult {
   winner: PlayerId | "draw";
@@ -31,57 +36,48 @@ interface GameResult {
   actions: number;
 }
 
-const MAX_ACTIONS_PER_GAME = 6000;
+/** Who is playing. Both seats always use the same one, so it is a fair fight. */
+export type Contestant =
+  | { kind: "greedy"; params: PolicyParams }
+  | { kind: "bot"; model: ValueModel };
+
+function seatFor(contestant: Contestant, seed: string): Seat {
+  if (contestant.kind === "greedy") return greedySeat(seed);
+  return {
+    kind: "agent",
+    // Temperature 0: measuring the policy, not its exploration.
+    agent: new Agent(contestant.model, { ...DEFAULT_AGENT, temperature: 0 }, hashSeed(seed)),
+    learn: false,
+  };
+}
 
 export function playGame(
   deckA: string,
   deckB: string,
   seed: string | number,
-  params: PolicyParams = DEFAULT_POLICY,
+  contestant: Contestant = { kind: "greedy", params: DEFAULT_POLICY },
 ): GameResult {
-  let state: GameState = createGame({ seed, decks: { p1: deckA, p2: deckB } });
-  const ctx = { params, seed: hashSeed(`${seed}-policy`) };
-  let actions = 0;
+  const record = playRecorded(
+    { p1: seatFor(contestant, `${seed}-p1`), p2: seatFor(contestant, `${seed}-p2`) },
+    { p1: deckA, p2: deckB },
+    String(seed),
+  );
 
-  while (state.phase !== "gameOver" && actions < MAX_ACTIONS_PER_GAME) {
-    const player = actorOf(state);
-    if (!player) break;
-    const action = chooseAction(state, player, ctx);
-    if (!action) break;
-    state = applyAction(state, action);
-    actions += 1;
-  }
-
-  if (state.phase !== "gameOver") {
+  if (record.truncated) {
     throw new Error(
-      `Game did not terminate after ${actions} actions (phase ${state.phase}). ` +
+      `Game did not terminate after ${record.actions} actions. ` +
         "That is an engine bug, not a policy one, some action stopped making progress.",
     );
   }
 
-  const reachedTiebreaker = state.locations.some(
-    (l) => getLocation(l.cardId).tiebreaker && l.winner !== null,
-  );
-
   return {
-    winner: state.winner ?? "draw",
-    locations: state.locations.map((l) => ({
-      cardId: l.cardId,
-      broughtBy: l.broughtBy,
-      winner: l.winner,
-    })),
-    reachedTiebreaker,
-    actions,
+    winner: record.winner,
+    locations: record.locations,
+    reachedTiebreaker: record.locations.some(
+      (l) => getLocation(l.cardId).tiebreaker && l.winner !== null,
+    ),
+    actions: record.actions,
   };
-}
-
-function actorOf(state: GameState): PlayerId | null {
-  if (state.resolution?.pending) return state.resolution.pending.player;
-  if (state.phase === "units" || state.phase === "battle") return state.turn;
-  if (state.phase === "scored") {
-    return legalActions(state, "p1").length > 0 ? "p1" : "p2";
-  }
-  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -181,11 +177,17 @@ function main(): void {
     .split(",")
     .map(Number);
 
+  const useBot = args.policy === "bot";
+  const model = useBot ? loadModel(args.weights ?? "src/bot/weights/latest.json") : null;
+  console.log(useBot ? "policy: trained bot" : "policy: greedy heuristic");
+
   let anyBroken = false;
 
   for (const stopMargin of margins) {
     if (margins.length > 1) console.log(`\n=== stopMargin ${stopMargin} ===`);
-    const params: PolicyParams = { ...DEFAULT_POLICY, stopMargin };
+    const contestant: Contestant = model
+      ? { kind: "bot", model }
+      : { kind: "greedy", params: { ...DEFAULT_POLICY, stopMargin } };
 
     for (let i = 0; i < deckIds.length; i++) {
       for (let j = i + 1; j < deckIds.length; j++) {
@@ -197,7 +199,7 @@ function main(): void {
           const decks = swap
             ? ({ p1: b, p2: a } as Record<PlayerId, string>)
             : ({ p1: a, p2: b } as Record<PlayerId, string>);
-          const result = playGame(decks.p1, decks.p2, `${baseSeed}-${a}-${b}-${g}`, params);
+          const result = playGame(decks.p1, decks.p2, `${baseSeed}-${a}-${b}-${g}`, contestant);
           record(tally, result, decks);
         }
         if (reportPair(a, b, tally)) anyBroken = true;

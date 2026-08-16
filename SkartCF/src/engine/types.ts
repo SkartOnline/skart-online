@@ -512,7 +512,6 @@ export type Action =
   | { type: "finishChannel"; player: PlayerId; discardUid: string }
   | { type: "declareUnitsDone"; player: PlayerId }
   | { type: "declareSpellsDone"; player: PlayerId }
-  | { type: "endTurn"; player: PlayerId }
   | { type: "chooseSlot"; player: PlayerId; slot: SlotId }
   | { type: "chooseHandCard"; player: PlayerId; uid: string }
   | { type: "nextLocation" };

@@ -5,6 +5,7 @@ import {
   getSpell,
   isBlocked,
   power,
+  powerBreakdown,
   rowOfSlot,
 } from "../../engine";
 import type { GameState, PlayerId, Row, SlotId, UnitInstance } from "../../engine";
@@ -139,29 +140,76 @@ function Cell({
   );
 }
 
-/** The full card, plus whatever is lying on top of the unit. */
+/**
+ * The full card, what is lying on top of the unit, and where its current power
+ * actually comes from.
+ *
+ * Both halves name their source. A unit reading 7 when its card says 5 is only
+ * legible if the hover says which card is paying for the other two, whether
+ * that is a spell on this unit, an aura from the next slot over, or the
+ * battlefield itself.
+ */
 function Loaded({ unit, state }: { unit: UnitInstance; state: GameState }) {
   const card = cardOf(unit);
+  const live = power(unit, state);
   const lasting = new Set(attachmentsOn(unit).map((a) => a.id));
-  if (unit.placed.length === 0) return <CardFace card={card} livePower={power(unit, state)} />;
+  const lines = powerBreakdown(unit, state);
+  // One line is the printed value on its own, which the card already shows.
+  const explain = lines.length > 1 || unit.damage > 0;
+
+  if (unit.placed.length === 0 && !explain) {
+    return <CardFace card={card} livePower={live} />;
+  }
+
   return (
     <span className="card-with-fan">
-      <CardFace card={card} livePower={power(unit, state)} />
-      <ul className="laden-fan">
-        {unit.placed.map((placed, i) => {
-          const attachment = placed.attachment ? getAttachment(placed.attachment) : undefined;
-          const name = trySpellName(placed.spellId) ?? attachment?.name ?? placed.spellId;
-          const active = !!attachment && lasting.has(attachment.id);
-          return (
-            <li key={i} className={active ? "active" : "used"}>
-              <span className={`sigil ${placed.owner}`}>
-                {placed.owner === "p1" ? "I" : "II"}
+      <CardFace card={card} livePower={live} />
+
+      {unit.placed.length > 0 && (
+        <ul className="laden-fan">
+          {unit.placed.map((placed, i) => {
+            const attachment = placed.attachment ? getAttachment(placed.attachment) : undefined;
+            const name = trySpellName(placed.spellId) ?? attachment?.name ?? placed.spellId;
+            const active = !!attachment && lasting.has(attachment.id);
+            return (
+              <li key={i} className={active ? "active" : "used"}>
+                <span className={`sigil ${placed.owner}`}>
+                  {placed.owner === "p1" ? "I" : "II"}
+                </span>
+                <b>{name}</b>
+                <i>{active ? attachment!.text : "elsült, nyoma marad"}</i>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {explain && (
+        <ul className="power-lines">
+          {lines.map((line, i) => (
+            <li key={i}>
+              <span className="lbl">
+                {line.label}
+                {line.source && <em>{line.source}</em>}
               </span>
-              {name}
+              <span className="num">
+                {i === 0 || line.amount < 0 ? "" : "+"}
+                {line.amount}
+              </span>
             </li>
-          );
-        })}
-      </ul>
+          ))}
+          {unit.damage > 0 && (
+            <li className="wounded">
+              <span className="lbl">Sebzés, nem számít az összegbe</span>
+              <span className="num">✕{unit.damage}</span>
+            </li>
+          )}
+          <li className="sum">
+            <span className="lbl">Erő</span>
+            <span className="num">{live}</span>
+          </li>
+        </ul>
+      )}
     </span>
   );
 }

@@ -484,6 +484,107 @@ function attachmentBonus(unit: UnitInstance): number {
   return attachmentsOn(unit).reduce((sum, a) => sum + (a.powerDelta ?? 0), 0);
 }
 
+/** Which units are currently granting this one an aura, and for how much. */
+function auraSources(
+  unit: UnitInstance,
+  state: GameState,
+): { from: UnitInstance; amount: number }[] {
+  const out: { from: UnitInstance; amount: number }[] = [];
+  for (const other of allUnitsOnBoard(state)) {
+    const before = out.length;
+    let amount = 0;
+    for (const ability of staticsOf(other, state)) {
+      if (ability.kind !== "aura") continue;
+      const includeSelf = ability.includeSelf === true;
+      if (other.uid === unit.uid && !includeSelf) continue;
+      const scope = (ability.scope ?? "adjacent") as Scope;
+      if (!slotsInScope(other, scope).includes(unit.slot) && !(includeSelf && other.uid === unit.uid)) {
+        continue;
+      }
+      if (!sideOk(unit, other, String(ability.side ?? "ally"))) continue;
+      const keyword = ability.keyword ? String(ability.keyword) : undefined;
+      if (!keywordMatches(keywordsOf(unit), keyword)) continue;
+      const maxBasePower = Number(ability.maxBasePower ?? 0);
+      if (maxBasePower > 0 && basePower(unit) > maxBasePower) continue;
+      const condition = String(ability.condition ?? "always") as StaticCondition;
+      if (!conditionHolds(state, other, condition, Number(ability.value ?? 0))) continue;
+      const atLeastCount = Number(ability.atLeastCount ?? 0);
+      if (atLeastCount > 0) {
+        const crowd = unitsInScope(state, other, scope, String(ability.side ?? "ally"), true).filter(
+          (u) => keywordMatches(keywordsOf(u), keyword),
+        );
+        if (crowd.length < atLeastCount) continue;
+      }
+      amount += Number(ability.amount ?? 0);
+    }
+    if (amount !== 0 && out.length === before) out.push({ from: other, amount });
+  }
+  return out;
+}
+
+export interface PowerLine {
+  label: string;
+  amount: number;
+  /** Set when another card is responsible, so the hover can name it. */
+  source?: string;
+}
+
+/**
+ * Where a unit's current power comes from, line by line. Nothing here decides
+ * anything: it re-reads the same helpers `power()` does, so it can only ever
+ * describe what the board already computed.
+ */
+export function powerBreakdown(unit: UnitInstance, state: GameState): PowerLine[] {
+  const out: PowerLine[] = [];
+  const base = basePower(unit);
+
+  if (unit.locked) {
+    return [{ label: "Jéghegy alatt", amount: unit.lockedPower }];
+  }
+
+  const setter = attachmentsOn(unit).find((a) => typeof a.setPower === "number");
+  out.push({
+    label: setter ? "Alapérték felülírva" : "Alapérték",
+    amount: base,
+    source: setter?.name,
+  });
+
+  const equalsBase = attachmentsOn(unit).find((a) => a.powerEqualsBase);
+  if (equalsBase) {
+    out.push({ label: "Minden más módosító elnyomva", amount: 0, source: equalsBase.name });
+    return out;
+  }
+
+  const positional = positionalBonus(unit, state);
+  if (positional !== 0) out.push({ label: "Sor szerinti bónusz", amount: positional });
+
+  const location = locationPowerBonus(unit, state);
+  if (location !== 0) {
+    out.push({ label: "Csatatér", amount: location, source: currentLocation(state).name });
+  }
+
+  const selfStatic = selfStaticBonus(unit, state);
+  if (selfStatic !== 0) out.push({ label: "Saját képesség", amount: selfStatic });
+
+  for (const { from, amount } of auraSources(unit, state)) {
+    out.push({ label: "Aura", amount, source: cardOf(from).name });
+  }
+
+  for (const attachment of attachmentsOn(unit)) {
+    if (!attachment.powerDelta) continue;
+    out.push({
+      label: attachment.ring ? "Gyűrű" : "Ráhelyezett lap",
+      amount: attachment.powerDelta,
+      source: attachment.name,
+    });
+  }
+
+  if (unit.rings !== 0) out.push({ label: "Gyűrű", amount: unit.rings });
+  if (unit.powerDelta !== 0) out.push({ label: "Varázslat", amount: unit.powerDelta });
+
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Grants, untargetable, invulnerable, cannot die, extra keywords
 // ---------------------------------------------------------------------------
