@@ -1022,12 +1022,34 @@ describe("Mustra", () => {
       uid: "a",
       slot: "p1.B2",
     });
-    // The hand emptied, so units closed, Mustra ran, and Szarvas walked into the
-    // empty front slot keeping a ring for the tile it gained.
+    // The hand emptied, so units closed, Mustra ran, and Szarvas marched up an
+    // empty column keeping a ring per tile. It does not stop at the centreline:
+    // an empty enemy column is space, and 8.4.5 lets a move land on either half.
     expect(after.board["p1.B2"]).toBeNull();
+    expect(after.board["p1.F2"]).toBeNull();
+    expect(after.board["p2.B2"]).not.toBeNull();
+    expect(after.board["p2.B2"]!.rings).toBe(3); // own front, their front, their back
+    expect(after.log.some((l) => l.text.includes("Mustra"))).toBe(true);
+  });
+
+  it("stops where the column stops being empty, wherever that is", () => {
+    const state = blankState();
+    state.players.p1.unitHand = [{ uid: "a", cardId: "szarvas" }];
+    state.players.p1.spellHand = [];
+    state.players.p2.unitHand = [];
+    state.players.p2.spellHand = [];
+    place(state, "ogre", "p2.F2"); // somebody is holding the line
+
+    const after = applyAction(state, {
+      type: "playUnit",
+      player: "p1",
+      uid: "a",
+      slot: "p1.B2",
+    });
+    // One tile forward, up to the enemy front rank, and no further.
     expect(after.board["p1.F2"]).not.toBeNull();
     expect(after.board["p1.F2"]!.rings).toBe(1);
-    expect(after.log.some((l) => l.text.includes("Mustra"))).toBe(true);
+    expect(after.board["p2.B2"]).toBeNull();
   });
 
   it("leaves it put when the slot ahead is taken", () => {

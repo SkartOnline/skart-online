@@ -7,7 +7,7 @@ import {
   runEffects,
   salvageDestination,
 } from "./effects";
-import { ALL_SLOTS, orthogonalNeighbours, ownerOfSlot, slotsOf } from "./grid";
+import { ALL_SLOTS, orthogonalNeighbours, ownerOfSlot, slotLabel, slotsOf } from "./grid";
 import {
   cardKeywords,
   cardOf,
@@ -30,7 +30,7 @@ import {
 } from "./resolve";
 import { locationWinner, scoreboard, totals } from "./totaling";
 import type { Action, GameState, HandCard, PlayerId, SlotId, UnitCard } from "./types";
-import { PLAYERS } from "./types";
+import { PLAYERS, SIDE_NAME } from "./types";
 
 /**
  * `applyAction(state, action) => state`. The whole rules engine funnels through
@@ -390,7 +390,9 @@ function doPlayUnit(state: GameState, action: Extract<Action, { type: "playUnit"
   state.turnActions.unitPlayed = true;
   log(
     state,
-    faceDown ? `Lapjával lefelé egy egység ide: ${action.slot}.` : `${card.name} ide: ${action.slot}.`,
+    faceDown
+      ? `Lapjával lefelé egy egység ide: ${slotLabel(action.slot)}.`
+      : `${card.name} ide: ${slotLabel(action.slot)}.`,
     action.player,
   );
 
@@ -650,7 +652,7 @@ function runMustra(state: GameState): void {
     .sort((a, b) => a.order - b.order);
   for (const unit of hidden) {
     unit.faceDown = false;
-    log(state, `Felfedve: ${cardOf(unit).name} (${unit.slot}).`, unit.owner);
+    log(state, `Felfedve: ${cardOf(unit).name} (${slotLabel(unit.slot)}).`, unit.owner);
   }
 
   // Every Belépő that was waiting for the reveal and every Mustra ability fires
@@ -678,7 +680,7 @@ function scoreLocation(state: GameState): void {
     state,
     winner === "void"
       ? `${name}: döntetlen (${t.p1}–${t.p2}), senki nem szerzi meg.`
-      : `${name}: ${winner} nyeri (${t.p1}–${t.p2}).`,
+      : `${name}: ${SIDE_NAME[winner]} nyeri (${t.p1}–${t.p2}).`,
   );
 
   // Diadal and Vigasz are outcome triggers, not death triggers: they ask
@@ -782,7 +784,7 @@ function finishCleanup(state: GameState): void {
   const loc = getLocation(state.locations[state.locationIndex].cardId);
   log(
     state,
-    `${loc.name}, költségkeret ${loc.cap === null ? "nincs" : loc.cap}. Kezd: ${state.turn}.`,
+    `${loc.name}, költségkeret ${loc.cap === null ? "nincs" : loc.cap}. Kezd: ${SIDE_NAME[state.turn]}.`,
   );
   applyLocationStart(state);
   settle(state);
@@ -837,7 +839,12 @@ function finishGame(state: GameState): void {
   state.phase = "gameOver";
   state.scores = board;
   state.winner = board.p1 > board.p2 ? "p1" : board.p2 > board.p1 ? "p2" : "draw";
-  log(state, `Vége: ${board.p1}–${board.p2} (${state.winner}).`);
+  log(
+    state,
+    state.winner === "draw"
+      ? `Vége: ${board.p1}–${board.p2}, döntetlen.`
+      : `Vége: ${board.p1}–${board.p2}, ${SIDE_NAME[state.winner]} nyert.`,
+  );
 }
 
 function drawUpTo(hand: HandCard[], deck: HandCard[], size: number): void {

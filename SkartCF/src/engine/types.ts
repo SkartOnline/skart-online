@@ -9,6 +9,15 @@
 export type PlayerId = "p1" | "p2";
 export const PLAYERS: readonly PlayerId[] = ["p1", "p2"];
 
+/**
+ * What to call a seat in front of a player. The chronicle is read by a human, so
+ * nothing internal may reach it — not a card id, not a seat key, not an enum
+ * value out of the schema. `p1` and `deckTop` are database words; these are the
+ * words on the table. This lives here because `types.ts` imports nothing, and
+ * every layer that writes a line of text can reach it without a cycle.
+ */
+export const SIDE_NAME: Record<PlayerId, string> = { p1: "Első", p2: "Második" };
+
 export type Row = "F" | "B";
 export type Col = 1 | 2 | 3;
 

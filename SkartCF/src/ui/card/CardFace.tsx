@@ -1,4 +1,15 @@
-import { artFor, castingPips, isSpell, isUnit, kindLabel, mechanicalKeywords, schoolSlug, taglineOf } from "./model";
+import {
+  artFor,
+  castingPips,
+  isSpell,
+  isUnit,
+  kindLabel,
+  mechanicalKeywords,
+  schoolSlug,
+  taglineOf,
+  traitDensity,
+  traitsOf,
+} from "./model";
 import type { AnyCard } from "./model";
 
 /**
@@ -23,6 +34,8 @@ export default function CardFace({ card, livePower, className }: Props) {
   const pips = castingPips(card);
   const keywords = mechanicalKeywords(card);
   const cost = "cost" in card ? card.cost : null;
+  const rarity = (card as { rarity?: string }).rarity;
+  const traits = traitsOf(card);
 
   return (
     <article className={`cardface${className ? ` ${className}` : ""}`}>
@@ -35,9 +48,17 @@ export default function CardFace({ card, livePower, className }: Props) {
         {art ? <img src={art} alt="" /> : <span className="cf-art-empty" />}
       </div>
 
+      {/* Type, then rarity, then the traits — the order 2.1.4 prints them. The
+          rarity travels with the type on the left so the whole right half is the
+          traits' to spend, which is what makes room for Faj. */}
       <p className="cf-type">
-        <span className="cf-kind">{kindLabel(card)}</span>
-        <span className="cf-traits">{taglineOf(card)}</span>
+        <span className="cf-kind">
+          {kindLabel(card)}
+          {rarity && <em>{rarity}</em>}
+        </span>
+        <span className={`cf-traits ${traitDensity(card)}`} title={taglineOf(card)}>
+          {traits.join(" ")}
+        </span>
       </p>
 
       <div className="cf-box">

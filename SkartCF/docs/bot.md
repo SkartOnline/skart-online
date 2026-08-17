@@ -139,7 +139,7 @@ Ranked by how much they distort the bot's judgement.
 
 2. **One-ply search cannot see combos.** Infiltráció → Hátbaszúrás is fully
    supported by the engine (the `csempesz` deck holds both, and all seven of its
-   Ravaszság casters are legal Infiltráció targets), but the bot never finds it:
+   Zsivány casters are legal Infiltráció targets), but the bot never finds it:
    Infiltráció's immediate afterstate looks bad, and the payoff is one move past
    the horizon. Any card in a combo is systematically undervalued, so balance
    verdicts on those cards are not trustworthy.
@@ -238,7 +238,7 @@ screen flags it, with the trims left to the designer.
 
 - `elettelen`: 9 of 30 spells permanently dead (Explar x3, Álomfogó x3,
   Acélpenge x3 — needs Mágus or Harcos casters it does not field)
-- `felindori`: 2 Ravaszság spells, no Ravaszság caster
+- `felindori`: 2 Zsivány spells, no Zsivány caster
 
 **Kegyelemdöfés is effectively dead.** Legal on 0 of 452 turns holding it. It
 needs a *damaged* enemy at range 1, and damage rarely lingers — most damage that
@@ -246,3 +246,49 @@ lands kills instead.
 
 **Umbradog and A Moirák** win 92–100% of battlefields they stand on in mirror
 matches. The designer intends to nerf both.
+
+---
+
+## The bot damages its own units
+
+Reported from play against the **strong** checkpoint (temperature 0.04, so this is
+the model's considered choice rather than exploration noise): it cast a damage
+spell on one of its own units and handed over a battlefield it had already won.
+
+This is not a targeting bug in the engine. Every legal target is offered to both
+players, `side: "any"` spells genuinely may be aimed at your own board — Áldozás
+and Lélekszipoly need it — and nothing in the rules forbids the play. The bot
+simply evaluated the resulting position as better.
+
+Why it can happen at all, from the shape of the learner:
+
+- **The value model is linear.** `power.diff` is one weight over one number, so a
+  position is scored by adding up features that cannot interact. "Damage on a unit
+  of mine" and "damage on a unit of theirs" reach the model mostly through
+  features that are not signed per side with enough resolution to separate them,
+  and a linear model cannot represent "this is good on their board and bad on
+  mine" for a feature that does not distinguish the two.
+- **Damage scores nothing until it kills.** A damage token that does not reach the
+  unit's power changes no total (9.5.2), so the afterstate a self-damage cast
+  produces is *numerically almost identical* to the afterstate of not casting —
+  right up to the point where it kills. If the difference in value is inside the
+  model's noise, the softmax will pick it sometimes, and at temperature 0.04 it
+  picks it when the noise happens to favour it.
+- **Spending a spell is not penalised.** Casting costs spellpower and a card, and
+  neither shows up as a cost in the reward: the reward arrives per battlefield and
+  per match. A move that does nothing is therefore free, and a move that does
+  something slightly wrong is nearly free.
+
+Worth fixing when the MLP lands, and the MLP is the right place for it: a hidden
+layer can represent "damage, on my side" as a conjunction, which a linear model
+cannot. Two things to do alongside it:
+
+1. **Sign the damage features per side** so "damage I am carrying" and "damage
+   they are carrying" are separate inputs rather than one aggregate.
+2. **Check it directly.** Count, over a self-play batch, how often a controller
+   targets its own unit with a damaging effect. It should be near zero except for
+   the cards that want it. That number is the regression test, and it can be
+   measured before and after without waiting for a human to notice a thrown game.
+
+Until then the strong bot occasionally throws a won battlefield, and that is
+worth knowing when reading its win rates.

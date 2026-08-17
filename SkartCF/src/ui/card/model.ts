@@ -51,12 +51,21 @@ export const MECHANICAL_KEYWORDS = new Set(["Melee", "Távolsági"]);
 /** The grade a Mesteri spell carries. It reads before the school. */
 const GRADES = new Set(["Mesteri"]);
 
-/** Everything after the rarity: origin, order and tribal keywords. */
+/**
+ * The traits, in the order 2.1.4 prints them: Eredet, then Rend, then Faj, then
+ * whatever extra keywords the card carries.
+ *
+ * All four are real, printed traits and all four are matched by filters, so all
+ * four belong on the type line. Faj especially — a card that reads *Állat* is
+ * why Lényidomár, Vadász, Sújtás and Növekedés do anything, and leaving it off
+ * the face made the most-referenced word in the set invisible.
+ */
 export function traitsOf(card: AnyCard): string[] {
   if (isUnit(card)) {
     const out: string[] = [];
-    if (card.origin) out.push(card.origin);
-    if (card.order && card.order !== card.origin) out.push(card.order);
+    for (const trait of [card.origin, card.order, card.race]) {
+      if (trait && !out.includes(trait)) out.push(trait);
+    }
     for (const keyword of card.keywords ?? []) {
       if (!MECHANICAL_KEYWORDS.has(keyword) && !out.includes(keyword)) out.push(keyword);
     }
@@ -69,10 +78,24 @@ export function traitsOf(card: AnyCard): string[] {
   return [];
 }
 
-/** "Kivételes Felindori Harcos". Rarity first, then the traits. */
+/** "Kivételes Felindori Harcos Állat". Rarity first, then the traits. */
 export function taglineOf(card: AnyCard): string {
   const rarity = (card as UnitCard).rarity;
   return [rarity, ...traitsOf(card)].filter(Boolean).join(" ");
+}
+
+/**
+ * How hard the type line has to work to fit. Four traits plus a rarity plus the
+ * card type does not go into one small-caps line at hand scale, and truncating
+ * it drops Faj — the last trait and often the one that matters. So the line
+ * tightens instead: a step down in size, then letter-spacing, before the
+ * stylesheet's ellipsis is ever reached.
+ */
+export function traitDensity(card: AnyCard): "" | "long" | "dense" {
+  const width = traitsOf(card).join(" ").length;
+  if (width > 30) return "dense";
+  if (width > 20) return "long";
+  return "";
 }
 
 /** Keywords that earn a line in the text box rather than the type line. */

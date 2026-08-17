@@ -1,6 +1,7 @@
 import {
   attachmentsOn,
   cardOf,
+  coordLabel,
   getAttachment,
   getSpell,
   getUnit,
@@ -28,6 +29,8 @@ interface Props {
   stirring?: Map<SlotId, string>;
   /** Units that just left the board, still shown as a ghost for a beat. */
   fallen?: { id: number; slot?: SlotId; cardId?: string }[];
+  /** The tile the pointer is reading, so the field can print its card beside the board. */
+  onInspect?: (slot: SlotId | null) => void;
 }
 
 const COLS = [1, 2, 3];
@@ -45,9 +48,10 @@ export default function Board({
   viewer,
   stirring,
   fallen,
+  onInspect,
 }: Props) {
   const far: PlayerId = viewer === "p1" ? "p2" : "p1";
-  const shared = { state, open, onPick, bare, viewer, stirring, fallen };
+  const shared = { state, open, onPick, bare, viewer, stirring, fallen, onInspect };
   return (
     <div className="grids">
       <Side player={far} ranks={["B", "F"]} {...shared} />
@@ -67,6 +71,7 @@ function Side({
   viewer,
   stirring,
   fallen,
+  onInspect,
 }: Props & { player: PlayerId; ranks: Row[] }) {
   return (
     <div className="side">
@@ -85,6 +90,7 @@ function Side({
                 viewer={viewer}
                 stir={stirring?.get(slot)}
                 ghost={fallen?.find((f) => f.slot === slot)}
+                onInspect={onInspect}
               />
             );
           })}
@@ -103,6 +109,7 @@ function Cell({
   viewer,
   stir,
   ghost,
+  onInspect,
 }: {
   slot: SlotId;
   state: GameState;
@@ -114,6 +121,7 @@ function Cell({
   stir?: string;
   /** A unit that has just left, drawn fading out of the empty tile. */
   ghost?: { id: number; cardId?: string };
+  onInspect?: (slot: SlotId | null) => void;
 }) {
   const unit = state.board[slot];
   const classes = ["cell"];
@@ -125,7 +133,7 @@ function Cell({
   if (isBlocked(state, slot)) {
     return (
       <div className="cell chasm" data-slot={slot}>
-        <span className="coord">{slot.slice(3)}</span>
+        <span className="coord">{coordLabel(slot)}</span>
         <span className="label">szakadék</span>
       </div>
     );
@@ -134,8 +142,13 @@ function Cell({
   if (!unit) {
     classes.push("empty-slot");
     return (
-      <button className={classes.join(" ")} data-slot={slot} onClick={onPick} disabled={!open}>
-        <span className="coord">{slot.slice(3)}</span>
+      <button
+        className={classes.join(" ")}
+        data-slot={slot}
+        onClick={open ? onPick : undefined}
+        aria-disabled={!open}
+      >
+        <span className="coord">{coordLabel(slot)}</span>
         {/* The tile is already empty as far as the rules go; this is only the
             afterimage of whatever was standing here a moment ago. */}
         {ghost && (
@@ -150,28 +163,49 @@ function Cell({
   if (unit.faceDown && !bare) {
     classes.push("veiled");
     return (
-      <button className={classes.join(" ")} data-slot={slot} onClick={onPick} disabled={!open}>
-        <span className="coord">{slot.slice(3)}</span>
+      <button
+        className={classes.join(" ")}
+        data-slot={slot}
+        onClick={open ? onPick : undefined}
+        aria-disabled={!open}
+        onMouseEnter={() => onInspect?.(slot)}
+        onMouseLeave={() => onInspect?.(null)}
+      >
+        <span className="coord">{coordLabel(slot)}</span>
         <span className="label">lefordítva</span>
       </button>
     );
   }
 
   const card = cardOf(unit);
-  classes.push("held", "reveals", unit.owner === viewer ? "mine" : "theirs");
+  classes.push("held", unit.owner === viewer ? "mine" : "theirs");
   if (unit.locked) classes.push("frozen");
   if (unit.placed.length > 0) classes.push("laden");
 
   return (
-    <button className={classes.join(" ")} data-slot={slot} onClick={onPick} disabled={!open}>
-      <span className="coord">{slot.slice(3)}</span>
+    <button
+      className={classes.join(" ")}
+      data-slot={slot}
+      onClick={open ? onPick : undefined}
+      // A disabled button dispatches no mouse events at all, so the tile has to
+      // stay enabled and refuse the click itself. `aria-disabled` is what tells
+      // assistive tech, and the stylesheet reads it too.
+      aria-disabled={!open}
+      // Reading a unit is not a popover on its own tile: that gets clipped by the
+      // screen on the outer columns and covers the neighbours you are comparing
+      // it against on the inner one. The card is shown beside the board instead,
+      // which is a sibling of the board, so it hands the slot upwards and lets
+      // the field draw it. Doing this in CSS would mean `position: fixed` from
+      // inside a tile, and any transformed ancestor — an arrival flourish, the
+      // opening animation — would silently drag it back onto the board.
+      onMouseEnter={() => onInspect?.(slot)}
+      onMouseLeave={() => onInspect?.(null)}
+      onFocus={() => onInspect?.(slot)}
+      onBlur={() => onInspect?.(null)}
+    >
+      <span className="coord">{coordLabel(slot)}</span>
       <Marks unit={unit} state={state} />
       <CardTile card={card} power={power(unit, state)} />
-      {/* The far side's cards open downwards, so a popover never runs off the
-          top of the screen. */}
-      <span className={`revealed ${unit.owner === viewer ? "above" : "below"}`}>
-        <Loaded unit={unit} state={state} />
-      </span>
     </button>
   );
 }
@@ -185,7 +219,7 @@ function Cell({
  * that is a spell on this unit, an aura from the next slot over, or the
  * battlefield itself.
  */
-function Loaded({ unit, state }: { unit: UnitInstance; state: GameState }) {
+export function Loaded({ unit, state }: { unit: UnitInstance; state: GameState }) {
   const card = cardOf(unit);
   const live = power(unit, state);
   const lasting = new Set(attachmentsOn(unit).map((a) => a.id));
@@ -205,7 +239,7 @@ function Loaded({ unit, state }: { unit: UnitInstance; state: GameState }) {
         <ul className="laden-fan">
           {unit.placed.map((placed, i) => {
             const attachment = placed.attachment ? getAttachment(placed.attachment) : undefined;
-            const name = trySpellName(placed.spellId) ?? attachment?.name ?? placed.spellId;
+            const name = trySpellName(placed.spellId) ?? attachment?.name ?? tryUnitName(placed.spellId);
             const active = !!attachment && lasting.has(attachment.id);
             return (
               <li key={i} className={active ? "active" : "used"}>

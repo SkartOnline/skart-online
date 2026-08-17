@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   ALL_SLOTS,
+  coordLabel,
   diagonalNeighbours,
   distance,
+  forwardOf,
   opposedSlot,
   orthogonalNeighbours,
+  slotLabel,
 } from "./grid";
 
 /**
@@ -83,5 +86,53 @@ describe("adjacency relationships", () => {
     expect(opposedSlot("p1.F2")).toBe("p2.F2");
     expect(opposedSlot("p2.F3")).toBe("p1.F3");
     expect(opposedSlot("p1.B1")).toBeNull();
+  });
+});
+
+describe("marching up a column", () => {
+  it("keeps going across the centreline and stops at the far back row", () => {
+    // p1's point of view: own back, own front, their front, their back, nothing.
+    expect(forwardOf("p1.B2", "p1")).toBe("p1.F2");
+    expect(forwardOf("p1.F2", "p1")).toBe("p2.F2");
+    expect(forwardOf("p2.F2", "p1")).toBe("p2.B2");
+    expect(forwardOf("p2.B2", "p1")).toBeNull();
+  });
+
+  it("reads the same way from the other seat", () => {
+    expect(forwardOf("p2.B3", "p2")).toBe("p2.F3");
+    expect(forwardOf("p2.F3", "p2")).toBe("p1.F3");
+    expect(forwardOf("p1.F3", "p2")).toBe("p1.B3");
+    expect(forwardOf("p1.B3", "p2")).toBeNull();
+  });
+
+  it("never leaves its column", () => {
+    for (const start of ALL_SLOTS) {
+      let at: string | null = start;
+      while (at) {
+        expect(at[4]).toBe(start[4]);
+        at = forwardOf(at, "p1");
+      }
+    }
+  });
+});
+
+describe("tile names", () => {
+  /**
+   * `F` and `B` are internal. The rulebook calls the rows E and H (4.1.1), and
+   * so does everything a player reads.
+   */
+  it("uses the rulebook's row letters, never the engine's", () => {
+    expect(coordLabel("p1.F1")).toBe("E1");
+    expect(coordLabel("p1.B3")).toBe("H3");
+    expect(coordLabel("p2.F2")).toBe("E2");
+    for (const slot of ALL_SLOTS) {
+      expect(coordLabel(slot)).toMatch(/^[EH][123]$/);
+      expect(slotLabel(slot)).not.toMatch(/p[12]|[FB][123]/);
+    }
+  });
+
+  it("names the side too, so a tile across the line is not ambiguous", () => {
+    expect(slotLabel("p1.F1")).toBe("Első E1");
+    expect(slotLabel("p2.B3")).toBe("Második H3");
   });
 });

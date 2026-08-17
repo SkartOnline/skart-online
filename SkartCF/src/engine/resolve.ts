@@ -61,6 +61,7 @@ export function log(state: GameState, text: string, player?: PlayerId): void {
   state.log.push({ location: state.locationIndex, phase: state.phase, player, text });
 }
 
+
 function contextFor(
   state: GameState,
   source: UnitInstance | null,

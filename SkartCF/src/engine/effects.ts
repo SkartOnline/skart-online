@@ -1,14 +1,16 @@
-import { getSpell, getUnit } from "./cards";
+import { getAttachment, getSpell, getUnit } from "./cards";
 import {
   ALL_SLOTS,
   columnSlotsOf,
   diagonalNeighbours,
   distance,
+  forwardOf,
   frontOfSlot,
   opponentOf,
   opposedSlot,
   orthogonalNeighbours,
   ownerOfSlot,
+  slotLabel,
   slotsOf,
 } from "./grid";
 import {
@@ -51,7 +53,7 @@ import type {
   UnitCard,
   UnitInstance,
 } from "./types";
-import { PLAYERS } from "./types";
+import { PLAYERS, SIDE_NAME } from "./types";
 
 /**
  * One handler per effect kind, keyed by string. The engine never branches on a
@@ -224,6 +226,33 @@ function sidesFor(ctx: EffectContext, who: string): PlayerId[] {
   return [ctx.controller];
 }
 
+/**
+ * Words for the player, keyed by the words in the data. Every one of these used
+ * to reach the chronicle raw — "p1: 2 lap húzva (unit)" — and a schema enum is
+ * not something a player should ever have to read.
+ */
+const PILE_NAME: Record<string, string> = {
+  unit: "egységlap",
+  spell: "varázslatlap",
+  both: "lap",
+};
+
+const SOURCE_NAME: Record<string, string> = {
+  deck: "pakliból",
+  graveyard: "temetőből",
+};
+
+const STEAL_NAME: Record<string, string> = {
+  deckTop: "paklijának tetejéről",
+  hand: "kezéből",
+};
+
+const PEEK_NAME: Record<string, string> = {
+  hand: "az ellenfél egységkeze",
+  spellHand: "az ellenfél varázslatkeze",
+  nextLocation: "a következő csatatér",
+};
+
 function grantRings(unit: UnitInstance, amount: number, ctx: EffectContext): void {
   unit.rings += amount;
   ctx.log(`${cardOf(unit).name}: ${amount >= 0 ? "+" : ""}${amount} gyűrű (összesen ${unit.rings}).`);
@@ -347,7 +376,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     ctx.state.board[unit.slot] = null;
     unit.slot = destination;
     ctx.state.board[destination] = unit;
-    ctx.log(`${cardOf(unit).name} ide lép: ${destination}.`);
+    ctx.log(`${cardOf(unit).name} ide lép: ${slotLabel(destination)}.`);
     fireTrigger(ctx.state, "onAllyMove", unit, ctx.log);
   },
 
@@ -383,7 +412,9 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     const ringPerTile = Number(effect.ringPerTile ?? 1);
     let tiles = 0;
     for (;;) {
-      const ahead = frontOfSlot(unit.slot);
+      // Straight up the column and across the line if the way is clear: Szarvas
+      // walks into whatever space the gathering left, on either half (8.4.5).
+      const ahead = forwardOf(unit.slot, unit.owner);
       if (!ahead || ctx.state.board[ahead] || isBlocked(ctx.state, ahead)) break;
       ctx.state.board[unit.slot] = null;
       unit.slot = ahead;
@@ -422,7 +453,9 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
         owner: ctx.controller,
         attachment,
       });
-      ctx.log(`${cardOf(unit).name} kap egy lapot: ${attachment}.`);
+      // The card's name, never its id: "indak" is a database key and has no
+      // business appearing in front of a player.
+      ctx.log(`${cardOf(unit).name} kap egy lapot: ${attachmentName(attachment)}.`);
     }
   },
 
@@ -521,7 +554,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
       .slice(0, count);
     for (const unit of hidden) {
       unit.faceDown = false;
-      ctx.log(`Felfedve: ${cardOf(unit).name} (${unit.slot}).`);
+      ctx.log(`Felfedve: ${cardOf(unit).name} (${slotLabel(unit.slot)}).`);
     }
   },
 
@@ -538,7 +571,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
       order: ctx.state.placementCounter++,
       paidCost: card.cost,
     });
-    ctx.log(`${card.name} megidézve ide: ${slot}.`);
+    ctx.log(`${card.name} megidézve ide: ${slotLabel(slot)}.`);
   },
 
   thresholdAoe(ctx, effect, _targets) {
@@ -575,7 +608,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
         hand.push(deck.shift()!);
         drawn += 1;
       }
-      if (drawn > 0) ctx.log(`${player}: ${drawn} lap húzva (${kind}).`);
+      if (drawn > 0) ctx.log(`${SIDE_NAME[player]}: ${drawn} ${PILE_NAME[kind] ?? kind} húzva.`);
     }
   },
 
@@ -585,7 +618,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     const bonus = ctx.state.players[ctx.controller].bonusDraw;
     if (kind === "unit") bonus.units += count;
     else bonus.spells += count;
-    ctx.log(`Diadal: a következő csata előtt ${count} extra lap (${kind}).`);
+    ctx.log(`Diadal: a következő csata előtt ${count} extra ${PILE_NAME[kind] ?? kind}.`);
   },
 
   /**
@@ -619,7 +652,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
           discarded += 1;
         }
       }
-      if (discarded > 0) ctx.log(`${player}: ${discarded} lap eldobva.`);
+      if (discarded > 0) ctx.log(`${SIDE_NAME[player]}: ${discarded} lap eldobva.`);
       if (ringPer !== 0 && player === ctx.controller && ctx.source && discarded > 0) {
         grantRings(ctx.source, ringPer * discarded, ctx);
       }
@@ -649,7 +682,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
         hand.push(...pile.splice(index, 1));
         found += 1;
       }
-      if (found > 0) ctx.log(`${player}: ${found} lap kikeresve (${source}).`);
+      if (found > 0) ctx.log(`${SIDE_NAME[player]}: ${found} lap kikeresve a ${SOURCE_NAME[source] ?? source}.`);
     }
   },
 
@@ -674,7 +707,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
         order: ctx.state.placementCounter++,
         paidCost: unitCard.cost,
       });
-      ctx.log(`${unitCard.name} feltámad ide: ${free[0]}.`);
+      ctx.log(`${unitCard.name} feltámad ide: ${slotLabel(free[0])}.`);
     }
   },
 
@@ -703,7 +736,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
       mine.push(pile.shift()!);
       taken += 1;
     }
-    if (taken > 0) ctx.log(`${taken} lap elemelve az ellenféltől (${from}).`);
+    if (taken > 0) ctx.log(`${taken} lap elemelve az ellenfél ${STEAL_NAME[from] ?? from}.`);
   },
 
   bounceToDeckBottom(ctx, effect, _targets) {
@@ -765,7 +798,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
    * the chronicle and nothing else.
    */
   peek(ctx, effect, _targets) {
-    ctx.log(`Betekintés: ${String(effect.what ?? "spellHand")}.`);
+    ctx.log(`Betekintés: ${PEEK_NAME[String(effect.what ?? "spellHand")] ?? "kéz"}.`);
     // Fejvadász turns the look into something the board can feel.
     const ring = Number(effect.ringIfCostlier ?? 0);
     if (ring <= 0 || !ctx.source) return;
@@ -800,6 +833,11 @@ function trySpell(id: string) {
   } catch {
     return undefined;
   }
+}
+
+/** Never let a card id reach a player. Falls back to the spell of the same name. */
+function attachmentName(id: string): string {
+  return getAttachment(id)?.name ?? trySpell(id)?.name ?? id;
 }
 
 export function applyEffect(ctx: EffectContext, effect: Effect, targets: SlotId[]): void {

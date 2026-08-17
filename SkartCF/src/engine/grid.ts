@@ -1,5 +1,5 @@
 import type { PlayerId, Row, SlotId } from "./types";
-import { PLAYERS } from "./types";
+import { PLAYERS, SIDE_NAME } from "./types";
 
 /**
  * The board is twelve slots: each player has a 2×3 grid, front row F1–F3 facing
@@ -34,6 +34,23 @@ export function rowOfSlot(slot: SlotId): Row {
   return slot[3] as Row;
 }
 
+/**
+ * What to call a tile in front of a player.
+ *
+ * `p1.F2` is a database key twice over: the seat and the row letter are both
+ * internal. The rulebook names the rows in Hungarian — E1–E3 for the első sor,
+ * H1–H3 for the hátsó (4.1.1) — so those are the labels the board and the
+ * chronicle use. `F` and `B` never leave the engine.
+ */
+export function coordLabel(slot: SlotId): string {
+  return `${rowOfSlot(slot) === "F" ? "E" : "H"}${colOfSlot(slot)}`;
+}
+
+/** The same tile, named with the side it belongs to. Unambiguous across the line. */
+export function slotLabel(slot: SlotId): string {
+  return `${SIDE_NAME[ownerOfSlot(slot)]} ${coordLabel(slot)}`;
+}
+
 export function colOfSlot(slot: SlotId): number {
   return Number(slot[4]);
 }
@@ -52,6 +69,26 @@ export function opposedSlot(slot: SlotId): SlotId | null {
 export function frontOfSlot(slot: SlotId): SlotId | null {
   if (rowOfSlot(slot) !== "B") return null;
   return slotId(ownerOfSlot(slot), "F", colOfSlot(slot));
+}
+
+/**
+ * One step further up the column, from `owner`'s point of view, and it does not
+ * stop at the centreline: own back → own front → enemy front → enemy back, then
+ * nothing. Advancing is a move, and 8.4.5 lets a move land on either half, so a
+ * unit pushing up its column keeps going into the space the enemy left.
+ *
+ * `frontOfSlot` is the narrower question ("the tile I am shielding") and stays
+ * that way; this is the marching one.
+ */
+export function forwardOf(slot: SlotId, owner: PlayerId): SlotId | null {
+  const side = ownerOfSlot(slot);
+  const col = colOfSlot(slot);
+  if (side === owner) {
+    return rowOfSlot(slot) === "B"
+      ? slotId(owner, "F", col)
+      : slotId(opponentOf(owner), "F", col);
+  }
+  return rowOfSlot(slot) === "F" ? slotId(side, "B", col) : null;
 }
 
 /** The three slots of one player's row. */

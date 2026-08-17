@@ -472,6 +472,41 @@ code {
   top: 50%;
   transform: translateY(-50%);
 }
+/* The tile you are reading, printed beside the board.
+ *
+ * A sibling of the board, not a child of the tile: a popover anchored to its own
+ * tile is clipped by the screen on the outer columns and covers the neighbours
+ * you are comparing against on the inner ones, and comparing is the whole reason
+ * to look. Your own units read out on the right, the enemy's on the left — the
+ * same sides the played-card panel uses, so there is one place to look rather
+ * than twelve. */
+.loupe {
+  position: absolute;
+  top: 50%;
+  z-index: 26;
+  transform: translateY(-50%);
+  max-height: 96dvh;
+  pointer-events: none;
+  filter: drop-shadow(0 12px 26px rgba(0, 0, 0, 0.7));
+  animation: loupe-opens 120ms ease-out both;
+}
+.loupe.mine {
+  right: calc(var(--rail) + 12px);
+}
+.loupe.theirs {
+  left: calc(var(--rail) + 12px);
+}
+.loupe .cardface {
+  --card-w: 190px;
+}
+@keyframes loupe-opens {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 
 /* ------------------------------------------------------------- the vault */
 
@@ -1004,9 +1039,23 @@ code {
   font-weight: 400;
   overflow: visible;
 }
-.cell:disabled {
+/* A tile you cannot play into is still an enabled button, because a disabled one
+   dispatches no mouse events and could never tell the loupe it was being read.
+   So it has to refuse the button styling by hand: no ember edge on hover, since
+   that edge means "you may put a card here". */
+.cell[aria-disabled="true"] {
   opacity: 1;
   cursor: default;
+}
+.cell[aria-disabled="true"]:hover {
+  border-color: rgba(116, 82, 44, 0.6);
+  color: var(--tallow);
+}
+.cell.front[aria-disabled="true"]:hover {
+  border-top-color: rgba(156, 109, 54, 0.8);
+}
+.cell.chasm[aria-disabled="true"]:hover {
+  cursor: not-allowed;
 }
 .cell .coord {
   position: absolute;
@@ -1323,12 +1372,17 @@ code {
   padding-top: 150px;
 }
 .hand-rail.near .hand-group {
-  transform: translateY(40%);
-  transition: transform 180ms ease-out;
+  transform: translateY(42%);
+  transition: transform 220ms ease-out;
 }
+/* Well clear of the bottom edge, not merely level with it. A hovered card grows
+   from its bottom edge and its power gem overhangs the frame, so that corner is
+   the first thing the screen edge eats — which is exactly what it did. The rail's
+   own box sits a little below the viewport (`bottom: 0` against a `100dvh`
+   parent), so this is deliberately generous rather than exact. */
 .hand-rail.near:hover .hand-group,
 .hand-rail.near:focus-within .hand-group {
-  transform: translateY(4%);
+  transform: translateY(-14%);
 }
 .hand-rail.far {
   top: 0;
@@ -1364,6 +1418,7 @@ code {
 .hand-slot {
   --hand-card-w: 118px;
   position: relative;
+  z-index: var(--z, 10);
   width: var(--hand-card-w);
   height: calc(var(--hand-card-w) * 88 / 63);
   margin: 0 -32px;
@@ -1380,7 +1435,17 @@ code {
   transform-origin: 50% 100%;
   transform: translateX(var(--shift, 0px)) rotate(var(--angle, 0deg))
     translateY(var(--drop, 0px));
-  transition: transform 170ms cubic-bezier(0.2, 0.8, 0.25, 1), filter 140ms;
+  transition: transform 200ms cubic-bezier(0.2, 0.8, 0.25, 1), filter 140ms;
+  /* Only the hovered card takes the pointer. A neighbour sliding out of the way
+     must not be able to slide *under* the pointer and steal the hover, because
+     that flips the hover between two slots and the shove reverses on every
+     frame — the second half of the jitter. The box below is what catches the
+     pointer in the first place, and the box never moves. */
+  pointer-events: none;
+}
+.hand-slot:hover > .hand-card,
+.hand-slot:focus-within > .hand-card {
+  pointer-events: auto;
 }
 .hand-slot .cardface {
   --card-w: var(--hand-card-w);
@@ -1392,31 +1457,46 @@ code {
 .hand-slot.dead .cardface {
   filter: grayscale(0.6) brightness(0.6);
 }
-/* Lifted clear of the screen edge and stood upright, so the whole card is
-   readable rather than the top half of it. Growing from the bottom edge means
-   the extra height all appears above the card. */
+/* Stood upright and grown, but grown in place: the origin is the bottom edge, so
+   the extra height appears above the card and the card stays where the hand said
+   it was. The old version threw it 132px up the screen, which took it away from
+   the pointer and away from where you were looking. A modest lift is only there
+   to clear the bottom edge.
+ *
+ * z-index goes up while hovered, and this is why `arc()` hands the resting value
+ * over as a custom property: an inline z-index would win and the card would stay
+ * buried under the ones to its right, hiding the power gem in its corner. */
 .hand-rail.near .hand-slot:hover,
-.hand-rail.near .hand-slot:focus-within {
+.hand-rail.near .hand-slot:focus-within,
+.hand-slot.picked {
   z-index: 60;
 }
+/* Brought forward: grown mostly in place, and lifted just enough that the whole
+   card — including the power gem overhanging its bottom-right corner — clears the
+   edge of the screen. The old version threw it 132px up and away from where you
+   were looking; most of that distance is now scale instead. Hovering and having
+   picked a card are the same state as far as the card is concerned. */
 .hand-rail.near .hand-slot:hover > .hand-card,
-.hand-rail.near .hand-slot:focus-within > .hand-card {
-  transform: translateY(-132px) scale(1.34);
-}
-.hand-slot.picked {
-  z-index: 55;
-}
+.hand-rail.near .hand-slot:focus-within > .hand-card,
 .hand-slot.picked > .hand-card {
-  transform: translateY(-112px) scale(1.18);
+  transform: translateY(-48%) scale(1.3);
 }
 
-/* Neighbours step out of the way rather than being covered up. Only the drawn
-   card shifts; the hit boxes stay exactly where they were. */
+/* Neighbours step out of the way rather than being covered up: the hovered card
+   is big enough to reach over three of them, so the shove is what keeps them
+   readable. Only the drawn card moves — the hit boxes stay exactly where they
+   were, and the cards cannot take the pointer anyway. */
 .hand-rail.near .hand-slot:hover ~ .hand-slot {
-  --shift: 48px;
+  --shift: 40px;
 }
 .hand-rail.near .hand-slot:has(~ .hand-slot:hover) {
-  --shift: -48px;
+  --shift: -40px;
+}
+.hand-rail.near .hand-slot:hover ~ .hand-slot + .hand-slot {
+  --shift: 22px;
+}
+.hand-rail.near .hand-slot:has(+ .hand-slot ~ .hand-slot:hover) {
+  --shift: -22px;
 }
 .hand-slot.picked .cardface {
   border-color: var(--ember);
@@ -1578,7 +1658,7 @@ code {
 
 /* The game opening: the table lights up rather than blinking into existence. */
 .field.opening {
-  animation: table-rises 620ms ease-out both;
+  animation: table-rises 900ms ease-out both;
 }
 @keyframes table-rises {
   from {
@@ -1591,7 +1671,7 @@ code {
   }
 }
 .field.opening .grids {
-  animation: grid-settles 700ms 120ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+  animation: grid-settles 1000ms 160ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
 }
 @keyframes grid-settles {
   from {
@@ -1621,6 +1701,37 @@ code {
   box-shadow: 0 0 0 1px var(--flame), 0 8px 20px rgba(0, 0, 0, 0.6);
 }
 
+/* The card in your hand, on the way to a tile. */
+.dragged-card {
+  transform: rotate(-3deg) scale(1.06);
+  transform-origin: 50% 50%;
+  filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.75));
+}
+.hand-slot.draggable {
+  /* Dragging a card must not also select the text on it. */
+  touch-action: none;
+  user-select: none;
+}
+/* While a card is in the air the hand stays down and stays out of the way: a
+   fan springing up under the cursor is exactly what you do not want mid-drag. */
+body.dragging-card .hand-rail.near .hand-group {
+  transform: translateY(58%);
+}
+body.dragging-card .hand-slot:hover > .hand-card {
+  transform: translateX(var(--shift, 0px)) rotate(var(--angle, 0deg))
+    translateY(var(--drop, 0px));
+}
+body.dragging-card {
+  cursor: grabbing;
+}
+/* The tile the card would land on. `.open` already says "legal"; this says
+   "here". */
+.cell.open.hot {
+  border-color: var(--flame);
+  background-color: rgba(255, 197, 92, 0.26);
+  box-shadow: inset 0 0 0 2px var(--flame), inset 0 0 32px rgba(255, 197, 92, 0.4);
+}
+
 /* A battlefield turning over, or a step of 5.1 opening. Across the middle,
    because that is the one thing worth interrupting the board for. */
 .herald {
@@ -1643,10 +1754,10 @@ code {
     rgba(23, 15, 8, 0.92) 82%,
     rgba(23, 15, 8, 0) 100%
   );
-  animation: herald-passes 1900ms ease-out both;
+  animation: herald-passes 2800ms ease-out both;
 }
 .herald.step {
-  animation-duration: 1500ms;
+  animation-duration: 2100ms;
 }
 .herald b {
   font-size: 34px;
@@ -1699,11 +1810,11 @@ code {
 }
 .playbill.mine {
   right: calc(var(--rail) + 14px);
-  animation: playbill-mine 1500ms ease-out both;
+  animation: playbill-mine 2600ms ease-out both;
 }
 .playbill.theirs {
   left: calc(var(--rail) + 14px);
-  animation: playbill-theirs 1500ms ease-out both;
+  animation: playbill-theirs 2600ms ease-out both;
 }
 .playbill .cardface {
   --card-w: 178px;
@@ -1759,7 +1870,7 @@ code {
 /* A unit arriving. The tile is already showing it; this is the landing. */
 .cell.stir-land,
 .cell.stir-veil {
-  animation: unit-lands 560ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+  animation: unit-lands 1050ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
   z-index: 3;
 }
 @keyframes unit-lands {
@@ -1782,7 +1893,7 @@ code {
 /* A spell landing on a unit that stayed standing. The tile flinches, so a −2 is
    something you see happen rather than a number that was already different. */
 .cell.stir-strike {
-  animation: unit-struck 500ms ease-out both;
+  animation: unit-struck 900ms ease-out both;
   z-index: 3;
 }
 @keyframes unit-struck {
@@ -1802,9 +1913,17 @@ code {
   }
 }
 
+/* A hovered tile drops its arrival flourish. Not for taste: the flourish is a
+   transform, and a transformed ancestor makes `position: fixed` resolve against
+   itself, which would drag the card panel back onto the board it is supposed to
+   sit beside. */
+.cell.reveals:hover {
+  animation: none;
+}
+
 /* Mustra turning a hidden unit over. */
 .cell.stir-reveal {
-  animation: unit-turns 820ms ease-out both;
+  animation: unit-turns 1400ms ease-out both;
   z-index: 3;
 }
 @keyframes unit-turns {
@@ -1836,7 +1955,7 @@ code {
   color: #eaa694;
   background: radial-gradient(60% 60% at 50% 50%, rgba(176, 60, 43, 0.4), transparent 70%);
   pointer-events: none;
-  animation: pyre-fades 700ms ease-out both;
+  animation: pyre-fades 1150ms ease-out both;
 }
 @keyframes pyre-fades {
   0% {
@@ -1852,7 +1971,7 @@ code {
 /* A card arriving in a hand. The refill is what makes the next battle possible,
    so it gets a beat of its own rather than appearing between blinks. */
 .hand-slot .hand-card {
-  animation: card-dealt 320ms ease-out both;
+  animation: card-dealt 520ms ease-out both;
 }
 @keyframes card-dealt {
   from {

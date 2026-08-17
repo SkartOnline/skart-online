@@ -23,12 +23,19 @@ import type {
   UnitCard,
 } from "../../engine";
 import CardFace from "../card/CardFace";
-import Board from "./Board";
+import Board, { Loaded } from "./Board";
 import NewGame from "./NewGame";
 import type { Sides } from "./NewGame";
 import { makeBot } from "./bot";
 import type { Agent } from "../../bot/agent";
-import { BEAT_MS, beatsBetween, captureHandCard, flyTo, slotElement } from "./theatre";
+import {
+  BEAT_MS,
+  beatsBetween,
+  beginCardDrag,
+  captureHandCard,
+  flyTo,
+  slotElement,
+} from "./theatre";
 import type { Beat, BeatKind, Flight } from "./theatre";
 
 interface Held {
@@ -205,9 +212,12 @@ interface FieldProps {
  * costs a row of tiles, a column down the side costs nothing the board wanted.
  */
 function Field(props: FieldProps) {
-  const { state, actor, held, send, bare, botSide, bot, beats } = props;
+  const { state, actor, held, setHeld, send, bare, botSide, bot, beats } = props;
   const pending = state.resolution?.pending ?? null;
   const [logOpen, setLogOpen] = useState(false);
+  /** The tile being read. Never a rule, only what the loupe beside the board shows. */
+  const [inspect, setInspect] = useState<SlotId | null>(null);
+  const inspected = inspect ? state.board[inspect] : null;
 
   // The table turns so whoever is acting sits at the bottom of the screen, with
   // their hand in front of them and the enemy across the line. Against the
@@ -254,21 +264,42 @@ function Field(props: FieldProps) {
     return set;
   }, [state.phase, pending, held, moves]);
 
+  function commit(slot: SlotId, card: Held) {
+    if (!actor) return;
+    send({
+      type: "playUnit",
+      player: actor,
+      uid: card.uid,
+      slot,
+      faceDown: card.veiled,
+      discardUid: card.tollUid ?? undefined,
+    });
+  }
+
   function pickSlot(slot: SlotId) {
     if (pending) {
       send({ type: "chooseSlot", player: pending.player, slot });
       return;
     }
-    if (state.phase === "units" && held && actor) {
-      send({
-        type: "playUnit",
-        player: actor,
-        uid: held.uid,
-        slot,
-        faceDown: held.veiled,
-        discardUid: held.tollUid ?? undefined,
-      });
-    }
+    if (state.phase === "units" && held && actor) commit(slot, held);
+  }
+
+  /**
+   * Picking a card up out of the hand. Selecting it is the same thing a click
+   * does, so the legal tiles light up while it is in the air and the drop goes
+   * through exactly the action a click would have produced. Dropping anywhere
+   * else puts the card back and leaves it selected, which is what a hand of paper
+   * would do.
+   */
+  function startDrag(event: React.PointerEvent, card: Held) {
+    if (event.button !== 0 || state.phase !== "units") return;
+    setHeld(card);
+    const session = beginCardDrag(card.uid, event.nativeEvent, {
+      onDrop: (slot) => commit(slot, card),
+      onEnd: () => {},
+    });
+    // No session means the card had no node to clone; the click path still works.
+    if (session) event.preventDefault();
   }
 
   const over = state.phase === "gameOver";
@@ -316,8 +347,18 @@ function Field(props: FieldProps) {
           viewer={viewer}
           stirring={stirring}
           fallen={fallen}
+          onInspect={setInspect}
         />
       </div>
+
+      {/* The tile you are reading, printed beside the board. A sibling of the
+          board rather than a child of the tile, so nothing on the board can clip
+          it and it never covers the units it is being compared against. */}
+      {inspected && (
+        <div className={`loupe ${inspected.owner === viewer ? "mine" : "theirs"}`}>
+          <Loaded unit={inspected} state={state} />
+        </div>
+      )}
 
       <aside className="rail-right">
         <Counters state={state} side={far} viewer={viewer} bare={bare} />
@@ -326,7 +367,7 @@ function Field(props: FieldProps) {
       </aside>
 
       {!over && <FarHand state={state} player={far} bare={bare} />}
-      {!over && <NearHand {...props} moves={moves} viewer={viewer} />}
+      {!over && <NearHand {...props} moves={moves} viewer={viewer} onDrag={startDrag} />}
 
       {logOpen && <Chronicle state={state} onClose={() => setLogOpen(false)} />}
       {over && <Aftermath state={state} onLeave={props.onLeave} onQuit={props.onQuit} />}
@@ -764,10 +805,12 @@ function verdict(state: GameState): string {
 /**
  * Where card `i` of `n` sits on the arc.
  *
- * The angle and the drop are handed over as custom properties rather than a
- * finished `transform`. An inline transform would beat any rule the stylesheet
- * could write, which is what stops a hovered card from standing up straight and
- * its neighbours from shuffling out of its way.
+ * Everything is handed over as a custom property, never as a finished `transform`
+ * or a finished `z-index`. An inline value beats any rule the stylesheet could
+ * write, and that was a real bug: the fan set `z-index` inline, so the hover rule
+ * that was supposed to lift the hovered card above its neighbours never applied,
+ * and a card on the left of the hand stayed buried under the ones to its right —
+ * which is exactly where its power gem is.
  */
 function arc(i: number, n: number, flip = false): React.CSSProperties {
   const mid = (n - 1) / 2;
@@ -777,7 +820,7 @@ function arc(i: number, n: number, flip = false): React.CSSProperties {
   return {
     "--angle": `${angle}deg`,
     "--drop": `${drop}px`,
-    zIndex: 10 + i,
+    "--z": 10 + i,
   } as React.CSSProperties;
 }
 
@@ -827,8 +870,14 @@ function FarHand({
  * this phase stays visible but dimmed: what you are holding in spells decides
  * where you put your units, so hiding it would hide the decision.
  */
-function NearHand(props: FieldProps & { moves: Action[]; viewer: PlayerId }) {
-  const { state, actor, held, setHeld, send, moves, viewer } = props;
+function NearHand(
+  props: FieldProps & {
+    moves: Action[];
+    viewer: PlayerId;
+    onDrag: (event: React.PointerEvent, held: Held) => void;
+  },
+) {
+  const { state, actor, held, setHeld, send, moves, viewer, onDrag } = props;
   const pending = state.resolution?.pending ?? null;
   const p = state.players[viewer];
   const mine = actor === viewer;
@@ -942,6 +991,14 @@ function NearHand(props: FieldProps & { moves: Action[]; viewer: PlayerId }) {
                           )
                       : undefined
                 }
+                // Pick the card up and drop it on a tile. Selecting the card is
+                // the same thing a click does, so the tiles light up either way
+                // and the two ways of playing share one code path.
+                onDragStart={
+                  live
+                    ? (e) => onDrag(e, { uid: c.uid, veiled: false, tollUid: null })
+                    : undefined
+                }
               >
                 <CardFace card={card} />
                 {live && veilable.has(c.uid) && (
@@ -1013,6 +1070,7 @@ function Slot({
   picked,
   dead,
   onClick,
+  onDragStart,
   children,
   uid,
 }: {
@@ -1021,6 +1079,8 @@ function Slot({
   picked?: boolean;
   dead?: boolean;
   onClick?: () => void;
+  /** Set on cards that can be picked up and dropped onto a tile. */
+  onDragStart?: (event: React.PointerEvent) => void;
   children: React.ReactNode;
   /** Lets the flight layer find this card's corner on screen. */
   uid?: string;
@@ -1029,11 +1089,13 @@ function Slot({
   if (playable) classes.push("playable");
   if (picked) classes.push("picked");
   if (dead) classes.push("dead");
+  if (onDragStart) classes.push("draggable");
   return (
     <div
       className={classes.join(" ")}
       style={style}
       data-hand-uid={uid}
+      onPointerDown={onDragStart}
       onClick={onClick}
       onKeyDown={(e) => {
         if (onClick && (e.key === "Enter" || e.key === " ")) {

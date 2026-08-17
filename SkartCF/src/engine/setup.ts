@@ -12,7 +12,7 @@ import type {
   PlayerState,
   RuleConfig,
 } from "./types";
-import { PLAYERS } from "./types";
+import { PLAYERS, SIDE_NAME } from "./types";
 
 export const DEFAULT_CONFIG: RuleConfig = {
   handSize: 7,
@@ -134,7 +134,7 @@ export function createGame(options: GameOptions): GameState {
   const first = getLocation(ordered[0].cardId);
   log(
     state,
-    `${first.name}, költségkeret ${first.cap === null ? "nincs" : first.cap}. Kezd: ${state.turn}.`,
+    `${first.name}, költségkeret ${first.cap === null ? "nincs" : first.cap}. Kezd: ${SIDE_NAME[state.turn]}.`,
   );
   applyLocationStart(state);
   settle(state);

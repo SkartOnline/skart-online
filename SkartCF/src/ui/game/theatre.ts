@@ -52,17 +52,24 @@ export interface Beat {
   text?: string;
 }
 
-/** How long each kind stays on screen, in ms. */
+/**
+ * How long each kind stays on screen, in ms.
+ *
+ * Erring slow on purpose. The point of a beat is that you can miss looking at the
+ * board for a second and still catch what happened, and the first pass was fast
+ * enough to be over before you had turned your head. A card being played is the
+ * longest, because it is the one you are meant to read.
+ */
 export const BEAT_MS: Record<BeatKind, number> = {
-  battlefield: 1900,
-  land: 620,
-  veil: 620,
-  reveal: 900,
-  cast: 1500,
-  fall: 700,
-  strike: 520,
-  draw: 700,
-  step: 1500,
+  battlefield: 2800,
+  land: 1200,
+  veil: 1200,
+  reveal: 1500,
+  cast: 2600,
+  fall: 1200,
+  strike: 950,
+  draw: 900,
+  step: 2100,
 };
 
 const STEP_TEXT: Partial<Record<GameState["phase"], string>> = {
@@ -224,7 +231,7 @@ export function captureHandCard(uid: string): Flight | null {
 }
 
 /** Runs the flight to wherever the target sits now, then clears up after itself. */
-export function flyTo(flight: Flight, target: Element | null, ms = 460): void {
+export function flyTo(flight: Flight, target: Element | null, ms = 700): void {
   const layer = document.querySelector<HTMLElement>(".flight-layer");
   if (!layer) return;
   // The stylesheet's reduced-motion rule cannot reach a script-driven animation,
@@ -263,4 +270,94 @@ export function flyTo(flight: Flight, target: Element | null, ms = 460): void {
 
 export function slotElement(slot: SlotId): Element | null {
   return document.querySelector(`[data-slot="${slot}"]`);
+}
+
+// ---------------------------------------------------------------------------
+// Dragging a card out of the hand
+// ---------------------------------------------------------------------------
+
+/**
+ * Picking a card up and putting it on a tile, which is how anyone who has held
+ * cards expects to play them.
+ *
+ * Built on pointer events rather than HTML5 drag-and-drop: the native API cannot
+ * be styled, fires no move events on some platforms, and would need the card
+ * serialised into a transfer payload it has no use for. What is actually wanted
+ * is a card following the cursor, which is three listeners and a clone.
+ *
+ * The clone is the same one the flight layer uses, so the card you are holding is
+ * pixel-identical to the card you were looking at. The drag never touches game
+ * state: it reports the tile it was dropped on and the caller dispatches the same
+ * action a click would have.
+ */
+export interface DragSession {
+  cancel(): void;
+}
+
+export function beginCardDrag(
+  uid: string,
+  event: PointerEvent,
+  handlers: { onDrop: (slot: SlotId) => void; onEnd: () => void },
+): DragSession | null {
+  const layer = document.querySelector<HTMLElement>(".flight-layer");
+  const flight = captureHandCard(uid);
+  if (!layer || !flight) return null;
+
+  const { node, from } = flight;
+  const grabX = event.clientX - from.left;
+  const grabY = event.clientY - from.top;
+  node.classList.add("dragged-card");
+  node.style.position = "fixed";
+  node.style.width = `${from.width}px`;
+  node.style.height = `${from.height}px`;
+  node.style.margin = "0";
+  node.style.pointerEvents = "none";
+  layer.appendChild(node);
+  document.body.classList.add("dragging-card");
+
+  let hot: Element | null = null;
+
+  const place = (x: number, y: number) => {
+    node.style.left = `${x - grabX}px`;
+    node.style.top = `${y - grabY}px`;
+  };
+
+  /** The tile under the cursor, if it is one this card may legally land on. */
+  const tileUnder = (x: number, y: number): Element | null => {
+    const found = document.elementFromPoint(x, y)?.closest("[data-slot]") ?? null;
+    return found?.classList.contains("open") ? found : null;
+  };
+
+  const markHot = (tile: Element | null) => {
+    if (hot === tile) return;
+    hot?.classList.remove("hot");
+    tile?.classList.add("hot");
+    hot = tile;
+  };
+
+  const move = (e: PointerEvent) => {
+    place(e.clientX, e.clientY);
+    markHot(tileUnder(e.clientX, e.clientY));
+  };
+
+  const finish = (e: PointerEvent | null) => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", finish);
+    window.removeEventListener("pointercancel", stop);
+    document.body.classList.remove("dragging-card");
+    const tile = e ? tileUnder(e.clientX, e.clientY) : null;
+    markHot(null);
+    node.remove();
+    const slot = tile?.getAttribute("data-slot");
+    if (slot) handlers.onDrop(slot);
+    else handlers.onEnd();
+  };
+
+  const stop = () => finish(null);
+
+  place(event.clientX, event.clientY);
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", finish);
+  window.addEventListener("pointercancel", stop);
+  return { cancel: stop };
 }

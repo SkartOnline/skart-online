@@ -111,12 +111,34 @@
 .cf-kind {
   font-weight: 600;
   flex: none;
+  display: flex;
+  gap: 0.4em;
+  white-space: nowrap;
+}
+/* The rarity rides with the card type rather than heading the trait list, which
+   is what leaves the whole right half for the traits — four of them (Eredet,
+   Rend, Faj, plus extras) do not fit next to a rarity at hand scale. */
+.cf-kind em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--ink-soft);
 }
 .cf-traits {
   text-align: right;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+}
+/* Tighten before truncating: losing the last trait means losing Faj, which is
+   the one the filters read most. */
+.cf-traits.long {
+  font-size: 0.92em;
+  letter-spacing: 0;
+}
+.cf-traits.dense {
+  font-size: 0.84em;
+  letter-spacing: -0.01em;
 }
 
 /* -------------------------------------------------------------- rules box */
