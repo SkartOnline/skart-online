@@ -3,6 +3,7 @@ import {
   cardOf,
   getAttachment,
   getSpell,
+  getUnit,
   isBlocked,
   power,
   powerBreakdown,
@@ -19,6 +20,14 @@ interface Props {
   bare: boolean;
   /** Whose side of the table we are sitting on. Their half is the near one. */
   viewer: PlayerId;
+  /**
+   * Tiles that changed a moment ago, and how. Purely presentational: the tile
+   * always renders the real state, this only decides whether it does so with a
+   * flourish. Empty during ordinary play.
+   */
+  stirring?: Map<SlotId, string>;
+  /** Units that just left the board, still shown as a ghost for a beat. */
+  fallen?: { id: number; slot?: SlotId; cardId?: string }[];
 }
 
 const COLS = [1, 2, 3];
@@ -28,13 +37,22 @@ const COLS = [1, 2, 3];
  * right order, and the viewer's half is always the near one: the far side is
  * drawn back rank first so its front rank meets the line.
  */
-export default function Board({ state, open, onPick, bare, viewer }: Props) {
+export default function Board({
+  state,
+  open,
+  onPick,
+  bare,
+  viewer,
+  stirring,
+  fallen,
+}: Props) {
   const far: PlayerId = viewer === "p1" ? "p2" : "p1";
+  const shared = { state, open, onPick, bare, viewer, stirring, fallen };
   return (
     <div className="grids">
-      <Side player={far} ranks={["B", "F"]} {...{ state, open, onPick, bare, viewer }} />
+      <Side player={far} ranks={["B", "F"]} {...shared} />
       <div className="line">arcvonal</div>
-      <Side player={viewer} ranks={["F", "B"]} {...{ state, open, onPick, bare, viewer }} />
+      <Side player={viewer} ranks={["F", "B"]} {...shared} />
     </div>
   );
 }
@@ -47,6 +65,8 @@ function Side({
   onPick,
   bare,
   viewer,
+  stirring,
+  fallen,
 }: Props & { player: PlayerId; ranks: Row[] }) {
   return (
     <div className="side">
@@ -63,6 +83,8 @@ function Side({
                 onPick={() => onPick(slot)}
                 bare={bare}
                 viewer={viewer}
+                stir={stirring?.get(slot)}
+                ghost={fallen?.find((f) => f.slot === slot)}
               />
             );
           })}
@@ -79,6 +101,8 @@ function Cell({
   onPick,
   bare,
   viewer,
+  stir,
+  ghost,
 }: {
   slot: SlotId;
   state: GameState;
@@ -86,16 +110,21 @@ function Cell({
   onPick: () => void;
   bare: boolean;
   viewer: PlayerId;
+  /** `"land"`, `"veil"` or `"reveal"` while the arrival is still playing. */
+  stir?: string;
+  /** A unit that has just left, drawn fading out of the empty tile. */
+  ghost?: { id: number; cardId?: string };
 }) {
   const unit = state.board[slot];
   const classes = ["cell"];
   if (rowOfSlot(slot) === "F") classes.push("front");
   if (open) classes.push("open");
+  if (stir) classes.push(`stir-${stir}`);
 
   // A Pék hídja turns the outer front slots into a chasm.
   if (isBlocked(state, slot)) {
     return (
-      <div className="cell chasm">
+      <div className="cell chasm" data-slot={slot}>
         <span className="coord">{slot.slice(3)}</span>
         <span className="label">szakadék</span>
       </div>
@@ -105,8 +134,15 @@ function Cell({
   if (!unit) {
     classes.push("empty-slot");
     return (
-      <button className={classes.join(" ")} onClick={onPick} disabled={!open}>
+      <button className={classes.join(" ")} data-slot={slot} onClick={onPick} disabled={!open}>
         <span className="coord">{slot.slice(3)}</span>
+        {/* The tile is already empty as far as the rules go; this is only the
+            afterimage of whatever was standing here a moment ago. */}
+        {ghost && (
+          <span className="pyre" key={ghost.id}>
+            {ghost.cardId ? tryUnitName(ghost.cardId) : "rejtett egység"}
+          </span>
+        )}
       </button>
     );
   }
@@ -114,7 +150,7 @@ function Cell({
   if (unit.faceDown && !bare) {
     classes.push("veiled");
     return (
-      <button className={classes.join(" ")} onClick={onPick} disabled={!open}>
+      <button className={classes.join(" ")} data-slot={slot} onClick={onPick} disabled={!open}>
         <span className="coord">{slot.slice(3)}</span>
         <span className="label">lefordítva</span>
       </button>
@@ -127,7 +163,7 @@ function Cell({
   if (unit.placed.length > 0) classes.push("laden");
 
   return (
-    <button className={classes.join(" ")} onClick={onPick} disabled={!open}>
+    <button className={classes.join(" ")} data-slot={slot} onClick={onPick} disabled={!open}>
       <span className="coord">{slot.slice(3)}</span>
       <Marks unit={unit} state={state} />
       <CardTile card={card} power={power(unit, state)} />
@@ -270,5 +306,13 @@ function trySpellName(id: string): string | undefined {
     return getSpell(id).name;
   } catch {
     return undefined;
+  }
+}
+
+function tryUnitName(id: string): string {
+  try {
+    return getUnit(id).name;
+  } catch {
+    return id;
   }
 }

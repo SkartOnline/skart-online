@@ -16,24 +16,38 @@ npm run sim -- --games 2000
 npm run build      # static build into dist/
 ```
 
+## The documents
+
+| File | What it is |
+|---|---|
+| `docs/szabaly-teljes.md` | **The rulebook.** Numbered, quotable, decides disputes. The engine follows it, and the in-app Szabály screen renders it. |
+| `docs/szabaly-gyors.md` | The quick rules, enough to sit down and play. |
+| `docs/abilities.md` | Every card text traced back to the parameterised primitive that implements it. |
+| `docs/design-notes.md` | Why the rules are what they are, plus the technical notes. Not a rulebook. |
+| `docs/bot.md` | The self-play opponent. |
+
+`docs/rules-v2.md` is gone. Its rules half was superseded by the full rulebook; its
+design half moved to `docs/design-notes.md`.
+
 ## The card set
 
-The full set is in: **88 units, 59 spells, 15 battlefields**, plus 21 attachment cards
+The full set is in: **88 units, 64 spells, 15 battlefields**, plus 21 attachment cards
 and one token (the Nyúl a Lépumorf leaves behind). `docs/abilities.md` is the ability
 inventory — every card text traced back to the parameterised primitive that implements
 it, and the short list of abilities that deliberately stayed as flavour text.
 
 Three things about this set are worth knowing before you read the data:
 
-- **Six schools: Mágus, Feketemágus, Harcos, Ravaszság, Druida, Bestia.** The old `Állat`
-  *caster school* was folded into Bestia. `Állat` survives as a keyword (Eredet) and is
-  still a different thing from the `Bestia` origin.
-- **A spell may name more than one school** (`schools: ["Harcos", "Ravaszság"]`). One
-  caster covers the whole cost out of one pool — naming two schools widens who *can*
-  pay, it never adds two pools together.
-- **Eredet and Rend are keywords.** `origin` and `order` are separate fields for the
-  editor's sake, but `keywordsOf()` folds them into the same list every filter reads, so
-  "minden szövetséges Kalóz" needs no special case.
+- **Six schools: Mágus, Feketemágus, Harcos, Zsivány, Druida, Bestia.** Two old names are
+  gone. The `Állat` *caster school* was folded into Bestia, and `Ravaszság` was renamed
+  `Zsivány` after the class it belongs to. Both survive as keywords, never as pools.
+- **A spell may name more than one school** (`schools: ["Harcos", "Zsivány"]`). One caster
+  covers the whole cost out of one pool — naming two schools widens who *can* pay, it
+  never adds two pools together.
+- **Eredet, Rend and Faj are keywords.** `origin`, `order` and `race` are separate fields
+  for the editor's sake, but `cardKeywords()` folds all three into the same list every
+  filter reads, so "minden szövetséges Kalóz" and "dobj el egy Állatot vagy Bestiát" need
+  no special case and no knowledge of which column the word came from.
 
 ## What works right now
 
@@ -89,7 +103,7 @@ card-specific branches anywhere in the engine — `effects.ts` is a table keyed 
   "cost": 5,
   "power": 4,
   "order": "Orgyilkos",
-  "spellpower": { "Ravaszság": 3 },
+  "spellpower": { "Zsivány": 3 },
   "belepo": {
     "target": { "scope": "columnEnemy", "compare": "weakerThanSelf", "pick": "weakest" },
     "effects": [{ "kind": "destroy" }]
@@ -254,6 +268,10 @@ is no UI to change them:
   since hiding discards a unit card and you cannot pay with the last card in hand.
 - Playing a spell **ends your turn**: nothing can follow it, so the turn passes on its
   own once the spell has finished asking for picks.
+- **Leszerelés is a step you play**, not a book-keeping pass: 12.5 lets both players throw
+  away as much of either hand as they like *before* 12.6 refills to seven. Tossing is
+  never forced, and it is not free either — you refill from a finite deck, so it buys card
+  quality with deck depth.
 - Both phases open with the player who **brought the battlefield**. Going first costs
   information in each: on units you reveal intent a step ahead, in the battle you show a
   spell and its target before the reply.
@@ -282,11 +300,11 @@ nothing in the engine plays that role now.
   column checks the actual card sitting across from it even while it is face-down. The
   alternative — treating a concealed unit as untargetable — would make hiding far
   stronger than the rules intend.
-- **Six units have no printed power in the source spreadsheet** — Sir Ton, Elfina,
-  Dérföldi Deoren, Charon, Calcas, A Faarcú. They are in the set at the cost-curve
-  baseline (`cost + 1`), tagged `wip`, with the placeholder said out loud in their card
-  text. Calcas had no printed cost either and is a guess at 5. Replace the numbers in
-  the editor when they are decided.
+- **Three units still have no printed power in the source spreadsheet** — Dérföldi
+  Deoren, Charon, Calcas. They are in the set at the cost-curve baseline (`cost + 1`),
+  tagged `wip`, with the placeholder said out loud in their card text. Calcas had no
+  printed cost either and is a guess at 5. Replace the numbers in the editor when they
+  are decided. Sir Ton, Elfina and A Faarcú have been finished and are no longer `wip`.
 - **Tűz and Fagy tags were assigned, not printed.** No spell in the spreadsheet names its
   element, so Explar and Lánglándzsa were tagged `Tűz` and Jéghegy `Fagy` from their card
   text. Tűzköpeny, Fagypáncél, Explodus and Erif mester all read those tags, so moving a
@@ -295,19 +313,23 @@ nothing in the engine plays that role now.
   player anything, so `pick` decides: Bérgyilkos takes the `weakest` in its column,
   Carnifex the `strongest` it is allowed to kill, Azman the `weakest` ally, Mágiacenzor
   the `highestSpellpower` enemy in its column.
-- **Vízköpő reads "no other ally in my row", not "in the front row".** The printed text
-  says első sor while the unit can stand in either, so the condition was read as the row
-  it is actually in.
-- **Varjú discards two, not "any number".** The card lets the player choose how many; a
-  Belépő cannot ask, so it takes the two cheapest units for two rings.
-- **Egységben az erő has no front-row restriction.** The printed card asks for the front
-  row; the attachment grants +1 to a three-strong row either way.
-- **The rules doc contradicts the damage rule.** `docs/rules-v2.md` says "Damage is a
-  persistent −X token placed on the unit and summed at totaling." The engine follows the
-  later correction instead: damage is not summed at totaling and scores nothing unless it
-  kills. The doc line wants updating.
-- **Végtelen puszta's first player** is picked at random at setup; the rules do not say
-  who goes first there.
+- **Varjú discards "any number" by discarding all of it.** The card lets the player
+  choose how many; a Belépő cannot ask, so it empties the unit hand and keeps a ring per
+  card. Vadász and Chupacabra pick the cheapest for the same reason.
+- **The cost cap is enforced at placement, not audited at Mustra.** 7.4 has the cap
+  checked at the reveal, with the whole battlefield forfeit for overshooting it. The
+  engine makes overshooting illegal instead, so the bust can never happen: it is the only
+  thing that has to be enforced and the only thing a player needs to know, and it keeps
+  the sidebar from having to show a number that 1.5.3 calls hidden.
+- **Októ-abnormitás devours at Mustra.** The spreadsheet dropped its `Belépő:` prefix and
+  the ability weighs the units diagonally touching it, which wants a finished board — so
+  it reads the board at the reveal step, the timing 10.2 exists for.
+- **Omen says "nem lehet varázslatot kijátszani".** The printed card still says *a
+  rakásra*, a zone the rules no longer have; the effect is unchanged.
+- **1.3.6's knockout tiebreak is not implemented.** Total power across the battles decides
+  who advances in an elimination bracket; a friendly game just ends in a draw.
+- **Végtelen puszta's first player** is picked at random at setup, which is what 3.8 asks
+  for ("sorsolással").
 - **Five abilities are text only.** Fuedrax's trap zone, Felix's portal to the next
   battlefield, Gouraldir's Three Relics (the card does not exist in the set) and Griff's
   two-way hand swap all need machinery the engine does not have; the pure-information

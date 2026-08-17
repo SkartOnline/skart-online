@@ -21,9 +21,11 @@ import {
   cardOf,
   conditionHolds,
   currentLocation,
+  damageCapFor,
   effectiveRange,
   isUntargetable,
   keywordMatches,
+  keywordsOf,
   matchesFilter,
   power,
   printedSpellpower,
@@ -46,6 +48,7 @@ import type {
   StaticCondition,
   TargetSpec,
   TriggerEvent,
+  UnitCard,
   UnitInstance,
 } from "./types";
 import { PLAYERS } from "./types";
@@ -71,6 +74,11 @@ export interface EffectContext {
   spell?: SpellCard;
   /** The unit that fired the trigger, the mover, or the one that died. */
   trigger?: UnitInstance | null;
+  /**
+   * Mustra (7.8): deaths are settled once, after every ability has run, rather
+   * than between them. The caller sweeps when the whole step is finished.
+   */
+  deferDeaths?: boolean;
   log: (text: string) => void;
 }
 
@@ -252,9 +260,35 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     }
   },
 
+  /**
+   * One sebzés effect covers the whole set, because the amount is data:
+   *
+   * - `amount` is the flat number, the ordinary case
+   * - `altAmount` / `altIf` swap in a second number when a condition holds on
+   *   the unit being hit. Hátbaszúrás is 2, or 4 in the back row.
+   * - `casterPowerDiv` derives it from the caster instead. Eltaposás is half the
+   *   caster's power, rounded up.
+   *
+   * A Faarcú then caps whatever came out of that, per effect rather than per
+   * spell, which is what the card says.
+   */
   damage(ctx, effect, targets) {
-    const amount = Number(effect.amount ?? 0);
+    const flat = Number(effect.amount ?? 0);
+    const div = Number(effect.casterPowerDiv ?? 0);
+    const scaled =
+      div > 0 && ctx.source ? Math.ceil(power(ctx.source, ctx.state) / div) : flat;
+    const altIf = effect.altIf ? (String(effect.altIf) as StaticCondition) : null;
     for (const unit of targetUnits(ctx, effect, targets)) {
+      let amount = scaled;
+      if (altIf && conditionHolds(ctx.state, unit, altIf, Number(effect.ifValue ?? 0))) {
+        amount = Number(effect.altAmount ?? amount);
+      }
+      const cap = damageCapFor(ctx.state, unit);
+      if (amount > cap) {
+        ctx.log(`${cardOf(unit).name} legfeljebb ${cap} sebzést szenvedhet el egy hatástól.`);
+        amount = cap;
+      }
+      if (amount <= 0) continue;
       unit.damage += amount;
       ctx.log(`${cardOf(unit).name}: ${amount} sebzés (összesen ${unit.damage}).`);
     }
@@ -301,14 +335,45 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
 
   move(ctx, effect, targets) {
     const destination = ctx.destination;
-    if (!destination || ctx.state.board[destination]) return;
     const [unit] = targetUnits(ctx, effect, targets);
     if (!unit || !canMove(unit, ctx.state)) return;
+    // An optional step ("mozoghatok") offers the unit's own slot as a
+    // destination, so declining is a pick rather than a missing action.
+    if (destination === unit.slot) {
+      ctx.log(`${cardOf(unit).name} a helyén marad.`);
+      return;
+    }
+    if (!destination || ctx.state.board[destination]) return;
     ctx.state.board[unit.slot] = null;
     unit.slot = destination;
     ctx.state.board[destination] = unit;
     ctx.log(`${cardOf(unit).name} ide lép: ${destination}.`);
     fireTrigger(ctx.state, "onAllyMove", unit, ctx.log);
+  },
+
+  /**
+   * Összjáték. Two allies trade places, which is a move that wants an occupied
+   * destination — the one thing `move` cannot express, since every other move in
+   * the game needs an empty tile.
+   */
+  swapWithAdjacent(ctx, _effect, targets) {
+    const destination = ctx.destination;
+    const first = targets.map((s) => unitAt(ctx.state, s)).find((u) => !!u);
+    const second = destination ? unitAt(ctx.state, destination) : null;
+    if (!first || !second || first.uid === second.uid) return;
+    if (!canMove(first, ctx.state) || !canMove(second, ctx.state)) {
+      ctx.log("A csere elmarad, valamelyikük nem tud mozogni.");
+      return;
+    }
+    const a = first.slot;
+    const b = second.slot;
+    first.slot = b;
+    second.slot = a;
+    ctx.state.board[a] = second;
+    ctx.state.board[b] = first;
+    ctx.log(`${cardOf(first).name} és ${cardOf(second).name} helyet cserél.`);
+    fireTrigger(ctx.state, "onAllyMove", first, ctx.log);
+    fireTrigger(ctx.state, "onAllyMove", second, ctx.log);
   },
 
   /** Szarvas walks up its own column and keeps a ring for every tile it gained. */
@@ -380,11 +445,16 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     }
   },
 
+  /** Álomfogó. `maxCost: 0` is no ceiling: the next spell, whatever it cost. */
   fizzleShield(ctx, effect, targets) {
     const maxCost = Number(effect.maxCost ?? 0);
     for (const unit of targetUnits(ctx, effect, targets)) {
       unit.fizzleShields.push({ maxCost });
-      ctx.log(`${cardOf(unit).name} védve a legfeljebb ${maxCost} költségű varázslatoktól.`);
+      ctx.log(
+        maxCost > 0
+          ? `${cardOf(unit).name} védve a legfeljebb ${maxCost} költségű varázslatoktól.`
+          : `${cardOf(unit).name} álomfogót kap: a következő rá szálló varázslat elszáll.`,
+      );
     }
   },
 
@@ -735,23 +805,31 @@ function trySpell(id: string) {
 export function applyEffect(ctx: EffectContext, effect: Effect, targets: SlotId[]): void {
   const handler = EFFECT_HANDLERS[effect.kind];
   if (!handler) throw new Error(`No handler for effect kind "${effect.kind}"`);
-  // The universal gate. Read against the acting unit, because a Belépő resolves
-  // without asking anyone: "if nobody else is out there, +2" has to be data.
+  // The universal gate, in two flavours: a board condition and a keyword read.
+  // Both are evaluated against the acting unit, because a Belépő resolves
+  // without asking anyone: "if nobody else is out there, +2" has to be data, and
+  // so does Sújtás asking whether it is hitting something Élettelen.
   const gate = effect.if ? String(effect.if) : "always";
-  if (gate !== "always") {
+  const wants = effect.ifKeyword ? String(effect.ifKeyword) : "";
+  const rejects = effect.ifNotKeyword ? String(effect.ifNotKeyword) : "";
+  if (gate !== "always" || wants || rejects) {
     const subject =
       (effect.on ?? "target") === "caster"
         ? ctx.source
         : (targets.map((s) => unitAt(ctx.state, s)).find(Boolean) ?? ctx.source);
+    if (!subject) return;
     if (
-      !subject ||
+      gate !== "always" &&
       !conditionHolds(ctx.state, subject, gate as StaticCondition, Number(effect.ifValue ?? 0))
     ) {
       return;
     }
+    const keywords = keywordsOf(subject);
+    if (wants && !keywordMatches(keywords, wants)) return;
+    if (rejects && keywordMatches(keywords, rejects)) return;
   }
   handler(ctx, effect, targets);
-  sweepDead(ctx.state, ctx.log);
+  if (!ctx.deferDeaths) sweepDead(ctx.state, ctx.log);
 }
 
 // ---------------------------------------------------------------------------
@@ -903,23 +981,51 @@ export function legalTargets(
   });
 }
 
-/** Where a `move` effect may put the unit it just picked up. */
+/**
+ * Plázs: where a unit standing at leszerelés goes instead of the graveyard.
+ * Returns `"graveyard"` unless the battlefield rescues this particular unit.
+ */
+export function salvageDestination(
+  state: GameState,
+  card: UnitCard,
+): "graveyard" | "deckBottom" | "hand" {
+  const keywords = cardKeywords(card);
+  for (const effect of currentLocation(state).effects ?? []) {
+    if (effect.kind !== "salvage") continue;
+    const keyword = effect.keyword ? String(effect.keyword) : "";
+    if (keyword && !keywordMatches(keywords, keyword)) continue;
+    const to = String(effect.to ?? "deckBottom");
+    if (to === "hand") return "hand";
+    if (to === "deckBottom") return "deckBottom";
+  }
+  return "graveyard";
+}
+
+/** Where Összjáték may send the ally it picked up: an adjacent ally to trade with. */
+export function legalSwapPartners(state: GameState, unit: UnitInstance): SlotId[] {
+  return orthogonalNeighbours(unit.slot).filter((s) => {
+    const other = state.board[s];
+    return !!other && other.owner === unit.owner && other.uid !== unit.uid;
+  });
+}
+
+/**
+ * Where a `move` effect may put the unit it just picked up.
+ *
+ * Either half of the board, by 8.4.5: "az érkezési mező bármelyik térfélen lehet,
+ * mert a térfelek csak a gyülekezés alatt számítanak". So a front-row unit can be
+ * pushed across the centreline into an empty enemy front tile, and Guner needs no
+ * special permission to end up behind the enemy — the rule already gives it to
+ * every move in the game. Owning a tile only decides where you may *commit* a
+ * unit during gathering (6.3.1).
+ */
 export function legalDestinations(
   state: GameState,
   unit: UnitInstance,
   mode: "adjacent" | "anyEmpty",
-  crossSide = false,
 ): SlotId[] {
-  const candidates =
-    mode === "adjacent"
-      ? orthogonalNeighbours(unit.slot)
-      : crossSide
-        ? ALL_SLOTS
-        : slotsOf(unit.owner);
-  return candidates.filter(
-    (s) =>
-      (crossSide || ownerOfSlot(s) === unit.owner) && !state.board[s] && !isBlocked(state, s),
-  );
+  const candidates = mode === "adjacent" ? orthogonalNeighbours(unit.slot) : ALL_SLOTS;
+  return candidates.filter((s) => !state.board[s] && !isBlocked(state, s));
 }
 
 /**

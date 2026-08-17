@@ -2,17 +2,20 @@ import { getSpell, getUnit } from "./cards";
 import {
   applyEffect,
   legalDestinations,
+  legalSwapPartners,
   legalTargets,
   needsDestination,
   needsHandCard,
   needsChosenTarget,
   redirectTarget,
   resolveAutoTargets,
+  sweepDead,
 } from "./effects";
 import type { EffectContext } from "./effects";
 import {
   abilitiesActive,
   cardOf,
+  castRingFor,
   currentLocation,
   freeCastsLeft,
   remainingSpellpower,
@@ -82,19 +85,76 @@ function contextFor(
  * mandatory and resolves live, in front of both players, so a Bérgyilkos landed
  * into a column kills across it right now.
  */
-export function fireBelepo(state: GameState, unit: UnitInstance): void {
+export function fireBelepo(state: GameState, unit: UnitInstance, deferDeaths = false): void {
   const card = cardOf(unit);
   if (!abilitiesActive(unit, state)) return;
   const belepo = card.belepo;
   if (!belepo || !belepo.effects?.length) return;
   const targets = resolveAutoTargets(state, unit, belepo.target);
   log(state, `${card.name} Belépő.`, unit.owner);
-  const ctx = contextFor(state, unit, unit.owner);
+  const ctx = contextFor(state, unit, unit.owner, { deferDeaths });
   for (const effect of belepo.effects) {
     const needsTargets = (effect.on ?? "target") === "target";
     if (needsTargets && targets.length === 0 && !SELF_PICKING.has(effect.kind)) continue;
     applyEffect(ctx, effect, targets);
   }
+}
+
+/**
+ * The Belépő and Mustra abilities owed at the reveal step, resolved the way 7.6
+ * asks for: every one of them reads the board as it stood after the reveal and
+ * before the first hit landed, and the results take effect together, so their
+ * order does not matter.
+ *
+ * Two things make that work. Targets are chosen for all of them up front, off
+ * the same snapshot, and deaths are held back until every ability has run (7.8).
+ * An ability aimed at a unit that dies in the same moment still runs and simply
+ * has no consequence on it (7.7), which falls out for free once the sweep is
+ * deferred.
+ */
+export function fireMustra(state: GameState, revealed: UnitInstance[]): void {
+  const owed: { unit: UnitInstance; effects: Effect[]; targets: SlotId[] }[] = [];
+
+  for (const unit of revealed) {
+    if (state.board[unit.slot]?.uid !== unit.uid) continue;
+    if (!abilitiesActive(unit, state)) continue;
+    const belepo = cardOf(unit).belepo;
+    if (!belepo?.effects?.length) continue;
+    owed.push({
+      unit,
+      effects: belepo.effects,
+      targets: resolveAutoTargets(state, unit, belepo.target),
+    });
+  }
+
+  for (const unit of unitsOf(state, "p1").concat(unitsOf(state, "p2"))) {
+    if (!abilitiesActive(unit, state)) continue;
+    for (const trigger of cardOf(unit).triggers ?? []) {
+      if (trigger.on !== "onMustra") continue;
+      owed.push({
+        unit,
+        effects: trigger.effects,
+        targets: resolveAutoTargets(state, unit, trigger.target),
+      });
+    }
+  }
+
+  for (const { unit, effects, targets } of owed) {
+    // A unit that has already been taken off the board this step keeps its
+    // ability: it read the same board everyone else did. What it cannot do is
+    // act from a slot it no longer occupies, hence the guard.
+    if (state.board[unit.slot]?.uid !== unit.uid) continue;
+    log(state, `${cardOf(unit).name}: Mustra.`, unit.owner);
+    const ctx = contextFor(state, unit, unit.owner, { deferDeaths: true });
+    for (const effect of effects) {
+      const needsTargets = (effect.on ?? "target") === "target";
+      if (needsTargets && targets.length === 0 && !SELF_PICKING.has(effect.kind)) continue;
+      applyEffect(ctx, effect, targets);
+    }
+  }
+
+  // 7.8: now, and only now, the deaths are settled — all of them at once.
+  sweepDead(state, (text) => log(state, text));
 }
 
 /** Effects that build their own target set and must run even with none passed in. */
@@ -125,6 +185,28 @@ function moveEffectOf(spell: SpellCard): Effect | undefined {
   return spell.effects.find((e) => e.kind === "move");
 }
 
+function swapEffectOf(spell: SpellCard): Effect | undefined {
+  return spell.effects.find((e) => e.kind === "swapWithAdjacent");
+}
+
+/**
+ * Where the effect that asked for a destination will accept one. An ordinary
+ * move wants an empty tile; an optional move ("mozoghatok") also offers the
+ * unit's own tile, so declining is a pick; Összjáték wants an occupied one.
+ */
+function destinationsFor(
+  state: GameState,
+  effect: Effect,
+  mover: UnitInstance,
+): SlotId[] {
+  if (effect.kind === "swapWithAdjacent") return legalSwapPartners(state, mover);
+  const mode = (effect.destination === "anyEmpty" ? "anyEmpty" : "adjacent") as
+    | "adjacent"
+    | "anyEmpty";
+  const open = legalDestinations(state, mover, mode);
+  return effect.optional === true ? [mover.slot, ...open] : open;
+}
+
 /** Targets that also leave a legal destination, when the spell moves something. */
 export function legalTargetsFor(
   state: GameState,
@@ -134,12 +216,11 @@ export function legalTargetsFor(
   if (!spell.target) return [];
   const controller = casterSlot.slice(0, 2) as PlayerId;
   const base = legalTargets(state, spell.target, casterSlot, controller, spell);
-  const move = moveEffectOf(spell);
-  if (!move || (move.on ?? "target") !== "target") return base;
-  const mode = (move.destination === "anyEmpty" ? "anyEmpty" : "adjacent") as "adjacent" | "anyEmpty";
+  const shifter = swapEffectOf(spell) ?? moveEffectOf(spell);
+  if (!shifter || (shifter.on ?? "target") !== "target") return base;
   return base.filter((slot) => {
     const unit = unitAt(state, slot);
-    return unit ? legalDestinations(state, unit, mode, move.crossSide === true).length > 0 : false;
+    return unit ? destinationsFor(state, shifter, unit).length > 0 : false;
   });
 }
 
@@ -190,9 +271,8 @@ export function casterIsViable(state: GameState, spell: SpellCard, casterSlot: S
   }
 
   const move = moveEffectOf(spell);
-  if (move && (move.on ?? "target") === "caster") {
-    const mode = (move.destination === "anyEmpty" ? "anyEmpty" : "adjacent") as "adjacent" | "anyEmpty";
-    if (legalDestinations(state, unit, mode, move.crossSide === true).length === 0) return false;
+  if (move && (move.on ?? "target") === "caster" && destinationsFor(state, move, unit).length === 0) {
+    return false;
   }
 
   if (needsHandCard(spell.effects)) {
@@ -276,22 +356,26 @@ export function advanceResolution(state: GameState): void {
       return;
     }
 
-    // 3. Destination, when something moves.
+    // 3. Destination, when something moves or trades places.
     if (needsDestination(spell.effects) && !res.chosen.destination) {
-      const move = moveEffectOf(spell)!;
-      const moverSlot = (move.on ?? "target") === "caster" ? res.chosen.caster : res.chosen.target;
+      const shifter = swapEffectOf(spell) ?? moveEffectOf(spell)!;
+      const moverSlot =
+        (shifter.on ?? "target") === "caster" ? res.chosen.caster : res.chosen.target;
       const mover = moverSlot ? unitAt(state, moverSlot) : null;
-      const mode = (move.destination === "anyEmpty" ? "anyEmpty" : "adjacent") as "adjacent" | "anyEmpty";
-      const destinations = mover
-        ? legalDestinations(state, mover, mode, move.crossSide === true)
-        : [];
+      const destinations = mover ? destinationsFor(state, shifter, mover) : [];
       if (destinations.length === 0) {
         log(state, `${spell.name} elszáll, nincs hova lépni.`, entry.owner);
         res.index += 1;
         res.chosen = {};
         continue;
       }
-      res.pending = request("destination", entry, spell, destinations, "Hova lépjen");
+      res.pending = request(
+        "destination",
+        entry,
+        spell,
+        destinations,
+        shifter.kind === "swapWithAdjacent" ? "Kivel cseréljen" : "Hova lépjen",
+      );
       return;
     }
 
@@ -378,7 +462,11 @@ function applyCastEntry(state: GameState, entry: CastEntry, spell: SpellCard): v
 
   const targetUnit = targetSlot ? unitAt(state, targetSlot) : null;
   if (targetUnit) {
-    const shieldIndex = targetUnit.fizzleShields.findIndex((s) => s.maxCost >= cost);
+    // `maxCost: 0` is no ceiling. Álomfogó swallows the next spell whatever it
+    // cost, so the cheap-spells-only reading is gone.
+    const shieldIndex = targetUnit.fizzleShields.findIndex(
+      (s) => s.maxCost <= 0 || s.maxCost >= cost,
+    );
     if (shieldIndex !== -1) {
       targetUnit.fizzleShields.splice(shieldIndex, 1);
       log(
@@ -405,6 +493,20 @@ function applyCastEntry(state: GameState, entry: CastEntry, spell: SpellCard): v
         ? { ...effect, amount: Number(effect.amount ?? 0) + damageBonus }
         : effect;
     applyEffect(ctx, boosted, targets);
+  }
+
+  // Elfina rings up whatever she aimed at, so the payoff is read off the caster
+  // after the spell has done its work and only if the target survived it.
+  if (targetUnit && state.board[targetUnit.slot]?.uid === targetUnit.uid) {
+    const rings = castRingFor(state, caster, targetUnit);
+    if (rings !== 0) {
+      targetUnit.rings += rings;
+      log(
+        state,
+        `${cardOf(caster).name}: ${cardOf(targetUnit).name} +${rings} gyűrűt kap.`,
+        entry.owner,
+      );
+    }
   }
 
   // Every spell that landed on a unit stays on it, resolved or not, so hovering

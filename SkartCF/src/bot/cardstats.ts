@@ -64,7 +64,9 @@ type Policy =
 function actorOf(state: GameState): PlayerId | null {
   if (state.resolution?.pending) return state.resolution.pending.player;
   if (state.phase === "units" || state.phase === "battle") return state.turn;
-  if (state.phase === "scored") return legalActions(state, "p1").length > 0 ? "p1" : "p2";
+  if (state.phase === "scored" || state.phase === "cleanup") {
+    return legalActions(state, "p1").length > 0 ? "p1" : "p2";
+  }
   return null;
 }
 

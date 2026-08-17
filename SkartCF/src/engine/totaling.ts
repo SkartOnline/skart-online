@@ -22,6 +22,19 @@ export function visibleTotal(state: GameState, player: PlayerId): number {
     .reduce((sum, u) => sum + power(u, state), 0);
 }
 
+/**
+ * Cap spent as the opponent is allowed to read it (1.5.3): a face-down unit's
+ * cost is hidden information, so it is not in this number even though it is in
+ * `capSpent`. Each player keeps their own tally; nobody gets to audit the other
+ * one mid-gathering. Overshooting the cap is simply illegal, which is the whole
+ * of what has to be enforced and the whole of what a player needs to see.
+ */
+export function visibleCapSpent(state: GameState, player: PlayerId): number {
+  return unitsOf(state, player)
+    .filter((u) => !u.faceDown)
+    .reduce((sum, u) => sum + u.paidCost, 0);
+}
+
 export function totals(state: GameState): Record<PlayerId, number> {
   return { p1: boardTotal(state, "p1"), p2: boardTotal(state, "p2") };
 }

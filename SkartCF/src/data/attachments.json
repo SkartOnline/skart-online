@@ -142,6 +142,11 @@
     "name": "Morál",
     "statics": [
       {
+        "kind": "powerBonus",
+        "amount": 1,
+        "condition": "always"
+      },
+      {
         "kind": "aura",
         "amount": 1,
         "side": "ally",
@@ -149,7 +154,7 @@
         "keyword": "Harcos"
       }
     ],
-    "text": "Minden szomszédos szövetséges Harcos +1 erőt kap."
+    "text": "Én, és minden szomszédos szövetséges Harcos +1 erőt kap."
   },
   {
     "id": "egysegben_az_ero",
@@ -160,11 +165,12 @@
         "amount": 1,
         "side": "ally",
         "scope": "row",
+        "condition": "frontRow",
         "includeSelf": true,
         "atLeastCount": 3
       }
     ],
-    "text": "Ha hárman állnak a sorban, mindannyian +1 erőt kapnak."
+    "text": "Ha hárman állnak az első sorban, mindannyian +1 erőt kapnak."
   },
   {
     "id": "rothadas",

@@ -22,7 +22,7 @@ export const SCHOOLS = [
   "Mágus",
   "Feketemágus",
   "Harcos",
-  "Ravaszság",
+  "Zsivány",
   "Druida",
   "Bestia",
 ] as const;
@@ -48,6 +48,12 @@ export const LOCATION_EFFECTS = [
   "suppressPositional",
 ] as const;
 
+/**
+ * `cleanup` is deliberately absent: adding a phase would widen the vector and
+ * invalidate every saved checkpoint, and the leszerelés discard is a decision
+ * about hand quality rather than about the board this featuriser describes. An
+ * unlisted phase simply leaves the one-hot all zeros.
+ */
 const PHASES = ["units", "mustra", "battle", "scored", "gameOver"] as const;
 
 /** Hand cost histogram edges. Cheap bodies and expensive ones play differently. */

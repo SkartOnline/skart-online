@@ -31,12 +31,19 @@ export interface PolicyParams {
   stopChance: number;
   /** Chance of paying a card to hide a unit when hiding is legal. */
   hideRate: number;
+  /**
+   * Leszerelés (12.5): throw a unit away when its power is this far below what
+   * its cost should buy. Tossing cycles the deck for a better card at the price
+   * of deck depth, so a low threshold trades supply for quality.
+   */
+  tossThreshold: number;
 }
 
 export const DEFAULT_POLICY: PolicyParams = {
   stopMargin: 2,
   stopChance: 0.7,
   hideRate: 0.15,
+  tossThreshold: -1.5,
 };
 
 export interface PolicyContext {
@@ -98,9 +105,35 @@ export function chooseAction(state: GameState, player: PlayerId, ctx: PolicyCont
   // on offer while it is unfinished, in either phase.
   if (state.resolution?.pending) return chooseResolution(state, player, options);
   if (state.phase === "scored") return { type: "nextLocation" };
+  if (state.phase === "cleanup") return chooseTossAction(state, player, ctx, options);
   if (state.phase === "battle") return chooseBattleAction(state, player, ctx, options);
 
   return chooseUnitAction(state, player, ctx, options);
+}
+
+/**
+ * Leszerelés. Throwing a card away is never forced, and it is not free either:
+ * you refill from a finite deck, so a toss buys card quality with deck depth.
+ * The bot only throws away units that are clearly underweight for their cost,
+ * and only while there is something left to draw.
+ */
+function chooseTossAction(
+  state: GameState,
+  player: PlayerId,
+  ctx: PolicyContext,
+  options: Action[],
+): Action {
+  const p = state.players[player];
+  if (p.unitDeck.length > 0) {
+    for (const action of options) {
+      if (action.type !== "toss") continue;
+      const card = p.unitHand.find((c) => c.uid === action.uid);
+      if (!card) continue;
+      const unit = getUnit(card.cardId);
+      if (unit.power - unit.cost * 0.9 < ctx.params.tossThreshold) return action;
+    }
+  }
+  return { type: "declareTossDone", player };
 }
 
 /**

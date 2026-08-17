@@ -9,6 +9,9 @@
 
 .cardface {
   --card-w: 208px;
+  /* The corner gems are laid out against the frame, so the frame is the
+     containing block. At hand scale they overhang it deliberately. */
+  position: relative;
   width: var(--card-w);
   /* Height is derived rather than left to aspect-ratio: the rules box would
      otherwise push a small card taller than its own proportions. */
@@ -216,7 +219,7 @@
   --pip: #94402f;
   clip-path: polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%);
 }
-.pip.ravasz > b {
+.pip.zsivany > b {
   --pip: #5a5a3a;
   clip-path: polygon(50% 0, 100% 38%, 82% 100%, 18% 100%, 0 38%);
 }
