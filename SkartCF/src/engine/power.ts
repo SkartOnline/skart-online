@@ -55,11 +55,17 @@ export function cardOf(unit: UnitInstance): UnitCard {
   return getUnit(unit.cardId);
 }
 
-/** Printed keywords: the free list plus Eredet plus Rend. No board reads. */
+/**
+ * Printed keywords: the free list plus Eredet plus Rend plus Faj. No board
+ * reads. Folding all four into one list is what lets "minden szövetséges Kalóz"
+ * and "dobj el egy Állatot vagy Bestiát" share a single filter with no special
+ * case for which column of the spreadsheet the word came from.
+ */
 export function cardKeywords(card: UnitCard): string[] {
   const out = [...(card.keywords ?? [])];
   if (card.origin) out.push(card.origin);
   if (card.order) out.push(card.order);
+  if (card.race) out.push(card.race);
   return out;
 }
 
@@ -262,6 +268,13 @@ export function conditionHolds(
       return isIsolated(state, unit, true);
     case "aloneInRow":
       return !rowSlotsOf(unit.owner, rowOfSlot(unit.slot)).some((s) => {
+        const other = unitAt(state, s);
+        return other && other.uid !== unit.uid && other.owner === unit.owner;
+      });
+    // Vízköpő names the front row rather than "my row", so it reads the front
+    // row whichever row the unit is standing in.
+    case "aloneInFrontRow":
+      return !rowSlotsOf(unit.owner, "F").some((s) => {
         const other = unitAt(state, s);
         return other && other.uid !== unit.uid && other.owner === unit.owner;
       });
@@ -881,6 +894,46 @@ export function freeCastsLeft(unit: UnitInstance, state: GameState): number {
     if (ability.kind === "freeCasts") total += Number(ability.count ?? 0);
   }
   return Math.max(0, total - unit.freeCastsUsed);
+}
+
+/**
+ * A Faarcú: no single effect may put more than this much damage on the unit.
+ * `Infinity` when nobody is watching over it. Read per effect application, not
+ * per spell, exactly as the card says ("egy hatástól").
+ */
+export function damageCapFor(state: GameState, unit: UnitInstance): number {
+  let cap = Infinity;
+  for (const other of allUnitsOnBoard(state)) {
+    for (const ability of staticsOf(other, state)) {
+      if (ability.kind !== "damageCap") continue;
+      if (!slotsInScope(other, (ability.scope ?? "board") as Scope).includes(unit.slot)) continue;
+      if (!sideOk(unit, other, String(ability.side ?? "ally"))) continue;
+      cap = Math.min(cap, Math.max(0, Number(ability.amount ?? 0)));
+    }
+  }
+  return cap;
+}
+
+/**
+ * Elfina: when this unit casts at a matching target, the target keeps a ring.
+ * Returns how many, so the payoff is data rather than a card-specific branch in
+ * the resolution machine.
+ */
+export function castRingFor(
+  state: GameState,
+  caster: UnitInstance,
+  target: UnitInstance,
+): number {
+  let total = 0;
+  for (const ability of staticsOf(caster, state)) {
+    if (ability.kind !== "castRing") continue;
+    if (!sideOk(target, caster, String(ability.side ?? "ally"))) continue;
+    if (!keywordMatches(keywordsOf(target), ability.keyword ? String(ability.keyword) : undefined)) {
+      continue;
+    }
+    total += Number(ability.amount ?? 1);
+  }
+  return total;
 }
 
 /** Omen: while it stands, nobody casts anything. */

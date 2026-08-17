@@ -6,7 +6,7 @@ function other(player: PlayerId): PlayerId {
   return player === "p1" ? "p2" : "p1";
 }
 import { ALL_SLOTS } from "./grid";
-import { basePower, cannotDie, isDead, power } from "./power";
+import { basePower, cannotDie, cardKeywords, isDead, power } from "./power";
 import { payingSchool } from "./resolve";
 import { boardTotal, locationWinner } from "./totaling";
 import { applyAction, legalActions, remainingCap } from "./reducer";
@@ -52,6 +52,7 @@ function emptyPlayer(id: PlayerId) {
     capSpent: 0,
     hiddenThisLocation: 0,
     bonusDraw: { units: 0, spells: 0 },
+    tossDone: false,
   };
 }
 
@@ -75,20 +76,38 @@ describe("card data", () => {
     expect(validateCardSet(BASE_CARD_SET)).toEqual([]);
   });
 
-  it("ships the whole set: 88 units, 59 spells, 15 battlefields", () => {
+  it("ships the whole set: 88 units, 64 spells, 15 battlefields", () => {
     const playable = BASE_CARD_SET.units.filter((u) => !(u.tags ?? []).includes("token"));
     expect(playable).toHaveLength(88);
-    expect(BASE_CARD_SET.spells).toHaveLength(59);
+    expect(BASE_CARD_SET.spells).toHaveLength(64);
     expect(BASE_CARD_SET.locations).toHaveLength(15);
   });
 
-  it("folded the Állat caster school into Bestia and left the keyword alone", () => {
+  it("keeps Állat and Ravaszság out of the school list and alive as keywords", () => {
     for (const unit of BASE_CARD_SET.units) {
-      expect(Object.keys(unit.spellpower ?? {})).not.toContain("Állat");
+      const schools = Object.keys(unit.spellpower ?? {});
+      expect(schools).not.toContain("Állat");
+      expect(schools).not.toContain("Ravaszság");
+    }
+    for (const spell of BASE_CARD_SET.spells) {
+      expect(spell.schools).not.toContain("Ravaszság");
     }
     // Farkas still channels a school, and still reads as an Állat on the board.
     expect(getUnit("farkas").spellpower.Bestia).toBe(1);
-    expect(getUnit("farkas").origin).toBe("Állat");
+    expect(getUnit("farkas").race).toBe("Állat");
+    expect(cardKeywords(getUnit("farkas"))).toContain("Állat");
+  });
+
+  /**
+   * Eredet, Rend and Faj are three columns on the card and three fields in the
+   * data, but one list to every filter, which is what keeps "dobj el egy
+   * Állatot vagy Bestiát" from needing to know which column the word came from.
+   */
+  it("folds origin, order and race into the keyword list", () => {
+    const keywords = cardKeywords(getUnit("varju"));
+    expect(keywords).toContain("Felindori"); // Eredet
+    expect(keywords).toContain("Garabonciás"); // Rend
+    expect(keywords).toContain("Élettelen"); // Faj
   });
 });
 
@@ -295,14 +314,17 @@ describe("varázslás", () => {
   it("lets a multi-school spell be paid from either pool, never from both", () => {
     const state = blankState();
     place(state, "felindori_bajnok", "p1.F1"); // Harcos 3
-    place(state, "maffiavezer", "p1.F2"); // Ravaszság 3
+    place(state, "maffiavezer", "p1.F2"); // Zsivány 4
     place(state, "novicius", "p1.F3"); // Mágus 3, neither school
-    const kegyelem = getSpell("kegyelemdofes"); // cost 4, Harcos + Ravaszság
+    const kegyelem = getSpell("kegyelemdofes"); // cost 4, Harcos + Zsivány
 
-    expect(kegyelem.schools).toEqual(["Harcos", "Ravaszság"]);
-    // Cost 4 against two pools of 3: nobody can fund it, and they cannot pool.
+    expect(kegyelem.schools).toEqual(["Harcos", "Zsivány"]);
+    // Cost 4 against a pool of 3 funds nothing, in either named school, and the
+    // two pools never add together.
     expect(payingSchool(state, kegyelem, state.board["p1.F1"]!)).toBeNull();
     expect(payingSchool(state, kegyelem, state.board["p1.F3"]!)).toBeNull();
+    // Either named school covers it on its own once the pool is deep enough.
+    expect(payingSchool(state, kegyelem, state.board["p1.F2"]!)).toBe("Zsivány");
 
     place(state, "iniquus", "p1.B1"); // Harcos 5
     expect(payingSchool(state, kegyelem, state.board["p1.B1"]!)).toBe("Harcos");
@@ -658,8 +680,24 @@ describe("sebzés", () => {
 });
 
 describe("phase flow", () => {
-  /** Closes both unit flags, carrying the location into the battle phase. */
-  function skipUnits(state: GameState): GameState {
+  /**
+   * One caster, one spell, and it is the only unit on the board, so it is also
+   * the only legal target. Nothing is left for the player to choose.
+   */
+  function seatCaster(state: GameState, player: PlayerId, spellId = "explar"): void {
+    place(state, "celebrant", `${player}.B2`);
+    state.players[player].spellHand = [{ uid: `${player}-x`, cardId: spellId }];
+  }
+
+  /**
+   * Closes both unit flags, carrying the location into the battle phase.
+   *
+   * A caster goes down first, because 8.7.2 shuts the battle immediately when
+   * neither side holds a spell it could actually cast, and an empty board funds
+   * nothing at all.
+   */
+  function skipUnits(state: GameState, seat = true): GameState {
+    if (seat) for (const player of ["p1", "p2"] as PlayerId[]) seatCaster(state, player);
     for (const player of ["p1", "p2"] as PlayerId[]) {
       state = applyAction(state, { type: "declareUnitsDone", player });
     }
@@ -678,6 +716,7 @@ describe("phase flow", () => {
 
   it("runs units then Mustra then battle, opening only once both stop", () => {
     let state = newGame();
+    for (const player of ["p1", "p2"] as PlayerId[]) seatCaster(state, player);
     const first = state.turn;
     state = applyAction(state, { type: "declareUnitsDone", player: first });
     expect(state.phase).toBe("units"); // one flag down is not enough
@@ -688,40 +727,41 @@ describe("phase flow", () => {
     expect(state.turn).toBe(state.locations[0].broughtBy);
   });
 
-  /**
-   * One caster, one spell, and it is the only unit on the board, so it is also
-   * the only legal target. Nothing is left for the player to choose.
-   */
-  function seatCaster(state: GameState, player: PlayerId, spellId = "explar"): void {
-    place(state, "celebrant", `${player}.B2`);
-    state.players[player].spellHand = [{ uid: `${player}-x`, cardId: spellId }];
-  }
-
   it("offers units in the units phase and spells in the battle, never both", () => {
     let state = newGame();
     expect(legalActions(state, state.turn).some((a) => a.type === "playUnit")).toBe(true);
     state = skipUnits(state);
     expect(state.phase).toBe("battle");
-    seatCaster(state, state.turn);
     const moves = legalActions(state, state.turn);
     expect(moves.some((a) => a.type === "playUnit")).toBe(false);
     expect(moves.some((a) => a.type === "castSpell")).toBe(true);
   });
 
-  it("never offers a spell no unit of yours can fund", () => {
+  /**
+   * 8.7.2: with no castable spell at the start of your turn you must finish the
+   * battle. An empty board funds nothing, so an empty Mustra scores straight
+   * away rather than trading turns nobody can act on.
+   */
+  it("closes the battle when neither side can cast anything", () => {
     let state = newGame();
-    state = skipUnits(state);
+    state = skipUnits(state, false);
+    expect(state.phase).toBe("scored");
+    expect(state.log.some((l) => l.text.includes("nincs kijátszható varázslat"))).toBe(true);
+  });
+
+  it("never offers a spell no unit of yours can fund", () => {
+    const state = blankState();
+    state.phase = "battle";
     // An empty board funds nothing, so an uncastable spell is simply not on
     // offer rather than being played into a fizzle.
-    state.players[state.turn].spellHand = [{ uid: "s1", cardId: "explar" }];
-    expect(legalActions(state, state.turn).some((a) => a.type === "castSpell")).toBe(false);
+    state.players.p1.spellHand = [{ uid: "s1", cardId: "explar" }];
+    expect(legalActions(state, "p1").some((a) => a.type === "castSpell")).toBe(false);
   });
 
   it("asks the caster for every pick, even the ones with a single answer", () => {
     let state = newGame();
     state = skipUnits(state);
     const player = state.turn;
-    seatCaster(state, player);
     state = applyAction(state, legalActions(state, player).find((a) => a.type === "castSpell")!);
     expect(state.spellsCast).toHaveLength(1);
 

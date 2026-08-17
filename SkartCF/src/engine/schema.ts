@@ -65,6 +65,7 @@ export const STATIC_CONDITIONS = [
   "isolated",
   "isolatedDiagonal",
   "aloneInRow",
+  "aloneInFrontRow",
   "aloneOnBoard",
   "immobile",
   "graveyardAtLeast",
@@ -283,6 +284,28 @@ export const STATIC_SPECS: KindSpec[] = [
     ],
   },
   {
+    kind: "damageCap",
+    label: "Sebzésplafon",
+    summary:
+      "A körzet egységei egyetlen hatástól sem szenvedhetnek el ennél több sebzést. Ez A Faarcú.",
+    fields: [
+      { name: "amount", type: "number", label: "Legfeljebb ennyi sebzés", default: 2, min: 0 },
+      { name: "side", type: "select", label: "Kiket véd", default: "ally", options: ["ally", "enemy", "all"] },
+      { name: "scope", type: "select", label: "Körzet", default: "board", options: SCOPE_OPTIONS },
+    ],
+  },
+  {
+    kind: "castRing",
+    label: "Gyűrű a megcélzottnak",
+    summary:
+      "Amikor ez az egység varázslattal megcéloz egy illeszkedő egységet, a célpont gyűrűt kap. Ez az Elfina.",
+    fields: [
+      { name: "amount", type: "number", label: "Gyűrű", default: 1, step: 1 },
+      { name: "side", type: "select", label: "Kire", default: "ally", options: ["ally", "enemy", "all"] },
+      { name: "keyword", type: "keyword", label: "Csak ilyen kulcsszavúra", default: "Állat" },
+    ],
+  },
+  {
     kind: "powerOverride",
     label: "Erő felülírása",
     summary: "Az alaperőre állítja vissza, vagy fix értéket ad. Természetes forma, Enormorf.",
@@ -320,8 +343,36 @@ export const EFFECT_SPECS: KindSpec[] = [
   {
     kind: "damage",
     label: "Sebzésjelölő",
-    summary: "Maradandó −X jelölő, az összesítésnél számít. A 0 elérése öl.",
-    fields: [{ name: "amount", type: "number", label: "Mennyiség", default: 2, min: 1 }, ON_FIELD],
+    summary:
+      "Maradandó −X jelölő, ami az összesítésbe nem számít bele, de a 0 elérése öl. A mennyiség fix, feltételes vagy a varázsló erejéből származtatott.",
+    fields: [
+      { name: "amount", type: "number", label: "Mennyiség", default: 2, min: 0 },
+      {
+        name: "altAmount",
+        type: "number",
+        label: "Másik mennyiség, ha a feltétel áll",
+        default: 0,
+        min: 0,
+        help: "A Hátbaszúrás 2-t sebez, a hátsó sorban 4-et.",
+      },
+      {
+        name: "altIf",
+        type: "select",
+        label: "Ehhez a feltétel",
+        default: "always",
+        options: [...STATIC_CONDITIONS],
+        help: "A megcélzott egységre nézve. Az 'always' azt jelenti, hogy nincs második mennyiség.",
+      },
+      {
+        name: "casterPowerDiv",
+        type: "number",
+        label: "A varázsló erejének ennyiedrésze (0 = fix mennyiség)",
+        default: 0,
+        min: 0,
+        help: "Az Eltaposás 2-t ír ide: a varázsló erejének fele, felfelé kerekítve.",
+      },
+      ON_FIELD,
+    ],
   },
   {
     kind: "destroy",
@@ -368,17 +419,26 @@ export const EFFECT_SPECS: KindSpec[] = [
         label: "Célmező",
         default: "adjacent",
         options: ["adjacent", "anyEmpty"],
-        help: "Az 'adjacent' szomszédos (élben érintkező) üres mezőt jelent.",
+        help:
+          "Az 'adjacent' szomszédos (élben érintkező) üres mezőt jelent. Az érkezési mező a 8.4.5 szerint bármelyik térfélen lehet, ezt nem kell külön megengedni.",
       },
       {
-        name: "crossSide",
+        name: "optional",
         type: "boolean",
-        label: "Az ellenség térfelére is léphet",
+        label: "Nem kötelező lépni",
         default: false,
-        help: "Az Infiltráció ezzel juttatja a Gunert az ellenség mögé.",
+        help: "A Kitörés csak mozoghat: a saját mezője is választható célmező, és ez a nemet.",
       },
       ON_FIELD,
     ],
+  },
+  {
+    kind: "swapWithAdjacent",
+    label: "Két szomszédos egység cseréje",
+    summary:
+      "A megcélzott egység helyet cserél egy vele szomszédos szövetségessel. Ez az Összjáték.",
+    needsDestination: true,
+    fields: [],
   },
   {
     kind: "advance",
@@ -442,9 +502,16 @@ export const EFFECT_SPECS: KindSpec[] = [
   {
     kind: "fizzleShield",
     label: "Álomfogó-pajzs",
-    summary: "A következő, legfeljebb ekkora költségű, rá irányuló varázslat elszáll.",
+    summary: "A következő rá irányuló varázslat elszáll, akármennyibe került.",
     fields: [
-      { name: "maxCost", type: "number", label: "Elnyeli a legfeljebb ekkora költségűt", default: 5, min: 1 },
+      {
+        name: "maxCost",
+        type: "number",
+        label: "Költséghatár (0 = nincs határ)",
+        default: 0,
+        min: 0,
+        help: "Az Álomfogó és az Omnifex 0-t ír ide: a következő varázslat elszáll, bármi is az.",
+      },
       ON_FIELD,
     ],
   },
@@ -820,6 +887,22 @@ export const LOCATION_EFFECT_SPECS: KindSpec[] = [
     ],
   },
   {
+    kind: "salvage",
+    label: "Leszereléskor megmenekül",
+    summary:
+      "A csata végén az ilyen kulcsszavú egységek nem a temetőbe kerülnek. Ez a Plázs.",
+    fields: [
+      { name: "keyword", type: "keyword", label: "Kulcsszó (üres = mindenki)", default: "Felindori" },
+      {
+        name: "to",
+        type: "select",
+        label: "Hova kerül helyette",
+        default: "deckBottom",
+        options: ["deckBottom", "hand"],
+      },
+    ],
+  },
+  {
     kind: "playFromGraveyard",
     label: "Temetőből is játszható",
     summary: "A temető úgy viselkedik, mint a kéz kiegészítése. Ez az Umbra.",
@@ -853,6 +936,19 @@ const IF_FIELDS: FieldSpec[] = [
     help: "A hatást kiváltó egységre nézve értékelődik ki. Az 'always' azt jelenti, hogy nincs feltétel.",
   },
   { name: "ifValue", type: "number", label: "Feltétel küszöbe", default: 0, min: 0 },
+  {
+    name: "ifKeyword",
+    type: "keyword",
+    label: "Csak ha ilyen kulcsszavú",
+    default: "",
+    help: "Vesszővel több is megadható, és bármelyik elég. A Sújtás így méri az Élettelent.",
+  },
+  {
+    name: "ifNotKeyword",
+    type: "keyword",
+    label: "Csak ha NEM ilyen kulcsszavú",
+    default: "",
+  },
 ];
 
 for (const spec of EFFECT_SPECS) spec.fields = [...spec.fields, ...IF_FIELDS];
@@ -887,8 +983,12 @@ export const TRIGGER_EVENTS = [
 
 export const TARGET_SIDES = ["enemy", "ally", "self", "any"] as const;
 
-/** The six schools. `Állat` was folded into `Bestia` and is a keyword only. */
-export const SCHOOLS = ["Mágus", "Feketemágus", "Harcos", "Ravaszság", "Druida", "Bestia"] as const;
+/**
+ * The six schools. Two old names are gone: `Állat` was folded into `Bestia`, and
+ * `Ravaszság` was renamed `Zsivány` after the class it belongs to. Both survive
+ * as keywords only.
+ */
+export const SCHOOLS = ["Mágus", "Feketemágus", "Harcos", "Zsivány", "Druida", "Bestia"] as const;
 
 export const RARITIES = ["Gyakori", "Ritka", "Kivételes", "Legendás"] as const;
 

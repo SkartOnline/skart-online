@@ -9,12 +9,12 @@
         "amount": -1
       }
     ],
-    "text": "A legerősebb egység -1 erőt kap. Azonos erő esetén mindegyikük."
+    "text": "A legerősebb egység -1 erőt kap (azonos erő esetén mindegyikük)."
   },
   {
     "id": "feketepiac",
     "name": "Feketepiac",
-    "cap": 12,
+    "cap": 9,
     "effects": [
       {
         "kind": "autoHide",
@@ -53,7 +53,7 @@
         "slots": "F1,F3"
       }
     ],
-    "text": "Az első sor két szélső mezője szakadék, nem kerülhet ide egység."
+    "text": "Az első sor két szélső mezője szakadék (nem kerülhet ide egység)."
   },
   {
     "id": "maguskor",
@@ -66,7 +66,7 @@
         "min": 1
       }
     ],
-    "text": "Minden varázslat költsége 1-gyel kevesebb, de legalább 1."
+    "text": "Minden varázslat költsége 1-gyel kevesebb (de legalább 1)."
   },
   {
     "id": "lingadori_konyvtar",
@@ -111,7 +111,7 @@
   {
     "id": "malom",
     "name": "Malom",
-    "cap": 18,
+    "cap": 15,
     "effects": [
       {
         "kind": "startEffect",
@@ -170,13 +170,20 @@
   {
     "id": "plazs",
     "name": "Plázs",
-    "cap": 24,
-    "effects": []
+    "cap": 21,
+    "effects": [
+      {
+        "kind": "salvage",
+        "keyword": "Felindori",
+        "to": "deckBottom"
+      }
+    ],
+    "text": "A csata végén a Felindori egységek a temető helyett a pakli aljára kerülnek."
   },
   {
     "id": "umbra",
     "name": "Umbra",
-    "cap": 30,
+    "cap": 27,
     "effects": [
       {
         "kind": "playFromGraveyard"

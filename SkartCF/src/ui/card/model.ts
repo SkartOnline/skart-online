@@ -109,7 +109,7 @@ export const SCHOOL_SLUG: Record<string, string> = {
   Mágus: "magus",
   Feketemágus: "fekete",
   Harcos: "harcos",
-  Ravaszság: "ravasz",
+  Zsivány: "zsivany",
   Druida: "druida",
   Bestia: "bestia",
 };

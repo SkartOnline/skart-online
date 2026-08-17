@@ -1314,13 +1314,21 @@ code {
   gap: 44px;
   pointer-events: none;
 }
+/* The near hand rests cut off by the bottom edge and comes up when you reach for
+   it. The lift is on the groups rather than on the rail, so the rail's own box —
+   which is what decides whether the pointer is still "in the hand" — stays put
+   while the cards move. */
 .hand-rail.near {
   bottom: 0;
-  transform: translateY(44%);
-  transition: transform 160ms ease-out;
+  padding-top: 150px;
 }
-.hand-rail.near:hover {
-  transform: translateY(6%);
+.hand-rail.near .hand-group {
+  transform: translateY(40%);
+  transition: transform 180ms ease-out;
+}
+.hand-rail.near:hover .hand-group,
+.hand-rail.near:focus-within .hand-group {
+  transform: translateY(4%);
 }
 .hand-rail.far {
   top: 0;
@@ -1341,23 +1349,41 @@ code {
   filter: saturate(0.6);
 }
 
-/* The arc comes in as --angle and --drop; the transform is composed here so a
-   hover can replace it outright and siblings can be pushed aside. */
+/* One card in a hand, in two layers.
+ *
+ * `.hand-slot` is the hit box and it NEVER moves. `.hand-card` is what animates:
+ * the fan angle, the shove from a hovered neighbour, the hover lift. Keeping
+ * them apart is what stops the jitter — a card that lifts 130px and grows a
+ * third leaves the pointer behind if it is itself the hover target, so it drops,
+ * catches the pointer, and lifts again on a loop. `:hover` on the box holds
+ * while the pointer is over any descendant, so the live region is the box plus
+ * wherever the card has got to, and neither of those moves on its own.
+ *
+ * The arc arrives as --angle and --drop; the transform is composed here so the
+ * hover can replace it outright. */
 .hand-slot {
+  --hand-card-w: 118px;
   position: relative;
-  margin: 0 -30px;
-  transform-origin: 50% 100%;
-  transform: translateX(var(--shift, 0px)) rotate(var(--angle, 0deg))
-    translateY(var(--drop, 0px));
-  transition: transform 150ms ease-out, filter 140ms;
+  width: var(--hand-card-w);
+  height: calc(var(--hand-card-w) * 88 / 63);
+  margin: 0 -32px;
+  flex: none;
   border: none;
   background: none;
   padding: 0;
   cursor: default;
 }
+.hand-card {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform-origin: 50% 100%;
+  transform: translateX(var(--shift, 0px)) rotate(var(--angle, 0deg))
+    translateY(var(--drop, 0px));
+  transition: transform 170ms cubic-bezier(0.2, 0.8, 0.25, 1), filter 140ms;
+}
 .hand-slot .cardface {
-  --card-w: 108px;
-  pointer-events: none;
+  --card-w: var(--hand-card-w);
   box-shadow: 0 5px 14px rgba(0, 0, 0, 0.55);
 }
 .hand-slot.playable {
@@ -1372,23 +1398,61 @@ code {
 .hand-rail.near .hand-slot:hover,
 .hand-rail.near .hand-slot:focus-within {
   z-index: 60;
-  transform: translateY(-124px) scale(1.32);
+}
+.hand-rail.near .hand-slot:hover > .hand-card,
+.hand-rail.near .hand-slot:focus-within > .hand-card {
+  transform: translateY(-132px) scale(1.34);
 }
 .hand-slot.picked {
   z-index: 55;
-  transform: translateY(-104px) scale(1.16);
+}
+.hand-slot.picked > .hand-card {
+  transform: translateY(-112px) scale(1.18);
 }
 
-/* Neighbours step out of the way rather than being covered up. */
+/* Neighbours step out of the way rather than being covered up. Only the drawn
+   card shifts; the hit boxes stay exactly where they were. */
 .hand-rail.near .hand-slot:hover ~ .hand-slot {
-  --shift: 46px;
+  --shift: 48px;
 }
 .hand-rail.near .hand-slot:has(~ .hand-slot:hover) {
-  --shift: -46px;
+  --shift: -48px;
 }
 .hand-slot.picked .cardface {
   border-color: var(--ember);
   box-shadow: 0 0 0 2px var(--ember), 0 0 22px rgba(232, 129, 31, 0.55);
+}
+
+/* The corners you actually read, sized to be legible at hand scale rather than
+   at collection scale: a cost gem over the top-left corner and a power shield
+   over the bottom-right, both overhanging the frame so the rules box keeps its
+   room. This is the one place the card face is allowed to grow its own numbers. */
+.hand-slot .cf-cost,
+.hand-slot .cf-power,
+.hand-slot .cf-range {
+  position: absolute;
+  z-index: 3;
+  font-size: 1.85em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+}
+.hand-slot .cf-cost {
+  top: -0.18em;
+  left: -0.18em;
+  width: 1.42em;
+  height: 1.42em;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.7);
+}
+.hand-slot .cf-power,
+.hand-slot .cf-range {
+  right: -0.12em;
+  bottom: -0.1em;
+  min-width: 1.5em;
+  height: 1.5em;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
+}
+/* The name has the top-left corner to itself now that the gem sits over it. */
+.hand-slot .cf-name {
+  padding-left: 1.1em;
 }
 
 .veil-tag {
@@ -1397,7 +1461,6 @@ code {
   bottom: 4px;
   transform: translateX(-50%);
   z-index: 4;
-  pointer-events: auto;
   font-size: 11px;
   font-variant-caps: small-caps;
   background: #3d2a13;
@@ -1504,6 +1567,300 @@ code {
   color: var(--ash);
   background: rgba(23, 15, 8, 0.96);
   border: 1px solid var(--iron);
+}
+
+/* ---------------------------------------------------------------- theatre */
+
+/* Every action used to land instantly, which made a whole turn possible to miss.
+   Nothing here changes what the board says: the tile always renders the real
+   state, and these only decide whether it arrives with a flourish. All of it is
+   under the reduced-motion rule at the top of the file. */
+
+/* The game opening: the table lights up rather than blinking into existence. */
+.field.opening {
+  animation: table-rises 620ms ease-out both;
+}
+@keyframes table-rises {
+  from {
+    opacity: 0;
+    transform: scale(1.035);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.field.opening .grids {
+  animation: grid-settles 700ms 120ms cubic-bezier(0.2, 0.8, 0.25, 1) both;
+}
+@keyframes grid-settles {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Cards in flight: a fixed layer over everything, so no layout can shift under
+   a card that is already moving. */
+.flight-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  pointer-events: none;
+}
+.flight-card {
+  position: fixed;
+  transform-origin: 50% 50%;
+  filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.7));
+}
+.flight-card .cardface {
+  box-shadow: 0 0 0 1px var(--flame), 0 8px 20px rgba(0, 0, 0, 0.6);
+}
+
+/* A battlefield turning over, or a step of 5.1 opening. Across the middle,
+   because that is the one thing worth interrupting the board for. */
+.herald {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  z-index: 34;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 34px;
+  pointer-events: none;
+  text-align: center;
+  background: linear-gradient(
+    90deg,
+    rgba(23, 15, 8, 0) 0%,
+    rgba(23, 15, 8, 0.92) 18%,
+    rgba(23, 15, 8, 0.92) 82%,
+    rgba(23, 15, 8, 0) 100%
+  );
+  animation: herald-passes 1900ms ease-out both;
+}
+.herald.step {
+  animation-duration: 1500ms;
+}
+.herald b {
+  font-size: 34px;
+  font-weight: 600;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  color: var(--tallow);
+  text-shadow: 0 0 26px rgba(232, 129, 31, 0.7);
+}
+.herald em {
+  font-style: normal;
+  font-size: 14px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.1em;
+  color: var(--flame);
+}
+@keyframes herald-passes {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.82);
+    letter-spacing: 0.3em;
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  74% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -58%) scale(1.02);
+  }
+}
+
+/* The card that was just played, printed at full size on the side of the board.
+   A face-down unit shows a back here, because its identity is hidden and the
+   beat it comes from carries no card id at all. */
+.playbill {
+  position: absolute;
+  top: 50%;
+  z-index: 32;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  pointer-events: none;
+}
+.playbill.mine {
+  right: calc(var(--rail) + 14px);
+  animation: playbill-mine 1500ms ease-out both;
+}
+.playbill.theirs {
+  left: calc(var(--rail) + 14px);
+  animation: playbill-theirs 1500ms ease-out both;
+}
+.playbill .cardface {
+  --card-w: 178px;
+  box-shadow: 0 0 0 1px var(--iron-bright), 0 18px 40px rgba(0, 0, 0, 0.75);
+}
+.playbill .cardback {
+  width: 178px;
+  height: calc(178px * 88 / 63);
+}
+.playbill-note {
+  font-size: 12px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.1em;
+  color: var(--ash);
+}
+@keyframes playbill-mine {
+  0% {
+    opacity: 0;
+    transform: translate(46px, -50%) scale(0.86);
+  }
+  14% {
+    opacity: 1;
+    transform: translate(0, -50%) scale(1);
+  }
+  78% {
+    opacity: 1;
+    transform: translate(0, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(14px, -50%) scale(0.97);
+  }
+}
+@keyframes playbill-theirs {
+  0% {
+    opacity: 0;
+    transform: translate(-46px, -50%) scale(0.86);
+  }
+  14% {
+    opacity: 1;
+    transform: translate(0, -50%) scale(1);
+  }
+  78% {
+    opacity: 1;
+    transform: translate(0, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-14px, -50%) scale(0.97);
+  }
+}
+
+/* A unit arriving. The tile is already showing it; this is the landing. */
+.cell.stir-land,
+.cell.stir-veil {
+  animation: unit-lands 560ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+  z-index: 3;
+}
+@keyframes unit-lands {
+  0% {
+    opacity: 0.2;
+    transform: scale(1.16);
+    box-shadow: 0 0 34px rgba(232, 129, 31, 0.75);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* A spell landing on a unit that stayed standing. The tile flinches, so a −2 is
+   something you see happen rather than a number that was already different. */
+.cell.stir-strike {
+  animation: unit-struck 500ms ease-out both;
+  z-index: 3;
+}
+@keyframes unit-struck {
+  0% {
+    transform: none;
+    box-shadow: inset 0 0 0 2px var(--flame), 0 0 30px rgba(255, 197, 92, 0.8);
+  }
+  22% {
+    transform: translateX(-4px) scale(1.04);
+  }
+  48% {
+    transform: translateX(4px) scale(1.02);
+  }
+  100% {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* Mustra turning a hidden unit over. */
+.cell.stir-reveal {
+  animation: unit-turns 820ms ease-out both;
+  z-index: 3;
+}
+@keyframes unit-turns {
+  0% {
+    transform: rotateY(90deg);
+    filter: brightness(2.2);
+  }
+  55% {
+    transform: rotateY(0deg);
+    filter: brightness(1.35);
+  }
+  100% {
+    transform: none;
+    filter: none;
+  }
+}
+
+/* Whatever was standing here a moment ago. The tile is empty as far as the rules
+   are concerned; this is only the afterimage. */
+.pyre {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  text-align: center;
+  font-size: 12px;
+  font-variant-caps: small-caps;
+  color: #eaa694;
+  background: radial-gradient(60% 60% at 50% 50%, rgba(176, 60, 43, 0.4), transparent 70%);
+  pointer-events: none;
+  animation: pyre-fades 700ms ease-out both;
+}
+@keyframes pyre-fades {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.86) translateY(8px);
+  }
+}
+
+/* A card arriving in a hand. The refill is what makes the next battle possible,
+   so it gets a beat of its own rather than appearing between blinks. */
+.hand-slot .hand-card {
+  animation: card-dealt 320ms ease-out both;
+}
+@keyframes card-dealt {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* -------------------------------------------------------------- overlays */

@@ -199,7 +199,10 @@ export function observe(state: GameState, viewer: PlayerId): Observation {
 
   const toMove: PlayerId | null = pending
     ? pending.player
-    : state.phase === "units" || state.phase === "battle" || state.phase === "scored"
+    : state.phase === "units" ||
+        state.phase === "battle" ||
+        state.phase === "scored" ||
+        state.phase === "cleanup"
       ? state.turn
       : null;
 

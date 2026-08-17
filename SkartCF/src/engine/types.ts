@@ -17,13 +17,14 @@ export type SlotId = string;
 
 /**
  * Spell school. Six of them: `"Mágus"`, `"Feketemágus"`, `"Harcos"`,
- * `"Ravaszság"`, `"Druida"`, `"Bestia"`. The old `"Állat"` school was folded
- * into `"Bestia"`, `Állat` survives only as a keyword (Eredet), never as a
- * spellpower pool.
+ * `"Zsivány"`, `"Druida"`, `"Bestia"`. Two old names are gone: the `"Állat"`
+ * school was folded into `"Bestia"`, and `"Ravaszság"` was renamed `"Zsivány"`
+ * to match the class it belongs to. Both survive as keywords (Faj / Rend),
+ * never as spellpower pools.
  */
 export type School = string;
 
-/** Free-form unit keyword: origin, order, or a mechanical tag like `"Melee"`. */
+/** Free-form unit keyword: origin, order, race, or a mechanical tag like `"Melee"`. */
 export type Keyword = string;
 
 // ---------------------------------------------------------------------------
@@ -50,6 +51,9 @@ export interface Effect {
    */
   if?: StaticCondition;
   ifValue?: number;
+  /** Same gate, read as a keyword instead of a board condition. Comma = any of. */
+  ifKeyword?: string;
+  ifNotKeyword?: string;
   [param: string]: unknown;
 }
 
@@ -93,8 +97,6 @@ export interface TargetSpec {
   range: number;
   /** Target an empty slot instead of a unit (Idézés, Teleport destinations). */
   emptyOnly?: boolean;
-  /** Infiltráció: the destination may sit on the enemy half of the board. */
-  crossSide?: boolean;
   filter?: TargetFilter;
 }
 
@@ -182,6 +184,8 @@ export type StaticCondition =
   | "isolated"
   | "isolatedDiagonal"
   | "aloneInRow"
+  /** Vízköpő: no other allied unit stands in my front row, wherever I stand. */
+  | "aloneInFrontRow"
   | "aloneOnBoard"
   | "immobile"
   | "graveyardAtLeast"
@@ -198,12 +202,14 @@ export interface UnitCard {
   cost: number;
   /** Printed power. `basePower()` reads this (or a set-power overwrite). */
   power: number;
-  /** Mechanical tags plus any extra tribe not covered by origin/order. */
+  /** Extra tag, plus mechanical keywords like `"Távolsági"`. */
   keywords: Keyword[];
-  /** Eredet, Felindori, Állat, Bestia, Élettelen, Keleti, Törp, Sárkány, Druida. */
+  /** Eredet, where it comes from: Felindori, Keleti, Törp. */
   origin?: string;
-  /** Rend, Harcos, Mágus, Kalóz, Csempész, Orgyilkos, Bölcs, Feketemágus… */
+  /** Rend, what it does: Harcos, Mágus, Polgár, Kalóz, Csempész, Orgyilkos, Garabonciás… */
   order?: string;
+  /** Faj, what it is: Állat, Bestia, Élettelen, Sárkány. */
+  race?: string;
   /** School-locked pools. No pooling across units, depletes across the stack. */
   spellpower: Record<School, number>;
   /** Fires on placement, or at reveal for a face-down unit. Mandatory. */
@@ -346,7 +352,12 @@ export interface UnitInstance {
   /** Every spell card that landed here. Drives both mechanics and the hover. */
   placed: PlacedCard[];
   immunities: School[];
-  /** Álomfogó: next spell of cost ≤ maxCost aimed at this unit fizzles. */
+  /**
+   * Álomfogó: the next spell aimed at this unit fizzles. `maxCost` is a ceiling
+   * on what the shield will swallow; `0` means no ceiling, which is what both
+   * Álomfogó and Omnifex carry — the card says "the next spell", not "the next
+   * cheap spell".
+   */
   fizzleShields: { maxCost: number }[];
   /** Jéghegy: untargetable, cannot cast, power is exactly `lockedPower`. */
   locked: boolean;
@@ -410,21 +421,28 @@ export interface PlayerState {
   hiddenThisLocation: number;
   /** Diadal: extra cards owed at the next refill. */
   bonusDraw: { units: number; spells: number };
+  /** Leszerelés (12.5): this player has finished throwing cards away. */
+  tossDone: boolean;
 }
 
 /**
- * One location runs: units → Mustra → battle → scored.
+ * One battle runs the seven steps of 5.1: reveal → gyülekezés → Mustra →
+ * csatafázis → összesítés → Diadal/Vigasz → leszerelés.
  *
  * Units go down alternately until both players stop. Mustra flips the hidden
  * ones and is where Mustra abilities fire. Only then does the battle open, and
  * spells are played alternately, open, resolving on the spot, until both
- * players stop. Then the boards are summed.
+ * players stop. Then the boards are summed (`scored`, which also fires Diadal
+ * and Vigasz), and `cleanup` is the leszerelés of chapter 12: the board empties
+ * into the graveyards, both players may throw away as much of either hand as
+ * they like, and only then does everyone draw back up to seven.
  */
 export type Phase =
   | "units"
   | "mustra"
   | "battle"
   | "scored"
+  | "cleanup"
   | "gameOver";
 
 export interface ChoiceRequest {
@@ -514,4 +532,8 @@ export type Action =
   | { type: "declareSpellsDone"; player: PlayerId }
   | { type: "chooseSlot"; player: PlayerId; slot: SlotId }
   | { type: "chooseHandCard"; player: PlayerId; uid: string }
-  | { type: "nextLocation" };
+  /** Ends the scored step and opens the leszerelés. */
+  | { type: "nextLocation" }
+  /** Leszerelés (12.5): throw one card away, from either hand. Repeatable. */
+  | { type: "toss"; player: PlayerId; uid: string }
+  | { type: "declareTossDone"; player: PlayerId };

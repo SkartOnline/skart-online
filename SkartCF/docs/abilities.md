@@ -26,7 +26,7 @@ a Falanx, a Vérszomj, a Halálfélelem és a Csordaszellem nem igényel külön
 | Alapelem | Paraméterek | Mit fed le |
 |---|---|---|
 | `powerBonus` | `amount`, `condition`, `value` | Vízköpő, Hetvenkedő katona, Sir Werdzsell, Medve, Ninja, Guner, Vérfarkas, Cassanus, Felindori íjász (Távolsági), Falanx, Kopja, Halálfélelem |
-| `countBonus` | `amount`, `side`, `scope`, `keyword`, `requires`, `atLeast` | Farkas, Papagáj, Zsalu, Bárkakedvenc, Piráto Sanchez, Korgon, I. Iniquus, Októ-abnormitás, Vérszomj |
+| `countBonus` | `amount`, `side`, `scope`, `keyword`, `requires`, `atLeast` | Farkas, Papagáj, Zsalu, Bárkakedvenc, Piráto Sanchez, Korgon, I. Iniquus, Vérszomj |
 | `aura` | `amount`, `side`, `scope`, `keyword`, `maxBasePower`, `atLeastCount` | Kovács, Altus, Lényidomár, Maffiavezér, Simorf, Welsing, I. Iniquus, Csordaszellem, Egységben az erő |
 | `auraGrant` | `side`, `scope`, `grant`, `keyword`, `cardId` | Kém, Bol'Jin, Fehér Pásztor, Welsing |
 | `selfGrant` | `grant`, `condition`, `value` | Fehér Pásztor, A Moirák, Cassanus, Umbradog, Sárkánypikkelyek, Füstbomba, Odú |
@@ -39,13 +39,16 @@ a Falanx, a Vérszomj, a Halálfélelem és a Csordaszellem nem igényel külön
 | `placementRule` | `requireAdjacentKeyword` | Papagáj |
 | `selfRestrict` | `restrict` | Némítás, Indák, Kötél, Szorítás, Elfeledés |
 | `powerOverride` | `mode`, `value` | Természetes forma, Enormorf |
+| `damageCap` | `amount`, `side`, `scope` | A Faarcú — egy hatás legfeljebb ennyit sebez |
+| `castRing` | `amount`, `side`, `keyword` | Elfina — a megcélzott szövetséges Állat gyűrűt kap |
 
 ### A `condition` felsorolás
 
 Egyetlen feltétel-enum szolgálja ki a `powerBonus`-t és a `selfGrant`-ot:
 `always`, `frontRow`, `backRow`, `enemyHalf`, `noHidden`, `opposedOccupied`,
 `opposedEmpty`, `opposedWeaker`, `opposedStronger`, `isolated`,
-`isolatedDiagonal`, `aloneInRow`, `graveyardAtLeast`, `noPlacedOnMe`.
+`isolatedDiagonal`, `aloneInRow`, `aloneInFrontRow`, `aloneOnBoard`, `immobile`,
+`graveyardAtLeast`, `noPlacedOnMe`.
 
 Új „+X, ha …” egység készítése tehát mindig: `powerBonus` + a megfelelő feltétel.
 
@@ -58,9 +61,16 @@ varázslatból a csata fázisban.
 
 ### Tábla-hatások
 `modifyPower`, `setPower`, `damage`, `destroy`, `massDestroy`, `move`,
-`transform`, `attach`, `grantImmunity`, `fizzleShield`, `lock`, `summon`,
-`thresholdAoe`, `grantRing`, `duel`, `devour`, `advance`, `modifySpellpower`,
-`revealHidden`, `clearPlaced`.
+`swapWithAdjacent`, `transform`, `attach`, `grantImmunity`, `fizzleShield`,
+`lock`, `summon`, `thresholdAoe`, `grantRing`, `duel`, `devour`, `advance`,
+`modifySpellpower`, `revealHidden`, `clearPlaced`.
+
+A `damage` mennyisége háromféleképpen jöhet: `amount` a fix szám;
+`altAmount` + `altIf` a második szám, ha a feltétel a megcélzott egységre igaz
+(Hátbaszúrás 2, a hátsó sorban 4); `casterPowerDiv` pedig a varázsló erejéből
+származtatja (Eltaposás: a fele, felfelé kerekítve). A `fizzleShield`
+`maxCost: 0` értéke azt jelenti, hogy **nincs** költséghatár — az Álomfogó és az
+Omnifex a következő rá szálló varázslatot nyeli el, akármennyibe került.
 
 ### Lapgazdálkodási hatások
 `draw`, `discard`, `searchDeck`, `revive`, `returnToHand`, `stealCard`,
@@ -83,7 +93,12 @@ Az Óriásölő, a Fojtás, a Rajtaütés, a Kegyelemdöfés és a Carnifex mind
 
 A `TargetFilter` mezői: `keyword`, `keywords` (bármelyik), `notKeyword`,
 `maxCost`, `minCost`, `maxBasePower`, `minBasePower`, `maxPower`, `minPower`,
-`damaged`, `isolated`, `hasPlaced`, `hidden`.
+`damaged`, `isolated`, `hasPlaced`, `hidden`, `row`, `weakerThanCaster`.
+
+Minden hatás ugyanazt a három kaput kapja meg: `if` (+ `ifValue`) a fenti
+feltétel-enumból, valamint `ifKeyword` és `ifNotKeyword` kulcsszóra. A Sújtás
+ezekből áll össze: 3 sebzés `ifKeyword: "Élettelen"`, 1 sebzés
+`ifNotKeyword: "Druida,Állat,Élettelen"`, a természet gyermekeinek pedig semmi.
 
 ---
 
@@ -97,7 +112,7 @@ adományozó már nincs a táblán.
 |---|---|
 | `onAnyDeath` | Temetkezési vállalkozó |
 | `onAllyMove` | **Bodur kapitány** — a mozgó szövetséges gyűrűt kap |
-| `onMustra` | Szarvas — a felfedéskor nyomul előre, kész táblára |
+| `onMustra` | Szarvas — a felfedéskor nyomul előre, kész táblára; Októ-abnormitás — ekkor mérlegeli, mit falhat fel |
 | `onLocationWon` (Diadal) | Kincskereső |
 | `onLocationLost` (Vigasz) | Makacs élőhalott, Felix |
 
@@ -146,6 +161,7 @@ alapelemet használja, mint az egységek.
 | `rangeCap` | Ködrét |
 | `suppressPositional` | Ködrét (Távolsági) |
 | `playFromGraveyard` | Umbra |
+| `salvage` | Plázs — a Felindori egységek a pakli aljára kerülnek leszereléskor |
 | `startEffect` | Lingadori könyvtár, Malom, Bőségkert |
 | `perCost`, `costAtMostBonus`, `rowBonus`, `schoolSpellpowerBonus` | tartalék, szerkesztőben elérhető |
 
@@ -153,15 +169,21 @@ alapelemet használja, mint az egységek.
 
 ## 6. Varázsiskolák
 
-Hat iskola: **Mágus, Feketemágus, Harcos, Ravaszság, Druida, Bestia.**
+Hat iskola: **Mágus, Feketemágus, Harcos, Zsivány, Druida, Bestia.**
 
-Az `Állat` varázsiskola **beolvadt a Bestiába** — minden korábbi „Állat N”
-varázserő „Bestia N” lett. Az `Állat` *kulcsszóként* (Eredet) továbbra is él, és
-attól még külön dolog, mint a `Bestia` eredet.
+Két régi név eltűnt. Az `Állat` varázsiskola **beolvadt a Bestiába** — minden
+korábbi „Állat N” varázserő „Bestia N” lett —, a `Ravaszság` pedig **`Zsivány`
+lett**, ahhoz a rendhez igazodva, amelyikhez tartozik. Mindkettő *kulcsszóként*
+él tovább, varázserő-készletként soha.
 
 Egy varázslat több iskolát is megnevezhet (`schools: string[]`); a varázsló az
 egyikből fizet, teljes egészében. Nincs összeadás iskolák vagy egységek között.
-Ilyen a Kegyelemdöfés (Harcos, Ravaszság).
+Ilyen a Kegyelemdöfés (Harcos, Zsivány).
+
+A lapon négy kulcsszó-oszlop van — Eredet, Rend, Faj, Extra tag —, a motorban
+`origin`, `order`, `race` és `keywords`. A `cardKeywords()` mind a négyet egyetlen
+listába olvasztja, ezért egyetlen szűrőnek sem kell tudnia, melyik oszlopból jött
+a szó.
 
 A `tags` mező adja a varázslat elemét: `Tűz`, `Fagy`, `Mesteri`. Erre hivatkozik
 a Tűzköpeny, a Fagypáncél, az Explodus és az Erif mester.
@@ -179,4 +201,4 @@ olvasható, de mechanikát nem kap. Mindegyik `note` hatással van megjelölve.
 | Felix, a Hajnali Utas | átvitel a következő csatatérre, keret nélkül |
 | Gouraldir | a Három Ereklye lap nem létezik a készletben |
 | Griff, a hamiskártyás | kézcsere mindkét irányban, játékosi választással |
-| Mágusinkvizítor, Fejvadász, Greta, Leskelődés | tiszta információ — hotseatben a „Mindent mutat” kapcsoló adja |
+| Mágusinkvizítor, Fejvadász, Gréta, Leskelődés | tiszta információ — hotseatben a „Mindent mutat” kapcsoló adja |

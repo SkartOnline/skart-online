@@ -10,6 +10,7 @@ import {
   isMasterSpell,
   legalActions,
   remainingCap,
+  visibleCapSpent,
   visibleTotal,
 } from "../../engine";
 import type {
@@ -27,6 +28,8 @@ import NewGame from "./NewGame";
 import type { Sides } from "./NewGame";
 import { makeBot } from "./bot";
 import type { Agent } from "../../bot/agent";
+import { BEAT_MS, beatsBetween, captureHandCard, flyTo, slotElement } from "./theatre";
+import type { Beat, BeatKind, Flight } from "./theatre";
 
 interface Held {
   uid: string;
@@ -47,6 +50,13 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   const [botSide, setBotSide] = useState<PlayerId | null>(null);
   const bot = useRef<Agent | null>(null);
 
+  // What is currently worth watching. Beats are derived from the difference
+  // between two states and expire on their own, so they can only ever decorate
+  // what the board already shows.
+  const [beats, setBeats] = useState<LiveBeat[]>([]);
+  /** Captured before the state changes, launched after it has rendered. */
+  const pendingFlight = useRef<{ flight: Flight; slot?: SlotId } | null>(null);
+
   function begin(sides: Sides) {
     try {
       setState(createGame({ seed: sides.seed, decks: { p1: sides.p1, p2: sides.p2 } }));
@@ -55,6 +65,7 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       setPast([]);
       setHeld(null);
       setFault(null);
+      setBeats([]);
     } catch (e) {
       setFault(String(e));
     }
@@ -63,8 +74,27 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   function send(action: Action) {
     if (!state) return;
     try {
+      // The card has to be cloned while it still exists in the hand, which is
+      // now: applying the action is what takes it away.
+      if (action.type === "playUnit" || action.type === "castSpell") {
+        const flight = captureHandCard(action.uid);
+        if (flight) {
+          pendingFlight.current = {
+            flight,
+            slot: action.type === "playUnit" ? action.slot : undefined,
+          };
+        }
+      }
       const next = applyAction(state, action);
+      const now = Date.now();
       setPast((h) => [...h.slice(-40), state]);
+      setBeats((b) => [
+        ...b,
+        ...beatsBetween(state, next).map((beat) => ({
+          ...beat,
+          expiresAt: now + BEAT_MS[beat.kind],
+        })),
+      ]);
       setState(next);
       setHeld(null);
       setFault(null);
@@ -73,11 +103,42 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
     }
   }
 
+  // Launch the flight now that the destination is on screen. The effect body
+  // runs after the commit, so the tile the card is flying to already exists and
+  // already has its final geometry. Deliberately no cleanup and no rAF: React's
+  // development double-invoke would cancel the frame between the two runs and
+  // the card would never leave the hand.
+  useEffect(() => {
+    const queued = pendingFlight.current;
+    if (!queued) return;
+    pendingFlight.current = null;
+    // A unit flies to the tile it was committed to. A spell has no tile yet —
+    // its caster and target are still being nominated — so it flies to the panel
+    // that is about to hold it up for both players to read.
+    const target = queued.slot
+      ? slotElement(queued.slot)
+      : document.querySelector(".playbill .cardface, .playbill");
+    flyTo(queued.flight, target);
+  }, [state]);
+
+  // One timer, aimed at whichever beat expires first. Each beat carries its own
+  // deadline, so a new batch arriving never extends the life of an old one.
+  useEffect(() => {
+    if (beats.length === 0) return;
+    const soonest = Math.min(...beats.map((b) => b.expiresAt));
+    const timer = setTimeout(
+      () => setBeats((current) => current.filter((b) => b.expiresAt > Date.now())),
+      Math.max(16, soonest - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [beats]);
+
   function stepBack() {
     setPast((h) => {
       if (h.length === 0) return h;
       setState(h[h.length - 1]);
       setHeld(null);
+      setBeats([]);
       return h.slice(0, -1);
     });
   }
@@ -87,7 +148,10 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   const pending = state.resolution?.pending ?? null;
   const actor: PlayerId | null = pending
     ? pending.player
-    : state.phase === "units" || state.phase === "battle" || state.phase === "scored"
+    : state.phase === "units" ||
+        state.phase === "battle" ||
+        state.phase === "scored" ||
+        state.phase === "cleanup"
       ? state.turn
       : null;
 
@@ -97,6 +161,7 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       actor={actor}
       botSide={botSide}
       bot={bot}
+      beats={beats}
       held={held}
       setHeld={setHeld}
       send={send}
@@ -111,12 +176,17 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   );
 }
 
+/** A beat plus the moment it stops being shown. */
+type LiveBeat = Beat & { expiresAt: number };
+
 interface FieldProps {
   state: GameState;
   actor: PlayerId | null;
   /** The seat the machine is playing, or `null` for hotseat. */
   botSide: PlayerId | null;
   bot: React.MutableRefObject<Agent | null>;
+  /** What just happened, for the theatre to show. Never read for rules. */
+  beats: LiveBeat[];
   held: Held | null;
   setHeld: (h: Held | null) => void;
   send: (a: Action) => void;
@@ -135,7 +205,7 @@ interface FieldProps {
  * costs a row of tiles, a column down the side costs nothing the board wanted.
  */
 function Field(props: FieldProps) {
-  const { state, actor, held, send, bare, botSide, bot } = props;
+  const { state, actor, held, send, bare, botSide, bot, beats } = props;
   const pending = state.resolution?.pending ?? null;
   const [logOpen, setLogOpen] = useState(false);
 
@@ -147,17 +217,23 @@ function Field(props: FieldProps) {
   const viewer: PlayerId = human ?? actor ?? state.turn;
   const far = other(viewer);
 
-  // The machine moves on a timer rather than instantly, so its turn is
-  // something you watch happen instead of a board that has already changed.
+  // The machine moves on a timer rather than instantly, so its turn is something
+  // you watch happen instead of a board that has already changed. The wait is
+  // long enough for the previous beat to finish playing: a card flying out of the
+  // machine's hand is the only signal that it did anything at all.
   const botToMove = botSide !== null && actor === botSide && state.phase !== "gameOver";
   useEffect(() => {
     if (!botToMove || !bot.current) return;
-    const timer = setTimeout(() => {
-      const action = bot.current?.choose(state, botSide!);
-      if (action) send(action);
-    }, 550);
+    const busy = beats.some((b) => b.kind === "land" || b.kind === "veil" || b.kind === "cast");
+    const timer = setTimeout(
+      () => {
+        const action = bot.current?.choose(state, botSide!);
+        if (action) send(action);
+      },
+      busy ? 950 : 620,
+    );
     return () => clearTimeout(timer);
-  }, [botToMove, state, botSide, bot, send]);
+  }, [botToMove, state, botSide, bot, send, beats]);
 
   const moves = useMemo(() => (actor ? legalActions(state, actor) : []), [state, actor]);
 
@@ -197,8 +273,33 @@ function Field(props: FieldProps) {
 
   const over = state.phase === "gameOver";
 
+  // Which tiles are mid-animation, and what to hold in the panel. Both are read
+  // off the beats, never off the board, so they fade on their own.
+  const stirring = useMemo(() => {
+    const out = new Map<SlotId, BeatKind>();
+    for (const beat of beats) {
+      if (!beat.slot) continue;
+      if (
+        beat.kind === "land" ||
+        beat.kind === "veil" ||
+        beat.kind === "reveal" ||
+        beat.kind === "strike"
+      ) {
+        out.set(beat.slot, beat.kind);
+      }
+    }
+    return out;
+  }, [beats]);
+
+  const fallen = useMemo(
+    () => beats.filter((b) => b.kind === "fall" && b.slot && !state.board[b.slot]),
+    [beats, state.board],
+  );
+
   return (
-    <div className="field">
+    <div className={`field${over ? "" : " opening"}`}>
+      <span className="flight-layer" />
+      <Theatre beats={beats} viewer={viewer} bare={bare} />
       <aside className="rail-left">
         <Battlefield {...props} onLog={() => setLogOpen((v) => !v)} logOpen={logOpen} />
         <TurnCue {...props} moves={moves} viewer={viewer} />
@@ -207,13 +308,21 @@ function Field(props: FieldProps) {
       </aside>
 
       <div className="arena">
-        <Board state={state} open={open} onPick={pickSlot} bare={bare} viewer={viewer} />
+        <Board
+          state={state}
+          open={open}
+          onPick={pickSlot}
+          bare={bare}
+          viewer={viewer}
+          stirring={stirring}
+          fallen={fallen}
+        />
       </div>
 
       <aside className="rail-right">
-        <Counters state={state} side={far} bare={bare} />
+        <Counters state={state} side={far} viewer={viewer} bare={bare} />
         <span className="rail-gap" />
-        <Counters state={state} side={viewer} bare={bare} />
+        <Counters state={state} side={viewer} viewer={viewer} bare={bare} />
       </aside>
 
       {!over && <FarHand state={state} player={far} bare={bare} />}
@@ -223,6 +332,108 @@ function Field(props: FieldProps) {
       {over && <Aftermath state={state} onLeave={props.onLeave} onQuit={props.onQuit} />}
     </div>
   );
+}
+
+// ------------------------------------------------------------------ theatre
+
+/**
+ * What just happened, shown rather than described.
+ *
+ * Two pieces. A banner across the middle for the things that reframe the board —
+ * a battlefield turning over, a step of 5.1 beginning — and a panel down the side
+ * holding the last card that was played, printed at full size, the way you would
+ * expect to be shown a card somebody just put on the table.
+ *
+ * The panel never shows a face-down unit. A hidden unit's identity is hidden
+ * (1.5.2), and the beat it comes from carries no card id at all, so there is
+ * nothing here that could leak it even by accident.
+ */
+function Theatre({
+  beats,
+  viewer,
+  bare,
+}: {
+  beats: LiveBeat[];
+  viewer: PlayerId;
+  bare: boolean;
+}) {
+  const frame = [...beats].reverse().find((b) => b.kind === "battlefield" || b.kind === "step");
+  const shown = [...beats]
+    .reverse()
+    .find((b) => b.kind === "land" || b.kind === "cast" || b.kind === "veil");
+
+  return (
+    <>
+      {frame && (
+        <div key={frame.id} className={`herald ${frame.kind}`}>
+          {frame.kind === "battlefield" ? (
+            <>
+              <b>{tryLocationName(frame.cardId)}</b>
+              <em>{capLabel(frame.cardId)}</em>
+            </>
+          ) : (
+            <b>{frame.text}</b>
+          )}
+        </div>
+      )}
+
+      {shown && (
+        <div
+          key={shown.id}
+          className={`playbill ${shown.player === viewer ? "mine" : "theirs"} ${shown.kind}`}
+        >
+          {shown.cardId ? (
+            <CardFace
+              card={cardFor(shown.cardId)!}
+              className={shown.kind === "cast" ? "spell" : ""}
+            />
+          ) : (
+            // A hidden unit. The panel says a card went down and no more, unless
+            // the hotseat reveal switch is on.
+            <span className="cardback unit" />
+          )}
+          <span className="playbill-note">
+            {shown.kind === "cast"
+              ? "varázslat"
+              : shown.cardId || bare
+                ? "egység"
+                : "rejtett egység"}
+          </span>
+        </div>
+      )}
+    </>
+  );
+}
+
+function tryLocationName(id: string | undefined): string {
+  if (!id) return "";
+  try {
+    return getLocation(id).name;
+  } catch {
+    return id;
+  }
+}
+
+function capLabel(id: string | undefined): string {
+  if (!id) return "";
+  try {
+    const cap = getLocation(id).cap;
+    return cap === null ? "keret ∞" : `keret ${cap}`;
+  } catch {
+    return "";
+  }
+}
+
+function cardFor(id: string): UnitCard | SpellCard | undefined {
+  try {
+    return getUnit(id);
+  } catch {
+    try {
+      return getSpell(id);
+    } catch {
+      return undefined;
+    }
+  }
 }
 
 // ---------------------------------------------------------------- left rail
@@ -305,23 +516,35 @@ function cardName(id: string): string {
 /**
  * One player's standing, as numbers on icons rather than a sentence: what the
  * board is worth, what is left of the cost cap, and how deep each pile is.
+ *
+ * Your own panel tells you the truth. The other panel only ever shows what you
+ * are entitled to read (1.5.3): a face-down unit's cost is hidden, so it stays
+ * out of their spent-cap number. Nobody has to police the cap by hand either —
+ * overshooting it is simply not a legal placement.
  */
 function Counters({
   state,
   side,
+  viewer,
   bare,
 }: {
   state: GameState;
   side: PlayerId;
+  viewer: PlayerId;
   bare: boolean;
 }) {
-  // While units are still going down, the idle side only shows what is actually
-  // visible: a face-down unit contributes nothing to what the opponent reads.
-  const veiled = state.phase === "units" && !bare && state.turn !== side;
+  const mine = side === viewer || bare;
+  const hidden = state.players[side].hiddenThisLocation > 0;
+  // While units are still going down, the other side only shows what is actually
+  // visible: a face-down unit contributes nothing to what you are allowed to
+  // read. Your own panel is never veiled — you know what you put down. After
+  // Mustra both halves are public (7.9), so this only bites during gathering.
+  const veiled = state.phase === "units" && !mine;
   const sum = veiled ? visibleTotal(state, side) : boardTotal(state, side);
   const p = state.players[side];
   const left = remainingCap(state, side);
   const cap = left === Infinity ? null : p.capSpent + left;
+  const spent = mine ? p.capSpent : visibleCapSpent(state, side);
 
   return (
     <div className={`counters ${side}`}>
@@ -331,8 +554,9 @@ function Counters({
         {veiled && <em>látható</em>}
       </span>
       <span className="cap-meter num">
-        keret <b>{p.capSpent}</b>
+        keret <b>{spent}</b>
         {cap === null ? "" : `/${cap}`}
+        {!mine && hidden && <em title="Rejtett egység költsége nem látszik">+?</em>}
       </span>
 
       <span className="piles">
@@ -428,8 +652,24 @@ function TurnCue(props: FieldProps & { moves: Action[]; viewer: PlayerId }) {
         <>
           <span className="turn">{verdict(state)}</span>
           <button className="ember tiny" onClick={() => send({ type: "nextLocation" })}>
-            Tovább
+            Leszerelés
           </button>
+        </>
+      )}
+
+      {/* Leszerelés, 12.5. Throwing cards away is optional and costs nothing to
+          decline, so the only thing that has to be on screen is the way out. */}
+      {state.phase === "cleanup" && actor && (
+        <>
+          <span className={`turn ${actor}`}>{SIDE[actor]} leszerel</span>
+          {can("declareTossDone") && (
+            <button
+              className="ember tiny"
+              onClick={() => send({ type: "declareTossDone", player: actor })}
+            >
+              Kész, húzz fel
+            </button>
+          )}
         </>
       )}
     </div>
@@ -564,7 +804,7 @@ function FarHand({
       {groups.map(({ cards, kind }) => (
         <div className="hand-group" key={kind}>
           {cards.map((c, i) => (
-            <div className="hand-slot" key={c.uid} style={arc(i, cards.length, true)}>
+            <Slot key={c.uid} uid={c.uid} style={arc(i, cards.length, true)}>
               {bare ? (
                 <CardFace
                   card={kind === "unit" ? getUnit(c.cardId) : getSpell(c.cardId)}
@@ -573,7 +813,7 @@ function FarHand({
               ) : (
                 <span className={`cardback ${kind}`} />
               )}
-            </div>
+            </Slot>
           ))}
         </div>
       ))}
@@ -593,10 +833,15 @@ function NearHand(props: FieldProps & { moves: Action[]; viewer: PlayerId }) {
   const p = state.players[viewer];
   const mine = actor === viewer;
   const unitsPhase = state.phase === "units";
+  const cleanup = state.phase === "cleanup";
   const channel = state.channel[viewer];
 
   const playable = new Set(
     moves.filter((m) => m.type === "playUnit").map((m) => (m as { uid: string }).uid),
+  );
+  // Leszerelés: every card in either hand is throwable, and none of it is forced.
+  const discardable = new Set(
+    moves.filter((m) => m.type === "toss").map((m) => (m as { uid: string }).uid),
   );
   const veilable = new Set(
     moves
@@ -621,6 +866,7 @@ function NearHand(props: FieldProps & { moves: Action[]; viewer: PlayerId }) {
           {options.map((c, i) => (
             <Slot
               key={c.uid}
+              uid={c.uid}
               style={arc(i, options.length)}
               playable
               onClick={() => send({ type: "chooseHandCard", player: pending.player, uid: c.uid })}
@@ -663,24 +909,38 @@ function NearHand(props: FieldProps & { moves: Action[]; viewer: PlayerId }) {
         </div>
       )}
 
+      {cleanup && mine && (
+        <div className="toll">
+          <span className="label">
+            Leszerelés: kattints bármelyik lapra, amit eldobsz. Nem kötelező eldobni semmit.
+          </span>
+        </div>
+      )}
+
       <div className="hand-rail near">
-        <div className={`hand-group${unitsPhase && mine ? "" : " muted"}`}>
+        <div className={`hand-group${mine && (unitsPhase || cleanup) ? "" : " muted"}`}>
           {p.unitHand.map((c, i) => {
             const card: UnitCard = getUnit(c.cardId);
             const live = mine && unitsPhase && playable.has(c.uid);
+            const toss = mine && cleanup && discardable.has(c.uid);
             return (
               <Slot
                 key={c.uid}
+                uid={c.uid}
                 style={arc(i, p.unitHand.length)}
-                playable={live}
+                playable={live || toss}
                 picked={held?.uid === c.uid}
                 onClick={
-                  live
-                    ? () =>
-                        setHeld(
-                          held?.uid === c.uid ? null : { uid: c.uid, veiled: false, tollUid: null },
-                        )
-                    : undefined
+                  toss
+                    ? () => send({ type: "toss", player: viewer, uid: c.uid })
+                    : live
+                      ? () =>
+                          setHeld(
+                            held?.uid === c.uid
+                              ? null
+                              : { uid: c.uid, veiled: false, tollUid: null },
+                          )
+                      : undefined
                 }
               >
                 <CardFace card={card} />
@@ -701,23 +961,27 @@ function NearHand(props: FieldProps & { moves: Action[]; viewer: PlayerId }) {
           })}
         </div>
 
-        <div className={`hand-group${!unitsPhase && mine ? "" : " muted"}`}>
+        <div className={`hand-group${mine && !unitsPhase ? "" : " muted"}`}>
           {p.spellHand.map((c, i) => {
             const card: SpellCard = getSpell(c.cardId);
-            const toss = mine && tossable.has(c.uid);
+            const feed = mine && tossable.has(c.uid);
             const cast = mine && !channel && castable.has(c.uid);
+            const drop = mine && cleanup && discardable.has(c.uid);
             return (
               <Slot
                 key={c.uid}
+                uid={c.uid}
                 style={arc(i, p.spellHand.length)}
-                playable={toss || cast}
-                dead={mine && !unitsPhase && !toss && !cast}
+                playable={feed || cast || drop}
+                dead={mine && !unitsPhase && !cleanup && !feed && !cast}
                 onClick={
-                  toss
-                    ? () => send({ type: "finishChannel", player: viewer, discardUid: c.uid })
-                    : cast
-                      ? () => send({ type: "castSpell", player: viewer, uid: c.uid })
-                      : undefined
+                  drop
+                    ? () => send({ type: "toss", player: viewer, uid: c.uid })
+                    : feed
+                      ? () => send({ type: "finishChannel", player: viewer, discardUid: c.uid })
+                      : cast
+                        ? () => send({ type: "castSpell", player: viewer, uid: c.uid })
+                        : undefined
                 }
               >
                 <CardFace card={card} className="spell" />
@@ -731,6 +995,18 @@ function NearHand(props: FieldProps & { moves: Action[]; viewer: PlayerId }) {
   );
 }
 
+/**
+ * One card in a hand.
+ *
+ * The wrapper is a fixed box that never moves, and everything that animates —
+ * the fan angle, the neighbourly shove, the hover lift — happens on the card
+ * inside it. That split is the whole point: a hovered card that lifts 130px and
+ * grows a third leaves the pointer behind if the card is itself the hover
+ * target, so the card drops, catches the pointer again, and lifts, forever. With
+ * the box fixed, the hover region is the box plus wherever the card has got to
+ * (`:hover` on an ancestor holds while the pointer is over any descendant), and
+ * neither of those moves while the pointer sits still.
+ */
 function Slot({
   style,
   playable,
@@ -738,6 +1014,7 @@ function Slot({
   dead,
   onClick,
   children,
+  uid,
 }: {
   style: React.CSSProperties;
   playable?: boolean;
@@ -745,6 +1022,8 @@ function Slot({
   dead?: boolean;
   onClick?: () => void;
   children: React.ReactNode;
+  /** Lets the flight layer find this card's corner on screen. */
+  uid?: string;
 }) {
   const classes = ["hand-slot"];
   if (playable) classes.push("playable");
@@ -754,6 +1033,7 @@ function Slot({
     <div
       className={classes.join(" ")}
       style={style}
+      data-hand-uid={uid}
       onClick={onClick}
       onKeyDown={(e) => {
         if (onClick && (e.key === "Enter" || e.key === " ")) {
@@ -764,7 +1044,7 @@ function Slot({
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
     >
-      {children}
+      <span className="hand-card">{children}</span>
     </div>
   );
 }

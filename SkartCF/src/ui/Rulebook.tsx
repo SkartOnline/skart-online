@@ -1,17 +1,27 @@
-import { useMemo } from "react";
-import rulesSource from "../../docs/rules-v2.md?raw";
+import { useMemo, useState } from "react";
+import fullSource from "../../docs/szabaly-teljes.md?raw";
+import quickSource from "../../docs/szabaly-gyors.md?raw";
 
 /**
- * The rulebook, read straight out of `docs/rules-v2.md` so there is only ever
- * one copy of the rules. Replacing that file replaces this screen.
+ * The rulebook, read straight out of `docs/`, so there is only ever one copy of
+ * the rules and replacing the file replaces this screen. The full rulebook is
+ * the authority — every numbered point is quotable, and the engine follows it —
+ * with the quick rules kept as the read-first version.
  *
- * The renderer covers what the document actually uses: headings, rules, lists,
+ * The renderer covers what the documents actually use: headings, rules, lists,
  * tables, fenced code and inline emphasis. It is not a general Markdown
  * implementation and does not need to be.
  */
 
+const BOOKS = [
+  { id: "teljes", label: "Teljes szabályzat", source: fullSource },
+  { id: "gyors", label: "Gyorsszabályok", source: quickSource },
+] as const;
+
 export default function Rulebook({ onLeave }: { onLeave: () => void }) {
-  const blocks = useMemo(() => parse(rulesSource), []);
+  const [which, setWhich] = useState<(typeof BOOKS)[number]["id"]>("teljes");
+  const book = BOOKS.find((b) => b.id === which) ?? BOOKS[0];
+  const blocks = useMemo(() => parse(book.source), [book.source]);
   return (
     <div className="tome">
       <div className="crossbar">
@@ -19,8 +29,19 @@ export default function Rulebook({ onLeave }: { onLeave: () => void }) {
           Vissza
         </button>
         <h2>Szabály</h2>
+        <span className="right tabs">
+          {BOOKS.map((b) => (
+            <button
+              key={b.id}
+              className={b.id === which ? "here" : ""}
+              onClick={() => setWhich(b.id)}
+            >
+              {b.label}
+            </button>
+          ))}
+        </span>
       </div>
-      <div className="tome-page">
+      <div className="tome-page" key={which}>
         <article className="prose">{blocks}</article>
       </div>
     </div>

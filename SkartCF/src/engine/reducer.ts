@@ -1,5 +1,12 @@
 import { getLocation, getSpell, getUnit } from "./cards";
-import { fireTrigger, isBlocked, makeUnitInstance, openSlots, runEffects } from "./effects";
+import {
+  fireTrigger,
+  isBlocked,
+  makeUnitInstance,
+  openSlots,
+  runEffects,
+  salvageDestination,
+} from "./effects";
 import { ALL_SLOTS, orthogonalNeighbours, ownerOfSlot, slotsOf } from "./grid";
 import {
   cardKeywords,
@@ -16,6 +23,7 @@ import {
   chooseHandCard,
   chooseSlot,
   fireBelepo,
+  fireMustra,
   hasViableCaster,
   log,
   resolutionFinished,
@@ -140,6 +148,7 @@ function cardForbidsHiding(card: UnitCard): boolean {
  */
 export function legalActions(state: GameState, player: PlayerId): Action[] {
   const out: Action[] = [];
+  const p = state.players[player];
 
   // A spell in mid-resolution owns the whole turn: only the caster answers, and
   // nothing else may be played until it has finished with the board.
@@ -161,9 +170,18 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
     return out;
   }
 
-  if (state.turn !== player) return out;
+  // Leszerelés, 12.5: throw away as much of either hand as you like, then say
+  // you are done. Neither is forced, and either hand is fair game.
+  if (state.phase === "cleanup") {
+    if (state.turn !== player || p.tossDone) return out;
+    for (const card of [...p.unitHand, ...p.spellHand]) {
+      out.push({ type: "toss", player, uid: card.uid });
+    }
+    out.push({ type: "declareTossDone", player });
+    return out;
+  }
 
-  const p = state.players[player];
+  if (state.turn !== player) return out;
 
   if (state.phase === "units") {
     if (!p.flags.unitsClosed && !state.turnActions.unitPlayed) {
@@ -261,11 +279,51 @@ export function applyAction(state: GameState, action: Action): GameState {
       chooseHandCard(next, action.uid);
       break;
     case "nextLocation":
-      startNextLocation(next);
+      beginCleanup(next);
+      break;
+    case "toss":
+      doToss(next, action);
+      break;
+    case "declareTossDone":
+      if (next.phase === "cleanup" && next.turn === action.player) {
+        next.players[action.player].tossDone = true;
+        log(next, "Leszerelés: kész.", action.player);
+      }
       break;
   }
   settle(next);
   return next;
+}
+
+/**
+ * Leszerelés, 12.5. Either hand, any number of cards, and it is never forced.
+ * This is the only place in the game where a card leaves your hand for nothing:
+ * every other discard is the price of something.
+ */
+function doToss(state: GameState, action: Extract<Action, { type: "toss" }>): void {
+  if (state.phase !== "cleanup" || state.turn !== action.player) return;
+  const p = state.players[action.player];
+  if (p.tossDone) return;
+  for (const hand of [p.unitHand, p.spellHand]) {
+    const index = hand.findIndex((c) => c.uid === action.uid);
+    if (index === -1) continue;
+    const [card] = hand.splice(index, 1);
+    p.discard.push(card);
+    log(state, `Leszerelés: ${cardName(card.cardId)} eldobva.`, action.player);
+    return;
+  }
+}
+
+function cardName(cardId: string): string {
+  try {
+    return getUnit(cardId).name;
+  } catch {
+    try {
+      return getSpell(cardId).name;
+    } catch {
+      return cardId;
+    }
+  }
 }
 
 /** Pulls a card out of the hand, or out of the graveyard when Umbra allows it. */
@@ -427,15 +485,38 @@ function passTurn(state: GameState): void {
 // settle, auto-closing, phase transitions, skipping finished players
 // ---------------------------------------------------------------------------
 
+/**
+ * 6.6.2: if at the start of your turn you have no unit you could put down, or no
+ * free tile, you must finish gathering. "Could put down" is the whole test, so a
+ * hand of units that all overshoot the remaining cap closes the flag too — you
+ * cannot sit open on cards you are not allowed to play.
+ */
 function autoCloseUnits(state: GameState): void {
   for (const id of PLAYERS) {
     const p = state.players[id];
     if (p.flags.unitsClosed) continue;
-    const boardFull = emptySlotsOf(state, id).length === 0;
+    const free = emptySlotsOf(state, id);
+    const boardFull = free.length === 0;
     const handEmpty = playablePile(state, id).length === 0;
-    if (boardFull || handEmpty) {
+    const cap = remainingCap(state, id);
+    const nothingPlayable =
+      !boardFull &&
+      !playablePile(state, id).some((card) => {
+        const unitCard = getUnit(card.cardId);
+        if (effectiveCost(unitCard, state) > cap) return false;
+        return free.some((slot) => placementAllowed(state, unitCard, id, slot));
+      });
+    if (boardFull || handEmpty || nothingPlayable) {
       p.flags.unitsClosed = true;
-      log(state, boardFull ? "Egységek: kész (tele a rács)." : "Egységek: kész (üres kéz).", id);
+      log(
+        state,
+        boardFull
+          ? "Egységek: kész (tele a rács)."
+          : handEmpty
+            ? "Egységek: kész (üres kéz)."
+            : "Egységek: kész (nincs letehető egység).",
+        id,
+      );
     }
   }
 }
@@ -456,14 +537,32 @@ function fizzleDeadChannels(state: GameState): void {
   }
 }
 
+/**
+ * 8.7.2: if at the start of your turn you have no castable spell, you must
+ * finish the battle. Holding cards nobody on your board can fund or aim is not a
+ * reason to keep taking turns.
+ */
 function autoCloseSpells(state: GameState): void {
   const banned = castingBanned(state);
   for (const id of PLAYERS) {
     const p = state.players[id];
     if (p.flags.spellsClosed || state.channel[id]) continue;
-    if (p.spellHand.length === 0 || banned) {
+    const handEmpty = p.spellHand.length === 0;
+    const nothingCastable =
+      !handEmpty &&
+      !banned &&
+      !p.spellHand.some((card) => hasViableCaster(state, getSpell(card.cardId), id));
+    if (handEmpty || banned || nothingCastable) {
       p.flags.spellsClosed = true;
-      log(state, banned ? "Varázslatok: kész (nem lehet varázsolni)." : "Varázslatok: kész (üres kéz).", id);
+      log(
+        state,
+        banned
+          ? "Varázslatok: kész (nem lehet varázsolni)."
+          : handEmpty
+            ? "Varázslatok: kész (üres kéz)."
+            : "Varázslatok: kész (nincs kijátszható varázslat).",
+        id,
+      );
     }
   }
 }
@@ -488,6 +587,20 @@ function skipStopped(state: GameState, flag: "unitsClosed" | "spellsClosed"): vo
 
 export function settle(state: GameState): void {
   if (state.phase === "gameOver") return;
+
+  // Leszerelés hands the turn to whoever still has cards to throw away, and ends
+  // when neither has anything left to say.
+  if (state.phase === "cleanup") {
+    if (PLAYERS.every((id) => state.players[id].tossDone)) {
+      finishCleanup(state);
+      return;
+    }
+    let guard = 0;
+    while (state.players[state.turn].tossDone && guard++ < 4) {
+      state.turn = other(state.turn);
+    }
+    return;
+  }
 
   if (state.phase === "units") {
     autoCloseUnits(state);
@@ -539,11 +652,11 @@ function runMustra(state: GameState): void {
     unit.faceDown = false;
     log(state, `Felfedve: ${cardOf(unit).name} (${unit.slot}).`, unit.owner);
   }
-  for (const unit of hidden) {
-    if (state.board[unit.slot]?.uid === unit.uid) fireBelepo(state, unit);
-  }
 
-  fireTrigger(state, "onMustra", null, (text) => log(state, text));
+  // Every Belépő that was waiting for the reveal and every Mustra ability fires
+  // together off the board as it stands right now, and the deaths are settled in
+  // one go afterwards (7.6 to 7.8).
+  fireMustra(state, hidden);
 
   state.phase = "battle";
   // The player who brought the battlefield opens the battle too, same as the
@@ -585,16 +698,38 @@ function scoreLocation(state: GameState): void {
 // Location turnover
 // ---------------------------------------------------------------------------
 
-function startNextLocation(state: GameState): void {
+/**
+ * Leszerelés, the first half: 12.2 clears the battlefield, 12.3 the spells that
+ * were cast, 12.4 whatever is still sitting in a focus. 12.8 needs no code —
+ * damage, rings and placed cards live on the unit instances, which are gone.
+ *
+ * Then the players get their 12.5 discard, which is the reason this is a phase
+ * of its own rather than a step inside the location turnover.
+ */
+function beginCleanup(state: GameState): void {
   if (state.phase !== "scored") return;
 
-  // Spent cards are gone, win or lose, except what Csábítás claimed.
   for (const slot of ALL_SLOTS) {
     const unit = state.board[slot];
     if (unit) {
       const card = { uid: unit.uid, cardId: unit.cardId };
-      if (unit.claimedBy) state.players[unit.claimedBy].unitHand.push(card);
-      else state.players[unit.owner].discard.push(card);
+      // Csábítás claimed it; otherwise the battlefield may rescue it (Plázs
+      // hands Felindori units back to the bottom of the deck), and failing both
+      // it goes to its owner's graveyard.
+      if (unit.claimedBy) {
+        state.players[unit.claimedBy].unitHand.push(card);
+      } else {
+        const where = salvageDestination(state, getUnit(unit.cardId));
+        const owner = state.players[unit.owner];
+        if (where === "deckBottom") {
+          owner.unitDeck.push(card);
+          log(state, `${getUnit(unit.cardId).name} a pakli aljára kerül.`, unit.owner);
+        } else if (where === "hand") {
+          owner.unitHand.push(card);
+        } else {
+          owner.discard.push(card);
+        }
+      }
     }
     state.board[slot] = null;
   }
@@ -608,40 +743,39 @@ function startNextLocation(state: GameState): void {
   }
   state.spellsCast = [];
   state.placementCounter = 0;
+  state.resolution = null;
 
-  // No toss. You keep whatever you did not spend, and refill only what left.
+  // A decided game has nothing left to prepare for, so the discard step is
+  // skipped rather than asked for.
+  if (gameIsDecided(state)) {
+    finishGame(state);
+    return;
+  }
+
+  state.phase = "cleanup";
+  for (const id of PLAYERS) state.players[id].tossDone = false;
+  state.turn = state.locations[state.locationIndex].broughtBy;
+  log(state, "Leszerelés: eldobhatsz bármennyi lapot mindkét kezedből.");
+}
+
+/**
+ * Leszerelés, the second half: 12.6 refills both hands to seven, 12.7 draws
+ * nothing from an empty deck and charges nothing for it, and 12.10 turns the
+ * next battlefield over.
+ */
+function finishCleanup(state: GameState): void {
   for (const id of PLAYERS) {
     const p = state.players[id];
     p.flags = { unitsClosed: false, spellsClosed: false };
     p.capSpent = 0;
     p.hiddenThisLocation = 0;
+    p.tossDone = false;
     drawUpTo(p.unitHand, p.unitDeck, state.config.handSize + p.bonusDraw.units);
     drawUpTo(p.spellHand, p.spellDeck, state.config.spellHandSize + p.bonusDraw.spells);
     p.bonusDraw = { units: 0, spells: 0 };
   }
 
-  const played = state.locationIndex + 1;
-  const board = scoreboard(state);
-  const regularCount = state.locations.filter((l) => !getLocation(l.cardId).tiebreaker).length;
-
-  if (played >= state.locations.length) {
-    finishGame(state);
-    return;
-  }
-  // Taking more than half the regular battlefields settles it: the rest cannot
-  // be caught up, so there is nothing left to play for.
-  const majority = Math.floor(regularCount / 2) + 1;
-  if (board.p1 >= majority || board.p2 >= majority) {
-    finishGame(state);
-    return;
-  }
-  if (played >= regularCount && board.p1 !== board.p2) {
-    // Végtelen puszta is played only if the score is tied.
-    finishGame(state);
-    return;
-  }
-
-  state.locationIndex = played;
+  state.locationIndex += 1;
   state.phase = "units";
   state.turn = state.locations[state.locationIndex].broughtBy;
   state.turnActions = { unitPlayed: false, spellPlayed: false };
@@ -655,14 +789,34 @@ function startNextLocation(state: GameState): void {
 }
 
 /**
+ * 1.3.7: the game ends the moment the standing can no longer be turned around.
+ * Taking more than half the regular battlefields does it, and so does running
+ * out of them — Végtelen puszta only comes up on a tie.
+ */
+function gameIsDecided(state: GameState): boolean {
+  const played = state.locationIndex + 1;
+  if (played >= state.locations.length) return true;
+  const board = scoreboard(state);
+  const regularCount = state.locations.filter((l) => !getLocation(l.cardId).tiebreaker).length;
+  const majority = Math.floor(regularCount / 2) + 1;
+  if (board.p1 >= majority || board.p2 >= majority) return true;
+  return played >= regularCount && board.p1 !== board.p2;
+}
+
+/**
  * Lingadori könyvtár, Malom and Bőségkert all hand both players the same thing
  * before a card is committed. One location effect, three parameter sets.
  */
 export function applyLocationStart(state: GameState): void {
+  // 5.2.2 and 13.3: the opening effect runs for the player who brought the
+  // battlefield first, then for the other one. It matters whenever the effect
+  // touches a shared pile, and it costs nothing to get right.
+  const bringer = state.locations[state.locationIndex].broughtBy;
+  const order: PlayerId[] = [bringer, other(bringer)];
   for (const effect of currentLocation(state).effects ?? []) {
     if (effect.kind !== "startEffect") continue;
     const kinds = effect.cardKind === "both" ? ["unit", "spell"] : [String(effect.cardKind ?? "spell")];
-    for (const player of PLAYERS) {
+    for (const player of order) {
       for (const cardKind of kinds) {
         runEffects(
           state,
@@ -698,7 +852,7 @@ function drawUpTo(hand: HandCard[], deck: HandCard[], size: number): void {
 
 export function activePlayer(state: GameState): PlayerId | null {
   if (state.phase === "units" || state.phase === "battle") return state.turn;
-  if (state.phase === "scored") return state.turn;
+  if (state.phase === "scored" || state.phase === "cleanup") return state.turn;
   return null;
 }
 
