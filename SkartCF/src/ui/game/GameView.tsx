@@ -824,6 +824,33 @@ function arc(i: number, n: number, flip = false): React.CSSProperties {
   } as React.CSSProperties;
 }
 
+/** The width the hand draws its cards at. Mirrors `--hand-card-w` in the sheet. */
+const HAND_CARD_W = 110;
+
+/**
+ * How far the whole fan has to sit above the baseline for its lowest card to
+ * rest exactly on it.
+ *
+ * The arc drops its ends and tilts them, and both of those push the outer cards'
+ * bottom corners further down than the middle card's. Left alone, the screen edge
+ * shaves the corner off the very cards the fan makes hardest to read — the power
+ * gem lives in that corner. So the group is raised by its own droop, computed
+ * from the same two numbers `arc()` uses, and the hand ends up sitting *on* the
+ * bottom edge rather than hanging through it.
+ */
+function fanLift(n: number): number {
+  if (n <= 1) return 0;
+  const mid = (n - 1) / 2;
+  const drop = mid * mid * 2.6;
+  const tilt = (HAND_CARD_W / 2) * Math.sin((mid * 4.5 * Math.PI) / 180);
+  return Math.round(drop + tilt + 4);
+}
+
+/** The style that puts a fan's lowest card on the bottom edge. */
+function fanStyle(n: number): React.CSSProperties {
+  return { "--arc-lift": `${fanLift(n)}px` } as React.CSSProperties;
+}
+
 /**
  * The enemy's hand: backs only, units on their left and spells on their right,
  * hanging off the top of the screen. The peek switch turns them over.
@@ -911,7 +938,7 @@ function NearHand(
     const options = pending.handOptions ?? [];
     return (
       <div className="hand-rail near">
-        <div className="hand-group">
+        <div className="hand-group" style={fanStyle(options.length)}>
           {options.map((c, i) => (
             <Slot
               key={c.uid}
@@ -967,7 +994,10 @@ function NearHand(
       )}
 
       <div className="hand-rail near">
-        <div className={`hand-group${mine && (unitsPhase || cleanup) ? "" : " muted"}`}>
+        <div
+          className={`hand-group${mine && (unitsPhase || cleanup) ? "" : " muted"}`}
+          style={fanStyle(p.unitHand.length)}
+        >
           {p.unitHand.map((c, i) => {
             const card: UnitCard = getUnit(c.cardId);
             const live = mine && unitsPhase && playable.has(c.uid);
@@ -1018,7 +1048,10 @@ function NearHand(
           })}
         </div>
 
-        <div className={`hand-group${mine && !unitsPhase ? "" : " muted"}`}>
+        <div
+          className={`hand-group${mine && !unitsPhase ? "" : " muted"}`}
+          style={fanStyle(p.spellHand.length)}
+        >
           {p.spellHand.map((c, i) => {
             const card: SpellCard = getSpell(c.cardId);
             const feed = mine && tossable.has(c.uid);

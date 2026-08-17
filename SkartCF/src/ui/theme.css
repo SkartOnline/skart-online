@@ -975,7 +975,10 @@ code {
   display: grid;
   align-content: center;
   justify-items: center;
-  padding: 60px 4px 90px;
+  /* The near hand no longer hides most of itself below the screen edge, so the
+     board has to give that height back: enough for a whole card plus the dip at
+     the ends of the arc. The far hand still shows only its top. */
+  padding: 52px 4px 198px;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
@@ -986,7 +989,7 @@ code {
 /* Four rows of tiles plus the centre line have to clear both hands. Solving
    that for the tile width is what the dvh term is: 3*tile + chrome <= height. */
 .grids {
-  --tile: clamp(96px, min(calc((100vw - 2 * var(--rail) - 40px) / 3), calc((100dvh - 262px) / 3)), 320px);
+  --tile: clamp(88px, min(calc((100vw - 2 * var(--rail) - 40px) / 3), calc((100dvh - 396px) / 3)), 320px);
   display: grid;
   grid-template-rows: auto auto auto;
   justify-content: center;
@@ -1363,26 +1366,23 @@ code {
   gap: 44px;
   pointer-events: none;
 }
-/* The near hand rests cut off by the bottom edge and comes up when you reach for
-   it. The lift is on the groups rather than on the rail, so the rail's own box —
-   which is what decides whether the pointer is still "in the hand" — stays put
-   while the cards move. */
+/* The near hand rests on the bottom edge of the screen and stays there.
+ *
+ * It does not rise when you reach for it. A hand that lifts opens a strip of
+ * empty table underneath itself and moves every card out from under the pointer
+ * at the same moment, and neither is worth anything: the arc belongs against the
+ * edge, the way a hand of cards rests against the rail of a table. The padding
+ * above is headroom for the card being read, which grows up into it. */
 .hand-rail.near {
   bottom: 0;
-  padding-top: 150px;
+  padding-top: 210px;
 }
 .hand-rail.near .hand-group {
-  transform: translateY(42%);
+  /* Raised by its own droop, so the lowest card in the arc rests on the bottom
+     edge instead of hanging through it. See `fanLift` for where the number
+     comes from. */
+  transform: translateY(calc(-1 * var(--arc-lift, 0px)));
   transition: transform 220ms ease-out;
-}
-/* Well clear of the bottom edge, not merely level with it. A hovered card grows
-   from its bottom edge and its power gem overhangs the frame, so that corner is
-   the first thing the screen edge eats — which is exactly what it did. The rail's
-   own box sits a little below the viewport (`bottom: 0` against a `100dvh`
-   parent), so this is deliberately generous rather than exact. */
-.hand-rail.near:hover .hand-group,
-.hand-rail.near:focus-within .hand-group {
-  transform: translateY(-14%);
 }
 .hand-rail.far {
   top: 0;
@@ -1416,7 +1416,7 @@ code {
  * The arc arrives as --angle and --drop; the transform is composed here so the
  * hover can replace it outright. */
 .hand-slot {
-  --hand-card-w: 118px;
+  --hand-card-w: 110px;
   position: relative;
   z-index: var(--z, 10);
   width: var(--hand-card-w);
@@ -1457,29 +1457,29 @@ code {
 .hand-slot.dead .cardface {
   filter: grayscale(0.6) brightness(0.6);
 }
-/* Stood upright and grown, but grown in place: the origin is the bottom edge, so
-   the extra height appears above the card and the card stays where the hand said
-   it was. The old version threw it 132px up the screen, which took it away from
-   the pointer and away from where you were looking. A modest lift is only there
-   to clear the bottom edge.
- *
- * z-index goes up while hovered, and this is why `arc()` hands the resting value
- * over as a custom property: an inline z-index would win and the card would stay
- * buried under the ones to its right, hiding the power gem in its corner. */
+/* The card being read comes up above its neighbours in the stack. This is why
+   `arc()` hands the resting z-index over as a custom property: an inline value
+   would win, and the card would stay buried under the ones to its right — which is
+   exactly where its power gem is. */
 .hand-rail.near .hand-slot:hover,
 .hand-rail.near .hand-slot:focus-within,
 .hand-slot.picked {
   z-index: 60;
 }
-/* Brought forward: grown mostly in place, and lifted just enough that the whole
-   card — including the power gem overhanging its bottom-right corner — clears the
-   edge of the screen. The old version threw it 132px up and away from where you
-   were looking; most of that distance is now scale instead. Hovering and having
-   picked a card are the same state as far as the card is concerned. */
+/* Read: stood upright and enlarged, and that is the whole of it.
+ *
+ * Nothing translates. Writing a fresh `transform` discards the fan's rotation and
+ * drop, so the card straightens where it stands, and `transform-origin` on the
+ * bottom edge sends every pixel of the extra size upward into the rail's padding.
+ * It grows out of the hand rather than flying out of it — the same thing that
+ * happens when you pull a card half out of a real hand to look at it.
+ *
+ * Hovering and having picked a card are the same state as far as the card is
+ * concerned, so they share a rule. */
 .hand-rail.near .hand-slot:hover > .hand-card,
 .hand-rail.near .hand-slot:focus-within > .hand-card,
 .hand-slot.picked > .hand-card {
-  transform: translateY(-48%) scale(1.3);
+  transform: scale(1.5);
 }
 
 /* Neighbours step out of the way rather than being covered up: the hovered card
@@ -1701,9 +1701,11 @@ code {
   box-shadow: 0 0 0 1px var(--flame), 0 8px 20px rgba(0, 0, 0, 0.6);
 }
 
-/* The card in your hand, on the way to a tile. */
+/* The card in your hand, on the way to a tile. Upright: it has been taken out of
+   the fan, so it no longer carries the fan's angle — a card you are holding is a
+   card you are looking at straight on. */
 .dragged-card {
-  transform: rotate(-3deg) scale(1.06);
+  transform: scale(1.04);
   transform-origin: 50% 50%;
   filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.75));
 }
@@ -1712,10 +1714,13 @@ code {
   touch-action: none;
   user-select: none;
 }
-/* While a card is in the air the hand stays down and stays out of the way: a
-   fan springing up under the cursor is exactly what you do not want mid-drag. */
+/* While a card is in the air the hand drops out of the way, so the tiles you are
+   aiming at are not behind it, and no card in the fan enlarges under the cursor. */
 body.dragging-card .hand-rail.near .hand-group {
-  transform: translateY(58%);
+  transform: translateY(46%);
+}
+body.dragging-card .hand-slot:hover {
+  z-index: var(--z, 10);
 }
 body.dragging-card .hand-slot:hover > .hand-card {
   transform: translateX(var(--shift, 0px)) rotate(var(--angle, 0deg))
