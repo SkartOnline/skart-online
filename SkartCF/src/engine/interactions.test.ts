@@ -59,6 +59,7 @@ function emptyPlayer(id: PlayerId) {
     hiddenThisLocation: 0,
     bonusDraw: { units: 0, spells: 0 },
     tossDone: false,
+    seen: [],
   };
 }
 
@@ -321,5 +322,149 @@ describe("the prompt queue", () => {
     const after = applyAction(state, { type: "answerPrompt", player: "p1", pick: "g2" });
     expect(after.players.p1.unitHand.map((c) => c.cardId)).toEqual(["greta"]);
     expect(after.prompts).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 1.5.2, a hand is hidden — it is not forgettable
+// ---------------------------------------------------------------------------
+
+describe("peek", () => {
+  it("keeps a hand the peeker has read legible to that peeker alone", () => {
+    const state = blankState();
+    state.players.p2.spellHand = [
+      { uid: "s1", cardId: "explar" },
+      { uid: "s2", cardId: "leskelodes" },
+    ];
+    fireBelepo(state, put(state, "magusinkvizitor", "p1", "p1.F1"));
+
+    // Mágusinkvizítor read the whole spell hand, so p1 knows both of them and
+    // p2 has learned nothing about p1.
+    expect(state.players.p1.seen.sort()).toEqual(["s1", "s2"]);
+    expect(state.players.p2.seen).toEqual([]);
+  });
+
+  it("remembers only the one card a Fejvadász pulled out", () => {
+    const state = blankState();
+    state.players.p2.unitHand = [
+      { uid: "u1", cardId: "patkany" },
+      { uid: "u2", cardId: "ogre" },
+      { uid: "u3", cardId: "farkas" },
+    ];
+    fireBelepo(state, put(state, "fejvadasz", "p1", "p1.F1"));
+
+    expect(state.players.p1.seen).toHaveLength(1);
+    expect(["u1", "u2", "u3"]).toContain(state.players.p1.seen[0]);
+  });
+
+  it("forgets a card once it has left the hand it was seen in", () => {
+    const state = blankState();
+    state.players.p2.spellHand = [{ uid: "s1", cardId: "explar" }];
+    fireBelepo(state, put(state, "magusinkvizitor", "p1", "p1.F1"));
+    expect(state.players.p1.seen).toEqual(["s1"]);
+
+    // The refill is where knowledge is trimmed to what is still holdable. Play
+    // the card out of the hand and it stops being something anybody knows.
+    state.players.p2.spellHand = [];
+    state.players.p1.flags = { unitsClosed: true, spellsClosed: true };
+    state.players.p2.flags = { unitsClosed: true, spellsClosed: true };
+    state.players.p1.tossDone = true;
+    state.players.p2.tossDone = true;
+    state.phase = "cleanup";
+    settle(state);
+    expect(state.players.p1.seen).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Szerencsejátékos: the card says you may throw again, so you are asked
+// ---------------------------------------------------------------------------
+
+describe("érme", () => {
+  /**
+   * Nudge the seed until the coin comes down the way the test needs.
+   *
+   * The rolls are a pure function of the seed, so this is not luck: it is
+   * searching for the game in which the coin does the thing under test, and
+   * every assertion downstream of it can then be exact.
+   */
+  function gambler(first: "unicorn" | "tails", second?: "unicorn" | "tails"): GameState {
+    for (let seed = 1; seed < 4000; seed++) {
+      const state = blankState();
+      state.rng = seed;
+      fireBelepo(state, put(state, "szerencsejatekos", "p1", "p1.F1"));
+      if (state.board["p1.F1"]!.rings > 0 !== (first === "unicorn")) continue;
+      if (!second) return state;
+      const after = applyAction(state, { type: "answerPrompt", player: "p1", pick: "again" });
+      if (after.board["p1.F1"]!.rings > 0 !== (second === "unicorn")) continue;
+      return state;
+    }
+    throw new Error("no seed produced that pair of flips");
+  }
+
+  it("pays out and then asks, rather than throwing again by itself", () => {
+    const state = gambler("unicorn");
+    expect(state.board["p1.F1"]!.rings).toBe(1);
+    const asking = pendingPrompt(state);
+    expect(asking?.kind).toBe("coinFlip");
+    expect(asking?.picking).toBe("option");
+    expect((asking?.options ?? []).map((o) => o.id)).toEqual(["again", "stop"]);
+  });
+
+  it("offers the two answers as ordinary moves, so anything can play the card", () => {
+    const state = gambler("unicorn");
+    const moves = legalActions(state, "p1");
+    expect(moves).toContainEqual({ type: "answerPrompt", player: "p1", pick: "again" });
+    expect(moves).toContainEqual({ type: "answerPrompt", player: "p1", pick: "stop" });
+    // The question has to be answered: there is no walking away from a coin.
+    expect(moves.some((m) => m.type === "finishPrompt")).toBe(false);
+    expect(legalActions(state, "p2")).toEqual([]);
+  });
+
+  it("keeps the winnings and stops asking when the player stops", () => {
+    const state = gambler("unicorn");
+    const after = applyAction(state, { type: "answerPrompt", player: "p1", pick: "stop" });
+    expect(after.board["p1.F1"]!.rings).toBe(1);
+    expect(after.prompts).toHaveLength(0);
+  });
+
+  it("doubles the stake on a second unicorn rather than stacking it", () => {
+    const state = gambler("unicorn", "unicorn");
+    const after = applyAction(state, { type: "answerPrompt", player: "p1", pick: "again" });
+    // Two wins are worth two. One plus two would be three, and the card says
+    // double, not add.
+    expect(after.board["p1.F1"]!.rings).toBe(2);
+    // The card allows one re-flip, and it has been taken.
+    expect(after.prompts).toHaveLength(0);
+  });
+
+  it("takes back everything it paid out when the second throw is írás", () => {
+    const state = gambler("unicorn", "tails");
+    const after = applyAction(state, { type: "answerPrompt", player: "p1", pick: "again" });
+    expect(after.board["p1.F1"]!.rings).toBe(0);
+    expect(after.prompts).toHaveLength(0);
+  });
+
+  it("stakes only what the coin paid out, never a ring from elsewhere", () => {
+    const state = gambler("unicorn", "tails");
+    // A ring from somewhere else entirely — Bodur, Vaskarom, anything.
+    state.board["p1.F1"]!.rings += 5;
+    const after = applyAction(state, { type: "answerPrompt", player: "p1", pick: "again" });
+    // The gambler loses its winnings and nothing else: the five stay.
+    expect(after.board["p1.F1"]!.rings).toBe(5);
+  });
+
+  it("asks nothing at all when the first throw is írás", () => {
+    const state = gambler("tails");
+    expect(state.board["p1.F1"]!.rings).toBe(0);
+    expect(state.prompts).toHaveLength(0);
+    expect(state.reveals.some((r) => r.kind === "coin" && r.verdict === "no")).toBe(true);
+  });
+
+  it("shows the coin to both players, since it is thrown on the table", () => {
+    const state = gambler("unicorn");
+    const coin = state.reveals.find((r) => r.kind === "coin");
+    expect(coin?.open).toBe(true);
+    expect(coin?.verdict).toBe("yes");
   });
 });

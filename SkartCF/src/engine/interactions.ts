@@ -1,5 +1,5 @@
 import { getSpell, getUnit } from "./cards";
-import { applyEffect, isBlocked, legalDestinations, sweepDead, trapSlots } from "./effects";
+import { applyEffect, flipCoin, isBlocked, legalDestinations, sweepDead, trapSlots } from "./effects";
 import type { EffectContext } from "./effects";
 import { ALL_SLOTS, opponentOf, ownerOfSlot, slotLabel, slotsOf } from "./grid";
 import { cardOf, matchesFilter } from "./power";
@@ -198,6 +198,37 @@ export const PROMPT_HANDLERS: Record<string, PromptHandler> = {
    * here, before the tile is named, because committing it is the price and the
    * tile is only where it waits.
    */
+  /**
+   * Szerencsejátékos, having seen the coin, deciding whether to throw it again.
+   *
+   * The re-flip is the same call the Belépő made, one flip further along, so
+   * pressing on three times is three passes through one piece of code rather
+   * than a loop that has to know when to stop. Stopping is simply not calling
+   * it: the winnings are already on the unit, they were paid the moment the
+   * coin came down.
+   */
+  coinFlip(state, prompt, log) {
+    const data = prompt.data ?? {};
+    const unitUid = String(data.unitUid ?? "");
+    const unit = ALL_SLOTS.map((slot) => state.board[slot]).find((u) => u?.uid === unitUid);
+    if (!unit) return;
+    const won = Number(data.won ?? 0);
+    if (prompt.chosen[0] !== "again") {
+      log(`${cardOf(unit).name} beéri ${won} gyűrűvel.`);
+      return;
+    }
+    flipCoin(
+      state,
+      unit,
+      {
+        amount: Number(data.amount ?? 1),
+        won,
+        flipsLeft: Math.max(0, Number(data.flipsLeft ?? 0) - 1),
+      },
+      log,
+    );
+  },
+
   trapSpell(state, prompt, log) {
     const player = prompt.player;
     const uid = prompt.chosen[0];

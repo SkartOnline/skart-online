@@ -173,6 +173,10 @@ function opposedSuppresses(unit: UnitInstance, state: GameState): boolean {
   if (!across) return false;
   const other = unitAt(state, across);
   if (!other || other.owner === unit.owner) return false;
+  // A hidden Vérfarkas is a blank card lying on a tile (6.5.6). Read off
+  // `rawStatics` below, this is the one place a face-down unit could still have
+  // reached across the line.
+  if (other.faceDown) return false;
   if (!abilitiesLocallyActive(other)) return false;
   for (const ability of rawStatics(other)) {
     if (ability.kind !== "suppressOpposed") continue;
@@ -187,8 +191,14 @@ function opposedSuppresses(unit: UnitInstance, state: GameState): boolean {
 /**
  * The statics that actually count right now. An attached spell keeps working
  * even when the unit's own abilities are switched off, it is a separate card.
+ *
+ * A face-down unit has none of them, its own or attached (6.5.6). Hiding is not
+ * a costume the card keeps working under: until the Mustra turns it over it is
+ * a blank that occupies a tile and charges the cap, and that is the whole trade
+ * you paid a card out of hand for.
  */
 export function staticsOf(unit: UnitInstance, state: GameState): StaticAbility[] {
+  if (unit.faceDown) return [];
   const attached = attachmentsOn(unit).flatMap((a) => a.statics ?? []);
   if (unit.abilitiesSuppressed) return attached;
   if (!abilitiesLocallyActive(unit) || opposedSuppresses(unit, state)) return attached;
@@ -197,6 +207,7 @@ export function staticsOf(unit: UnitInstance, state: GameState): StaticAbility[]
 
 /** Belépő and triggers are off under the same conditions the statics are. */
 export function abilitiesActive(unit: UnitInstance, state: GameState): boolean {
+  if (unit.faceDown) return false;
   if (unit.abilitiesSuppressed) return false;
   return abilitiesLocallyActive(unit) && !opposedSuppresses(unit, state);
 }
@@ -355,6 +366,11 @@ export function matchesFilter(
   filter: TargetFilter | undefined,
   state?: GameState,
 ): boolean {
+  // 6.5.6: card text cannot reach a hidden unit at all, and the exceptions are
+  // exactly the texts that say so — those carry `hidden` in their filter. This
+  // sits ahead of the empty-filter shortcut on purpose: "any enemy unit" is the
+  // commonest text there is, and it is precisely the one that must not see it.
+  if (unit.faceDown && filter?.hidden !== true) return false;
   if (!filter) return true;
   const card = cardOf(unit);
   const keywords = keywordsOf(unit);
@@ -550,6 +566,10 @@ function auraSources(
   unit: UnitInstance,
   state: GameState,
 ): { from: UnitInstance; amount: number }[] {
+  // 6.5.6 cuts both ways: a hidden unit neither gives an aura — `staticsOf`
+  // sees to that — nor receives one. Standing next to a Maffiavezér face down
+  // is worth nothing until the Mustra turns you over.
+  if (unit.faceDown) return [];
   const out: { from: UnitInstance; amount: number }[] = [];
   for (const other of allUnitsOnBoard(state)) {
     const amount = auraAmountFrom(state, other, unit);

@@ -37,6 +37,9 @@ export function promptOptions(prompt: Prompt): string[] {
   if (prompt.picking === "card") {
     return (prompt.cards ?? []).map((c) => c.uid).filter((uid) => !taken.has(uid));
   }
+  if (prompt.picking === "option") {
+    return (prompt.options ?? []).map((o) => o.id).filter((id) => !taken.has(id));
+  }
   return (prompt.slots ?? []).filter((slot) => !taken.has(slot));
 }
 

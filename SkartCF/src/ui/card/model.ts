@@ -18,6 +18,11 @@ export function isSpell(card: AnyCard): card is SpellCard {
   return (card as SpellCard).kind === "spell";
 }
 
+/** A battlefield: the one card kind with neither a cost nor a power to print. */
+export function isLocation(card: AnyCard): card is LocationCard {
+  return !isUnit(card) && !isSpell(card);
+}
+
 // --------------------------------------------------------------- rarity
 
 export const RARITIES = ["Gyakori", "Ritka", "Kivételes", "Legendás"] as const;

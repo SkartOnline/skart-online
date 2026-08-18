@@ -118,6 +118,7 @@ the choice itself *is* the ability, it asks:
 | `searchDeck` | which card comes out of the listed deck or graveyard | Sírásó, Feltámadás, Lingadori könyvtár |
 | `handSwap` | which cards you take, then which you give back | Griff, a hamiskártyás |
 | `setTrap` | which spell goes down, and onto which enemy tile | Fuedrax |
+| `coinFlip` | after a win, whether to throw again | Szerencsejátékos |
 
 These put a `Prompt` on the queue (`prompts.ts`) and stop; until it is
 answered, nothing else can happen in the game. The answer arrives as an
@@ -126,7 +127,13 @@ can play these cards without knowing they exist. The completion handler is
 keyed by `kind` in `interactions.ts`, never a closure — a prompt has to
 survive the `structuredClone` the bot uses to evaluate positions.
 
-These three are the first asking effects, not the only ones the machinery is
+A prompt normally picks a card out of a listed pile or a tile on the board.
+`coinFlip` is the third shape: `picking: "option"`, a short list of `options`
+each with an `id` and a label, answered by id through the same `answerPrompt`.
+Use it for a question that is about neither a card nor a tile — press on or
+stop, take it or leave it.
+
+These are the first asking effects, not the only ones the machinery is
 for. A new asking ability is one prompt `kind` and one completion handler —
 the same two edits as a new effect — and nothing else in the engine needs to
 know it exists.

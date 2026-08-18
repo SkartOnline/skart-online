@@ -251,6 +251,96 @@ const PEEK_NAME: Record<string, string> = {
   nextLocation: "a következő csatatér",
 };
 
+/**
+ * Write a look down. What a player has legitimately seen in the other hand
+ * stays seen: the fan keeps showing it to them and to nobody else, which is the
+ * difference between an ability and a card flashed for two seconds.
+ */
+function remember(state: GameState, looker: PlayerId, uids: string[]): void {
+  const seen = state.players[looker].seen;
+  for (const uid of uids) if (!seen.includes(uid)) seen.push(uid);
+}
+
+/**
+ * The stake a gambler is carrying: what one win is worth to start with, what
+ * has been won so far, and how many more flips the card allows.
+ */
+export interface Stake {
+  amount: number;
+  won: number;
+  flipsLeft: number;
+}
+
+/**
+ * One flip of Szerencsejátékos' coin, and whatever follows from it.
+ *
+ * Unicorn doubles the winnings — the card says double, so the second win is
+ * worth two and not one plus two — and írás takes back everything this ability
+ * has paid out and no more. That last part matters: the card says "minden
+ * kapott erőt", the power it gave, so a ring the unit was granted by something
+ * else is not on the table. The gambler stakes its own winnings.
+ *
+ * A flip that leaves another one owed does not take it. It asks, which is the
+ * point of the card, and the answer re-enters here through the prompt handler.
+ */
+export function flipCoin(
+  state: GameState,
+  unit: UnitInstance,
+  stake: Stake,
+  log: (text: string) => void,
+): void {
+  const [roll, seed] = randomInt(state.rng, 2);
+  state.rng = seed;
+  const unicorn = roll === 0;
+  const sourceCardId = cardOf(unit).id;
+
+  if (!unicorn) {
+    unit.rings = Math.max(0, unit.rings - stake.won);
+    log(`Érme: írás. ${cardOf(unit).name} minden kapott erőt elveszít.`);
+    recordReveal(state, {
+      kind: "coin",
+      player: unit.owner,
+      cardIds: [],
+      verdict: "no",
+      sourceCardId,
+      text: "írás",
+      // A coin goes up in front of both players. The unit that threw it is face
+      // up on the table and so is the result.
+      open: true,
+    });
+    return;
+  }
+
+  const won = stake.won === 0 ? stake.amount : stake.won * 2;
+  unit.rings += won - stake.won;
+  log(`Érme: unikornis. ${cardOf(unit).name}: ${won} gyűrű a téten.`);
+  recordReveal(state, {
+    kind: "coin",
+    player: unit.owner,
+    cardIds: [],
+    verdict: "yes",
+    sourceCardId,
+    text: `unikornis, ${won} gyűrű`,
+    open: true,
+  });
+
+  if (stake.flipsLeft <= 0) return;
+  askPrompt(state, {
+    kind: "coinFlip",
+    player: unit.owner,
+    prompt: `Dobsz még? ${won} gyűrű a téten.`,
+    picking: "option",
+    options: [
+      { id: "again", label: "Dobok még" },
+      { id: "stop", label: "Beérem ennyivel" },
+    ],
+    min: 1,
+    max: 1,
+    data: { unitUid: unit.uid, amount: stake.amount, won, flipsLeft: stake.flipsLeft },
+    sourceCardId,
+  });
+}
+
 function grantRings(unit: UnitInstance, amount: number, ctx: EffectContext): void {
   unit.rings += amount;
   ctx.log(`${cardOf(unit).name}: ${amount >= 0 ? "+" : ""}${amount} gyűrű (összesen ${unit.rings}).`);
@@ -794,27 +884,30 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     ctx.log("A kéz és a temető helyet cserél.");
   },
 
-  /** Szerencsejátékos. Deterministic off the game seed, like every other roll. */
+  /**
+   * Szerencsejátékos. Deterministic off the game seed, like every other roll.
+   *
+   * The card says "dönthetsz úgy, hogy újra dobj" and for a long time it did no
+   * such thing: every re-flip it was entitled to happened by itself, so the one
+   * decision the card is about was made for you before you saw the coin. Now the
+   * first flip goes down, the result is recorded where the theatre can hold it
+   * up, and if there is another flip owed the player is asked whether to take
+   * it. `flipCoin` is the whole of it and the prompt handler re-enters it, so
+   * the second flip is the same code as the first.
+   */
   coinFlip(ctx, effect, _targets) {
     const unit = ctx.source;
     if (!unit) return;
-    let stake = Number(effect.amount ?? 1);
-    let flips = 1 + Math.max(0, Number(effect.reflips ?? 0));
-    let won = 0;
-    while (flips-- > 0) {
-      const [roll, seed] = randomInt(ctx.state.rng, 2);
-      ctx.state.rng = seed;
-      if (roll === 0) {
-        won += stake;
-        stake *= 2;
-        ctx.log(`Érme: unikornis (+${won} összesen).`);
-      } else {
-        ctx.log("Érme: írás, minden nyeremény odavész.");
-        won = 0;
-        break;
-      }
-    }
-    if (won > 0) grantRings(unit, won, ctx);
+    flipCoin(
+      ctx.state,
+      unit,
+      {
+        amount: Math.max(1, Number(effect.amount ?? 1)),
+        won: 0,
+        flipsLeft: Math.max(0, Number(effect.reflips ?? 0)),
+      },
+      ctx.log,
+    );
   },
 
   /**
@@ -869,6 +962,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     // Reading the whole hand shows the whole hand; a card pulled out of it shows
     // one, and which one is a roll rather than the top of the pile.
     if (ring <= 0) {
+      remember(ctx.state, ctx.controller, hand.map((c) => c.uid));
       recordReveal(ctx.state, {
         kind: "peek",
         player: ctx.controller,
@@ -885,6 +979,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     const card = tryUnit(drawn.cardId) ?? trySpell(drawn.cardId);
     if (!card) return;
     const beats = !!ctx.source && card.cost > cardOf(ctx.source).cost;
+    remember(ctx.state, ctx.controller, [drawn.uid]);
     ctx.log(`Felfedve: ${card.name} (${card.cost}).`);
     recordReveal(ctx.state, {
       kind: "peek",

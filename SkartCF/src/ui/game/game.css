@@ -107,6 +107,34 @@
   object-fit: cover;
   display: block;
 }
+/* A unit that is on the table but not yet named. It counts in the strip — the
+   board has that many cards on it — and says nothing else, so it carries no
+   picture and refuses the hover the others answer. */
+.annal.veiled {
+  cursor: default;
+  background-color: #2a1c0e;
+}
+.annal.veiled:hover {
+  border-color: var(--ink-edge);
+}
+.annal.veiled.mine {
+  border-left-color: var(--brass);
+}
+.annal.veiled.theirs {
+  border-left-color: var(--blood);
+}
+.annal-veil {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(197, 149, 74, 0.22), transparent 62%),
+    repeating-linear-gradient(
+      135deg,
+      rgba(0, 0, 0, 0.45) 0 4px,
+      rgba(197, 149, 74, 0.09) 4px 8px
+    );
+}
 /* The card behind the picture, printed clear of the strip. */
 .annal-card {
   position: fixed;
@@ -930,6 +958,31 @@
   --card-w: 232px;
   box-shadow: 0 0 0 1px var(--iron-bright);
 }
+/* A peeked card is read the other way up: the enemy's fan hangs off the top
+   edge, so the readable copy drops down from it instead of rising off the
+   bottom. */
+.reading.far {
+  bottom: auto;
+  top: 8px;
+}
+
+/* A card in the enemy's fan that this player has earned the right to read. It
+   is the only one in that hand that answers the pointer at all, so it says so:
+   a brass edge on the card and a lift when you point at it. */
+.hand-rail.far .hand-slot.known {
+  cursor: help;
+}
+.hand-rail.far .hand-slot.known .cardface {
+  box-shadow:
+    0 0 0 1px var(--brass),
+    0 0 10px rgba(197, 149, 74, 0.35);
+}
+/* The card itself does not move, for the same reason no card in the near fan
+   does: the readable copy is `.reading.far`, and a card that grew under the
+   pointer would take the hover with it. */
+.hand-rail.far .hand-slot.known:hover {
+  z-index: 60;
+}
 @keyframes reading-appears {
   from {
     opacity: 0;
@@ -1581,24 +1634,40 @@ body.dragging-card {
 .almanac {
   position: absolute;
   top: 50%;
-  right: calc(var(--rail) + 14px);
+  left: 50%;
   z-index: 36;
-  transform: translateY(-50%);
-  width: 268px;
+  transform: translate(-50%, -50%);
+  width: 292px;
   max-height: 82dvh;
   display: flex;
   flex-direction: column;
   padding: 8px 10px 10px;
-  animation: almanac-opens 300ms ease-out both;
+  box-shadow:
+    0 0 0 1px var(--brass),
+    0 0 40px rgba(232, 129, 31, 0.3),
+    0 26px 60px rgba(0, 0, 0, 0.85);
+  animation: almanac-opens 300ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+/* Pushed off to the edge, not closed. The question is still standing and the
+   handle that put it there is still on screen; this is a player checking the
+   board mid-answer, which is the commonest reason to want the panel gone. */
+.almanac.tucked {
+  animation: none;
+  transform: translate(calc(50vw - 34px), -50%);
+  opacity: 0.5;
+  transition: transform 220ms ease, opacity 220ms ease;
+}
+.almanac.tucked .almanac-card {
+  display: none;
 }
 @keyframes almanac-opens {
   from {
     opacity: 0;
-    transform: translate(22px, -50%);
+    transform: translate(-50%, -50%) scale(0.9);
   }
   to {
     opacity: 1;
-    transform: translate(0, -50%);
+    transform: translate(-50%, -50%) scale(1);
   }
 }
 .almanac-head {
@@ -1967,26 +2036,72 @@ body.dragging-card {
     linear-gradient(160deg, #2f4a45, #16221f);
 }
 
-/* The shuffle. Six backs riffling into one another, and it decides nothing:
-   createGame shuffled the locations before this screen existed, which is
-   exactly why the shuffle is safe to show. */
-.prologue.shuffle .prologue-fan li {
-  animation: prologue-riffles 900ms ease-in-out infinite both;
-  animation-delay: calc(var(--nth) * 130ms);
+/* The shuffle, as a shell game.
+ *
+ * Six backs in one row that slide around each other twice and come back, which
+ * is the thing you actually do at a table: pick one and try to keep hold of it.
+ * It decides nothing — createGame shuffled the locations before this screen
+ * existed, which is exactly why showing a shuffle is safe.
+ *
+ * The choreography arrives per card as `--dx1` / `--dx2`, in slots. One keyframe
+ * block serves all six because a custom property that is not itself being
+ * animated is substituted before the animation runs, so each card interpolates
+ * along its own path from the same rule. */
+.prologue-monte {
+  --monte-gap: 10px;
+  position: relative;
+  display: flex;
+  gap: var(--monte-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-@keyframes prologue-riffles {
-  0%,
+.prologue-monte li {
+  position: relative;
+  flex: none;
+  animation: prologue-monte 2600ms cubic-bezier(0.45, 0, 0.35, 1) infinite both;
+}
+/* One slot, measured rather than guessed: a percentage inside `translate` is a
+   percentage of the element's own box, so `100% + the gap` is exactly the pitch
+   of the row whatever the card ends up being sized at. A hard-coded step was
+   wrong by six pixels a slot the first time the card's width changed, and six
+   pixels a slot compounds into a card that visibly misses its place. */
+@keyframes prologue-monte {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    z-index: 3;
+  }
+  /* Out, over or under, and into the first arrangement. */
+  16% {
+    transform: translate(
+        calc(var(--dx1) * (100% + var(--monte-gap)) * 0.5),
+        var(--lift1)
+      )
+      rotate(calc(var(--dx1) * 2deg));
+    z-index: var(--z1);
+  }
+  32%,
+  40% {
+    transform: translate(calc(var(--dx1) * (100% + var(--monte-gap))), 0) rotate(0deg);
+    z-index: 3;
+  }
+  /* And again, from wherever it ended up, into the second. */
+  56% {
+    transform: translate(
+        calc((var(--dx1) + var(--dx2)) * (100% + var(--monte-gap)) * 0.5),
+        var(--lift2)
+      )
+      rotate(calc(var(--dx2) * -2deg));
+    z-index: var(--z2);
+  }
+  72%,
+  84% {
+    transform: translate(calc(var(--dx2) * (100% + var(--monte-gap))), 0) rotate(0deg);
+    z-index: 3;
+  }
   100% {
     transform: translate(0, 0) rotate(0deg);
-  }
-  25% {
-    transform: translate(28px, -22px) rotate(7deg);
-  }
-  50% {
-    transform: translate(0, 6px) rotate(0deg);
-  }
-  75% {
-    transform: translate(-26px, -18px) rotate(-6deg);
+    z-index: 3;
   }
 }
 .prologue-word {
@@ -2078,4 +2193,251 @@ body.dragging-card {
   .almanac {
     transform: translateY(-50%);
   }
+}
+
+/* ------------------------------------------------------------ the spotlight */
+
+/* Everything that is not the thing being shown, one stop down.
+ *
+ * A scrim rather than a cut-out mask: whatever is meant to be read is already a
+ * direct child of `.field` with a z-index above this, so it keeps its own light
+ * without anything having to be recomputed as it moves. The board, the rails,
+ * the annals and both hands all sit below and go quiet.
+ *
+ * It takes no pointer events. A question answered by clicking a tile can be
+ * standing at the same time as a card is being held up, and a scrim that ate
+ * the click would make the board unplayable for the length of an animation. */
+.spotlight {
+  position: fixed;
+  inset: 0;
+  z-index: 31;
+  pointer-events: none;
+  background: radial-gradient(
+    72% 62% at 50% 50%,
+    rgba(8, 4, 1, 0.5),
+    rgba(8, 4, 1, 0.82) 78%
+  );
+  animation: spotlight-falls 220ms ease-out both;
+}
+@keyframes spotlight-falls {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The card being read has to sit above the scrim and look lit rather than
+   merely uncovered, so everything held up gains a brass edge while it is up. */
+.field.spotlit .playbill .cardface,
+.field.spotlit .playbill .cardback {
+  box-shadow:
+    0 0 0 2px var(--brass),
+    0 0 38px rgba(232, 129, 31, 0.45),
+    0 22px 50px rgba(0, 0, 0, 0.85);
+}
+.field.spotlit .playbill {
+  --card-w: 214px;
+}
+.field.spotlit .playbill .cardface {
+  --card-w: 214px;
+}
+.curtain .curtain-card .cardface {
+  box-shadow:
+    0 0 0 2px var(--brass),
+    0 0 40px rgba(232, 129, 31, 0.42),
+    0 20px 44px rgba(0, 0, 0, 0.8);
+}
+
+/* A question answered out of your own hand keeps the hand lit: there the fan is
+   the panel, and dimming it would dim the answer. */
+.field.spotlit-hand .hand-rail.near,
+.field.spotlit-hand .toll {
+  z-index: 33;
+}
+
+/* The tile a card just landed on, ringed through the scrim.
+ *
+ * Fixed and measured off the tile rather than drawn inside it: raising one cell
+ * above a full-screen scrim means winning a fight with every stacking context
+ * between the tile and the root, and an arrival flourish putting a transform on
+ * an ancestor loses that fight silently. */
+.beacon {
+  position: fixed;
+  z-index: 33;
+  pointer-events: none;
+  border-radius: 3px;
+  box-shadow:
+    0 0 0 2px var(--ember),
+    0 0 26px rgba(232, 129, 31, 0.6),
+    inset 0 0 30px rgba(232, 129, 31, 0.22);
+  animation: beacon-pulses 1400ms ease-out infinite;
+}
+.beacon.veil {
+  box-shadow:
+    0 0 0 2px var(--brass),
+    0 0 22px rgba(197, 149, 74, 0.5),
+    inset 0 0 26px rgba(197, 149, 74, 0.18);
+}
+@keyframes beacon-pulses {
+  0% {
+    opacity: 0;
+    transform: scale(1.1);
+  }
+  22% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.35;
+  }
+}
+
+/* The handle that puts a decision panel aside and brings it back. It sits low
+   and central — under the panel it controls, clear of both hands — and stays on
+   screen while the panel is tucked, because it is the only way back. */
+.tuck-handle {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 37;
+}
+
+/* ------------------------------------------------------------------ the coin */
+
+/* Szerencsejátékos' coin, thrown where both players are already looking.
+ *
+ * The card is a gamble, and the whole of a gamble is the second between the
+ * throw and the result. A log line saying which way it went is not that second.
+ * So: a disc with two faces that spins and lands, and — when the card still has
+ * a throw in it — the question printed underneath, in the same panel, so the
+ * answer is wanted exactly where the eyes already are. */
+.coin-panel {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  z-index: 37;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 30px 16px;
+  box-shadow:
+    0 0 0 1px var(--brass),
+    0 0 44px rgba(232, 129, 31, 0.32),
+    0 26px 60px rgba(0, 0, 0, 0.85);
+  animation: coin-panel-opens 240ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+@keyframes coin-panel-opens {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+.coin-title {
+  font-size: 13px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.14em;
+  color: var(--flame);
+}
+
+/* Two faces on one disc. `backface-visibility` is what makes it a coin rather
+   than a card with a picture on each side: whichever face is turned away is not
+   drawn at all, so the landing rotation alone decides which one you are left
+   looking at. */
+.coin {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  transform-style: preserve-3d;
+}
+.coin-face {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  backface-visibility: hidden;
+  font-size: 44px;
+  line-height: 1;
+  box-shadow:
+    inset 0 0 0 3px rgba(60, 40, 16, 0.55),
+    0 8px 18px rgba(0, 0, 0, 0.6);
+  background: radial-gradient(circle at 34% 28%, #f0d79a, #c5954a 52%, #7d5a25);
+}
+.coin-face.back {
+  transform: rotateY(180deg);
+  color: #3a2810;
+  font-size: 52px;
+  font-weight: 700;
+}
+
+/* Four turns and a half-turn more for írás, which is what leaves the numeral
+   facing the room. Landing on a face is the rotation and nothing else, so there
+   is no state to keep and no way for the picture to disagree with the result. */
+.coin.unicorn {
+  animation: coin-throw-unicorn 1100ms cubic-bezier(0.15, 0.7, 0.2, 1) both;
+}
+.coin.tails {
+  animation: coin-throw-tails 1100ms cubic-bezier(0.15, 0.7, 0.2, 1) both;
+}
+.coin.resting {
+  animation: coin-waits 2400ms ease-in-out infinite both;
+}
+@keyframes coin-throw-unicorn {
+  0% {
+    transform: translateY(-52px) scale(0.7) rotateY(0deg);
+  }
+  70% {
+    transform: translateY(6px) scale(1.06) rotateY(1300deg);
+  }
+  100% {
+    transform: translateY(0) scale(1) rotateY(1440deg);
+  }
+}
+@keyframes coin-throw-tails {
+  0% {
+    transform: translateY(-52px) scale(0.7) rotateY(0deg);
+  }
+  70% {
+    transform: translateY(6px) scale(1.06) rotateY(1480deg);
+  }
+  100% {
+    transform: translateY(0) scale(1) rotateY(1620deg);
+  }
+}
+@keyframes coin-waits {
+  0%,
+  100% {
+    transform: rotateY(-16deg);
+  }
+  50% {
+    transform: rotateY(16deg);
+  }
+}
+
+.coin-verdict {
+  font-size: 14px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.1em;
+}
+.coin-verdict.yes {
+  color: var(--sprout);
+}
+.coin-verdict.no {
+  color: var(--blood);
+}
+.coin-choice {
+  display: flex;
+  gap: 8px;
 }

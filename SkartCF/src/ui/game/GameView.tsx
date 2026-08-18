@@ -33,7 +33,8 @@ import { Battlefield, Annals, Tools, TurnCue } from "./LeftRail";
 import { Counters, Ledger } from "./RightRail";
 import type { Tracking } from "./RightRail";
 import { FarHand, NearHand, Reading } from "./Hands";
-import { Almanac, Curtain } from "./Asking";
+import { Almanac, Coin, Curtain } from "./Asking";
+import { Beacon, Spotlight } from "./Spotlight";
 import Prologue from "./Prologue";
 import { Chronicle, Aftermath } from "./Overlays";
 
@@ -236,6 +237,41 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
     });
   }
 
+  /**
+   * Taking a spell back, up to the moment it becomes real.
+   *
+   * 8.4.1 has the caster and the target named in the same breath as the card:
+   * one declaration, not three. The screen has to ask for them one at a time, so
+   * a player halfway through has announced nothing yet — and the engine agrees,
+   * because a cast touches nothing at all until every pick is in and
+   * `applyCastEntry` runs. Right up to that moment this rewinds the whole
+   * declaration: the card goes back to the hand, the turn is unspent, and the
+   * chronicle never mentions it.
+   *
+   * It is an undo rather than an engine action on purpose. Cancelling is not
+   * something the rules let you do, it is the absence of something you never
+   * finished doing, and giving the engine a move for it would put "cast, take it
+   * back, cast again" in front of the bot as a legal loop. So the history does
+   * the work, unwinding to the last position that had no spell in the air.
+   */
+  function cancelCast() {
+    setPast((h) => {
+      // Walk back over every position that still had a spell in the air; the
+      // first one that did not is the position before the cast. Cancelling
+      // immediately, before a single pick, is the common case and lands on the
+      // very last entry — so there is no "must have picked something" guard
+      // here, only a "must have somewhere to go back to" one.
+      let at = h.length;
+      while (at > 0 && h[at - 1].resolution !== null) at -= 1;
+      if (at === 0) return h;
+      setState(h[at - 1]);
+      setHeld(null);
+      setBeats([]);
+      setShows([]);
+      return h.slice(0, at - 1);
+    });
+  }
+
   if (!state) return <NewGame onStart={begin} onLeave={onLeave} />;
 
   const asking = pendingPrompt(state);
@@ -270,6 +306,7 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       send={send}
       stepBack={stepBack}
       canStepBack={past.length > 0}
+      cancelCast={cancelCast}
       bare={bare}
       setBare={setBare}
       onQuit={() => setState(null)}
@@ -285,7 +322,7 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
  * costs a row of tiles, a column down the side costs nothing the board wanted.
  */
 function Field(props: FieldProps) {
-  const { state, actor, held, setHeld, send, bare, botSide, bot, now } = props;
+  const { state, actor, held, setHeld, send, bare, botSide, bot, now, cancelCast } = props;
   // Only the beats whose moment has come. A beat that has not started yet is
   // already in the queue — it has to be, the diff that produced it is gone —
   // but nothing on screen may know about it until the clock reaches it.
@@ -305,6 +342,8 @@ function Field(props: FieldProps) {
   const inspected = inspect ? state.board[inspect] : null;
   /** The card in hand being read, and the one currently in the air. */
   const [reading, setReading] = useState<string | null>(null);
+  /** The same, for a card in the enemy's fan this player has peeked at. */
+  const [farReading, setFarReading] = useState<{ uid: string; cardId: string } | null>(null);
   const [lifted, setLifted] = useState<string | null>(null);
   /**
    * Which pile the ledger is holding open.
@@ -315,6 +354,17 @@ function Field(props: FieldProps) {
    * the thing you need to scroll. Pointing at another pile replaces it.
    */
   const [tracking, setTracking] = useState<Tracking | null>(null);
+  /**
+   * A decision panel pushed out of the way so the board can be read.
+   *
+   * Every question worth a panel is a question about the board — which unit to
+   * tutor for depends on what is already standing — and the panel is over the
+   * board. So it gets a handle rather than a compromise: tuck it, read the
+   * board at full brightness, bring it back. It un-tucks itself whenever the
+   * question changes, because a panel hidden for the last question is not a
+   * decision about this one.
+   */
+  const [tucked, setTucked] = useState(false);
 
   // The table turns so whoever is acting sits at the bottom of the screen, with
   // their hand in front of them and the enemy across the line. Against the
@@ -333,6 +383,34 @@ function Field(props: FieldProps) {
   const peeking = shows.length > 0 ? shows[shows.length - 1].player : null;
   const viewer: PlayerId = human ?? asking?.player ?? peeking ?? actor ?? state.turn;
   const far = other(viewer);
+
+  // What, if anything, the screen should be looking at rather than the board.
+  // A question answered by pointing at a tile is not one of them: there the
+  // board *is* the thing being read, and dimming it would be dimming the
+  // answer.
+  const handPanel =
+    (!!asking && asking.player === viewer && handHeld(asking, state)) ||
+    pending?.kind === "handCard";
+  const almanacUp = !!asking && !handHeld(asking, state) && asking.picking === "card";
+  // A question that is about neither a card nor a tile. Only the coin so far,
+  // and it brings its own panel.
+  const coinAsking = asking?.picking === "option" ? asking : null;
+  const coinShowing = shows.some((s) => s.kind === "coin");
+  const curtainUp = shows.some(
+    (s) => s.kind !== "coin" && (s.open || s.player === viewer || bare),
+  );
+  const heldUp = beats.some((b) => b.kind === "land" || b.kind === "cast" || b.kind === "veil");
+  const panelUp = almanacUp || handPanel || !!coinAsking;
+  const spotlit = panelUp || curtainUp || heldUp || coinShowing;
+
+  // A spell that has been played but is still being aimed. Nothing about it has
+  // touched the board yet, so it can still be taken back, and until it cannot
+  // it is not public either.
+  const castInFlight = !!state.resolution?.pending && state.resolution.pending.player === viewer;
+
+  useEffect(() => {
+    setTucked(false);
+  }, [asking?.id, pending?.kind]);
 
   // The machine moves on a timer rather than instantly, so its turn is something
   // you watch happen instead of a board that has already changed.
@@ -510,9 +588,29 @@ function Field(props: FieldProps) {
     [beats, state.board],
   );
 
+  const classes = ["field"];
+  if (!over) classes.push("opening");
+  if (spotlit && !tucked) classes.push("spotlit");
+  if (panelUp && !tucked) classes.push("spotlit-hand");
+
   return (
-    <div className={`field${over ? "" : " opening"}`}>
+    <div
+      className={classes.join(" ")}
+      // Right click takes back a spell that has not finished being declared.
+      // Anywhere on the screen, because there is no one place a player would
+      // think to aim at — the card is in a panel, the picks are on the board,
+      // and the gesture means "no, forget it" rather than "not that tile".
+      onContextMenu={
+        castInFlight
+          ? (e) => {
+              e.preventDefault();
+              cancelCast();
+            }
+          : undefined
+      }
+    >
       <span className="flight-layer" />
+      {spotlit && !tucked && <Spotlight />}
       <Theatre beats={beats} viewer={viewer} bare={bare} />
       <aside className="rail-left">
         <Battlefield {...props} onLog={() => setLogOpen((v) => !v)} logOpen={logOpen} />
@@ -523,7 +621,7 @@ function Field(props: FieldProps) {
 
       {/* A thin strip of pictures beside the left rail, clear of everything the
           rail has to be clickable for. */}
-      <Annals state={state} viewer={viewer} />
+      <Annals state={state} viewer={viewer} bare={bare} />
 
       <div className="arena">
         <Board
@@ -555,7 +653,15 @@ function Field(props: FieldProps) {
         <Counters state={state} side={viewer} viewer={viewer} bare={bare} onTrack={setTracking} />
       </aside>
 
-      {!over && <FarHand state={state} player={far} bare={bare} />}
+      {!over && (
+        <FarHand
+          state={state}
+          player={far}
+          viewer={viewer}
+          bare={bare}
+          onRead={setFarReading}
+        />
+      )}
       {!over && (
         <NearHand
           {...props}
@@ -572,15 +678,36 @@ function Field(props: FieldProps) {
           the fan. Nothing in the hand moves to make this happen. */}
       {readCard && !liftedStillHeld && <Reading uid={readCard.uid} cardId={readCard.cardId} />}
 
+      {/* A card in the enemy's fan that this player has looked at, printed
+          downwards from the top edge the way your own is printed upwards. */}
+      {farReading && <Reading uid={farReading.uid} cardId={farReading.cardId} far />}
+
+      {/* The tile a card has just arrived on, ringed so the panel holding the
+          card up says where as well as what. */}
+      {spotlit &&
+        !tucked &&
+        [...stirring.entries()]
+          .filter(([, kind]) => kind === "land" || kind === "veil" || kind === "reveal")
+          .map(([slot, kind]) => <Beacon key={slot} slot={slot} kind={kind} />)}
+
       {/* An ability going through a pile: the deck a tutor is searching, the
           hand Griff is helping himself to. A hand of your own is picked from
           the hand itself, so only the piles reach this panel. */}
-      {asking && !handHeld(asking, state) && asking.picking === "card" && (
-        <Almanac prompt={asking} send={send} />
+      {almanacUp && <Almanac prompt={asking!} send={send} tucked={tucked} />}
+
+      {/* The way back out from under a panel. It stays on screen while the
+          panel is tucked, which is the only thing that could bring it back. */}
+      {panelUp && (
+        <button className="tuck-handle tiny" onClick={() => setTucked((v) => !v)}>
+          {tucked ? "Vissza a kérdéshez" : "Mutasd a csatateret"}
+        </button>
       )}
 
       {/* What somebody has just been shown, held up long enough to read. */}
       <Curtain shows={shows} viewer={viewer} bare={bare} />
+
+      {/* Szerencsejátékos' coin, and the question that follows a win. */}
+      <Coin shows={shows} prompt={coinAsking} send={send} />
 
       {props.prologue && <Prologue state={state} onDone={props.endPrologue} />}
 

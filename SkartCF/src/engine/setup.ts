@@ -67,6 +67,7 @@ function emptyPlayer(id: PlayerId, unitDeck: HandCard[], spellDeck: HandCard[]):
     hiddenThisLocation: 0,
     bonusDraw: { units: 0, spells: 0 },
     tossDone: false,
+    seen: [],
   };
 }
 

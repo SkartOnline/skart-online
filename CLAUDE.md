@@ -80,6 +80,16 @@ public site.
 - **Don't re-derive design rationale from source.** It is written down:
   `SkartCF/README.md` (architecture + judgement calls), `docs/design-notes.md`
   (why the rules are what they are), `docs/abilities.md` (card → primitive map).
+- **Batch the edits, then verify once.** Given a list of eight things, make all
+  eight changes and run the checks at the end — not `npm test` after each one
+  and certainly not `npm run sim`. The suite is the cheap check (~10s); the sim
+  is not, and a balance run only means anything once the changes are all in.
+- **`npm run sim` is a deliberate act, not a check.** It takes minutes, it is
+  never part of "did that work", and nothing but a rebalance needs it. Run it
+  once, at the end, in the background, and only when the change could move win
+  rates. Output goes to stdout — redirect it (`npm run sim -- --games 400 >
+  sim.txt`) if it needs reading later, because a backgrounded run buffers and
+  shows nothing until it exits.
 - **Rebalancing is editing JSON**, then `npm run sim` to measure. Any deck over
   75% on a battlefield is the hard failure line.
 - **Delegate to subagents freely:** running sim/train/arena sweeps and

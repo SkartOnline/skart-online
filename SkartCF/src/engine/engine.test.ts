@@ -59,6 +59,7 @@ function emptyPlayer(id: PlayerId) {
     hiddenThisLocation: 0,
     bonusDraw: { units: 0, spells: 0 },
     tossDone: false,
+    seen: [],
   };
 }
 

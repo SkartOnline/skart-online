@@ -435,6 +435,18 @@ export interface PlayerState {
   bonusDraw: { units: number; spells: number };
   /** Leszerelés (12.5): this player has finished throwing cards away. */
   tossDone: boolean;
+  /**
+   * Uids of the *opponent's* hand cards this player has looked at and is
+   * therefore entitled to keep reading (1.5.2 makes a hand hidden; it does not
+   * make it forgettable).
+   *
+   * Peeking used to be a card held up for one beat and then gone, which meant
+   * the ability's whole value was however much you managed to memorise in two
+   * seconds. What you saw, you have seen: the card stays legible in the enemy's
+   * fan for as long as it is still in there, and nothing else in that fan does.
+   * Pruned at the refill, so it never names a card that has since been played.
+   */
+  seen: string[];
 }
 
 /**
@@ -510,11 +522,18 @@ export interface Prompt {
   kind: string;
   player: PlayerId;
   prompt: string;
-  /** Cards out of a listed pile, or tiles on the board. */
-  picking: "card" | "slot";
+  /** Cards out of a listed pile, tiles on the board, or neither. */
+  picking: "card" | "slot" | "option";
   /** The pile on offer, listed the way the ledger lists a deck. */
   cards?: HandCard[];
   slots?: SlotId[];
+  /**
+   * A question that is about neither a card nor a tile: press on or stop, take
+   * it or leave it. The answer travels as the option's `id`, so it goes through
+   * `answerPrompt` like every other pick and the bot and the simulator need to
+   * know nothing new to play the card.
+   */
+  options?: { id: string; label: string }[];
   /** How many picks the ability needs. `min` 0 means it may be declined. */
   min: number;
   max: number;
@@ -535,11 +554,14 @@ export interface Prompt {
  */
 export interface Reveal {
   id: number;
-  kind: "peek" | "trap" | "portal" | "tutor";
+  kind: "peek" | "trap" | "portal" | "tutor" | "coin";
   /** Who may look. The other side sees nothing, in hotseat or against the bot. */
   player: PlayerId;
   cardIds: string[];
-  /** Fejvadász: did the card that came out beat the hunter, or not. */
+  /**
+   * Fejvadász: did the card that came out beat the hunter, or not. A coin uses
+   * the same two values for the two faces — `yes` is the unicorn.
+   */
   verdict?: "yes" | "no";
   /** The card that caused the look. */
   sourceCardId?: string;

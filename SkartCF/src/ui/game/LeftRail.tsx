@@ -64,17 +64,51 @@ export function Battlefield({ state, onLeave }: FieldProps & { onLog: () => void
  * right shape and colour and fills itself in the moment `artFor` returns
  * something.
  */
-export function Annals({ state, viewer }: { state: GameState; viewer: PlayerId }) {
+export function Annals({
+  state,
+  viewer,
+  bare,
+}: {
+  state: GameState;
+  viewer: PlayerId;
+  bare: boolean;
+}) {
   const [open, setOpen] = useState<string | null>(null);
-  const entries: { key: string; owner: PlayerId; cardId: string; kind: "unit" | "spell" }[] = [];
+  const entries: {
+    key: string;
+    owner: PlayerId;
+    cardId: string;
+    kind: "unit" | "spell";
+    /** On the board face down, and this viewer is not entitled to read it. */
+    veiled?: boolean;
+  }[] = [];
 
   for (const slot of ALL_SLOTS) {
     const unit = state.board[slot];
-    // A face-down unit is not named anywhere, including here.
-    if (!unit || unit.faceDown) continue;
-    entries.push({ key: `u${unit.uid}`, owner: unit.owner, cardId: unit.cardId, kind: "unit" });
+    if (!unit) continue;
+    // A hidden unit still gets a line. The strip is a count of what is on the
+    // table as much as it is a list of names, and a board of four units that
+    // reads as two is worse than useless. What it does not get is its name: the
+    // entry is a back, and only its own owner — who knows it already — is shown
+    // the face.
+    const veiled = unit.faceDown && !bare && unit.owner !== viewer;
+    entries.push({
+      key: `u${unit.uid}`,
+      owner: unit.owner,
+      cardId: unit.cardId,
+      kind: "unit",
+      veiled,
+    });
   }
+  // A spell still being aimed is not in the record yet. 8.4.1 makes the card,
+  // the caster and the target one declaration, and the screen only asks for
+  // them separately because it has to — until the last pick is in, the cast can
+  // still be taken back and nothing has happened worth writing down.
+  const inFlight = state.resolution?.pending
+    ? state.spellsCast[state.resolution.index]?.uid
+    : undefined;
   for (const cast of state.spellsCast) {
+    if (cast.uid === inFlight) continue;
     entries.push({ key: `s${cast.uid}`, owner: cast.owner, cardId: cast.cardId, kind: "spell" });
   }
 
@@ -86,12 +120,18 @@ export function Annals({ state, viewer }: { state: GameState; viewer: PlayerId }
         {entries.map((entry) => (
           <li
             key={entry.key}
-            className={`annal ${entry.kind} ${entry.owner === viewer ? "mine" : "theirs"}`}
-            onMouseEnter={() => setOpen(entry.cardId)}
-            onMouseLeave={() => setOpen(null)}
-            title={cardFor(entry.cardId)?.name ?? ""}
+            className={`annal ${entry.kind} ${entry.owner === viewer ? "mine" : "theirs"}${
+              entry.veiled ? " veiled" : ""
+            }`}
+            onMouseEnter={entry.veiled ? undefined : () => setOpen(entry.cardId)}
+            onMouseLeave={entry.veiled ? undefined : () => setOpen(null)}
+            title={entry.veiled ? "rejtett egység" : (cardFor(entry.cardId)?.name ?? "")}
           >
-            {artFor(entry.cardId) && <img src={artFor(entry.cardId)} alt="" />}
+            {entry.veiled ? (
+              <span className="annal-veil" />
+            ) : (
+              artFor(entry.cardId) && <img src={artFor(entry.cardId)} alt="" />
+            )}
           </li>
         ))}
       </ul>
@@ -167,7 +207,12 @@ export function TurnCue(props: FieldProps & { moves: Action[]; viewer: PlayerId 
           )}
         </>
       ) : pending ? (
-        <span className={`turn ${pending.player}`}>{pending.prompt}</span>
+        <>
+          <span className={`turn ${pending.player}`}>{pending.prompt}</span>
+          {/* Nothing has happened yet, and the way back is worth saying out
+              loud: a gesture nobody is told about is a gesture nobody uses. */}
+          <span className="faint">jobb gomb: mégsem</span>
+        </>
       ) : (
         actor &&
         (state.phase === "units" || state.phase === "battle") && (

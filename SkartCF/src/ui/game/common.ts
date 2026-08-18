@@ -56,6 +56,8 @@ export interface FieldProps {
   send: (a: Action | Action[]) => void;
   stepBack: () => void;
   canStepBack: boolean;
+  /** Rewind a spell that is still being aimed, back to before it was played. */
+  cancelCast: () => void;
   bare: boolean;
   setBare: (v: boolean) => void;
   onQuit: () => void;

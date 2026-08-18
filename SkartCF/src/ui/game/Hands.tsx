@@ -24,7 +24,16 @@ import type { FieldProps, Held } from "./common";
  * measured from the DOM rather than computed: the fan's geometry lives in CSS and
  * this only has to agree with wherever it ended up.
  */
-export function Reading({ uid, cardId }: { uid: string; cardId: string }) {
+export function Reading({
+  uid,
+  cardId,
+  far,
+}: {
+  uid: string;
+  cardId: string;
+  /** A card in the enemy's fan, read downwards from the top edge instead. */
+  far?: boolean;
+}) {
   const [x, setX] = useState<number | null>(null);
 
   useEffect(() => {
@@ -38,7 +47,10 @@ export function Reading({ uid, cardId }: { uid: string; cardId: string }) {
   const card = cardFor(cardId);
   if (!card) return null;
   return (
-    <div className="reading" style={{ "--read-x": `${x}px` } as React.CSSProperties}>
+    <div
+      className={`reading${far ? " far" : ""}`}
+      style={{ "--read-x": `${x}px` } as React.CSSProperties}
+    >
       <CardFace card={card} className={card.kind === "spell" ? "spell" : ""} />
     </div>
   );
@@ -69,17 +81,29 @@ function arc(i: number, n: number, flip = false): React.CSSProperties {
 /**
  * The enemy's hand: backs only, units on their left and spells on their right,
  * hanging off the top of the screen. The peek switch turns them over.
+ *
+ * So does a peek, for exactly the cards it was aimed at. A card this viewer has
+ * legitimately looked at is drawn face up and answers the pointer like a card in
+ * your own fan; every other card in the same hand stays a back and stays inert.
+ * That difference is the whole ability — you are reading one card out of a hand
+ * of seven, and you can see which one you know.
  */
 export function FarHand({
   state,
   player,
+  viewer,
   bare,
+  onRead,
 }: {
   state: GameState;
   player: PlayerId;
+  /** Whose knowledge decides what is legible here. */
+  viewer: PlayerId;
   bare: boolean;
+  onRead: (read: { uid: string; cardId: string } | null) => void;
 }) {
   const p = state.players[player];
+  const seen = new Set(state.players[viewer].seen);
   const groups: { cards: HandCard[]; kind: "unit" | "spell" }[] = [
     { cards: p.unitHand, kind: "unit" },
     { cards: p.spellHand, kind: "spell" },
@@ -88,18 +112,27 @@ export function FarHand({
     <div className="hand-rail far">
       {groups.map(({ cards, kind }) => (
         <div className="hand-group" key={kind}>
-          {cards.map((c, i) => (
-            <Slot key={c.uid} uid={c.uid} style={arc(i, cards.length, true)}>
-              {bare ? (
-                <CardFace
-                  card={kind === "unit" ? getUnit(c.cardId) : getSpell(c.cardId)}
-                  className={kind === "spell" ? "spell" : ""}
-                />
-              ) : (
-                <span className={`cardback ${kind}`} />
-              )}
-            </Slot>
-          ))}
+          {cards.map((c, i) => {
+            const known = bare || seen.has(c.uid);
+            return (
+              <Slot
+                key={c.uid}
+                uid={c.uid}
+                style={arc(i, cards.length, true)}
+                known={known && !bare}
+                onRead={known ? (on) => onRead(on ? { uid: c.uid, cardId: c.cardId } : null) : undefined}
+              >
+                {known ? (
+                  <CardFace
+                    card={kind === "unit" ? getUnit(c.cardId) : getSpell(c.cardId)}
+                    className={kind === "spell" ? "spell" : ""}
+                  />
+                ) : (
+                  <span className={`cardback ${kind}`} />
+                )}
+              </Slot>
+            );
+          })}
         </div>
       ))}
     </div>
@@ -391,6 +424,7 @@ function Slot({
   picked,
   dead,
   lifted,
+  known,
   onClick,
   onDragStart,
   onRead,
@@ -401,6 +435,8 @@ function Slot({
   playable?: boolean;
   picked?: boolean;
   dead?: boolean;
+  /** A card in the enemy's fan this viewer has earned the right to read. */
+  known?: boolean;
   /** This card is in the air, so the fan shows the gap it left behind. */
   lifted?: boolean;
   onClick?: () => void;
@@ -417,6 +453,7 @@ function Slot({
   if (picked) classes.push("picked");
   if (dead) classes.push("dead");
   if (lifted) classes.push("lifted");
+  if (known) classes.push("known");
   if (onDragStart) classes.push("draggable");
   return (
     <div

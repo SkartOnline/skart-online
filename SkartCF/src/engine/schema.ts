@@ -702,7 +702,8 @@ export const EFFECT_SPECS: KindSpec[] = [
   {
     kind: "coinFlip",
     label: "Érmedobás",
-    summary: "Fej: gyűrűt kap. Írás: minden addig kapott gyűrűjét elveszti. Ez a Szerencsejátékos.",
+    summary:
+      "Unikornis: gyűrűt kap, és megkérdezi, dobjon-e újra. Írás: minden addig kapott gyűrűjét elveszti. Ez a Szerencsejátékos.",
     selfTargeting: true,
     fields: [
       { name: "amount", type: "number", label: "Gyűrű nyerés esetén", default: 1, step: 1 },
@@ -712,7 +713,8 @@ export const EFFECT_SPECS: KindSpec[] = [
         label: "Hányszor dobhat még újra",
         default: 1,
         min: 0,
-        help: "Minden újradobás megduplázza a tétet, de bukás esetén mindent visz.",
+        help:
+          "Minden újradobás megduplázza a tétet, de bukás esetén mindent visz. Az újradobás nem automatikus: a játékos dönt róla.",
       },
     ],
   },

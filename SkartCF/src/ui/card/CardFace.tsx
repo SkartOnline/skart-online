@@ -1,6 +1,7 @@
 import {
   artFor,
   castingPips,
+  isLocation,
   isSpell,
   isUnit,
   kindLabel,
@@ -48,12 +49,15 @@ export default function CardFace({ card, livePower, className }: Props) {
         {art ? <img src={art} alt="" /> : <span className="cf-art-empty" />}
       </div>
 
-      {/* Type, then rarity, then the traits — the order 2.1.4 prints them. The
-          rarity travels with the type on the left so the whole right half is the
-          traits' to spend, which is what makes room for Faj. */}
+      {/* Rarity, then the traits — the order 2.1.4 prints them, minus the word
+          for the card kind. "Egység" on a card with a power gem in the corner
+          and "Varázslat" on one with a range in it are the two most predictable
+          words on the face, and the line they were eating is the one Faj and the
+          Rend have to share. A battlefield keeps its word: it has no cost, no
+          power and no range to say it for it. */}
       <p className="cf-type">
         <span className="cf-kind">
-          {kindLabel(card)}
+          {isLocation(card) && kindLabel(card)}
           {rarity && <em>{rarity}</em>}
         </span>
         <span className={`cf-traits ${traitDensity(card)}`} title={taglineOf(card)}>

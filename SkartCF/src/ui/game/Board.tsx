@@ -176,6 +176,10 @@ function Cell({
     );
   }
 
+  // A hidden unit hands nothing upwards. The loupe prints whatever slot it is
+  // given, so a tile that reported itself under the pointer would turn the
+  // hover into a free "Mindent mutat" for one card — which is the entire thing
+  // the player paid a card out of hand to prevent (1.5.2, 6.5.4).
   if (unit.faceDown && !bare) {
     classes.push("veiled");
     return (
@@ -184,8 +188,6 @@ function Cell({
         data-slot={slot}
         onClick={open ? onPick : undefined}
         aria-disabled={!open}
-        onMouseEnter={() => onInspect?.(slot)}
-        onMouseLeave={() => onInspect?.(null)}
       >
         <span className="coord">{coordLabel(slot)}</span>
         <span className="label">lefordítva</span>

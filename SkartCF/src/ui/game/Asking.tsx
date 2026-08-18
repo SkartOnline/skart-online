@@ -24,7 +24,16 @@ import { cardFor, isSpellCard, tryLocation } from "./common";
  * reading ×4 — but a pick still names a single card, so the line keeps the uid
  * of the next unpicked copy and hands that over.
  */
-export function Almanac({ prompt, send }: { prompt: Prompt; send: (a: Action) => void }) {
+export function Almanac({
+  prompt,
+  send,
+  tucked,
+}: {
+  prompt: Prompt;
+  send: (a: Action) => void;
+  /** Pushed aside so the board underneath can be read. Still live, still open. */
+  tucked?: boolean;
+}) {
   const [reading, setReading] = useState<string | null>(null);
   const picked = new Set(prompt.chosen);
   const cards = prompt.cards ?? [];
@@ -57,7 +66,7 @@ export function Almanac({ prompt, send }: { prompt: Prompt; send: (a: Action) =>
     .filter(Boolean);
 
   return (
-    <div className="almanac timber">
+    <div className={`almanac timber${tucked ? " tucked" : ""}`}>
       <div className="almanac-head">
         <b>{prompt.prompt}</b>
         <span className="num">
@@ -122,6 +131,74 @@ export function Almanac({ prompt, send }: { prompt: Prompt; send: (a: Action) =>
   );
 }
 
+// ------------------------------------------------------------------ the coin
+
+/**
+ * Szerencsejátékos' coin, thrown in the middle of the screen.
+ *
+ * The card is a gamble and a gamble that resolves in a log line is not one: the
+ * whole of it is the moment between the throw and the result, and then the
+ * moment where you decide whether to do it again. So the coin is a coin — two
+ * faces, a unicorn and a one, and it lands on the side it landed on.
+ *
+ * Panel and question are one thing rather than two. The result arrives on the
+ * theatre's clock, half a second behind the action, and buttons that appeared
+ * before the coin came down would be asking about a throw nobody had seen yet.
+ * They are drawn under the coin instead, in the same panel, which also means the
+ * player's eyes are already in the right place when the answer is wanted.
+ *
+ * Both players watch. The unit is face up on the table and so is the coin, which
+ * is why the reveal it reads is an open one.
+ */
+export function Coin({
+  shows,
+  prompt,
+  send,
+}: {
+  shows: (Reveal & { startsAt: number; expiresAt: number })[];
+  /** The question that follows a win, when the card has a throw left. */
+  prompt: Prompt | null;
+  send: (a: Action) => void;
+}) {
+  const coin = [...shows].reverse().find((s) => s.kind === "coin");
+  if (!coin && !prompt) return null;
+
+  const unicorn = coin?.verdict !== "no";
+  return (
+    <div className="coin-panel timber">
+      <span className="coin-title">{coin?.sourceCardId ? cardFor(coin.sourceCardId)?.name : ""}</span>
+
+      {coin ? (
+        <span key={coin.id} className={`coin ${unicorn ? "unicorn" : "tails"}`}>
+          <span className="coin-face front">🦄</span>
+          <span className="coin-face back num">1</span>
+        </span>
+      ) : (
+        <span className="coin resting">
+          <span className="coin-face front">🦄</span>
+          <span className="coin-face back num">1</span>
+        </span>
+      )}
+
+      {coin && <span className={`coin-verdict ${unicorn ? "yes" : "no"}`}>{coin.text}</span>}
+
+      {prompt && (
+        <div className="coin-choice">
+          {(prompt.options ?? []).map((option) => (
+            <button
+              key={option.id}
+              className={option.id === "again" ? "ember tiny" : "tiny"}
+              onClick={() => send({ type: "answerPrompt", player: prompt.player, pick: option.id })}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // --------------------------------------------------------------- the curtain
 
 /**
@@ -151,7 +228,12 @@ export function Curtain({
   viewer: PlayerId;
   bare: boolean;
 }) {
-  const shown = [...shows].reverse().find((s) => s.open || s.player === viewer || bare);
+  // Coins are not cards and have a panel of their own. Skipped here rather than
+  // allowed to fall through: `shown` takes the most recent match, so a coin
+  // reaching this list would hide whatever card was being held up behind it.
+  const shown = [...shows]
+    .reverse()
+    .find((s) => s.kind !== "coin" && (s.open || s.player === viewer || bare));
   if (!shown) return null;
 
   const cards = shown.cardIds

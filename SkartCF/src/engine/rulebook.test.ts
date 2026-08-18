@@ -8,10 +8,10 @@ import {
   makeUnitInstance,
 } from "./effects";
 import { ALL_SLOTS } from "./grid";
-import { cardKeywords, power, unitsOf } from "./power";
+import { abilitiesActive, cardKeywords, power, unitsOf } from "./power";
 import { applyAction } from "./reducer";
 import { createGame, DEFAULT_CONFIG } from "./setup";
-import { hasViableCaster } from "./resolve";
+import { fireBelepo, hasViableCaster } from "./resolve";
 import { boardTotal, locationWinner, visibleCapSpent } from "./totaling";
 import type { GameState, PlayerId, SlotId } from "./types";
 
@@ -63,6 +63,7 @@ function emptyPlayer(id: PlayerId) {
     hiddenThisLocation: 0,
     bonusDraw: { units: 0, spells: 0 },
     tossDone: false,
+    seen: [],
   };
 }
 
@@ -481,6 +482,66 @@ describe("költségkeret nyilvánossága", () => {
     // Once Mustra has turned it over the whole board is public (7.9).
     state.board["p1.F2"]!.faceDown = false;
     expect(visibleCapSpent(state, "p1")).toBe(18);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6.5.6, a hidden unit is a blank until the Mustra
+// ---------------------------------------------------------------------------
+
+describe("rejtett egység képességei", () => {
+  it("neither gives nor receives an aura while face down", () => {
+    const state = blankState("umbra"); // no cap, no battlefield power modifiers
+    place(state, "maffiavezer", "p1.F1"); // Csempész, +1 to adjacent Csempész
+    place(state, "maffiavezer", "p1.F2");
+
+    // Face up the two of them prop each other up.
+    expect(power(state.board["p1.F1"]!, state)).toBe(5);
+    expect(power(state.board["p1.F2"]!, state)).toBe(5);
+
+    // Turning one over switches its aura off in both directions: it stops
+    // granting, and it stops collecting.
+    state.board["p1.F2"]!.faceDown = true;
+    expect(power(state.board["p1.F1"]!, state)).toBe(4);
+    expect(power(state.board["p1.F2"]!, state)).toBe(4);
+  });
+
+  it("cannot be targeted by text that does not name hidden units", () => {
+    const state = blankState("umbra");
+    place(state, "guner", "p1.F2");
+    place(state, "patkany", "p2.F2");
+    const anyEnemy = { side: "enemy", range: 2 } as const;
+    const explar = getSpell("explar");
+    expect(legalTargets(state, anyEnemy, "p1.F2", "p1", explar)).toContain("p2.F2");
+
+    state.board["p2.F2"]!.faceDown = true;
+    expect(legalTargets(state, anyEnemy, "p1.F2", "p1", explar)).not.toContain("p2.F2");
+  });
+
+  it("is not killed by a Belépő that lands in its column", () => {
+    const state = blankState("umbra");
+    place(state, "patkany", "p2.B1");
+    state.board["p2.B1"]!.faceDown = true;
+    // Bérgyilkos reads its column for the weakest enemy weaker than itself. The
+    // rat qualifies on every count except being face down.
+    place(state, "bergyilkos", "p1.F1");
+    fireBelepo(state, state.board["p1.F1"]!);
+    expect(state.board["p2.B1"]).not.toBeNull();
+
+    // Turned over, it is exactly the target the card describes.
+    state.board["p2.B1"]!.faceDown = false;
+    place(state, "bergyilkos", "p1.B1");
+    fireBelepo(state, state.board["p1.B1"]!);
+    expect(state.board["p2.B1"]).toBeNull();
+  });
+
+  it("fires no trigger and no Belépő of its own while hidden", () => {
+    const state = blankState("umbra");
+    place(state, "maffiavezer", "p1.F1");
+    state.board["p1.F1"]!.faceDown = true;
+    expect(abilitiesActive(state.board["p1.F1"]!, state)).toBe(false);
+    state.board["p1.F1"]!.faceDown = false;
+    expect(abilitiesActive(state.board["p1.F1"]!, state)).toBe(true);
   });
 });
 

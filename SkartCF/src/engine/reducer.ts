@@ -830,6 +830,15 @@ function finishCleanup(state: GameState): void {
     p.bonusDraw = { units: 0, spells: 0 };
   }
 
+  // A look is worth something only while the card is still in the hand it was
+  // seen in. Everything either player played, threw away or has yet to draw
+  // falls out of what the other one knows, here, once per battle.
+  for (const id of PLAYERS) {
+    const them = state.players[other(id)];
+    const still = new Set([...them.unitHand, ...them.spellHand].map((c) => c.uid));
+    state.players[id].seen = state.players[id].seen.filter((uid) => still.has(uid));
+  }
+
   state.locationIndex += 1;
   state.phase = "units";
   state.turn = state.locations[state.locationIndex].broughtBy;
