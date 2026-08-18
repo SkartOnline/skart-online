@@ -8,23 +8,28 @@
  *
  *   npm run sim -- --games 2000
  *   npm run sim -- --games 500 --decks value,swarm
- *   npm run sim -- --games 2000 --stop-margin 0,2,4
+ *   npm run sim -- --games 500 --fold 4
+ *   npm run sim -- --games 500 --policy greedy --stop-margin 0,2,4
  *   npm run sim -- --games 500 --policy bot
  *
  * Which policy plays the games is the number's biggest hidden assumption. The
- * greedy policy stops on a coin flip and always casts its most expensive spell
- * first, so a battlefield it loses badly may simply be one that punishes bad
- * play. Re-running a flagged pair under `--policy bot` is how that gets told
- * apart from a battlefield that is genuinely broken.
+ * default is the deterministic baseline in `baseline.ts`: build the strongest
+ * board, spend as few cards as possible, stop only when stopping is provably
+ * right. `--policy greedy` restores the old randomised heuristic (the only one
+ * `--stop-margin` applies to), and `--policy bot` plays the trained model —
+ * re-running a flagged pair under another policy is how a battlefield that
+ * punishes bad play gets told apart from one that is genuinely broken.
  */
 
 import { allDecks, getLocation, hashSeed } from "../engine";
 import type { PlayerId } from "../engine";
 import { DEFAULT_POLICY } from "./policy";
 import type { PolicyParams } from "./policy";
+import { DEFAULT_BASELINE } from "./baseline";
+import type { BaselineParams } from "./baseline";
 import { Agent, DEFAULT_AGENT } from "../bot/agent";
 import { loadModel } from "../bot/arena";
-import { greedySeat, playGame as playRecorded } from "../bot/selfplay";
+import { baselineSeat, greedySeat, playGame as playRecorded } from "../bot/selfplay";
 import type { Seat } from "../bot/selfplay";
 import type { ValueModel } from "../bot/model";
 
@@ -38,10 +43,12 @@ interface GameResult {
 
 /** Who is playing. Both seats always use the same one, so it is a fair fight. */
 export type Contestant =
+  | { kind: "baseline"; params: BaselineParams }
   | { kind: "greedy"; params: PolicyParams }
   | { kind: "bot"; model: ValueModel };
 
 function seatFor(contestant: Contestant, seed: string): Seat {
+  if (contestant.kind === "baseline") return baselineSeat(contestant.params.foldMargin);
   if (contestant.kind === "greedy") return greedySeat(seed);
   return {
     kind: "agent",
@@ -177,17 +184,29 @@ function main(): void {
     .split(",")
     .map(Number);
 
-  const useBot = args.policy === "bot";
-  const model = useBot ? loadModel(args.weights ?? "src/bot/weights/latest.json") : null;
-  console.log(useBot ? "policy: trained bot" : "policy: greedy heuristic");
+  const policy = args.policy ?? "baseline";
+  const model = policy === "bot" ? loadModel(args.weights ?? "src/bot/weights/latest.json") : null;
+  const fold = Number(args.fold ?? DEFAULT_BASELINE.foldMargin);
+  console.log(
+    policy === "bot"
+      ? "policy: trained bot"
+      : policy === "greedy"
+        ? "policy: greedy heuristic"
+        : `policy: baseline (fold ${fold})`,
+  );
 
   let anyBroken = false;
 
-  for (const stopMargin of margins) {
-    if (margins.length > 1) console.log(`\n=== stopMargin ${stopMargin} ===`);
+  // The stop-margin sweep only means anything to the greedy policy; the
+  // baseline and the bot run the loop once.
+  const sweeps = policy === "greedy" ? margins : [margins[0]];
+  for (const stopMargin of sweeps) {
+    if (sweeps.length > 1) console.log(`\n=== stopMargin ${stopMargin} ===`);
     const contestant: Contestant = model
       ? { kind: "bot", model }
-      : { kind: "greedy", params: { ...DEFAULT_POLICY, stopMargin } };
+      : policy === "greedy"
+        ? { kind: "greedy", params: { ...DEFAULT_POLICY, stopMargin } }
+        : { kind: "baseline", params: { foldMargin: fold } };
 
     for (let i = 0; i < deckIds.length; i++) {
       for (let j = i + 1; j < deckIds.length; j++) {

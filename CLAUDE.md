@@ -42,7 +42,7 @@ public site.
 | Deck building / collection | `src/ui/collection/CollectionManager.tsx`, `src/ui/cardSet.ts` (localStorage overlay) |
 | Styling | Per screen, next to the component: `src/ui/theme.css` (tokens, reset, shared vocabulary — loaded first), `menu.css`, `rulebook.css`, `collection/collection.css`, `game/game.css`, `editor/editor.css` |
 | In-app rulebook screen | `src/ui/Rulebook.tsx` renders `docs/szabaly-*.md` directly — edit the docs, never the screen |
-| Balance simulator | `src/sim/run.ts`, `src/sim/policy.ts` (deliberately dumb; consistency over strength) |
+| Balance simulator | `src/sim/run.ts` (runner/report), `src/sim/baseline.ts` (default policy: deterministic, theoretical-max driven), `src/sim/policy.ts` (old randomised greedy, kept as the bot's sparring partner) |
 | Learning bot | `src/bot/` — `docs/bot.md` first; `agent.ts`, `features.ts`, `observe.ts`, `model.ts`, `learn.ts`, `selfplay.ts`, `train.ts` |
 | Card art | drop `src/ui/art/<cardId>.webp` — nothing else to change |
 

@@ -226,7 +226,8 @@ now it is simply a wasted card, which is why the sim's bot no longer plays one.
 ```
 npm run sim -- --games 2000
 npm run sim -- --games 500 --decks felindori,bestia
-npm run sim -- --games 2000 --stop-margin 0,2,4
+npm run sim -- --games 500 --fold 4
+npm run sim -- --games 2000 --policy greedy --stop-margin 0,2,4
 ```
 
 Reports match win rate, how often games reach Végtelen puszta, and win rate per deck per
@@ -234,10 +235,15 @@ battlefield. Any deck over 75% on any single battlefield is flagged `BROKEN` —
 the hard failure condition from the rules doc, and the number this script exists to
 measure.
 
-The policy in `src/sim/policy.ts` is deliberately dumb. Its job is not to play well but
-to play *consistently*, so a win-rate gap between two decks is a property of the cards
-rather than of the bot. `stopMargin` and `stopChance` are the parameters worth sweeping,
-since "when do I stop" is the most important decision in the game.
+Three policies can play the games. The default is the **baseline** in
+`src/sim/baseline.ts`: deterministic, no randomness anywhere. It computes the
+theoretical maximum total it can still reach — through the real engine, so auras and
+battlefield effects count — from what a player could actually know (the battlefield,
+its own hands, the visible enemy units), builds the strongest board with the fewest
+cards, and stops only when the opponent has stopped and the board is won, or when even
+the theoretical maximum is `--fold` short of the enemy's total. `--policy greedy` is
+the old randomised heuristic (kept as the bot's sparring partner; `--stop-margin`
+applies only to it), and `--policy bot` plays the trained model.
 
 ## Damage versus power debuffs
 
