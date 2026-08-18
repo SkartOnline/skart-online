@@ -1,4 +1,5 @@
 import { ALL_SLOTS } from "../../engine";
+import { SIDE_NAME } from "../../engine";
 import type { GameState, PlayerId, SlotId } from "../../engine";
 
 /**
@@ -34,10 +35,14 @@ export type BeatKind =
   | "cast"
   /** A unit left the board. */
   | "fall"
-  /** Something landed on a unit that stayed standing: damage, a debuff, a card. */
+  /** A unit walked to another tile. */
+  | "march"
+  /** Something landed on a unit and left it standing. */
   | "strike"
   /** Cards were drawn into a hand. */
   | "draw"
+  /** Cards were thrown away at leszerelés. */
+  | "toss"
   /** A step of 5.1 began. */
   | "step";
 
@@ -50,26 +55,35 @@ export interface Beat {
   slot?: SlotId;
   count?: number;
   text?: string;
+  /** A second line under the banner. Only the scored step uses it. */
+  detail?: string;
 }
 
 /**
  * How long each kind stays on screen, in ms.
  *
- * Erring slow on purpose. The point of a beat is that you can miss looking at the
- * board for a second and still catch what happened, and the first pass was fast
- * enough to be over before you had turned your head. A card being played is the
- * longest, because it is the one you are meant to read.
+ * These are not one number with variations. They split by what the beat is *for*:
+ *
+ * - A card being played is something you are meant to read, so it gets long
+ *   enough to actually read a rules box.
+ * - A battlefield or a phase opening reframes everything, so it gets longer still.
+ * - Everything else is a consequence you only need to *notice* — a tile landing,
+ *   a unit falling, cards leaving a hand. Those are short, and they have to be:
+ *   leszerelés can throw away six cards at once, and six beats of a second each
+ *   is a minute of watching a hand empty itself one card at a time.
  */
 export const BEAT_MS: Record<BeatKind, number> = {
   battlefield: 2800,
-  land: 1200,
-  veil: 1200,
-  reveal: 1500,
-  cast: 2600,
-  fall: 1200,
-  strike: 950,
-  draw: 900,
   step: 2100,
+  cast: 2200,
+  land: 1600,
+  veil: 1600,
+  reveal: 1200,
+  fall: 800,
+  march: 700,
+  strike: 700,
+  draw: 650,
+  toss: 420,
 };
 
 const STEP_TEXT: Partial<Record<GameState["phase"], string>> = {
@@ -131,7 +145,18 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
     // announced on the way out of gathering is the one that actually happened.
     const text =
       prev.phase === "units" && next.phase === "battle" ? "Mustra" : STEP_TEXT[next.phase];
-    if (text) out.push({ id: nextId(), kind: "step", text });
+    if (text) {
+      // Összesítés is the one step whose whole point is a number, so the banner
+      // carries the result rather than only naming the step.
+      const here = next.locations[next.locationIndex];
+      const detail =
+        next.phase === "scored" && here?.totals
+          ? here.winner === "void"
+            ? `${here.totals.p1} : ${here.totals.p2} — senkié`
+            : `${here.totals.p1} : ${here.totals.p2} — ${SIDE_NAME[here.winner as PlayerId]} viszi`
+          : undefined;
+      out.push({ id: nextId(), kind: "step", text, detail });
+    }
   }
 
   // A unit that changed tiles has to read as a move, not as a death followed by
@@ -148,7 +173,7 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
         id: nextId(),
         // Only a card coming from outside the board is a play worth showing in
         // the panel; a unit that walked here just lands.
-        kind: after.faceDown ? "veil" : wasAt.has(after.uid) ? "strike" : "land",
+        kind: after.faceDown ? "veil" : wasAt.has(after.uid) ? "march" : "land",
         player: after.owner,
         // A face-down unit is not named. The tile shows a back and so does the
         // panel, because the panel is fed from the same beat.
@@ -184,14 +209,20 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
   }
 
   for (const player of ["p1", "p2"] as PlayerId[]) {
-    const drawn =
+    const moved =
       next.players[player].unitHand.length -
       prev.players[player].unitHand.length +
       next.players[player].spellHand.length -
       prev.players[player].spellHand.length;
-    // Only a refill counts. A card leaving the hand to be played is the `land`
-    // beat's business, and a leszerelés discard is not a draw either.
-    if (drawn > 0) out.push({ id: nextId(), kind: "draw", player, count: drawn });
+    if (moved > 0) {
+      out.push({ id: nextId(), kind: "draw", player, count: moved });
+    } else if (moved < 0 && next.phase === "cleanup") {
+      // Cards leaving a hand mean something different in each phase: during play
+      // they were played, and the `land` and `cast` beats already say so. At
+      // leszerelés they were simply thrown away, and one beat covers however
+      // many went at once rather than one beat per card.
+      out.push({ id: nextId(), kind: "toss", player, count: -moved });
+    }
   }
 
   return out;
@@ -270,6 +301,59 @@ export function flyTo(flight: Flight, target: Element | null, ms = 700): void {
 
 export function slotElement(slot: SlotId): Element | null {
   return document.querySelector(`[data-slot="${slot}"]`);
+}
+
+/**
+ * A card back flying between two places on screen: out of a deck into a hand, or
+ * out of a hand onto the discard pile.
+ *
+ * These are not real cards. A draw is face-down by definition, and a leszerelés
+ * toss is several cards at once — what has to be legible is the direction and the
+ * count, not the identity. So this builds a back rather than cloning anything,
+ * and staggers them so three cards read as three.
+ */
+export function flyBack(
+  kind: "unit" | "spell",
+  from: DOMRect | null,
+  to: DOMRect | null,
+  index = 0,
+  ms = 520,
+): void {
+  const layer = document.querySelector<HTMLElement>(".flight-layer");
+  if (!layer || !from || !to) return;
+  if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+
+  const node = document.createElement("span");
+  node.className = `cardback ${kind} flight-card drifting`;
+  node.style.position = "fixed";
+  node.style.left = `${from.left + from.width / 2}px`;
+  node.style.top = `${from.top + from.height / 2}px`;
+  layer.appendChild(node);
+
+  const dx = to.left + to.width / 2 - (from.left + from.width / 2);
+  const dy = to.top + to.height / 2 - (from.top + from.height / 2);
+  const animation = node.animate(
+    [
+      { transform: "translate(-50%, -50%) scale(0.28)", opacity: 0 },
+      { transform: "translate(-50%, -50%) scale(0.5)", opacity: 1, offset: 0.2 },
+      {
+        transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.34)`,
+        opacity: 0,
+      },
+    ],
+    {
+      duration: ms,
+      delay: index * 90,
+      easing: "cubic-bezier(0.35, 0.6, 0.25, 1)",
+      fill: "both",
+    },
+  );
+  animation.finished.catch(() => {}).finally(() => node.remove());
+}
+
+/** Where a player's deck, discard or hand currently sits on screen. */
+export function anchorRect(selector: string): DOMRect | null {
+  return document.querySelector(selector)?.getBoundingClientRect() ?? null;
 }
 
 // ---------------------------------------------------------------------------

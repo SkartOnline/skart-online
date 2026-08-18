@@ -803,9 +803,99 @@ code {
 }
 .rail-left {
   border-right: 1px solid rgba(116, 82, 44, 0.5);
+  /* The battlefield card and the turn cue take what they need; the annals take
+     the rest and scroll inside it. */
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+}
+
+/* The battle so far, as pictures rather than sentences. There is no card art in
+   the set yet, so every entry draws an empty frame in the right shape and the
+   right colour; the art slot fills itself in the moment `artFor` returns
+   something. */
+.annals {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin: 6px 0;
+}
+.annals-head {
+  padding-bottom: 3px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--iron);
+  font-size: 12px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.05em;
+  color: var(--ember);
+}
+.annals-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--iron) transparent;
+}
+.annals-empty {
+  font-size: 11px;
+  padding: 4px 0;
+}
+.annal {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px;
+  background: rgba(23, 15, 8, 0.5);
+  border-left: 3px solid var(--iron);
+  font-size: 11.5px;
+  color: var(--parchment);
+}
+.annal.mine {
+  border-left-color: var(--brass);
+}
+.annal.theirs {
+  border-left-color: var(--blood);
+}
+.annal-art {
+  flex: none;
+  width: 34px;
+  height: 26px;
+  overflow: hidden;
+  border: 1px solid var(--ink-edge);
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(0, 0, 0, 0.34) 0 5px,
+    rgba(255, 255, 255, 0.02) 5px 10px
+  );
+}
+.annal.unit .annal-art {
+  background-color: #533317;
+}
+.annal.spell .annal-art {
+  background-color: #3b2f4e;
+}
+.annal-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.annal-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .rail-right {
   border-left: 1px solid rgba(116, 82, 44, 0.5);
+  /* The ledger takes whatever the two counter blocks leave, which is what lets it
+     hold a thirty-line deck listing without anything being clipped. */
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
 }
 .rail-gap {
   flex: 1;
@@ -943,27 +1033,114 @@ code {
     rgba(8, 5, 3, 0.9) 0 5px,
     rgba(60, 40, 24, 0.9) 5px 10px
   );
+}
+.pile-icon.readable {
   cursor: help;
 }
-.pile-list {
+.pile-icon.readable:hover {
+  border-color: var(--ember);
+  box-shadow: 2px 2px 0 -1px var(--oak-pitch), 4px 4px 0 -2px var(--ember);
+}
+
+/* Battlefields held, beside the player's name. Pointing at it fills the ledger
+   with the results so far, which is the only place there was room to put them. */
+.counters .who {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.held-fields {
+  min-width: 22px;
+  padding: 0 5px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1c0e03;
+  cursor: help;
+}
+.counters.p1 .held-fields {
+  background: var(--brass);
+}
+.counters.p2 .held-fields {
+  background: var(--blood);
+  color: var(--tallow);
+}
+
+/* The ledger: whichever pile is being pointed at, counted rather than listed. */
+.ledger {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  width: max-content;
-  overflow-y: auto;
-  max-width: 230px;
-  max-height: 60dvh;
-  overflow: hidden;
-  padding: 6px 9px;
-  background: #180f08;
-  background-image: var(--grain);
+  min-height: 0;
+  margin: 6px 0;
+  padding: 6px 7px;
+  background: rgba(23, 15, 8, 0.55);
   border: 1px solid var(--iron);
   font-size: 12px;
+}
+.ledger.empty {
+  display: grid;
+  place-items: center;
+  border-style: dashed;
+  border-color: rgba(116, 82, 44, 0.45);
+}
+.ledger-hint {
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--ash-dim);
+  font-variant-caps: small-caps;
+}
+.ledger-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--iron);
+  font-size: 12px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.04em;
+  color: var(--ember);
+}
+.ledger-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--iron) transparent;
+}
+.ledger-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 1px 0;
   color: var(--parchment);
 }
-.pile-list em {
-  font-style: normal;
+.ledger-list li.spell .ledger-cost {
+  color: var(--frost);
+}
+.ledger-list li.won .ledger-count {
+  color: var(--sprout);
+}
+.ledger-cost {
+  flex: none;
+  width: 15px;
+  text-align: center;
+  color: var(--flame);
+}
+.ledger-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+.ledger-count {
+  flex: none;
+  color: var(--brass);
+  font-weight: 600;
 }
 
 /* ------------------------------------------------------------------ arena */
@@ -1373,16 +1550,17 @@ code {
  * at the same moment, and neither is worth anything: the arc belongs against the
  * edge, the way a hand of cards rests against the rail of a table. The padding
  * above is headroom for the card being read, which grows up into it. */
+/* The near hand runs off the bottom of the screen and stays there. The arc is cut
+   by the edge — there is no strip of table under it and nothing rises when you
+   reach for it. What you get instead is the card you are pointing at, printed at
+   full size in `.reading` above, which is the only thing that ever needed to be
+   readable. */
 .hand-rail.near {
   bottom: 0;
-  padding-top: 210px;
 }
 .hand-rail.near .hand-group {
-  /* Raised by its own droop, so the lowest card in the arc rests on the bottom
-     edge instead of hanging through it. See `fanLift` for where the number
-     comes from. */
-  transform: translateY(calc(-1 * var(--arc-lift, 0px)));
-  transition: transform 220ms ease-out;
+  transform: translateY(38%);
+  transition: transform 200ms ease-out;
 }
 .hand-rail.far {
   top: 0;
@@ -1457,51 +1635,62 @@ code {
 .hand-slot.dead .cardface {
   filter: grayscale(0.6) brightness(0.6);
 }
-/* The card being read comes up above its neighbours in the stack. This is why
-   `arc()` hands the resting z-index over as a custom property: an inline value
-   would win, and the card would stay buried under the ones to its right — which is
-   exactly where its power gem is. */
 .hand-rail.near .hand-slot:hover,
 .hand-rail.near .hand-slot:focus-within,
 .hand-slot.picked {
   z-index: 60;
 }
-/* Read: stood upright and enlarged, and that is the whole of it.
- *
- * Nothing translates. Writing a fresh `transform` discards the fan's rotation and
- * drop, so the card straightens where it stands, and `transform-origin` on the
- * bottom edge sends every pixel of the extra size upward into the rail's padding.
- * It grows out of the hand rather than flying out of it — the same thing that
- * happens when you pull a card half out of a real hand to look at it.
- *
- * Hovering and having picked a card are the same state as far as the card is
- * concerned, so they share a rule. */
-.hand-rail.near .hand-slot:hover > .hand-card,
-.hand-rail.near .hand-slot:focus-within > .hand-card,
-.hand-slot.picked > .hand-card {
-  transform: scale(1.5);
+/* The card in the air is out of the hand: the gap it left stays open until it is
+   dropped, so the fan says what you are holding without needing a highlight. */
+.hand-slot.lifted > .hand-card {
+  opacity: 0;
 }
-
-/* Neighbours step out of the way rather than being covered up: the hovered card
-   is big enough to reach over three of them, so the shove is what keeps them
-   readable. Only the drawn card moves — the hit boxes stay exactly where they
-   were, and the cards cannot take the pointer anyway. */
-.hand-rail.near .hand-slot:hover ~ .hand-slot {
-  --shift: 40px;
-}
-.hand-rail.near .hand-slot:has(~ .hand-slot:hover) {
-  --shift: -40px;
-}
-.hand-rail.near .hand-slot:hover ~ .hand-slot + .hand-slot {
-  --shift: 22px;
-}
-.hand-rail.near .hand-slot:has(+ .hand-slot ~ .hand-slot:hover) {
-  --shift: -22px;
-}
+/* Nothing happens to the card in the fan when you point at it. It is 110px wide
+   and it is not going to become readable by growing in place — every attempt to
+   do that either clipped it against the screen edge or shoved its neighbours
+   around. The readable copy is drawn in `.reading` instead, above everything,
+   and this one just stays where it is. Picking a card up still marks it. */
 .hand-slot.picked .cardface {
   border-color: var(--ember);
   box-shadow: 0 0 0 2px var(--ember), 0 0 22px rgba(232, 129, 31, 0.55);
 }
+
+/* The card you are pointing at, printed at full size directly above where it
+   sits in the fan.
+ *
+ * A fixed overlay rather than the fan card itself, which settles four problems at
+ * once: it cannot be clipped by the screen edge, it cannot be buried under the
+ * spell hand or under the cards to its right, it needs no z-index fight with
+ * anything, and — because it never takes the pointer — it cannot move the hover
+ * target and start the card flickering. The fan underneath does not move at all.
+ *
+ * `--read-x` is the centre of the card in the fan, so the enlarged copy stands
+ * over its own place in the hand. */
+.reading {
+  position: fixed;
+  bottom: 8px;
+  left: var(--read-x, 50%);
+  transform: translateX(-50%);
+  z-index: 80;
+  pointer-events: none;
+  filter: drop-shadow(0 16px 30px rgba(0, 0, 0, 0.8));
+  animation: reading-appears 130ms ease-out both;
+}
+.reading .cardface {
+  --card-w: 232px;
+  box-shadow: 0 0 0 1px var(--iron-bright);
+}
+@keyframes reading-appears {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
 
 /* The corners you actually read, sized to be legible at hand scale rather than
    at collection scale: a cost gem over the top-left corner and a power shield
@@ -1634,7 +1823,9 @@ code {
 .toll {
   position: absolute;
   left: 50%;
-  bottom: 96px;
+  /* Clear of the hand. This used to sit right on top of the cards it was telling
+     you to read, which made choosing what to throw away a guessing game. */
+  bottom: calc(100% - 132px);
   transform: translateX(-50%);
   z-index: 13;
   display: flex;
@@ -1700,31 +1891,29 @@ code {
 .flight-card .cardface {
   box-shadow: 0 0 0 1px var(--flame), 0 8px 20px rgba(0, 0, 0, 0.6);
 }
+/* Draws and discards fly as backs: what has to read is the direction and the
+   number, never the identity. */
+.flight-card.drifting {
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.6);
+}
 
-/* The card in your hand, on the way to a tile. Upright: it has been taken out of
-   the fan, so it no longer carries the fan's angle — a card you are holding is a
-   card you are looking at straight on. */
+/* The card in your hand, on the way to a tile.
+ *
+ * Small and upright. A full-size card under the cursor covers the half of the
+ * board you are trying to aim at, which made every placement a guess; at this
+ * size it reads as the card you are carrying without hiding where you are
+ * carrying it to. It has been taken out of the fan, so it no longer carries the
+ * fan's angle either. */
 .dragged-card {
-  transform: scale(1.04);
+  transform: scale(0.62);
   transform-origin: 50% 50%;
-  filter: drop-shadow(0 18px 30px rgba(0, 0, 0, 0.75));
+  opacity: 0.92;
+  filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.75));
 }
 .hand-slot.draggable {
   /* Dragging a card must not also select the text on it. */
   touch-action: none;
   user-select: none;
-}
-/* While a card is in the air the hand drops out of the way, so the tiles you are
-   aiming at are not behind it, and no card in the fan enlarges under the cursor. */
-body.dragging-card .hand-rail.near .hand-group {
-  transform: translateY(46%);
-}
-body.dragging-card .hand-slot:hover {
-  z-index: var(--z, 10);
-}
-body.dragging-card .hand-slot:hover > .hand-card {
-  transform: translateX(var(--shift, 0px)) rotate(var(--angle, 0deg))
-    translateY(var(--drop, 0px));
 }
 body.dragging-card {
   cursor: grabbing;
@@ -1775,9 +1964,9 @@ body.dragging-card {
 }
 .herald em {
   font-style: normal;
-  font-size: 14px;
+  font-size: 17px;
   font-variant-caps: small-caps;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   color: var(--flame);
 }
 @keyframes herald-passes {
@@ -1892,6 +2081,23 @@ body.dragging-card {
     opacity: 1;
     transform: none;
     box-shadow: none;
+  }
+}
+
+/* A unit walking to another tile. Gentler than an arrival from hand: it is the
+   same unit, so it slides into place rather than dropping onto it. */
+.cell.stir-march {
+  animation: unit-marches 700ms cubic-bezier(0.25, 0.8, 0.3, 1) both;
+  z-index: 3;
+}
+@keyframes unit-marches {
+  0% {
+    opacity: 0.45;
+    transform: scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
   }
 }
 

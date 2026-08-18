@@ -8,8 +8,10 @@ import {
   getSpell,
   getUnit,
   isMasterSpell,
+  ALL_SLOTS,
   legalActions,
   remainingCap,
+  slotsOf,
   visibleCapSpent,
   visibleTotal,
 } from "../../engine";
@@ -23,16 +25,19 @@ import type {
   UnitCard,
 } from "../../engine";
 import CardFace from "../card/CardFace";
+import { artFor } from "../card/model";
 import Board, { Loaded } from "./Board";
 import NewGame from "./NewGame";
 import type { Sides } from "./NewGame";
 import { makeBot } from "./bot";
 import type { Agent } from "../../bot/agent";
 import {
+  anchorRect,
   BEAT_MS,
   beatsBetween,
   beginCardDrag,
   captureHandCard,
+  flyBack,
   flyTo,
   slotElement,
 } from "./theatre";
@@ -128,6 +133,30 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
     flyTo(queued.flight, target);
   }, [state]);
 
+  // Cards leaving a deck for a hand, or a hand for the discard pile. Fired once
+  // per beat: the beat list is rebuilt on every render, so without a record of
+  // what has already flown, a single draw would re-launch itself continuously.
+  const flown = useRef(new Set<number>());
+  useEffect(() => {
+    if (!state) return;
+    for (const beat of beats) {
+      if (beat.kind !== "draw" && beat.kind !== "toss") continue;
+      if (flown.current.has(beat.id)) continue;
+      flown.current.add(beat.id);
+      const side = beat.player;
+      if (!side) continue;
+      const near = side === (botSide ? other(botSide) : state.turn);
+      const hand = anchorRect(near ? ".hand-rail.near" : ".hand-rail.far");
+      const deck = anchorRect(`.counters.${side} .pile-icon.unit`);
+      const grave = anchorRect(`.counters.${side} .pile-icon.grave`);
+      const count = Math.min(beat.count ?? 1, 6);
+      for (let i = 0; i < count; i++) {
+        if (beat.kind === "draw") flyBack("unit", deck, hand, i);
+        else flyBack("unit", hand, grave, i, 420);
+      }
+    }
+  }, [beats, botSide, state]);
+
   // One timer, aimed at whichever beat expires first. Each beat carries its own
   // deadline, so a new batch arriving never extends the life of an old one.
   useEffect(() => {
@@ -218,6 +247,11 @@ function Field(props: FieldProps) {
   /** The tile being read. Never a rule, only what the loupe beside the board shows. */
   const [inspect, setInspect] = useState<SlotId | null>(null);
   const inspected = inspect ? state.board[inspect] : null;
+  /** The card in hand being read, and the one currently in the air. */
+  const [reading, setReading] = useState<string | null>(null);
+  const [lifted, setLifted] = useState<string | null>(null);
+  /** Which pile the ledger is holding open. */
+  const [tracking, setTracking] = useState<Tracking | null>(null);
 
   // The table turns so whoever is acting sits at the bottom of the screen, with
   // their hand in front of them and the enemy across the line. Against the
@@ -296,13 +330,21 @@ function Field(props: FieldProps) {
     setHeld(card);
     const session = beginCardDrag(card.uid, event.nativeEvent, {
       onDrop: (slot) => commit(slot, card),
-      onEnd: () => {},
+      onEnd: () => setLifted(null),
     });
     // No session means the card had no node to clone; the click path still works.
-    if (session) event.preventDefault();
+    if (!session) return;
+    event.preventDefault();
+    // Out of the hand and into your fingers: the fan shows the gap it left until
+    // the card is dropped, and the full-size copy gets out of the way.
+    setLifted(card.uid);
+    setReading(null);
   }
 
   const over = state.phase === "gameOver";
+  const inHand = [...state.players[viewer].unitHand, ...state.players[viewer].spellHand];
+  const liftedStillHeld = lifted && inHand.some((c) => c.uid === lifted) ? lifted : null;
+  const readCard = reading ? inHand.find((c) => c.uid === reading) : undefined;
 
   // Which tiles are mid-animation, and what to hold in the panel. Both are read
   // off the beats, never off the board, so they fade on their own.
@@ -334,7 +376,7 @@ function Field(props: FieldProps) {
       <aside className="rail-left">
         <Battlefield {...props} onLog={() => setLogOpen((v) => !v)} logOpen={logOpen} />
         <TurnCue {...props} moves={moves} viewer={viewer} />
-        <span className="rail-gap" />
+        <Annals state={state} viewer={viewer} />
         <Tools {...props} onLog={() => setLogOpen((v) => !v)} logOpen={logOpen} />
       </aside>
 
@@ -360,14 +402,29 @@ function Field(props: FieldProps) {
         </div>
       )}
 
+      {/* The far player's piles, the ledger, then yours. The ledger sits between
+          them because that is where both sets of piles can reach it. */}
       <aside className="rail-right">
-        <Counters state={state} side={far} viewer={viewer} bare={bare} />
-        <span className="rail-gap" />
-        <Counters state={state} side={viewer} viewer={viewer} bare={bare} />
+        <Counters state={state} side={far} viewer={viewer} bare={bare} onTrack={setTracking} />
+        <Ledger state={state} tracking={tracking} />
+        <Counters state={state} side={viewer} viewer={viewer} bare={bare} onTrack={setTracking} />
       </aside>
 
       {!over && <FarHand state={state} player={far} bare={bare} />}
-      {!over && <NearHand {...props} moves={moves} viewer={viewer} onDrag={startDrag} />}
+      {!over && (
+        <NearHand
+          {...props}
+          moves={moves}
+          viewer={viewer}
+          onDrag={startDrag}
+          onRead={setReading}
+          lifted={liftedStillHeld}
+        />
+      )}
+
+      {/* The card under the pointer, printed at full size above its own place in
+          the fan. Nothing in the hand moves to make this happen. */}
+      {readCard && !liftedStillHeld && <Reading uid={readCard.uid} cardId={readCard.cardId} />}
 
       {logOpen && <Chronicle state={state} onClose={() => setLogOpen(false)} />}
       {over && <Aftermath state={state} onLeave={props.onLeave} onQuit={props.onQuit} />}
@@ -413,7 +470,10 @@ function Theatre({
               <em>{capLabel(frame.cardId)}</em>
             </>
           ) : (
-            <b>{frame.text}</b>
+            <>
+              <b>{frame.text}</b>
+              {frame.detail && <em>{frame.detail}</em>}
+            </>
           )}
         </div>
       )}
@@ -512,6 +572,57 @@ function Battlefield({ state, onLeave }: FieldProps & { onLog: () => void; logOp
   );
 }
 
+/**
+ * The battle so far, down the left rail: one entry per thing that happened, with
+ * a picture of the card that did it.
+ *
+ * This is the skeleton. There is no card art in the set yet, so every entry draws
+ * an empty frame in the right shape and the right colour — a unit frame, a spell
+ * frame, a battlefield frame — and the art slot fills itself in the moment
+ * `artFor` starts returning anything. The point of building it now is the shape:
+ * a column of pictures reads as a story at a glance, which the text chronicle
+ * behind the Krónika button never will, however good the wording is.
+ */
+function Annals({ state, viewer }: { state: GameState; viewer: PlayerId }) {
+  const here = state.locationIndex;
+  const entries: { key: string; owner: PlayerId | null; cardId: string; kind: "unit" | "spell" }[] =
+    [];
+
+  for (const slot of ALL_SLOTS) {
+    const unit = state.board[slot];
+    // A face-down unit is not named anywhere, including here.
+    if (!unit || unit.faceDown) continue;
+    entries.push({ key: `u${unit.uid}`, owner: unit.owner, cardId: unit.cardId, kind: "unit" });
+  }
+  for (const cast of state.spellsCast) {
+    entries.push({ key: `s${cast.uid}`, owner: cast.owner, cardId: cast.cardId, kind: "spell" });
+  }
+
+  return (
+    <div className="annals" key={here}>
+      <b className="annals-head">Krónika</b>
+      <ul className="annals-list">
+        {entries.length === 0 && <li className="faint annals-empty">Még üres a csatatér.</li>}
+        {entries.map((entry) => (
+          <li
+            key={entry.key}
+            className={`annal ${entry.kind} ${entry.owner === viewer ? "mine" : "theirs"}`}
+          >
+            <span className="annal-art">
+              {artFor(entry.cardId) && <img src={artFor(entry.cardId)} alt="" />}
+            </span>
+            <span className="annal-name">{cardNameOf(entry.cardId)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function cardNameOf(id: string): string {
+  return cardFor(id)?.name ?? "";
+}
+
 function Tools({
   bare,
   setBare,
@@ -542,44 +653,36 @@ function Tools({
 
 // --------------------------------------------------------------- right rail
 
-function cardName(id: string): string {
-  try {
-    return getUnit(id).name;
-  } catch {
-    try {
-      return getSpell(id).name;
-    } catch {
-      return id;
-    }
-  }
-}
-
 /**
- * One player's standing, as numbers on icons rather than a sentence: what the
- * board is worth, what is left of the cost cap, and how deep each pile is.
+ * One player's standing: what the board is worth, how much of the cost cap has
+ * gone, how deep each pile is, and how many battlefields they hold.
  *
  * Your own panel tells you the truth. The other panel only ever shows what you
  * are entitled to read (1.5.3): a face-down unit's cost is hidden, so it stays
- * out of their spent-cap number. Nobody has to police the cap by hand either —
- * overshooting it is simply not a legal placement.
+ * out of their spent-cap number, and the panel says so with a "+?" rather than
+ * pretending the number is complete. That mark is read off the board rather than
+ * off a counter, which is what puts it on whichever side actually has something
+ * face down and what makes it disappear by itself once Mustra turns everything
+ * over.
  */
 function Counters({
   state,
   side,
   viewer,
   bare,
+  onTrack,
 }: {
   state: GameState;
   side: PlayerId;
   viewer: PlayerId;
   bare: boolean;
+  onTrack: (what: Tracking | null) => void;
 }) {
   const mine = side === viewer || bare;
-  const hidden = state.players[side].hiddenThisLocation > 0;
+  const facedown = slotsOf(side).some((slot) => state.board[slot]?.faceDown);
   // While units are still going down, the other side only shows what is actually
-  // visible: a face-down unit contributes nothing to what you are allowed to
-  // read. Your own panel is never veiled — you know what you put down. After
-  // Mustra both halves are public (7.9), so this only bites during gathering.
+  // visible. After Mustra both halves are public (7.9), so this only bites during
+  // gathering.
   const veiled = state.phase === "units" && !mine;
   const sum = veiled ? visibleTotal(state, side) : boardTotal(state, side);
   const p = state.players[side];
@@ -589,7 +692,16 @@ function Counters({
 
   return (
     <div className={`counters ${side}`}>
-      <span className="who">{SIDE[side]}</span>
+      <span className="who">
+        {SIDE[side]}
+        <b
+          className="held-fields num"
+          onMouseEnter={() => onTrack({ kind: "score", side })}
+          onMouseLeave={() => onTrack(null)}
+        >
+          {state.scores[side]}
+        </b>
+      </span>
       <span className="total num">
         {sum}
         {veiled && <em>látható</em>}
@@ -597,13 +709,28 @@ function Counters({
       <span className="cap-meter num">
         keret <b>{spent}</b>
         {cap === null ? "" : `/${cap}`}
-        {!mine && hidden && <em title="Rejtett egység költsége nem látszik">+?</em>}
+        {!mine && facedown && <em title="Rejtett egység költsége nem látszik">+?</em>}
       </span>
 
       <span className="piles">
-        <Pile kind="unit" count={p.unitDeck.length} />
-        <Pile kind="spell" count={p.spellDeck.length} />
-        <Pile kind="grave" count={p.discard.length} cards={p.discard} />
+        <Pile
+          kind="unit"
+          count={p.unitDeck.length}
+          track={mine ? { kind: "deck", side, pile: "unit" } : null}
+          onTrack={onTrack}
+        />
+        <Pile
+          kind="spell"
+          count={p.spellDeck.length}
+          track={mine ? { kind: "deck", side, pile: "spell" } : null}
+          onTrack={onTrack}
+        />
+        <Pile
+          kind="grave"
+          count={p.discard.length}
+          track={{ kind: "grave", side }}
+          onTrack={onTrack}
+        />
       </span>
 
       <span className="flags">
@@ -614,27 +741,164 @@ function Counters({
   );
 }
 
-/** A deck or the graveyard: a stack silhouette with its depth on it. */
+/**
+ * A deck or the graveyard: a stack silhouette with its depth on it.
+ *
+ * Pointing at one fills the ledger down the middle of the rail rather than
+ * opening a popover on the spot. A popover here was clipped by the screen edge
+ * every time, and there is no reason for six of them when one panel can hold
+ * whichever pile is being read.
+ */
 function Pile({
   kind,
   count,
-  cards,
+  track,
+  onTrack,
 }: {
   kind: "unit" | "spell" | "grave";
   count: number;
-  cards?: HandCard[];
+  /** What the ledger should show, or `null` if this pile is not readable. */
+  track: Tracking | null;
+  onTrack: (what: Tracking | null) => void;
 }) {
   return (
-    <span className={`pile-icon ${kind}${cards ? " reveals" : ""}`}>
+    <span
+      className={`pile-icon ${kind}${track ? " readable" : ""}`}
+      data-pile={kind}
+      onMouseEnter={() => track && onTrack(track)}
+      onMouseLeave={() => track && onTrack(null)}
+    >
       <b className="num">{count}</b>
-      {cards && count > 0 && (
-        <span className="revealed beside pile-list">
-          {cards.map((c, i) => (
-            <em key={`${c.uid}-${i}`}>{cardName(c.cardId)}</em>
-          ))}
-        </span>
-      )}
     </span>
+  );
+}
+
+/** What the ledger is currently showing. */
+type Tracking =
+  | { kind: "deck"; side: PlayerId; pile: "unit" | "spell" }
+  | { kind: "grave"; side: PlayerId }
+  | { kind: "score"; side: PlayerId };
+
+/** One line of the ledger: a card, and how many of it are in there. */
+interface Tally {
+  cardId: string;
+  name: string;
+  cost: number;
+  kind: "unit" | "spell";
+  count: number;
+}
+
+/**
+ * Counts copies rather than listing them. A graveyard holding four rats is one
+ * line reading "Patkány ×4", not four lines of Patkány, and the order is the one
+ * you think in: units by cost, then spells by cost.
+ *
+ * A deck listing deliberately says nothing about order. What is *left* in a deck
+ * is arithmetic either player could do from the public record; the sequence is
+ * the part 1.5.5 protects, and sorting every listing is what guarantees this can
+ * never leak it.
+ */
+function tally(cards: HandCard[]): Tally[] {
+  const by = new Map<string, Tally>();
+  for (const card of cards) {
+    const found = by.get(card.cardId);
+    if (found) {
+      found.count += 1;
+      continue;
+    }
+    const unit = tryCard(card.cardId, "unit");
+    const known = unit ?? tryCard(card.cardId, "spell");
+    if (!known) continue;
+    by.set(card.cardId, {
+      cardId: card.cardId,
+      name: known.name,
+      cost: known.cost,
+      kind: unit ? "unit" : "spell",
+      count: 1,
+    });
+  }
+  return [...by.values()].sort(
+    (a, b) =>
+      (a.kind === b.kind ? 0 : a.kind === "unit" ? -1 : 1) ||
+      a.cost - b.cost ||
+      a.name.localeCompare(b.name, "hu"),
+  );
+}
+
+function tryCard(id: string, kind: "unit" | "spell") {
+  try {
+    return kind === "unit" ? getUnit(id) : getSpell(id);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The ledger: one panel down the middle of the right rail, between the two
+ * players' piles, holding whichever one is being pointed at.
+ *
+ * It is the deck-tracker shape on purpose. A column of counted lines is how
+ * anyone who plays these games already reads a pile, and it is the one place on
+ * screen with room for a list that nothing has to clip.
+ */
+function Ledger({ state, tracking }: { state: GameState; tracking: Tracking | null }) {
+  if (!tracking) {
+    return (
+      <div className="ledger empty">
+        <span className="ledger-hint">Mutass rá egy paklira, a temetőre vagy az állásra.</span>
+      </div>
+    );
+  }
+
+  if (tracking.kind === "score") {
+    const played = state.locations.filter((l) => l.winner !== null);
+    return (
+      <div className="ledger">
+        <b className="ledger-head">{SIDE[tracking.side]}: eddigi csaták</b>
+        <ul className="ledger-list">
+          {played.length === 0 && <li className="faint">Még nincs lejátszott csata.</li>}
+          {played.map((l, i) => (
+            <li key={i} className={l.winner === tracking.side ? "won" : ""}>
+              <span className="ledger-name">{getLocation(l.cardId).name}</span>
+              <span className="ledger-count num">
+                {l.totals ? `${l.totals.p1}:${l.totals.p2}` : ""}
+                {l.winner === "void" ? " –" : l.winner === tracking.side ? " ✓" : " ✕"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  const p = state.players[tracking.side];
+  const cards =
+    tracking.kind === "grave" ? p.discard : tracking.pile === "unit" ? p.unitDeck : p.spellDeck;
+  const lines = tally(cards);
+  const label =
+    tracking.kind === "grave"
+      ? `${SIDE[tracking.side]}: temető`
+      : tracking.pile === "unit"
+        ? "Egységpakli"
+        : "Varázslatpakli";
+
+  return (
+    <div className="ledger">
+      <b className="ledger-head">
+        {label}
+        <span className="num">{cards.length}</span>
+      </b>
+      <ul className="ledger-list">
+        {lines.length === 0 && <li className="faint">Üres.</li>}
+        {lines.map((line) => (
+          <li key={line.cardId} className={line.kind}>
+            <span className="ledger-cost num">{line.cost}</span>
+            <span className="ledger-name">{line.name}</span>
+            {line.count > 1 && <span className="ledger-count num">×{line.count}</span>}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -803,6 +1067,39 @@ function verdict(state: GameState): string {
 // -------------------------------------------------------------------- hands
 
 /**
+ * The card you are pointing at, printed at readable size above the hand.
+ *
+ * A hand card is 110px wide and no amount of growing it in place was ever going
+ * to make it legible: every version either ran off the bottom of the screen,
+ * disappeared under the cards to its right, or moved the hover target and started
+ * the whole thing flickering. So the readable copy is a separate, fixed overlay
+ * that takes no pointer events, and the fan underneath does not move at all.
+ *
+ * It stands over its own card's place in the hand, which is why the position is
+ * measured from the DOM rather than computed: the fan's geometry lives in CSS and
+ * this only has to agree with wherever it ended up.
+ */
+function Reading({ uid, cardId }: { uid: string; cardId: string }) {
+  const [x, setX] = useState<number | null>(null);
+
+  useEffect(() => {
+    const slot = document.querySelector(`[data-hand-uid="${uid}"]`);
+    if (!slot) return;
+    const box = slot.getBoundingClientRect();
+    setX(box.left + box.width / 2);
+  }, [uid]);
+
+  if (x === null) return null;
+  const card = cardFor(cardId);
+  if (!card) return null;
+  return (
+    <div className="reading" style={{ "--read-x": `${x}px` } as React.CSSProperties}>
+      <CardFace card={card} className={card.kind === "spell" ? "spell" : ""} />
+    </div>
+  );
+}
+
+/**
  * Where card `i` of `n` sits on the arc.
  *
  * Everything is handed over as a custom property, never as a finished `transform`
@@ -824,32 +1121,6 @@ function arc(i: number, n: number, flip = false): React.CSSProperties {
   } as React.CSSProperties;
 }
 
-/** The width the hand draws its cards at. Mirrors `--hand-card-w` in the sheet. */
-const HAND_CARD_W = 110;
-
-/**
- * How far the whole fan has to sit above the baseline for its lowest card to
- * rest exactly on it.
- *
- * The arc drops its ends and tilts them, and both of those push the outer cards'
- * bottom corners further down than the middle card's. Left alone, the screen edge
- * shaves the corner off the very cards the fan makes hardest to read — the power
- * gem lives in that corner. So the group is raised by its own droop, computed
- * from the same two numbers `arc()` uses, and the hand ends up sitting *on* the
- * bottom edge rather than hanging through it.
- */
-function fanLift(n: number): number {
-  if (n <= 1) return 0;
-  const mid = (n - 1) / 2;
-  const drop = mid * mid * 2.6;
-  const tilt = (HAND_CARD_W / 2) * Math.sin((mid * 4.5 * Math.PI) / 180);
-  return Math.round(drop + tilt + 4);
-}
-
-/** The style that puts a fan's lowest card on the bottom edge. */
-function fanStyle(n: number): React.CSSProperties {
-  return { "--arc-lift": `${fanLift(n)}px` } as React.CSSProperties;
-}
 
 /**
  * The enemy's hand: backs only, units on their left and spells on their right,
@@ -902,9 +1173,13 @@ function NearHand(
     moves: Action[];
     viewer: PlayerId;
     onDrag: (event: React.PointerEvent, held: Held) => void;
+    onRead: (uid: string | null) => void;
+    /** The card currently in the air, drawn as a gap in the fan. */
+    lifted: string | null;
   },
 ) {
-  const { state, actor, held, setHeld, send, moves, viewer, onDrag } = props;
+  const { state, actor, held, setHeld, send, moves, viewer, onDrag, onRead, lifted } = props;
+  const read = (uid: string) => (on: boolean) => onRead(on ? uid : null);
   const pending = state.resolution?.pending ?? null;
   const p = state.players[viewer];
   const mine = actor === viewer;
@@ -938,7 +1213,7 @@ function NearHand(
     const options = pending.handOptions ?? [];
     return (
       <div className="hand-rail near">
-        <div className="hand-group" style={fanStyle(options.length)}>
+        <div className="hand-group">
           {options.map((c, i) => (
             <Slot
               key={c.uid}
@@ -994,10 +1269,7 @@ function NearHand(
       )}
 
       <div className="hand-rail near">
-        <div
-          className={`hand-group${mine && (unitsPhase || cleanup) ? "" : " muted"}`}
-          style={fanStyle(p.unitHand.length)}
-        >
+        <div className={`hand-group${mine && (unitsPhase || cleanup) ? "" : " muted"}`}>
           {p.unitHand.map((c, i) => {
             const card: UnitCard = getUnit(c.cardId);
             const live = mine && unitsPhase && playable.has(c.uid);
@@ -1009,6 +1281,8 @@ function NearHand(
                 style={arc(i, p.unitHand.length)}
                 playable={live || toss}
                 picked={held?.uid === c.uid}
+                lifted={lifted === c.uid}
+                onRead={read(c.uid)}
                 onClick={
                   toss
                     ? () => send({ type: "toss", player: viewer, uid: c.uid })
@@ -1048,10 +1322,7 @@ function NearHand(
           })}
         </div>
 
-        <div
-          className={`hand-group${mine && !unitsPhase ? "" : " muted"}`}
-          style={fanStyle(p.spellHand.length)}
-        >
+        <div className={`hand-group${mine && !unitsPhase ? "" : " muted"}`}>
           {p.spellHand.map((c, i) => {
             const card: SpellCard = getSpell(c.cardId);
             const feed = mine && tossable.has(c.uid);
@@ -1063,6 +1334,8 @@ function NearHand(
                 uid={c.uid}
                 style={arc(i, p.spellHand.length)}
                 playable={feed || cast || drop}
+                lifted={lifted === c.uid}
+                onRead={read(c.uid)}
                 dead={mine && !unitsPhase && !cleanup && !feed && !cast}
                 onClick={
                   drop
@@ -1102,8 +1375,10 @@ function Slot({
   playable,
   picked,
   dead,
+  lifted,
   onClick,
   onDragStart,
+  onRead,
   children,
   uid,
 }: {
@@ -1111,9 +1386,13 @@ function Slot({
   playable?: boolean;
   picked?: boolean;
   dead?: boolean;
+  /** This card is in the air, so the fan shows the gap it left behind. */
+  lifted?: boolean;
   onClick?: () => void;
   /** Set on cards that can be picked up and dropped onto a tile. */
   onDragStart?: (event: React.PointerEvent) => void;
+  /** Pointer in, pointer out. Drives the full-size copy printed above the hand. */
+  onRead?: (reading: boolean) => void;
   children: React.ReactNode;
   /** Lets the flight layer find this card's corner on screen. */
   uid?: string;
@@ -1122,6 +1401,7 @@ function Slot({
   if (playable) classes.push("playable");
   if (picked) classes.push("picked");
   if (dead) classes.push("dead");
+  if (lifted) classes.push("lifted");
   if (onDragStart) classes.push("draggable");
   return (
     <div
@@ -1129,6 +1409,8 @@ function Slot({
       style={style}
       data-hand-uid={uid}
       onPointerDown={onDragStart}
+      onPointerEnter={() => onRead?.(true)}
+      onPointerLeave={() => onRead?.(false)}
       onClick={onClick}
       onKeyDown={(e) => {
         if (onClick && (e.key === "Enter" || e.key === " ")) {

@@ -191,6 +191,29 @@ function swapEffectOf(spell: SpellCard): Effect | undefined {
 }
 
 /**
+ * Does the caster move before it does anything else?
+ *
+ * Kitörés is the card: step onto a neighbouring tile, *then* hit somebody. The
+ * order on the card is the order it resolves in, so the range for the strike has
+ * to be measured from where the caster ends up, not from where it started —
+ * otherwise stepping forward could never bring a new enemy into reach, which is
+ * the entire point of stepping forward.
+ */
+function movesFirst(spell: SpellCard): boolean {
+  const first = spell.effects[0];
+  return !!first && first.kind === "move" && (first.on ?? "target") === "caster";
+}
+
+/** Where the caster will be standing when the spell's later effects resolve. */
+function originOf(
+  spell: SpellCard,
+  casterSlot: SlotId,
+  destination: SlotId | undefined,
+): SlotId {
+  return movesFirst(spell) && destination ? destination : casterSlot;
+}
+
+/**
  * Where the effect that asked for a destination will accept one. An ordinary
  * move wants an empty tile; an optional move ("mozoghatok") also offers the
  * unit's own tile, so declining is a pick; Összjáték wants an occupied one.
@@ -268,7 +291,13 @@ export function casterIsViable(state: GameState, spell: SpellCard, casterSlot: S
 
   if (needsChosenTarget(spell.effects)) {
     if (!spell.target) return false;
-    if (legalTargetsFor(state, spell, casterSlot).length === 0) return false;
+    // A caster that steps first is judged on every tile it could step to,
+    // including staying put: a spell it cannot aim from here may be perfectly
+    // castable one tile over.
+    const origins = movesFirst(spell)
+      ? [casterSlot, ...destinationsFor(state, spell.effects[0], unit)]
+      : [casterSlot];
+    if (!origins.some((from) => legalTargetsFor(state, spell, from).length > 0)) return false;
   }
 
   const move = moveEffectOf(spell);
@@ -344,9 +373,25 @@ export function advanceResolution(state: GameState): void {
       return;
     }
 
-    // 2. Target.
+    // 2. Destination, when the caster steps before it strikes. Asked first for
+    //    these spells so the strike can be aimed from where it lands.
+    if (movesFirst(spell) && !res.chosen.destination) {
+      const mover = unitAt(state, res.chosen.caster);
+      const destinations = mover ? destinationsFor(state, spell.effects[0], mover) : [];
+      if (destinations.length === 0) {
+        log(state, `${spell.name} elszáll, nincs hova lépni.`, entry.owner);
+        res.index += 1;
+        res.chosen = {};
+        continue;
+      }
+      res.pending = request("destination", entry, spell, destinations, "Hova lépjen");
+      return;
+    }
+
+    // 3. Target.
     if (needsChosenTarget(spell.effects) && !res.chosen.target) {
-      const targets = legalTargetsFor(state, spell, res.chosen.caster);
+      const from = originOf(spell, res.chosen.caster, res.chosen.destination);
+      const targets = legalTargetsFor(state, spell, from);
       if (targets.length === 0) {
         log(state, `${spell.name} elszáll, nincs érvényes cél.`, entry.owner);
         res.index += 1;
@@ -357,7 +402,7 @@ export function advanceResolution(state: GameState): void {
       return;
     }
 
-    // 3. Destination, when something moves or trades places.
+    // 4. Destination, when something other than the caster's own step moves.
     if (needsDestination(spell.effects) && !res.chosen.destination) {
       const shifter = swapEffectOf(spell) ?? moveEffectOf(spell)!;
       const moverSlot =
@@ -380,7 +425,7 @@ export function advanceResolution(state: GameState): void {
       return;
     }
 
-    // 4. A card out of hand, when something is summoned.
+    // 5. A card out of hand, when something is summoned.
     if (needsHandCard(spell.effects) && !res.chosen.handCard) {
       const summon = spell.effects.find((e) => e.kind === "summon");
       const options = summonableHandCards(

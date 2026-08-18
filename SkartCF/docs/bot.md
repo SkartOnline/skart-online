@@ -292,3 +292,14 @@ cannot. Two things to do alongside it:
 
 Until then the strong bot occasionally throws a won battlefield, and that is
 worth knowing when reading its win rates.
+
+## Known bad play
+
+- **It casts damage spells onto its own units.** Seen live: the strong checkpoint
+  threw a damage card at a unit of its own and handed away a battle it had won.
+  The value model scores the afterstate from the deciding player's seat, so this
+  is not a sign-flip in the reward — it is the featuriser, which does not
+  distinguish "damage on my unit" from "damage on theirs" sharply enough for the
+  linear model to price it. Worth fixing when the model stops being linear: an
+  MLP over the same features may separate it on its own, and if it does not, the
+  feature list is the place to look rather than the reward.
