@@ -38,6 +38,11 @@ export default function Theatre({
             <>
               <b>{tryLocationName(frame.cardId)}</b>
               <em>{capLabel(frame.cardId)}</em>
+              {/* The rules box, not only the name. A battlefield changes what
+                  every tile on the board is worth, and a player who has not
+                  memorised fifteen of them cannot fight on one they were only
+                  told the name of. */}
+              {locationText(frame.cardId) && <i>{locationText(frame.cardId)}</i>}
             </>
           ) : (
             <>
@@ -82,6 +87,15 @@ function tryLocationName(id: string | undefined): string {
     return getLocation(id).name;
   } catch {
     return id;
+  }
+}
+
+function locationText(id: string | undefined): string {
+  if (!id) return "";
+  try {
+    return getLocation(id).text ?? "";
+  } catch {
+    return "";
   }
 }
 

@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { ALL_SLOTS, currentLocation, getLocation, getSpell } from "../../engine";
+import {
+  ALL_SLOTS,
+  currentLocation,
+  getLocation,
+  getSpell,
+  pendingPrompt,
+  promptSatisfied,
+} from "../../engine";
 import type { Action, GameState, PlayerId } from "../../engine";
 import CardFace from "../card/CardFace";
 import { artFor } from "../card/model";
@@ -131,6 +138,7 @@ export function Tools({
  */
 export function TurnCue(props: FieldProps & { moves: Action[]; viewer: PlayerId }) {
   const { state, actor, send, moves, fault, viewer } = props;
+  const asking = pendingPrompt(state);
   const pending = state.resolution?.pending ?? null;
   const can = (type: Action["type"]) => moves.some((m) => m.type === type);
   const channel = state.channel[viewer];
@@ -141,7 +149,24 @@ export function TurnCue(props: FieldProps & { moves: Action[]; viewer: PlayerId 
     <div className="turn-cue">
       {fault && <span className="bad">{fault}</span>}
 
-      {pending ? (
+      {asking ? (
+        <>
+          <span className={`turn ${asking.player}`}>
+            {SIDE[asking.player]}: {asking.prompt}
+          </span>
+          {/* The one way out of a question that allows one. Its twin lives on
+              whichever surface is holding the cards, so both are reachable
+              wherever the player's eyes already are. */}
+          {promptSatisfied(asking) && asking.picking === "slot" && (
+            <button
+              className="tiny"
+              onClick={() => send({ type: "finishPrompt", player: asking.player })}
+            >
+              Kihagyom
+            </button>
+          )}
+        </>
+      ) : pending ? (
         <span className={`turn ${pending.player}`}>{pending.prompt}</span>
       ) : (
         actor &&

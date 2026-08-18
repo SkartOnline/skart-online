@@ -54,9 +54,9 @@ export interface Effect {
   /** Defaults to `"target"`. Ignored by effects that pick their own set (AoE). */
   on?: EffectOn;
   /**
-   * Universal gate, read against the acting unit. A Belépő never asks the
-   * player anything, so "if there is nobody else on the board, +2" has to be a
-   * condition on the effect rather than a decision at resolution.
+   * Universal gate, read against the acting unit. "If there is nobody else on
+   * the board, +2" is not a decision anyone makes, so it is a condition on the
+   * effect rather than something asked at resolution.
    */
   if?: StaticCondition;
   ifValue?: number;
@@ -111,7 +111,7 @@ export interface TargetSpec {
   filter?: TargetFilter;
 }
 
-/** A target set the engine resolves on its own, Belépő abilities never ask. */
+/** A target set the engine resolves on its own, without asking anyone. */
 export interface AutoTargetSpec {
   scope:
     | "self"
@@ -132,8 +132,9 @@ export interface AutoTargetSpec {
   /** Extra gate relative to the acting unit, e.g. Bérgyilkos only kills weaker. */
   compare?: "weakerThanSelf" | "strongerThanSelf";
   /**
-   * A Belépő never asks the player anything, so when the card text says "one"
-   * the engine needs a deterministic rule for which one.
+   * An auto-resolved ability has nobody to ask, so when the card text says
+   * "one" the data needs a deterministic rule for which one. An ability that
+   * should ask instead pushes a `Prompt` and stops.
    */
   pick?: "all" | "weakest" | "strongest" | "highestSpellpower";
   filter?: TargetFilter;
@@ -481,6 +482,108 @@ export interface ResolutionState {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Prompts: how an ability asks the player something
+//
+// Most abilities do not need to. A Belépő that says "one" can name which one in
+// its data (`AutoTargetSpec.pick`) and resolve without stopping, which is what
+// the bulk of the set does and is cheaper for everyone.
+//
+// When an ability does want a decision, this is the machinery for it: park a
+// `Prompt` on the state and stop. Nothing runs until it is answered, and the
+// answer arrives as an ordinary action, which is what keeps the bot and the
+// simulator working without knowing any of this exists — `legalActions` offers
+// the picks and they pick like they pick anything else.
+//
+// Griff, Fuedrax and the tutors are the first to use it rather than the only
+// ones it is for. A new asking ability is a prompt `kind` and a completion
+// handler; nothing else in the engine has to know it exists.
+//
+// The completion is a handler keyed by `kind` in `interactions.ts`, exactly
+// like an effect — never a closure — so a prompt survives `structuredClone`
+// and a saved game.
+// ---------------------------------------------------------------------------
+
+export interface Prompt {
+  id: number;
+  /** Which completion handler in `prompts.ts` finishes this. */
+  kind: string;
+  player: PlayerId;
+  prompt: string;
+  /** Cards out of a listed pile, or tiles on the board. */
+  picking: "card" | "slot";
+  /** The pile on offer, listed the way the ledger lists a deck. */
+  cards?: HandCard[];
+  slots?: SlotId[];
+  /** How many picks the ability needs. `min` 0 means it may be declined. */
+  min: number;
+  max: number;
+  /** Card uids or slot ids, in the order they were picked. */
+  chosen: string[];
+  /** Whatever the completion needs, carried rather than closed over. */
+  data?: Record<string, unknown>;
+  /** The card that asked, for the panel's heading. */
+  sourceCardId?: string;
+}
+
+/**
+ * Something a player is entitled to look at that the board cannot show: the
+ * card Fejvadász pulled out of a hand, the enemy's spells under Leskelődés, the
+ * battlefield Gréta read ahead. The engine has nowhere to put information —
+ * a chronicle line is not a reveal — so it records what was seen and who is
+ * allowed to see it, and the theatre holds it up for exactly one beat.
+ */
+export interface Reveal {
+  id: number;
+  kind: "peek" | "trap" | "portal" | "tutor";
+  /** Who may look. The other side sees nothing, in hotseat or against the bot. */
+  player: PlayerId;
+  cardIds: string[];
+  /** Fejvadász: did the card that came out beat the hunter, or not. */
+  verdict?: "yes" | "no";
+  /** The card that caused the look. */
+  sourceCardId?: string;
+  /** The unit it happened to: whoever walked into the trap. */
+  subjectCardId?: string;
+  slot?: SlotId;
+  text?: string;
+  /**
+   * A trap going off is a spell resolving in front of both players, so both are
+   * entitled to watch it. Everything else here is one player's to see.
+   */
+  open?: boolean;
+}
+
+/**
+ * Fuedrax. A spell committed face down onto an empty enemy tile, which goes off
+ * on whoever steps there — their unit or your own. It is not a zone the rules
+ * have, which is why it lives on the state rather than on a unit: the tile it
+ * watches may never be occupied at all.
+ */
+export interface Trap {
+  id: number;
+  owner: PlayerId;
+  slot: SlotId;
+  /** The spell card lying there, kept addressable so it can be discarded. */
+  uid: string;
+  cardId: string;
+  /** The unit that set it, so the spell has a caster when it goes off. */
+  sourceUid?: string;
+}
+
+/**
+ * Felix. A unit that walks out of a lost battle into the next one, arriving on
+ * the tile it stood on, clean, and outside the cost cap — this time and every
+ * time it does it again.
+ */
+export interface Portal {
+  uid: string;
+  cardId: string;
+  owner: PlayerId;
+  /** Where it was standing when the location was decided. */
+  slot: SlotId;
+}
+
 export interface LocationInstance {
   cardId: string;
   broughtBy: PlayerId;
@@ -524,7 +627,20 @@ export interface GameState {
   channel: Record<PlayerId, ChannelState | null>;
   /** Non-null only while the spell just cast is still asking for picks. */
   resolution: ResolutionState | null;
+  /**
+   * Abilities waiting on a pick, oldest first. Only the head is live; nothing
+   * else in the game may happen while one is standing.
+   */
+  prompts: Prompt[];
+  /** What a player has been shown but the board cannot hold: peeks, traps. */
+  reveals: Reveal[];
+  /** Fuedrax: spells committed face down onto tiles, waiting to be stepped on. */
+  traps: Trap[];
+  /** Felix: units owed a place on the next battlefield, outside the cap. */
+  portals: Portal[];
   placementCounter: number;
+  promptCounter: number;
+  revealCounter: number;
   uidCounter: number;
   scores: Record<PlayerId, number>;
   winner: PlayerId | "draw" | null;
@@ -547,4 +663,8 @@ export type Action =
   | { type: "nextLocation" }
   /** Leszerelés (12.5): throw one card away, from either hand. Repeatable. */
   | { type: "toss"; player: PlayerId; uid: string }
-  | { type: "declareTossDone"; player: PlayerId };
+  | { type: "declareTossDone"; player: PlayerId }
+  /** One pick towards the prompt standing at the head of the queue. */
+  | { type: "answerPrompt"; player: PlayerId; pick: string }
+  /** Stop picking. Legal once the prompt has the minimum it asked for. */
+  | { type: "finishPrompt"; player: PlayerId };

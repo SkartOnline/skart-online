@@ -32,11 +32,12 @@ public site.
 | Card stats/text/abilities (data only) | `src/data/units.json`, `spells.json`, `locations.json`, `attachments.json`, `decks.json` — keyed by `id` |
 | What primitive implements a card text | `docs/abilities.md` (every card traced to its effect kind) |
 | New/changed effect kind | `src/engine/schema.ts` (KindSpec) + `src/engine/effects.ts` (handler) — exactly these two, editor UI and validation follow for free |
+| Asking abilities (tutors, hand swaps, traps) | `src/engine/prompts.ts` (Prompt queue, Reveal record) + `src/engine/interactions.ts` (completion handler per prompt kind) — a new asking ability is one prompt kind + one handler |
 | Rules disputes, phase order, timing | `docs/szabaly-teljes.md` (numbered, authoritative) → `src/engine/reducer.ts`, `resolve.ts`; `rulebook.test.ts` pins numbered rules |
 | Power, statics, positional bonuses | `src/engine/power.ts` (`basePower` vs `power` — see invariants) |
 | Slot adjacency, ranges | `src/engine/grid.ts` |
 | Game setup, decks, rule config | `src/engine/setup.ts`, `src/engine/cards.ts` (registry + `validateCardSet`) |
-| Game screen UI | `src/ui/game/`: `GameView.tsx` (orchestrator: state, undo, beats, bot timer, drag), `LeftRail.tsx` (battlefield card, turn cue, tools, annals), `RightRail.tsx` (counters, piles, ledger), `Hands.tsx` (both hands, hover reading), `TheatreView.tsx` (banner + played-card panel), `Overlays.tsx` (chronicle, aftermath), `common.ts` (shared props/lookups), `Board.tsx`, `theatre.ts` (state-diff → animation beats), `NewGame.tsx`, `bot.ts` |
+| Game screen UI | `src/ui/game/`: `GameView.tsx` (orchestrator: state, undo, beat/reveal clock, bot timer, drag), `LeftRail.tsx` (battlefield card, turn cue, tools, annals), `RightRail.tsx` (counters, piles, ledger), `Hands.tsx` (both hands, hover reading, prompt takeover), `TheatreView.tsx` (banner + played-card panel), `Asking.tsx` (Almanac pile panel, Curtain reveals), `Prologue.tsx` (opening ceremony), `Overlays.tsx` (chronicle, aftermath), `common.ts` (shared props/lookups), `Board.tsx`, `theatre.ts` (state-diff → animation beats), `NewGame.tsx`, `bot.ts` |
 | Card rendering | `src/ui/card/model.ts`, `CardFace.tsx`, `card.css` |
 | Card editor | `src/ui/editor/CardEditor.tsx`, `fields.tsx` (form generated from schema.ts) |
 | Deck building / collection | `src/ui/collection/CollectionManager.tsx`, `src/ui/cardSet.ts` (localStorage overlay) |

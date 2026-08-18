@@ -39,6 +39,7 @@ import {
   unitAt,
   unitsOf,
 } from "./power";
+import { askPrompt, recordReveal } from "./prompts";
 import { randomInt } from "./rng";
 import { EFFECT_SPECS, specFor } from "./schema";
 import type { Scope } from "./power";
@@ -620,7 +621,8 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
 
   /**
    * Discarding is the one place a Belépő pays for itself. The engine picks the
-   * cheapest legal cards, because a Belépő never asks the player anything.
+   * cheapest legal cards rather than asking, which is what makes Varjú's "any
+   * number" come out as all of it.
    */
   discard(ctx, effect, _targets) {
     const kind = String(effect.cardKind ?? "unit");
@@ -656,30 +658,56 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     }
   },
 
+  /**
+   * Kikeresés. Every tutor in the set goes through here: Sírásó reading a
+   * graveyard, Lingadori könyvtár handing both players a spell, Feltámadás
+   * digging one back up.
+   *
+   * It used to take the first card that matched, which is the right shape for a
+   * target nobody would agonise over and the wrong one here: a search that picks
+   * for you is not a search, it is a draw with extra steps, and which card comes
+   * out is the entire decision the card is selling. So this lists the pile and
+   * stops, and `PROMPT_HANDLERS.tutor` moves what was chosen.
+   *
+   * The pile is filtered before it is listed, so nothing illegal is ever on
+   * offer and the player never has to work out why a card refused to come.
+   */
   searchDeck(ctx, effect, _targets) {
     const kind = String(effect.cardKind ?? "spell");
     const source = String(effect.source ?? "deck");
-    const count = Number(effect.count ?? 1);
+    const count = Math.max(1, Number(effect.count ?? 1));
     const maxPower = Number(effect.maxPower ?? 0);
     const excludeRarity = effect.excludeRarity ? String(effect.excludeRarity) : undefined;
     for (const player of sidesFor(ctx, String(effect.who ?? "self"))) {
       const p = ctx.state.players[player];
       const pile = source === "graveyard" ? p.discard : deckOf(ctx.state, player, kind);
-      const hand = handOf(ctx.state, player, kind);
-      let found = 0;
-      for (let i = 0; i < count; i++) {
-        const index = pile.findIndex((c) => {
-          const card = kind === "unit" ? tryUnit(c.cardId) : trySpell(c.cardId);
-          if (!card) return false;
-          if (excludeRarity && card.rarity === excludeRarity) return false;
-          if (maxPower > 0 && card.kind === "unit" && card.power > maxPower) return false;
-          return true;
-        });
-        if (index === -1) break;
-        hand.push(...pile.splice(index, 1));
-        found += 1;
+      const eligible = pile.filter((c) => {
+        const card = kind === "unit" ? tryUnit(c.cardId) : trySpell(c.cardId);
+        if (!card) return false;
+        if (excludeRarity && card.rarity === excludeRarity) return false;
+        if (maxPower > 0 && card.kind === "unit" && card.power > maxPower) return false;
+        return true;
+      });
+      if (eligible.length === 0) {
+        ctx.log(`${SIDE_NAME[player]}: nincs kikereshető lap a ${SOURCE_NAME[source] ?? source}.`);
+        continue;
       }
-      if (found > 0) ctx.log(`${SIDE_NAME[player]}: ${found} lap kikeresve a ${SOURCE_NAME[source] ?? source}.`);
+      askPrompt(ctx.state, {
+        kind: "tutor",
+        player,
+        prompt:
+          count > 1
+            ? `Keress ki ${count} lapot innen: ${SOURCE_NAME[source] ?? source}`
+            : `Keress ki egy lapot innen: ${SOURCE_NAME[source] ?? source}`,
+        picking: "card",
+        cards: eligible,
+        // The card says you take one, so you take one. Declining is not on
+        // offer; running out of eligible cards is what closes it short.
+        min: Math.min(count, eligible.length),
+        max: Math.min(count, eligible.length),
+        sourceCardId: ctx.source ? cardOf(ctx.source).id : undefined,
+        data: { cardKind: kind, source },
+      });
     }
   },
 
@@ -790,20 +818,170 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
   },
 
   /**
-   * Pure information. In hotseat the "Mindent mutat" switch already shows both
-   * hands, and the simulator has no hidden knowledge to gain, so this writes to
-   * the chronicle and nothing else.
+   * Looking at something you are not normally allowed to look at.
+   *
+   * This used to write a chronicle line and stop, on the grounds that hotseat
+   * has a "Mindent mutat" switch. That made three cards do nothing you could
+   * point at: a switch you could already have flicked is not an ability. What a
+   * peek produces now is a `Reveal` — what was seen, and who is entitled to have
+   * seen it — which the theatre holds up for one beat and nobody else ever gets
+   * to read.
+   *
+   * Fejvadász is the version with teeth: one card out of the hand, at random,
+   * and if it is dearer than the hunter he keeps a ring for it. The card is
+   * rolled off the game seed rather than taken from the front of the hand, both
+   * because "felfedek egy lapot" means any of them and because taking the first
+   * one made the ability a function of draw order.
    */
   peek(ctx, effect, _targets) {
-    ctx.log(`Betekintés: ${PEEK_NAME[String(effect.what ?? "spellHand")] ?? "kéz"}.`);
-    // Fejvadász turns the look into something the board can feel.
+    const what = String(effect.what ?? "spellHand");
+    const victim = opponentOf(ctx.controller);
+    ctx.log(`Betekintés: ${PEEK_NAME[what] ?? "kéz"}.`);
+
+    if (what === "nextLocation") {
+      // Gréta reads one battlefield ahead. Nothing after the last one, and the
+      // tiebreaker counts: knowing the fight is going to Végtelen puszta is
+      // exactly the kind of thing she is for.
+      const next = ctx.state.locations[ctx.state.locationIndex + 1];
+      if (!next) {
+        ctx.log("Nincs következő csatatér.");
+        return;
+      }
+      recordReveal(ctx.state, {
+        kind: "peek",
+        player: ctx.controller,
+        cardIds: [next.cardId],
+        sourceCardId: ctx.source ? cardOf(ctx.source).id : undefined,
+        text: "a következő csatatér",
+      });
+      return;
+    }
+
+    const hand = what === "hand"
+      ? ctx.state.players[victim].unitHand
+      : ctx.state.players[victim].spellHand;
+    if (hand.length === 0) {
+      ctx.log("Az ellenfél keze üres.");
+      return;
+    }
+
     const ring = Number(effect.ringIfCostlier ?? 0);
-    if (ring <= 0 || !ctx.source) return;
-    const enemyHand = ctx.state.players[opponentOf(ctx.controller)].unitHand;
-    const revealed = enemyHand.map((c) => tryUnit(c.cardId)).find(Boolean);
-    if (!revealed) return;
-    ctx.log(`Felfedve: ${revealed.name} (${revealed.cost}).`);
-    if (revealed.cost > cardOf(ctx.source).cost) grantRings(ctx.source, ring, ctx);
+    // Reading the whole hand shows the whole hand; a card pulled out of it shows
+    // one, and which one is a roll rather than the top of the pile.
+    if (ring <= 0) {
+      recordReveal(ctx.state, {
+        kind: "peek",
+        player: ctx.controller,
+        cardIds: hand.map((c) => c.cardId),
+        sourceCardId: ctx.source ? cardOf(ctx.source).id : undefined,
+        text: PEEK_NAME[what],
+      });
+      return;
+    }
+
+    const [index, seed] = randomInt(ctx.state.rng, hand.length);
+    ctx.state.rng = seed;
+    const drawn = hand[index];
+    const card = tryUnit(drawn.cardId) ?? trySpell(drawn.cardId);
+    if (!card) return;
+    const beats = !!ctx.source && card.cost > cardOf(ctx.source).cost;
+    ctx.log(`Felfedve: ${card.name} (${card.cost}).`);
+    recordReveal(ctx.state, {
+      kind: "peek",
+      player: ctx.controller,
+      cardIds: [drawn.cardId],
+      verdict: beats ? "yes" : "no",
+      sourceCardId: ctx.source ? cardOf(ctx.source).id : undefined,
+    });
+    if (beats && ctx.source) grantRings(ctx.source, ring, ctx);
+  },
+
+  /**
+   * Griff. Cards out of the opponent's hand, then the same number back out of
+   * yours — and the two halves are separate questions, because you have to see
+   * what you took before you can decide what it is worth giving up for it.
+   *
+   * No rule the data could carry would make "húzz legfeljebb 3 egységet" into a
+   * card worth playing, which is what `pick` is for and why it is no use here:
+   * choosing is the whole ability. So this one asks.
+   */
+  handSwap(ctx, effect, _targets) {
+    const count = Math.max(1, Number(effect.count ?? 3));
+    const theirs = ctx.state.players[opponentOf(ctx.controller)].unitHand;
+    if (theirs.length === 0) {
+      ctx.log("Az ellenfél egységkeze üres, nincs mit elhúzni.");
+      return;
+    }
+    askPrompt(ctx.state, {
+      kind: "griffTake",
+      player: ctx.controller,
+      prompt: `Húzz legfeljebb ${count} egységlapot az ellenfél kezéből`,
+      picking: "card",
+      cards: theirs.slice(),
+      min: 0,
+      max: Math.min(count, theirs.length),
+      sourceCardId: ctx.source ? cardOf(ctx.source).id : undefined,
+    });
+  },
+
+  /**
+   * Fuedrax. A spell out of hand, committed face down onto an empty enemy tile,
+   * which goes off on whoever steps there.
+   *
+   * The zone does not exist in the rules, which is why the trap lives on the
+   * state rather than on a unit: the tile it watches may never be occupied at
+   * all, and then the card was simply spent. Setting one is optional — the
+   * Belépő is mandatory, but nothing forces you to give up a spell for it.
+   */
+  setTrap(ctx, _effect, _targets) {
+    const hand = ctx.state.players[ctx.controller].spellHand;
+    if (hand.length === 0) {
+      ctx.log("Nincs varázslat a kézben, a csapda elmarad.");
+      return;
+    }
+    if (trapSlots(ctx.state, ctx.controller).length === 0) {
+      ctx.log("Nincs szabad ellenséges mező, a csapda elmarad.");
+      return;
+    }
+    askPrompt(ctx.state, {
+      kind: "trapSpell",
+      player: ctx.controller,
+      prompt: "Melyik varázslatot teszed csapdának",
+      picking: "card",
+      cards: hand.slice(),
+      min: 0,
+      max: 1,
+      sourceCardId: ctx.source ? cardOf(ctx.source).id : undefined,
+      data: { sourceUid: ctx.source?.uid },
+    });
+  },
+
+  /**
+   * Felix. Losing the battle opens a way out of it, and the unit is owed a place
+   * on the next battlefield rather than a place in the graveyard.
+   *
+   * Nothing here moves anything: the location is still being scored, and the
+   * board does not empty until leszerelés. All this does is write down where the
+   * unit was standing when the fight was decided. `landPortals` in the reducer
+   * puts it down on the far side, clean and outside the cost cap.
+   */
+  portal(ctx, effect, targets) {
+    for (const unit of targetUnits(ctx, effect, targets)) {
+      if (ctx.state.portals.some((p) => p.uid === unit.uid)) continue;
+      ctx.state.portals.push({
+        uid: unit.uid,
+        cardId: unit.cardId,
+        owner: unit.owner,
+        slot: unit.slot,
+      });
+      ctx.log(`${cardOf(unit).name} portált nyit a következő csatatérre.`);
+      recordReveal(ctx.state, {
+        kind: "portal",
+        player: unit.owner,
+        cardIds: [unit.cardId],
+        slot: unit.slot,
+      });
+    }
   },
 
   note(ctx, effect, _targets) {
@@ -1076,8 +1254,8 @@ export function legalDestinations(
 
 /**
  * Belépő and trigger target sets. The engine resolves these itself, a Belépő is
- * mandatory and never asks the player anything, which is why `pick` exists: the
- * card text says "one", so the data has to say which one.
+ * mandatory and resolves without asking, which is why `pick` exists: the card
+ * text says "one", so the data has to say which one.
  */
 export function resolveAutoTargets(
   state: GameState,
@@ -1166,6 +1344,15 @@ export function resolveAutoTargets(
 }
 
 /** Every slot a player may still legally commit a unit into. */
+/**
+ * Where Fuedrax may put a trap: an empty tile on the other half. It has to be
+ * empty, because a trap waits to be stepped on — laid under a unit that is
+ * already standing there it would go off in the same breath it was set.
+ */
+export function trapSlots(state: GameState, owner: PlayerId): SlotId[] {
+  return slotsOf(opponentOf(owner)).filter((slot) => !state.board[slot] && !isBlocked(state, slot));
+}
+
 export function openSlots(state: GameState, player: PlayerId): SlotId[] {
   return slotsOf(player).filter((s) => !state.board[s] && !isBlocked(state, s));
 }

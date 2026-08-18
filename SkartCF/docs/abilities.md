@@ -105,7 +105,35 @@ spell that lands on them regardless of what it cost.
 ### Card-economy effects
 `draw`, `discard`, `searchDeck`, `revive`, `returnToHand`, `stealCard`,
 `bounceToDeckBottom`, `swapHandGraveyard`, `drawNextLocation`, `coinFlip`,
-`peek`, `note`.
+`peek`, `handSwap`, `setTrap`, `portal`, `note`.
+
+### Effects that ask
+
+Most effects never need to ask: when the card text says "one" and the choice
+is not interesting, the data says which — that is what `pick` is for. Where
+the choice itself *is* the ability, it asks:
+
+| Primitive | What it asks | Card |
+|---|---|---|
+| `searchDeck` | which card comes out of the listed deck or graveyard | Sírásó, Feltámadás, Lingadori könyvtár |
+| `handSwap` | which cards you take, then which you give back | Griff, a hamiskártyás |
+| `setTrap` | which spell goes down, and onto which enemy tile | Fuedrax |
+
+These put a `Prompt` on the queue (`prompts.ts`) and stop; until it is
+answered, nothing else can happen in the game. The answer arrives as an
+ordinary action (`answerPrompt`, `finishPrompt`), so the bot and the simulator
+can play these cards without knowing they exist. The completion handler is
+keyed by `kind` in `interactions.ts`, never a closure — a prompt has to
+survive the `structuredClone` the bot uses to evaluate positions.
+
+These three are the first asking effects, not the only ones the machinery is
+for. A new asking ability is one prompt `kind` and one completion handler —
+the same two edits as a new effect — and nothing else in the engine needs to
+know it exists.
+
+`peek` does not ask, but writes a `Reveal`: what was seen, and who is entitled
+to see it. `portal` does not ask either; it only records where the unit stood
+when the battle was decided.
 
 ### The target filter is what folds the kill spells into one primitive
 
@@ -222,14 +250,21 @@ Tűzköpeny, Fagypáncél, Explodus and Erif mester reference it.
 
 ## 7. What deliberately stayed as text
 
-These cannot be mechanised in the engine's current state; the card exists, the
-text is readable, but it gets no mechanics. Each is marked with a `note`
-effect.
+Only one such card is left. The rest got their machinery: the asking effects
+got the `Prompt` queue, the trap and the portal their own zones, and the peeks
+got `Reveal`, which actually puts the revealed card on screen for whoever is
+entitled to see it.
 
 | Card | Why |
 |---|---|
-| Fuedrax | a spell placed as a trap — would need a new zone on the board |
-| Felix, a Hajnali Utas | carry-over to the next battlefield, no framework for it |
 | Gouraldir | the Három Ereklye card does not exist in the set |
-| Griff, a hamiskártyás | two-way hand swap with player choice |
-| Mágusinkvizítor, Fejvadász, Gréta, Leskelődés | pure information — hotseat's "Mindent mutat" switch already provides it |
+
+Mechanised since:
+
+| Card | Primitive |
+|---|---|
+| Fuedrax | `setTrap` — the spell sits in `state.traps` and fires on whoever steps in; allies included |
+| Felix, a Hajnali Utas | `portal` — Vigasz records the tile, leszerelés carries the unit to the next battlefield, cleaned and outside the cap |
+| Griff, a hamiskártyás | `handSwap` — two questions: what you take, then what you give back |
+| Mágusinkvizítor, Gréta, Leskelődés | `peek` — keeps the revealed cards on the peeking player's screen |
+| Fejvadász | `peek` + `ringIfCostlier` — a random card turns out of the hand, and if it costs more than him, it pays a ring |

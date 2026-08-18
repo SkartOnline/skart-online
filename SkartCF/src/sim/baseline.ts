@@ -4,6 +4,7 @@ import {
   getSpell,
   getUnit,
   legalActions,
+  pendingPrompt,
   remainingSpellpower,
   unitsOf,
   visibleTotal,
@@ -143,8 +144,7 @@ function chooseUnitAction(
   // Score every play by what it actually adds, through the engine.
   const scored = plays.map((play) => {
     const after = applyAction(state, play);
-    const card = getUnit(cardIdOf(state, player, play.uid));
-    return { play, total: boardTotal(after, player), cost: card.cost };
+    return { play, total: boardTotal(after, player), cost: costOfPlay(state, player, play.uid) };
   });
 
   if (oppStopped) {
@@ -162,10 +162,22 @@ function chooseUnitAction(
   return scored[0].play;
 }
 
-function cardIdOf(state: GameState, player: PlayerId, uid: string): string {
-  const card = state.players[player].unitHand.find((c) => c.uid === uid);
-  if (!card) throw new Error(`No hand card ${uid}`);
-  return card.cardId;
+/**
+ * What a play costs against the cap. The card is usually in the unit hand, but
+ * not always — Umbra offers plays straight out of the graveyard — so every
+ * zone a legal play can come from is checked, and an unknown card scores 0
+ * rather than crashing a ten-thousand-game run.
+ */
+function costOfPlay(state: GameState, player: PlayerId, uid: string): number {
+  const p = state.players[player];
+  const card =
+    p.unitHand.find((c) => c.uid === uid) ?? p.discard.find((c) => c.uid === uid);
+  if (!card) return 0;
+  try {
+    return getUnit(card.cardId).cost;
+  } catch {
+    return 0;
+  }
 }
 
 function canCastNow(state: GameState, player: PlayerId, spellId: string): boolean {
@@ -237,6 +249,10 @@ export function chooseBaselineAction(
   const options = legalActions(state, player);
   if (options.length === 0) return null;
 
+  // An asking ability — a tutor listing a deck, Griff going through a hand,
+  // Fuedrax placing a trap — owns everything until answered. The same one-ply
+  // greedy handles it: the engine hands the answers back as plain actions.
+  if (pendingPrompt(state)) return chooseResolution(state, player, options);
   if (state.resolution?.pending) return chooseResolution(state, player, options);
   if (state.phase === "scored") return { type: "nextLocation" };
   if (state.phase === "cleanup") return { type: "declareTossDone", player };

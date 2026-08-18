@@ -28,6 +28,15 @@ import {
   log,
   resolutionFinished,
 } from "./resolve";
+import {
+  answerPrompt,
+  clearTraps,
+  finishPrompt,
+  portalArrival,
+  settlePrompts,
+  springTraps,
+} from "./interactions";
+import { pendingPrompt, promptOptions, promptSatisfied } from "./prompts";
 import { locationWinner, scoreboard, totals } from "./totaling";
 import type { Action, GameState, HandCard, PlayerId, SlotId, UnitCard } from "./types";
 import { PLAYERS, SIDE_NAME } from "./types";
@@ -149,6 +158,16 @@ function cardForbidsHiding(card: UnitCard): boolean {
 export function legalActions(state: GameState, player: PlayerId): Action[] {
   const out: Action[] = [];
   const p = state.players[player];
+
+  // An ability waiting on a pick owns everything: it was fired by something that
+  // has already happened, so no turn is on offer until it has been answered.
+  const asking = pendingPrompt(state);
+  if (asking) {
+    if (asking.player !== player) return out;
+    for (const pick of promptOptions(asking)) out.push({ type: "answerPrompt", player, pick });
+    if (promptSatisfied(asking)) out.push({ type: "finishPrompt", player });
+    return out;
+  }
 
   // A spell in mid-resolution owns the whole turn: only the caster answers, and
   // nothing else may be played until it has finished with the board.
@@ -283,6 +302,16 @@ export function applyAction(state: GameState, action: Action): GameState {
       break;
     case "toss":
       doToss(next, action);
+      break;
+    case "answerPrompt":
+      if (pendingPrompt(next)?.player === action.player) {
+        answerPrompt(next, action.pick, (text) => log(next, text, action.player));
+      }
+      break;
+    case "finishPrompt":
+      if (pendingPrompt(next)?.player === action.player) {
+        finishPrompt(next, (text) => log(next, text, action.player));
+      }
       break;
     case "declareTossDone":
       if (next.phase === "cleanup" && next.turn === action.player) {
@@ -590,6 +619,16 @@ function skipStopped(state: GameState, flag: "unitsClosed" | "spellsClosed"): vo
 export function settle(state: GameState): void {
   if (state.phase === "gameOver") return;
 
+  // An ability that closed itself with nothing on offer runs here rather than
+  // waiting for a pick nobody can make.
+  settlePrompts(state, (text) => log(state, text));
+  // A tile that has just been stepped on. Pulled rather than pushed, so no
+  // arrival can slip past it whichever effect caused it.
+  if (state.prompts.length === 0) springTraps(state, (text) => log(state, text));
+  // Nothing else may happen while somebody is still being asked. The turn has
+  // already passed on in most cases; the question outlives it.
+  if (state.prompts.length > 0) return;
+
   // Leszerelés hands the turn to whoever still has cards to throw away, and ends
   // when neither has anything left to say.
   if (state.phase === "cleanup") {
@@ -711,10 +750,18 @@ function scoreLocation(state: GameState): void {
 function beginCleanup(state: GameState): void {
   if (state.phase !== "scored") return;
 
+  const portalling = new Set(state.portals.map((p) => p.uid));
+
   for (const slot of ALL_SLOTS) {
     const unit = state.board[slot];
     if (unit) {
       const card = { uid: unit.uid, cardId: unit.cardId };
+      // Felix does not go to a graveyard: he walks off this battlefield and
+      // onto the next one, so the board simply lets go of him.
+      if (portalling.has(unit.uid)) {
+        state.board[slot] = null;
+        continue;
+      }
       // Csábítás claimed it; otherwise the battlefield may rescue it (Plázs
       // hands Felindori units back to the bottom of the deck), and failing both
       // it goes to its owner's graveyard.
@@ -743,9 +790,15 @@ function beginCleanup(state: GameState): void {
     if (channel) state.players[id].discard.push({ uid: channel.uid, cardId: channel.cardId });
     state.channel[id] = null;
   }
+  // 12.3 takes the cast spells; a trap is a spell that was cast and never went
+  // off, so it goes the same way rather than waiting for a battlefield that no
+  // longer exists.
+  clearTraps(state);
   state.spellsCast = [];
   state.placementCounter = 0;
   state.resolution = null;
+  state.prompts = [];
+  state.reveals = [];
 
   // A decided game has nothing left to prepare for, so the discard step is
   // skipped rather than asked for.
@@ -786,8 +839,48 @@ function finishCleanup(state: GameState): void {
     state,
     `${loc.name}, költségkeret ${loc.cap === null ? "nincs" : loc.cap}. Kezd: ${SIDE_NAME[state.turn]}.`,
   );
+  landPortals(state);
   applyLocationStart(state);
   settle(state);
+}
+
+/**
+ * Felix stepping out of the portal.
+ *
+ * He arrives before anything else happens on the new battlefield, on the tile
+ * he was standing on, and he arrives clean: a fresh instance carries no damage,
+ * no modifiers, no rings and nothing placed on it, and its spellpower pools are
+ * untouched, which is the "casting power replenished" the card promises.
+ *
+ * `paidCost: 0` is the other half of the promise. He is outside the cost cap
+ * here, and outside it again the next time he loses, because nothing about the
+ * arrival records that it has happened once already.
+ *
+ * No Belépő fires. Arriving through a portal is not committing a unit, and a
+ * Belépő that fired here would fire once per lost battle for free.
+ */
+function landPortals(state: GameState): void {
+  const owed = state.portals;
+  state.portals = [];
+  for (const portal of owed) {
+    const slot = portalArrival(state, portal);
+    if (!slot) {
+      // Nowhere to stand. The portal closes and the unit goes where it would
+      // have gone anyway.
+      state.players[portal.owner].discard.push({ uid: portal.uid, cardId: portal.cardId });
+      log(state, `${getUnit(portal.cardId).name} portálja bezárul, nincs szabad mező.`, portal.owner);
+      continue;
+    }
+    state.board[slot] = makeUnitInstance(portal.uid, portal.cardId, portal.owner, slot, {
+      order: state.placementCounter++,
+      paidCost: 0,
+    });
+    log(
+      state,
+      `${getUnit(portal.cardId).name} portálon át érkezik ide: ${slotLabel(slot)}, a kereten kívül.`,
+      portal.owner,
+    );
+  }
 }
 
 /**
@@ -858,6 +951,9 @@ function drawUpTo(hand: HandCard[], deck: HandCard[], size: number): void {
 // ---------------------------------------------------------------------------
 
 export function activePlayer(state: GameState): PlayerId | null {
+  const asking = pendingPrompt(state);
+  if (asking) return asking.player;
+  if (state.resolution?.pending) return state.resolution.pending.player;
   if (state.phase === "units" || state.phase === "battle") return state.turn;
   if (state.phase === "scored" || state.phase === "cleanup") return state.turn;
   return null;

@@ -9,6 +9,7 @@ import {
   power,
   powerBreakdown,
   rowOfSlot,
+  trapAt,
 } from "../../engine";
 import type { GameState, PlayerId, Row, SlotId, UnitInstance } from "../../engine";
 import CardFace, { CardTile } from "../card/CardFace";
@@ -139,16 +140,31 @@ function Cell({
     );
   }
 
+  // Fuedrax's trap. It went down face down, so only the player who set it — or
+  // the hotseat reveal switch — is ever told which tile it is on, let alone
+  // which spell is lying there. The other side gets nothing at all: a mark they
+  // could see would turn a trap into a fence.
+  const trap = trapAt(state, slot);
+  const trapMine = !!trap && (trap.owner === viewer || bare);
+
   if (!unit) {
     classes.push("empty-slot");
+    if (trapMine) classes.push("trapped");
     return (
       <button
         className={classes.join(" ")}
         data-slot={slot}
         onClick={open ? onPick : undefined}
         aria-disabled={!open}
+        title={trapMine ? `Csapda: ${trySpellName(trap!.cardId) ?? ""}` : undefined}
       >
         <span className="coord">{coordLabel(slot)}</span>
+        {trapMine && (
+          <span className="snare">
+            <b>csapda</b>
+            <em>{trySpellName(trap!.cardId) ?? "varázslat"}</em>
+          </span>
+        )}
         {/* The tile is already empty as far as the rules go; this is only the
             afterimage of whatever was standing here a moment ago. */}
         {ghost && (

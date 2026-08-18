@@ -1,6 +1,13 @@
 import "./game.css";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { applyAction, createGame, legalActions } from "../../engine";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  applyAction,
+  createGame,
+  legalActions,
+  newReveals,
+  pendingPrompt,
+  trapSlots,
+} from "../../engine";
 import type { Action, GameState, PlayerId, SlotId } from "../../engine";
 import Board, { Loaded } from "./Board";
 import NewGame from "./NewGame";
@@ -15,23 +22,27 @@ import {
   captureHandCard,
   flyBack,
   flyTo,
+  REVEAL_MS,
   slotElement,
 } from "./theatre";
 import type { BeatKind, Flight } from "./theatre";
-import { other } from "./common";
-import type { FieldProps, Held, LiveBeat } from "./common";
+import { handHeld, other } from "./common";
+import type { FieldProps, Held, LiveBeat, LiveReveal } from "./common";
 import Theatre from "./TheatreView";
 import { Battlefield, Annals, Tools, TurnCue } from "./LeftRail";
 import { Counters, Ledger } from "./RightRail";
 import type { Tracking } from "./RightRail";
 import { FarHand, NearHand, Reading } from "./Hands";
+import { Almanac, Curtain } from "./Asking";
+import Prologue from "./Prologue";
 import { Chronicle, Aftermath } from "./Overlays";
 
 /**
- * The game screen's orchestrator: game state, undo history, the beat stream the
- * theatre plays, the bot's timer and the drag session. Everything visual lives
- * in its own file — `Theatre`, `LeftRail`, `RightRail`, `Hands`, `Overlays` —
- * and shares the `FieldProps` shape from `common.ts`.
+ * The game screen's orchestrator: game state, undo history, the beat and
+ * reveal streams the theatre plays, the opening ceremony, the bot's timer and
+ * the drag session. Everything visual lives in its own file — `TheatreView`,
+ * `LeftRail`, `RightRail`, `Hands`, `Asking`, `Prologue`, `Overlays` — and
+ * shares the `FieldProps` shape from `common.ts`.
  */
 
 export default function GameView({ onLeave }: { onLeave: () => void }) {
@@ -47,6 +58,24 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   // between two states and expire on their own, so they can only ever decorate
   // what the board already shows.
   const [beats, setBeats] = useState<LiveBeat[]>([]);
+  /** Cards a player has been shown: a peek, a tutor, a trap going off. */
+  const [shows, setShows] = useState<LiveReveal[]>([]);
+  /**
+   * The clock the theatre reads.
+   *
+   * Beats no longer all start at once. A death waits for the play that caused
+   * it, which means a beat has a moment it *begins* as well as one it ends, and
+   * something has to re-render the screen when that moment arrives. This is
+   * that something: the timer moves it forward, and everything derived from it
+   * — which tiles are stirring, what the banner says — falls out.
+   */
+  const [now, setNow] = useState(() => Date.now());
+  /**
+   * Whether the opening ceremony is still running. Nothing may move while it
+   * is: the point of it is that the first thing you see is not a board the
+   * machine has already played onto.
+   */
+  const [prologue, setPrologue] = useState(true);
   /** Captured before the state changes, launched after it has rendered. */
   const pendingFlight = useRef<{ flight: Flight; slot?: SlotId } | null>(null);
 
@@ -59,35 +88,61 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       setHeld(null);
       setFault(null);
       setBeats([]);
+      setShows([]);
+      setPrologue(true);
     } catch (e) {
       setFault(String(e));
     }
   }
 
-  function send(action: Action) {
+  /**
+   * One action, or a run of them that a single gesture produced.
+   *
+   * Dragging Fuedrax's trap out of the hand and onto a tile answers two
+   * questions at once — which spell, and where — and they cannot be two calls,
+   * because both would apply to the same stale state. They are folded here
+   * instead, and the theatre reads the difference across the whole run, so the
+   * gesture reads as the one thing it was.
+   */
+  function send(action: Action | Action[]) {
     if (!state) return;
+    const run = Array.isArray(action) ? action : [action];
+    if (run.length === 0) return;
     try {
       // The card has to be cloned while it still exists in the hand, which is
       // now: applying the action is what takes it away.
-      if (action.type === "playUnit" || action.type === "castSpell") {
-        const flight = captureHandCard(action.uid);
+      const first = run[0];
+      if (first.type === "playUnit" || first.type === "castSpell") {
+        const flight = captureHandCard(first.uid);
         if (flight) {
           pendingFlight.current = {
             flight,
-            slot: action.type === "playUnit" ? action.slot : undefined,
+            slot: first.type === "playUnit" ? first.slot : undefined,
           };
         }
       }
-      const next = applyAction(state, action);
-      const now = Date.now();
+      const next = run.reduce(applyAction, state);
+      const at = Date.now();
       setPast((h) => [...h.slice(-40), state]);
       setBeats((b) => [
         ...b,
         ...beatsBetween(state, next).map((beat) => ({
           ...beat,
-          expiresAt: now + BEAT_MS[beat.kind],
+          startsAt: at + beat.at,
+          expiresAt: at + beat.at + BEAT_MS[beat.kind],
         })),
       ]);
+      // A reveal waits for the card that caused it to be on screen: Fejvadász
+      // has to be down and readable before the hand he is going through opens.
+      setShows((s) => [
+        ...s,
+        ...newReveals(state, next).map((reveal, i) => ({
+          ...reveal,
+          startsAt: at + 520 + i * 220,
+          expiresAt: at + 520 + i * 220 + REVEAL_MS,
+        })),
+      ]);
+      setNow(at);
       setState(next);
       setHeld(null);
       setFault(null);
@@ -121,6 +176,7 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   useEffect(() => {
     if (!state) return;
     for (const beat of beats) {
+      if (beat.startsAt > Date.now()) continue;
       if (beat.kind !== "draw" && beat.kind !== "toss") continue;
       if (flown.current.has(beat.id)) continue;
       flown.current.add(beat.id);
@@ -138,17 +194,36 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
     }
   }, [beats, botSide, state]);
 
-  // One timer, aimed at whichever beat expires first. Each beat carries its own
-  // deadline, so a new batch arriving never extends the life of an old one.
+  /**
+   * One timer for the whole theatre, aimed at the next moment anything changes:
+   * a beat starting, a beat ending, a reveal going up or coming down. Each of
+   * them carries its own two deadlines, so a new batch arriving never extends
+   * the life of an old one, and a beat that has not started yet is simply not
+   * shown until its moment comes.
+   */
   useEffect(() => {
-    if (beats.length === 0) return;
-    const soonest = Math.min(...beats.map((b) => b.expiresAt));
+    if (beats.length === 0 && shows.length === 0) return;
+    const t = Date.now();
+    const marks = [
+      ...beats.flatMap((b) => [b.startsAt, b.expiresAt]),
+      ...shows.flatMap((s) => [s.startsAt, s.expiresAt]),
+    ].filter((mark) => mark > t);
+    const soonest = marks.length > 0 ? Math.min(...marks) : t;
     const timer = setTimeout(
-      () => setBeats((current) => current.filter((b) => b.expiresAt > Date.now())),
-      Math.max(16, soonest - Date.now()),
+      () => {
+        const at = Date.now();
+        setNow(at);
+        setBeats((current) => current.filter((b) => b.expiresAt > at));
+        setShows((current) => current.filter((s) => s.expiresAt > at));
+      },
+      Math.max(16, soonest - t),
     );
     return () => clearTimeout(timer);
-  }, [beats]);
+  }, [beats, shows, now]);
+
+  // Stable, because the ceremony's own timer has it in a dependency list and a
+  // new identity every render would restart the act it is in the middle of.
+  const endPrologue = useCallback(() => setPrologue(false), []);
 
   function stepBack() {
     setPast((h) => {
@@ -156,21 +231,28 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       setState(h[h.length - 1]);
       setHeld(null);
       setBeats([]);
+      setShows([]);
       return h.slice(0, -1);
     });
   }
 
   if (!state) return <NewGame onStart={begin} onLeave={onLeave} />;
 
+  const asking = pendingPrompt(state);
   const pending = state.resolution?.pending ?? null;
-  const actor: PlayerId | null = pending
-    ? pending.player
-    : state.phase === "units" ||
-        state.phase === "battle" ||
-        state.phase === "scored" ||
-        state.phase === "cleanup"
-      ? state.turn
-      : null;
+  // An ability waiting on a pick answers before anything else, and not
+  // necessarily on its own turn: a battlefield that hands both players a tutor
+  // asks the second one while the first still holds the turn.
+  const actor: PlayerId | null = asking
+    ? asking.player
+    : pending
+      ? pending.player
+      : state.phase === "units" ||
+          state.phase === "battle" ||
+          state.phase === "scored" ||
+          state.phase === "cleanup"
+        ? state.turn
+        : null;
 
   return (
     <Field
@@ -179,6 +261,10 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       botSide={botSide}
       bot={bot}
       beats={beats}
+      shows={shows}
+      now={now}
+      prologue={prologue}
+      endPrologue={endPrologue}
       held={held}
       setHeld={setHeld}
       send={send}
@@ -199,7 +285,19 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
  * costs a row of tiles, a column down the side costs nothing the board wanted.
  */
 function Field(props: FieldProps) {
-  const { state, actor, held, setHeld, send, bare, botSide, bot, beats } = props;
+  const { state, actor, held, setHeld, send, bare, botSide, bot, now } = props;
+  // Only the beats whose moment has come. A beat that has not started yet is
+  // already in the queue — it has to be, the diff that produced it is gone —
+  // but nothing on screen may know about it until the clock reaches it.
+  const beats = useMemo(
+    () => props.beats.filter((b) => b.startsAt <= now),
+    [props.beats, now],
+  );
+  const shows = useMemo(
+    () => props.shows.filter((s) => s.startsAt <= now),
+    [props.shows, now],
+  );
+  const asking = pendingPrompt(state);
   const pending = state.resolution?.pending ?? null;
   const [logOpen, setLogOpen] = useState(false);
   /** The tile being read. Never a rule, only what the loupe beside the board shows. */
@@ -223,28 +321,48 @@ function Field(props: FieldProps) {
   // machine it does not turn: the camera stays with the person holding the
   // keyboard, and the machine plays from the far side like an opponent would.
   const human: PlayerId | null = botSide ? other(botSide) : null;
-  const viewer: PlayerId = human ?? actor ?? state.turn;
+  // A reveal holds the camera where it is.
+  //
+  // Without this, hotseat could never show one at all: playing Mágusinkvizítor
+  // is what turns the table, so the card he pulled out of the enemy's hand
+  // would come up on screen a frame after the seat it belongs to had already
+  // been handed over — the peeker's own ability, shown to the player it was
+  // used against. The table turns when the reveal is finished instead.
+  // A live question outranks a fading reveal: whoever is being asked something
+  // has to be looking at their own half while they answer it.
+  const peeking = shows.length > 0 ? shows[shows.length - 1].player : null;
+  const viewer: PlayerId = human ?? asking?.player ?? peeking ?? actor ?? state.turn;
   const far = other(viewer);
 
   // The machine moves on a timer rather than instantly, so its turn is something
-  // you watch happen instead of a board that has already changed. The wait is
-  // long enough for the previous beat to finish playing: a card flying out of the
-  // machine's hand is the only signal that it did anything at all.
-  const botToMove = botSide !== null && actor === botSide && state.phase !== "gameOver";
+  // you watch happen instead of a board that has already changed.
+  const botToMove =
+    botSide !== null && actor === botSide && state.phase !== "gameOver" && !props.prologue;
   useEffect(() => {
     if (!botToMove || !bot.current) return;
     // Leszerelés is book-keeping, not a move worth watching: the machine says it
-    // is done and the battle turns over. Everything else waits long enough for
-    // the previous beat to finish, because a card leaving its hand is the only
-    // sign it did anything.
-    const busy = beats.some((b) => b.kind === "land" || b.kind === "veil" || b.kind === "cast");
-    const pause = state.phase === "cleanup" ? 120 : busy ? 950 : 620;
+    // is done and the battle turns over.
+    //
+    // Everything else waits for the theatre to finish. That is stronger than it
+    // used to be, and it has to be: beats no longer all start at once, so a
+    // death that has not begun playing yet is still owed its moment, and a
+    // machine that moved as soon as the *first* beat was over would talk over
+    // the consequences of its own last move. Draws and tosses are exempt —
+    // watching a hand refill is not watching a turn.
+    const quiet = Math.max(
+      0,
+      ...props.beats
+        .filter((b) => b.kind !== "draw" && b.kind !== "toss")
+        .map((b) => b.expiresAt - Date.now()),
+      ...props.shows.map((s) => s.expiresAt - Date.now()),
+    );
+    const pause = state.phase === "cleanup" ? 120 : Math.max(560, quiet + 240);
     const timer = setTimeout(() => {
       const action = bot.current?.choose(state, botSide!);
       if (action) send(action);
     }, pause);
     return () => clearTimeout(timer);
-  }, [botToMove, state, botSide, bot, send, beats]);
+  }, [botToMove, state, botSide, bot, send, props.beats, props.shows]);
 
   // The scored step has nothing to decide: the totals are in, Diadal and Vigasz
   // have fired, and leszerelés follows. So it follows on its own, after long
@@ -254,7 +372,7 @@ function Field(props: FieldProps) {
   sendRef.current = send;
   useEffect(() => {
     if (state.phase !== "scored") return;
-    const timer = setTimeout(() => sendRef.current({ type: "nextLocation" }), 2200);
+    const timer = setTimeout(() => sendRef.current({ type: "nextLocation" }), 3600);
     return () => clearTimeout(timer);
     // Deliberately keyed to the battle rather than to the whole state: beats
     // expiring re-render this component, and a timer that restarted on every
@@ -266,6 +384,21 @@ function Field(props: FieldProps) {
 
   const open = useMemo(() => {
     const set = new Set<SlotId>();
+    // Fuedrax naming the tile his trap watches. Same mechanism as a spell's
+    // target pick, so the tile lights up and takes a drop the same way.
+    if (asking?.picking === "slot") {
+      for (const slot of asking.slots ?? []) set.add(slot);
+      return set;
+    }
+    // The tiles are lit while the spell is still in hand, too, so burying one is
+    // the gesture the card describes — pick it up, drop it over there — rather
+    // than a click here followed by a click there. The two answers travel as one
+    // run of actions.
+    if (asking?.kind === "trapSpell") {
+      for (const slot of trapSlots(state, asking.player)) set.add(slot);
+      return set;
+    }
+    if (asking) return set;
     if (pending && pending.kind !== "handCard") {
       for (const slot of pending.options) set.add(slot);
       return set;
@@ -279,7 +412,7 @@ function Field(props: FieldProps) {
       }
     }
     return set;
-  }, [state.phase, pending, held, moves]);
+  }, [state, state.phase, asking, pending, held, moves]);
 
   function commit(slot: SlotId, card: Held) {
     if (!actor) return;
@@ -294,11 +427,36 @@ function Field(props: FieldProps) {
   }
 
   function pickSlot(slot: SlotId) {
+    if (asking?.picking === "slot") {
+      send({ type: "answerPrompt", player: asking.player, pick: slot });
+      return;
+    }
     if (pending) {
       send({ type: "chooseSlot", player: pending.player, slot });
       return;
     }
     if (state.phase === "units" && held && actor) commit(slot, held);
+  }
+
+  /**
+   * Burying Fuedrax's trap: pick the spell up, drop it on the tile it will
+   * watch. Two answers, one gesture, so they go as one run of actions — sent
+   * separately they would both land on the same stale state.
+   */
+  function startTrapDrag(event: React.PointerEvent, uid: string) {
+    if (event.button !== 0 || !asking || asking.kind !== "trapSpell") return;
+    const player = asking.player;
+    const session = beginCardDrag(uid, event.nativeEvent, {
+      onDrop: (slot) =>
+        send([
+          { type: "answerPrompt", player, pick: uid },
+          { type: "answerPrompt", player, pick: slot },
+        ]),
+      onEnd: () => setLifted(null),
+    });
+    if (!session) return;
+    event.preventDefault();
+    setLifted(uid);
   }
 
   /**
@@ -404,6 +562,7 @@ function Field(props: FieldProps) {
           moves={moves}
           viewer={viewer}
           onDrag={startDrag}
+          onDragTrap={startTrapDrag}
           onRead={setReading}
           lifted={liftedStillHeld}
         />
@@ -412,6 +571,18 @@ function Field(props: FieldProps) {
       {/* The card under the pointer, printed at full size above its own place in
           the fan. Nothing in the hand moves to make this happen. */}
       {readCard && !liftedStillHeld && <Reading uid={readCard.uid} cardId={readCard.cardId} />}
+
+      {/* An ability going through a pile: the deck a tutor is searching, the
+          hand Griff is helping himself to. A hand of your own is picked from
+          the hand itself, so only the piles reach this panel. */}
+      {asking && !handHeld(asking, state) && asking.picking === "card" && (
+        <Almanac prompt={asking} send={send} />
+      )}
+
+      {/* What somebody has just been shown, held up long enough to read. */}
+      <Curtain shows={shows} viewer={viewer} bare={bare} />
+
+      {props.prologue && <Prologue state={state} onDone={props.endPrologue} />}
 
       {logOpen && <Chronicle state={state} onClose={() => setLogOpen(false)} />}
       {over && <Aftermath state={state} onLeave={props.onLeave} onQuit={props.onQuit} />}

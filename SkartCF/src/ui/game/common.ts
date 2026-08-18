@@ -1,13 +1,22 @@
-import { getSpell, getUnit } from "../../engine";
-import type { Action, GameState, PlayerId, SpellCard, UnitCard } from "../../engine";
+import { getLocation, getSpell, getUnit } from "../../engine";
+import type {
+  Action,
+  GameState,
+  LocationCard,
+  PlayerId,
+  Prompt,
+  Reveal,
+  SpellCard,
+  UnitCard,
+} from "../../engine";
 import type { Agent } from "../../bot/agent";
 import type { Beat } from "./theatre";
 import type { MutableRefObject } from "react";
 
 /**
  * What the game screen's pieces share. The screen itself stays in
- * `GameView.tsx`; the rails, hands, theatre and overlays each live in their own
- * file and reach back here for the props shape and the card lookups.
+ * `GameView.tsx`; the rails, hands, theatre, prompts and overlays each live in
+ * their own file and reach back here for the props shape and the card lookups.
  */
 
 /** A card picked up out of the hand, with its face-down choice and its toll. */
@@ -21,8 +30,11 @@ export const SIDE: Record<PlayerId, string> = { p1: "Első", p2: "Második" };
 
 export const other = (player: PlayerId): PlayerId => (player === "p1" ? "p2" : "p1");
 
-/** A beat plus the moment it stops being shown. */
-export type LiveBeat = Beat & { expiresAt: number };
+/** A beat plus the two moments that bracket it on screen. */
+export type LiveBeat = Beat & { startsAt: number; expiresAt: number };
+
+/** A reveal plus the same bracket. */
+export type LiveReveal = Reveal & { startsAt: number; expiresAt: number };
 
 export interface FieldProps {
   state: GameState;
@@ -32,9 +44,16 @@ export interface FieldProps {
   bot: MutableRefObject<Agent | null>;
   /** What just happened, for the theatre to show. Never read for rules. */
   beats: LiveBeat[];
+  /** What a player has been shown: a peeked card, a tutor, a trap going off. */
+  shows: LiveReveal[];
+  /** The theatre's clock. Everything timed is derived from it, never from Date. */
+  now: number;
+  /** The opening ceremony is still playing. Nothing else may move until it is not. */
+  prologue: boolean;
+  endPrologue: () => void;
   held: Held | null;
   setHeld: (h: Held | null) => void;
-  send: (a: Action) => void;
+  send: (a: Action | Action[]) => void;
   stepBack: () => void;
   canStepBack: boolean;
   bare: boolean;
@@ -62,4 +81,35 @@ export function tryCard(id: string, kind: "unit" | "spell") {
   } catch {
     return undefined;
   }
+}
+
+export function tryLocation(id: string): LocationCard | undefined {
+  try {
+    return getLocation(id);
+  } catch {
+    return undefined;
+  }
+}
+
+export function isSpellCard(card: UnitCard | SpellCard | LocationCard): boolean {
+  return (card as SpellCard).kind === "spell";
+}
+
+/**
+ * Is this prompt asking about cards the player is already holding?
+ *
+ * It decides where the question is put. Cards in your own hand are picked out
+ * of the hand — that is where they are, and clicking one there is what anyone
+ * would try first. Anything else is a pile nobody can see: a deck being
+ * searched, a graveyard being read, an opponent's hand Griff has opened. Those
+ * have nowhere on screen to be, so they get a panel of their own.
+ */
+export function handHeld(prompt: Prompt, state: GameState): boolean {
+  if (prompt.picking !== "card") return false;
+  const mine = new Set(
+    [...state.players[prompt.player].unitHand, ...state.players[prompt.player].spellHand].map(
+      (c) => c.uid,
+    ),
+  );
+  return (prompt.cards ?? []).every((c) => mine.has(c.uid));
 }

@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { getSpell, getUnit, isMasterSpell } from "../../engine";
+import { getSpell, getUnit, isMasterSpell, pendingPrompt, promptSatisfied } from "../../engine";
 import type { Action, GameState, HandCard, PlayerId, SpellCard, UnitCard } from "../../engine";
 import CardFace from "../card/CardFace";
-import { cardFor } from "./common";
+import { cardFor, handHeld, isSpellCard } from "./common";
 import type { FieldProps, Held } from "./common";
 
 /**
@@ -117,12 +117,15 @@ export function NearHand(
     moves: Action[];
     viewer: PlayerId;
     onDrag: (event: React.PointerEvent, held: Held) => void;
+    /** Only for Fuedrax's trap, where the drop tile is the second answer. */
+    onDragTrap: (event: React.PointerEvent, uid: string) => void;
     onRead: (uid: string | null) => void;
     /** The card currently in the air, drawn as a gap in the fan. */
     lifted: string | null;
   },
 ) {
-  const { state, actor, held, setHeld, send, moves, viewer, onDrag, onRead, lifted } = props;
+  const { state, actor, held, setHeld, send, moves, viewer, onDrag, onDragTrap, onRead, lifted } =
+    props;
   const read = (uid: string) => (on: boolean) => onRead(on ? uid : null);
   const pending = state.resolution?.pending ?? null;
   const p = state.players[viewer];
@@ -151,6 +154,74 @@ export function NearHand(
       .filter((m) => m.type === "finishChannel")
       .map((m) => (m as { discardUid: string }).discardUid),
   );
+
+  // An ability going through your own hand — Griff paying back what he took,
+  // Fuedrax choosing what to bury — takes the hand over. It belongs here rather
+  // than in a panel: the cards are already in front of you, and pointing at one
+  // where it lies is what anyone tries first.
+  const asking = pendingPrompt(state);
+  if (asking && asking.player === viewer && handHeld(asking, state)) {
+    const options = asking.cards ?? [];
+    const picked = new Set(asking.chosen);
+    return (
+      <>
+        <div className="toll">
+          <span className="label">
+            {asking.prompt}
+            {asking.max > 1 && (
+              <b className="num">
+                {" "}
+                {asking.chosen.length}/{asking.max}
+              </b>
+            )}
+          </span>
+          {promptSatisfied(asking) && (
+            <button
+              className="ember tiny"
+              onClick={() => send({ type: "finishPrompt", player: asking.player })}
+            >
+              {asking.chosen.length === 0 ? "Kihagyom" : "Kész"}
+            </button>
+          )}
+        </div>
+        <div className="hand-rail near">
+          <div className="hand-group">
+            {options.map((c, i) => {
+              const card = cardFor(c.cardId);
+              if (!card) return null;
+              const taken = picked.has(c.uid);
+              return (
+                <Slot
+                  key={c.uid}
+                  uid={c.uid}
+                  style={arc(i, options.length)}
+                  playable={!taken}
+                  picked={taken}
+                  lifted={lifted === c.uid}
+                  onRead={read(c.uid)}
+                  onClick={
+                    taken
+                      ? undefined
+                      : () => send({ type: "answerPrompt", player: asking.player, pick: c.uid })
+                  }
+                  // Fuedrax is the one prompt where the card has somewhere to
+                  // go, so it can be carried there. Clicking still works and
+                  // asks for the tile afterwards.
+                  onDragStart={
+                    asking.kind === "trapSpell" && !taken
+                      ? (e) => onDragTrap(e, c.uid)
+                      : undefined
+                  }
+                >
+                  <CardFace card={card} className={isSpellCard(card) ? "spell" : ""} />
+                </Slot>
+              );
+            })}
+          </div>
+        </div>
+      </>
+    );
+  }
 
   // A spell asking for a card out of hand takes over the hand entirely.
   if (pending?.kind === "handCard") {

@@ -694,8 +694,8 @@
       },
       "effects": [
         {
-          "kind": "note",
-          "text": "Griff kézcseréje asztal mellett dől el, a motor nem gépesíti."
+          "kind": "handSwap",
+          "count": 3
         }
       ]
     },
@@ -869,8 +869,7 @@
       },
       "effects": [
         {
-          "kind": "note",
-          "text": "Fuedrax csapdazónája még nincs gépesítve."
+          "kind": "setTrap"
         }
       ]
     },
@@ -1307,8 +1306,7 @@
         },
         "effects": [
           {
-            "kind": "note",
-            "text": "Felix portálja a következő csatatérre még nincs gépesítve."
+            "kind": "portal"
           }
         ]
       }

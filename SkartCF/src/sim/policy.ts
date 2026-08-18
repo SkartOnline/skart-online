@@ -7,6 +7,7 @@ import {
   getUnit,
   legalActions,
   nextRandom,
+  pendingPrompt,
   power,
   remainingSpellpower,
   rowOfSlot,
@@ -102,6 +103,13 @@ function canCastNow(state: GameState, player: PlayerId, spellId: string): boolea
 export function chooseAction(state: GameState, player: PlayerId, ctx: PolicyContext): Action | null {
   const options = legalActions(state, player);
   if (options.length === 0) return null;
+
+  // An ability waiting on a pick — a tutor listing a deck, Griff going through
+  // a hand, Fuedrax choosing where to bury a spell — owns everything until it
+  // has been answered. The same one-ply greedy search handles it: the engine
+  // hands these back as plain actions, so nothing here has to know which card
+  // asked.
+  if (pendingPrompt(state)) return chooseResolution(state, player, options);
 
   // A spell mid-resolution asks its caster for picks; that is the only thing
   // on offer while it is unfinished, in either phase.

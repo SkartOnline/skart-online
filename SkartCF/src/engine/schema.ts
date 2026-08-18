@@ -624,7 +624,8 @@ export const EFFECT_SPECS: KindSpec[] = [
   {
     kind: "searchDeck",
     label: "Kikeresés",
-    summary: "Kikeres egy lapot a pakliból vagy a temetőből, és a kézbe teszi.",
+    summary:
+      "Kilistázza a paklit vagy a temetőt, a játékos választ, a választott lap a kézbe kerül.",
     selfTargeting: true,
     fields: [
       { name: "cardKind", type: "select", label: "Miből", default: "spell", options: ["spell", "unit"] },
@@ -719,7 +720,7 @@ export const EFFECT_SPECS: KindSpec[] = [
     kind: "peek",
     label: "Betekintés",
     summary:
-      "Tiszta információ: megnézhető a kéz, a varázslatkéz vagy a következő csatatér. Hotseatben a „Mindent mutat” kapcsoló adja.",
+      "Megnézhető a kéz, a varázslatkéz vagy a következő csatatér. A látottat csak a betekintő játékos kapja meg.",
     selfTargeting: true,
     fields: [
       {
@@ -735,9 +736,35 @@ export const EFFECT_SPECS: KindSpec[] = [
         label: "Gyűrű, ha a felfedett lap drágább nálam",
         default: 0,
         min: 0,
-        help: "A Fejvadász így fizeti ki magát a felfedett lapból.",
+        help:
+          "Nem nullánál egyetlen véletlen lap fordul ki, nem az egész kéz. A Fejvadász így fizeti ki magát belőle.",
       },
     ],
+  },
+  {
+    kind: "handSwap",
+    label: "Kézcsere",
+    summary:
+      "Elhúz legfeljebb N egységlapot az ellenfél kezéből, majd ugyanennyit visszaad a sajátjából. Ez a Griff. Mindkét fele kérdés, nem a motor dönti el.",
+    selfTargeting: true,
+    fields: [
+      { name: "count", type: "number", label: "Legfeljebb hány lap", default: 3, min: 1 },
+    ],
+  },
+  {
+    kind: "setTrap",
+    label: "Csapda lehelyezés",
+    summary:
+      "Egy varázslat a kézből lapjával lefelé egy üres ellenséges mezőre. Aki rálép — bárki, szövetséges is —, arra sül el. Ez a Fuedrax.",
+    selfTargeting: true,
+    fields: [],
+  },
+  {
+    kind: "portal",
+    label: "Portál a következő csatatérre",
+    summary:
+      "Az egység a következő csatatéren ugyanarra a mezőre érkezik, tisztán és a költségkereten kívül. Ez a Felix Vigasza.",
+    fields: [ON_FIELD],
   },
   {
     kind: "note",
