@@ -1,4 +1,4 @@
-import { applyAction, createGame, hashSeed, legalActions } from "../engine";
+import { applyAction, createGame, hashSeed, legalActions, pendingPrompt } from "../engine";
 import type { Action, GameState, PlayerId } from "../engine";
 import { Agent } from "./agent";
 import { chooseAction, DEFAULT_POLICY } from "../sim/policy";
@@ -58,6 +58,11 @@ export type Seat =
 const MAX_ACTIONS = 4000;
 
 function actorOf(state: GameState): PlayerId | null {
+  // An ability waiting on a pick answers before anything else, and it is not
+  // necessarily the player whose turn it is: a battlefield that hands both
+  // players a tutor asks the second one while the first still holds the turn.
+  const asking = pendingPrompt(state);
+  if (asking) return asking.player;
   if (state.resolution?.pending) return state.resolution.pending.player;
   if (state.phase === "units" || state.phase === "battle") return state.turn;
   if (state.phase === "scored" || state.phase === "cleanup") {

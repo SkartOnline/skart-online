@@ -1,4 +1,4 @@
-import { ALL_SLOTS } from "../../engine";
+import { ALL_SLOTS, newReveals } from "../../engine";
 import { SIDE_NAME } from "../../engine";
 import type { GameState, PlayerId, SlotId } from "../../engine";
 
@@ -57,6 +57,8 @@ export interface Beat {
   text?: string;
   /** A second line under the banner. Only the scored step uses it. */
   detail?: string;
+  /** Milliseconds after the batch lands before this beat starts playing. */
+  at: number;
 }
 
 /**
@@ -73,18 +75,57 @@ export interface Beat {
  *   is a minute of watching a hand empty itself one card at a time.
  */
 export const BEAT_MS: Record<BeatKind, number> = {
-  battlefield: 2800,
-  step: 2100,
-  cast: 2200,
-  land: 1600,
-  veil: 1600,
-  reveal: 1200,
-  fall: 800,
-  march: 700,
-  strike: 700,
+  battlefield: 4400,
+  step: 2400,
+  cast: 2600,
+  land: 2200,
+  veil: 2000,
+  reveal: 1400,
+  fall: 1500,
+  march: 800,
+  strike: 1000,
   draw: 650,
   toss: 420,
 };
+
+/**
+ * How long after the batch lands each kind starts, in ms.
+ *
+ * The engine settles a whole chain in one action: Bérgyilkos goes down, its
+ * Belépő reaches across the column and kills, and the diff arrives with the
+ * arrival and the death in the same list. Played together they read as one
+ * event — the card appears and something is already gone, and a player who has
+ * never seen that card cannot tell what killed what.
+ *
+ * So consequences wait for their cause. The play lands first and gets long
+ * enough to read; the strike lands on top of it; the death comes last, and its
+ * own animation marks the tile before it takes the unit off it. The board still
+ * shows the true position the whole time — these only decide when the flourish
+ * over it runs.
+ */
+export const BEAT_LEAD: Record<BeatKind, number> = {
+  battlefield: 0,
+  step: 0,
+  cast: 0,
+  veil: 0,
+  land: 0,
+  reveal: 120,
+  march: 260,
+  strike: 620,
+  fall: 900,
+  draw: 260,
+  toss: 120,
+};
+
+/**
+ * How long a reveal stays up.
+ *
+ * Longer than a beat on purpose. A beat decorates something already on the
+ * board, so noticing it is enough; a reveal is the only time that card will
+ * ever be on screen, and Fejvadász's whole ability is the half-second where you
+ * read the cost and find out whether it beat him.
+ */
+export const REVEAL_MS = 3600;
 
 const STEP_TEXT: Partial<Record<GameState["phase"], string>> = {
   mustra: "Mustra",
@@ -131,7 +172,7 @@ function slotsByUid(state: GameState): Map<string, SlotId> {
  * then what arrived, then what it cost.
  */
 export function beatsBetween(prev: GameState, next: GameState): Beat[] {
-  const out: Beat[] = [];
+  const out: Omit<Beat, "at">[] = [];
 
   if (next.locationIndex !== prev.locationIndex) {
     out.push({
@@ -157,6 +198,23 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
           : undefined;
       out.push({ id: nextId(), kind: "step", text, detail });
     }
+  }
+
+  // A trap that killed whoever walked into it leaves the diff with nothing to
+  // report. The unit was committed and taken off the board inside one action, so
+  // the tile is empty in both states and the loop below sees no arrival and no
+  // death — the card would fly out of the hand and simply cease to exist. The
+  // reveal the trap wrote down is the only record that anything happened there,
+  // so the death is read off that instead.
+  for (const reveal of newReveals(prev, next)) {
+    if (reveal.kind !== "trap" || !reveal.verdict || !reveal.slot) continue;
+    if (next.board[reveal.slot] || prev.board[reveal.slot]) continue;
+    out.push({
+      id: nextId(),
+      kind: "fall",
+      slot: reveal.slot,
+      cardId: reveal.subjectCardId,
+    });
   }
 
   // A unit that changed tiles has to read as a move, not as a death followed by
@@ -225,7 +283,25 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
     }
   }
 
-  return out;
+  return stagger(out);
+}
+
+/**
+ * Puts the batch in order in time.
+ *
+ * The lead comes off the kind, so a death always follows the play that caused
+ * it; the extra step per beat of the same kind is what makes three units dying
+ * at once read as three rather than as one flicker. Nothing here is allowed to
+ * grow without bound, so the stagger stops adding after a few — a board wipe is
+ * one event, not nine.
+ */
+function stagger(beats: Omit<Beat, "at">[]): Beat[] {
+  const seen = new Map<BeatKind, number>();
+  return beats.map((beat) => {
+    const nth = seen.get(beat.kind) ?? 0;
+    seen.set(beat.kind, nth + 1);
+    return { ...beat, at: BEAT_LEAD[beat.kind] + Math.min(nth, 4) * 140 };
+  });
 }
 
 // ---------------------------------------------------------------------------
