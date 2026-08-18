@@ -173,7 +173,8 @@
   min-height: 1.5em;
 }
 .cf-power,
-.cf-range {
+.cf-range,
+.cf-cap {
   flex: none;
   min-width: 1.6em;
   height: 1.5em;
@@ -194,6 +195,14 @@
 .cf-range {
   background: var(--reach);
   clip-path: polygon(50% 0, 100% 28%, 100% 100%, 0 100%, 0 28%);
+}
+/* A battlefield's cost cap: a purse rather than a shield or a notch, because it
+   is neither a threat nor a reach — it is what you are allowed to spend here. */
+.cf-cap {
+  background: var(--iron-bright);
+  color: var(--ink);
+  clip-path: polygon(14% 0, 86% 0, 100% 100%, 0 100%);
+  padding: 0 0.4em;
 }
 
 /* ------------------------------------------------------------------- pips */

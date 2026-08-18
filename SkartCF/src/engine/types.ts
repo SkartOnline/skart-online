@@ -409,6 +409,8 @@ export interface CastEntry {
    */
   casterSlot?: SlotId;
   targetSlot?: SlotId;
+  /** Where the spell sent something, for a Kitörés or a Széllökés. */
+  destinationSlot?: SlotId;
 }
 
 export interface Flags {

@@ -581,6 +581,7 @@ function applyCastEntry(state: GameState, entry: CastEntry, spell: SpellCard): v
   // where it went — not where everyone ended up afterwards.
   entry.casterSlot = caster.slot;
   entry.targetSlot = targetSlot;
+  entry.destinationSlot = res.chosen.destination;
 
   log(state, `${spell.name} elsül (${cardOf(caster).name}).`, entry.owner);
   const ctx = contextFor(state, caster, entry.owner, {

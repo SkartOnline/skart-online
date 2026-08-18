@@ -398,6 +398,8 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 6.6.2 Ha a köröd elején nincs olyan egységlapod, amelyet letehetnél, vagy nincs szabad meződ, a gyülekezést be kell fejezned.
 
+6.6.2.1 A befejezés ilyenkor is a te lépésed, a soron következő körödben. Nem a letétel körében, automatikusan történik: a kötelezettség fennáll, de a bejelentés a tiéd.
+
 6.6.3 A befejezés végleges. Ugyanezen a csatatéren nem vonható vissza, és utána nem teszel le több egységet.
 
 6.6.4 A befejezés után a köröd azonnal a másik játékosra száll.
@@ -537,6 +539,8 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 8.7.1 A csatafázist a saját körödben fejezheted be, a varázslat kijátszása helyett.
 
 8.7.2 Ha a köröd elején nincs kijátszható varázslatod, a csatafázist be kell fejezned.
+
+8.7.2.1 A 6.6.2.1 szerint ez is a te lépésed a soron következő körödben.
 
 8.7.3 A befejezés végleges, és ugyanezen a csatatéren nem vonható vissza.
 

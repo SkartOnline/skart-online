@@ -315,14 +315,21 @@ export function conditionHolds(
       return ownerOfSlot(unit.slot) !== unit.owner;
     case "noHidden":
       return state.players[unit.owner].hiddenThisLocation === 0;
+    // That a tile opposite is occupied is public — a hidden unit blocks a
+    // route exactly like a revealed one (4.8.7). What is on the card is not:
+    // its identity, its power and its cost stay secret until the Mustra
+    // (1.5.2, 6.5.4). So Sir Werdzsell can see that somebody is standing there
+    // and cannot tell whether they are stronger than him, which means the
+    // bonus does not apply — and, just as importantly, his hover stops
+    // reporting a comparison the player was never entitled to make.
     case "opposedOccupied":
       return !!opposite;
     case "opposedEmpty":
       return !opposite;
     case "opposedWeaker":
-      return !!opposite && basePower(opposite) < basePower(unit);
+      return !!opposite && !opposite.faceDown && basePower(opposite) < basePower(unit);
     case "opposedStronger":
-      return !!opposite && basePower(opposite) > basePower(unit);
+      return !!opposite && !opposite.faceDown && basePower(opposite) > basePower(unit);
     case "isolated":
       return isIsolated(state, unit, false);
     case "isolatedDiagonal":

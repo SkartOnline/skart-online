@@ -4,7 +4,7 @@
    horizontally, because a bar across the top costs the board a row of tiles
    while a column down the side costs it nothing. */
 .field {
-  --rail: 182px;
+  --rail: 164px;
   position: relative;
   height: 100dvh;
   overflow: hidden;
@@ -177,6 +177,21 @@
   padding-bottom: 6px;
   border-bottom: 1px solid rgba(116, 82, 44, 0.4);
 }
+/* One quiet way out, and it stays quiet: leaving is the rarest thing anybody
+   does on this screen and it had the same weight as the turn button. */
+.rail-top button {
+  padding: 2px 8px;
+  font-size: 12px;
+  background: none;
+  border-color: transparent;
+  color: var(--ash-dim);
+  box-shadow: none;
+}
+.rail-top button:hover:not(:disabled) {
+  color: var(--tallow);
+  border-color: var(--iron);
+  box-shadow: none;
+}
 .rail-top .score {
   display: flex;
   gap: 5px;
@@ -196,39 +211,63 @@
   --card-w: 150px;
   align-self: center;
 }
-/* What battlefield this is, and what it costs to fight on. Boxed like the
-   counters opposite it, so the two rails read as a matched pair rather than as
-   a panel on one side and loose text on the other. */
-.rail-note {
+/* How far through the war we are: one pip per battlefield, the current one lit,
+   the settled ones carrying whoever took them. It replaces a line of small
+   print, and unlike the line it can be read without being read. */
+.rail-progress {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 10px;
-  padding: 5px 8px;
-  font-size: 12px;
-  letter-spacing: 0.05em;
-  color: var(--ash);
-  font-variant-caps: small-caps;
-  background: rgba(23, 15, 8, 0.55);
-  border: 1px solid var(--iron);
+  justify-content: center;
+  gap: 5px;
+  padding: 2px 0;
 }
-.rail-note .cap {
-  color: var(--flame);
-  font-weight: 600;
+.rail-progress .spot {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--iron-bright);
+  background: transparent;
+  transform: rotate(45deg);
+}
+.rail-progress .spot.won-p1 {
+  background: var(--brass);
+  border-color: var(--brass);
+}
+.rail-progress .spot.won-p2 {
+  background: var(--blood);
+  border-color: var(--blood);
+}
+.rail-progress .spot.won-void {
+  background: var(--iron);
+}
+.rail-progress .spot.here {
+  box-shadow: 0 0 0 2px rgba(232, 129, 31, 0.45);
+  border-color: var(--flame);
 }
 
-/* The tools. Full width and evenly ruled, because four controls at four
-   different widths hanging off the left edge is the thing that made this corner
-   look unfinished next to the rest of the screen. */
-.rail-tools button {
-  width: 100%;
-  text-align: center;
+/* The tools: a row of marks along the foot of the rail. */
+.rail-tools button.glyph {
+  flex: 1;
+  padding: 4px 0;
+  font-size: 15px;
+  line-height: 1;
+  letter-spacing: 0;
+  background: none;
+  border-color: transparent;
+  color: var(--ash);
+  box-shadow: none;
+}
+.rail-tools button.glyph:hover:not(:disabled) {
+  color: var(--flame);
+  border-color: var(--iron);
+  box-shadow: none;
+}
+.rail-tools button.glyph.on {
+  color: var(--flame);
+  border-color: var(--ember);
 }
 .rail-tools {
   display: flex;
-  flex-direction: column;
   align-items: stretch;
-  gap: 5px;
+  gap: 2px;
   padding-top: 7px;
   border-top: 1px solid rgba(116, 82, 44, 0.4);
 }
@@ -462,7 +501,12 @@
   /* The near hand no longer hides most of itself below the screen edge, so the
      board has to give that height back: enough for a whole card plus the dip at
      the ends of the arc. The far hand still shows only its top. */
-  padding: 52px 4px 198px;
+  /* Balanced against what each hand actually shows, not against the screen.
+     The far hand hangs off the top and shows about 58px of card; the near one
+     rests on the bottom edge and shows about 95px. Padding split evenly left a
+     third of the board's height as dead table under it, which is why the grid
+     read as sitting high. */
+  padding: 86px 4px 158px;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
@@ -473,7 +517,12 @@
 /* Four rows of tiles plus the centre line have to clear both hands. Solving
    that for the tile width is what the dvh term is: 3*tile + chrome <= height. */
 .grids {
-  --tile: clamp(88px, min(calc((100vw - 2 * var(--rail) - 40px) / 3), calc((100dvh - 396px) / 3)), 320px);
+  /* Bigger than it was, and it has room to be: the rail is leaner and the dead
+     band under the board is gone. The dvh term is the same solve as before —
+     three tiles plus the chrome has to clear both hands — recomputed for the
+     new padding, and the floor is raised because a tile that has to hold a
+     piece of art is not a 88px thumbnail. */
+  --tile: clamp(104px, min(calc((100vw - 2 * var(--rail) - 40px) / 3), calc((100dvh - 404px) / 3)), 340px);
   display: grid;
   grid-template-rows: auto auto auto;
   justify-content: center;
@@ -1809,6 +1858,18 @@ body.dragging-card {
   gap: 10px;
 }
 
+/* A button holding a sentence is not a label.
+ *
+ * Buttons wear small caps because most of them are labels, and the deck picker
+ * is where that stops being true: the name is a label and the line under it is
+ * a description, and setting an average cost and three battlefield names in
+ * spaced small caps made the busiest text on the screen the hardest to read.
+ * The name keeps the treatment; the prose opts out. */
+.pick-note {
+  font-variant-caps: normal;
+  letter-spacing: normal;
+  font-weight: 400;
+}
 .pick {
   display: block;
   width: 100%;
@@ -1964,6 +2025,13 @@ body.dragging-card {
   font-size: 12.5px;
   text-align: left;
   cursor: pointer;
+}
+/* Card names are set the way they are printed on the card, not as labels. */
+.almanac-row .ledger-name,
+.ledger-name {
+  font-variant-caps: normal;
+  letter-spacing: normal;
+  font-weight: 400;
 }
 .almanac-row > button:hover:not(:disabled) {
   background: rgba(232, 129, 31, 0.18);
@@ -2594,6 +2662,62 @@ body.dragging-card {
   z-index: 37;
 }
 
+/* ------------------------------------------------------------- the disarming */
+
+/* Leszerelés, which is a decision and now looks like one.
+ *
+ * Placed above the middle of the board rather than dead centre, because the one
+ * thing it must never cover is the hands: the question it is asking is "which
+ * of these do you keep", and answering it means pointing at them. */
+.disarming {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  z-index: 36;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+  padding: 18px 32px 16px;
+  max-width: min(460px, 74vw);
+  text-align: center;
+  box-shadow:
+    0 0 0 1px var(--brass),
+    0 0 40px rgba(232, 129, 31, 0.26),
+    0 24px 56px rgba(0, 0, 0, 0.82);
+  animation: coin-panel-opens 260ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+.disarming b {
+  font-size: 22px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.14em;
+  color: var(--flame);
+}
+.disarming em {
+  font-style: normal;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--parchment);
+}
+.disarming-count {
+  font-size: 26px;
+  color: var(--tallow);
+}
+.disarming-count i {
+  font-style: normal;
+  font-size: 11px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.08em;
+  color: var(--ash);
+}
+.disarming-note {
+  font-size: 11px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.07em;
+  color: var(--ash-dim);
+}
+
 /* ------------------------------------------------------------------ the coin */
 
 /* Szerencsejátékos' coin, thrown where both players are already looking.
@@ -2744,6 +2868,15 @@ body.dragging-card {
     0 0 0 2px var(--frost),
     0 0 26px rgba(122, 176, 208, 0.55),
     inset 0 0 30px rgba(122, 176, 208, 0.2);
+  animation: mark-breathes 1600ms ease-in-out infinite;
+}
+/* Where a spell is sending something, named before it moves. */
+.cell.mark-step {
+  border-color: var(--flame);
+  box-shadow:
+    0 0 0 2px var(--flame),
+    0 0 24px rgba(255, 197, 92, 0.5),
+    inset 0 0 28px rgba(255, 197, 92, 0.18);
   animation: mark-breathes 1600ms ease-in-out infinite;
 }
 .cell.mark-foe {

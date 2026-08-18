@@ -58,6 +58,13 @@ export interface Beat {
   count?: number;
   /** For a cast: the tile it was aimed at. `slot` is the caster's. */
   targetSlot?: SlotId;
+  /** For a cast that moves something: where it is going. */
+  destinationSlot?: SlotId;
+  /**
+   * Scores as they stood before this beat. The tally is the point of the
+   * scored step, so it may not appear before the step announcing it does.
+   */
+  heldScores?: Record<PlayerId, number>;
   /**
    * The tiles this beat is about, and what stood on them before it happened.
    *
@@ -180,11 +187,15 @@ const BEAT_ORDER: Record<BeatKind, number> = {
   battlefield: 0,
   step: 1,
   done: 2,
-  veil: 3,
-  land: 4,
-  march: 5,
+  // The cast comes before the walk it caused. Kitörés is a spell that moves its
+  // own caster, and with the march sorted first the unit slid across the board
+  // and *then* the card came up naming the unit that had already moved — the
+  // consequence introducing its own cause.
+  cast: 3,
+  veil: 4,
+  land: 5,
   reveal: 6,
-  cast: 7,
+  march: 7,
   strike: 8,
   fall: 9,
   draw: 10,
@@ -282,7 +293,15 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
           : prev.phase === "units" && next.phase === "battle"
             ? "Kezdődhet a csata!"
             : undefined;
-      out.push({ id: nextId(), kind: "step", text, detail });
+      out.push({
+        id: nextId(),
+        kind: "step",
+        text,
+        detail,
+        // Összesítés: the banner *is* the result, so the rail must not have
+        // quietly counted it up while the banner was still on its way.
+        heldScores: next.phase === "scored" ? { ...prev.scores } : undefined,
+      });
     }
   }
 
@@ -408,6 +427,7 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
       cardId: entry.cardId,
       slot: entry.casterSlot,
       targetSlot: entry.targetSlot,
+      destinationSlot: entry.destinationSlot,
     });
   }
 
@@ -477,14 +497,16 @@ export function boardAsOf<T extends { startsAt: number } & Beat>(
   now: number,
 ): GameState {
   const waiting = beats
-    .filter((b) => b.startsAt > now && b.hold?.length)
+    .filter((b) => b.startsAt > now && (b.hold?.length || b.heldScores))
     .sort((a, b) => b.startsAt - a.startsAt);
   if (waiting.length === 0) return state;
   const board = { ...state.board };
+  let scores = state.scores;
   for (const beat of waiting) {
-    for (const held of beat.hold!) board[held.slot] = held.unit;
+    for (const held of beat.hold ?? []) board[held.slot] = held.unit;
+    if (beat.heldScores) scores = beat.heldScores;
   }
-  return { ...state, board };
+  return { ...state, board, scores };
 }
 
 // ---------------------------------------------------------------------------

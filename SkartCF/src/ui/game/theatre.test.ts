@@ -45,15 +45,22 @@ function hide(state: GameState, player: "p1" | "p2", slot: SlotId): void {
 }
 
 describe("the Mustra, one card at a time", () => {
+  /**
+   * Both players pass, and the diff under test is the second pass — the one
+   * that ends the gathering and runs the Mustra. Finishing is a turn each of
+   * them takes, so the batch carries the announcement as well as the reveals.
+   */
   function mustra(): { before: GameState; after: GameState } {
-    const before = opening();
-    hide(before, "p1", "p1.F1");
-    hide(before, "p1", "p1.F2");
-    hide(before, "p2", "p2.F1");
-    hide(before, "p2", "p2.F2");
-    before.players.p1.flags.unitsClosed = true;
-    before.players.p2.flags.unitsClosed = true;
-    const after = applyAction(before, { type: "declareUnitsDone", player: "p1" });
+    const opened = opening();
+    hide(opened, "p1", "p1.F1");
+    hide(opened, "p1", "p1.F2");
+    hide(opened, "p2", "p2.F1");
+    hide(opened, "p2", "p2.F2");
+    const before = applyAction(opened, {
+      type: "declareUnitsDone",
+      player: opened.turn,
+    });
+    const after = applyAction(before, { type: "declareUnitsDone", player: before.turn });
     return { before, after };
   }
 
@@ -111,12 +118,11 @@ describe("the Mustra, one card at a time", () => {
 
 describe("the board waits for the beat", () => {
   it("carries the position each beat replaced, so the screen can lag behind", () => {
-    const before = opening();
-    hide(before, "p1", "p1.F1");
-    hide(before, "p2", "p2.F1");
-    before.players.p1.flags.unitsClosed = true;
-    before.players.p2.flags.unitsClosed = true;
-    const after = applyAction(before, { type: "declareUnitsDone", player: "p1" });
+    const opened = opening();
+    hide(opened, "p1", "p1.F1");
+    hide(opened, "p2", "p2.F1");
+    const before = applyAction(opened, { type: "declareUnitsDone", player: opened.turn });
+    const after = applyAction(before, { type: "declareUnitsDone", player: before.turn });
 
     const beats = beatsBetween(before, after);
     const reveals = beats.filter((b) => b.kind === "reveal");
@@ -158,11 +164,10 @@ describe("the board waits for the beat", () => {
       spellSpent: {},
       freeCastsUsed: 0,
     };
-    before.players.p1.flags.unitsClosed = true;
-    before.players.p2.flags.unitsClosed = true;
-    const after = applyAction(before, { type: "declareUnitsDone", player: "p1" });
+    const passed = applyAction(before, { type: "declareUnitsDone", player: before.turn });
+    const after = applyAction(passed, { type: "declareUnitsDone", player: passed.turn });
 
-    const march = beatsBetween(before, after).find((b) => b.kind === "march");
+    const march = beatsBetween(passed, after).find((b) => b.kind === "march");
     expect(march).toBeDefined();
     // Two tiles: the one it is arriving at, empty until it gets there, and the
     // one it left, still holding it until then. A unit that vanished from its
@@ -183,14 +188,13 @@ describe("boardAsOf", () => {
   }
 
   function mustraPair() {
-    const before = opening();
-    hide(before, "p1", "p1.F1");
-    hide(before, "p1", "p1.F2");
-    hide(before, "p2", "p2.F1");
-    hide(before, "p2", "p2.F2");
-    before.players.p1.flags.unitsClosed = true;
-    before.players.p2.flags.unitsClosed = true;
-    return { before, after: applyAction(before, { type: "declareUnitsDone", player: "p1" }) };
+    const opened = opening();
+    hide(opened, "p1", "p1.F1");
+    hide(opened, "p1", "p1.F2");
+    hide(opened, "p2", "p2.F1");
+    hide(opened, "p2", "p2.F2");
+    const before = applyAction(opened, { type: "declareUnitsDone", player: opened.turn });
+    return { before, after: applyAction(before, { type: "declareUnitsDone", player: before.turn }) };
   }
 
   it("shows nothing turned over before the first reveal plays", () => {

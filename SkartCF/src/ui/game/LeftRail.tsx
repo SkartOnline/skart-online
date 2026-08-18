@@ -40,12 +40,21 @@ export function Battlefield({ state, onLeave }: FieldProps & { onLog: () => void
 
       <CardFace card={location} className="battlefield" />
 
-      <div className="rail-note">
-        <span className="num">
-          {state.locationIndex + 1}/{state.locations.length}
-        </span>
-        <span className="num cap">keret {location.cap === null ? "∞" : location.cap}</span>
-        <span className="faint">{SIDE[here.broughtBy]} hozta</span>
+      {/* How far through the war we are, as a row of pips.
+       *
+       * The cap moved onto the card, where it belongs, and the line of small
+       * print that used to hold it went with it. What is left is the one thing
+       * the card cannot say: which battle this is out of how many, and who
+       * brought it. Seven dots say that without a sentence. */}
+      <div className="rail-progress" title={`${SIDE[here.broughtBy]} hozta`}>
+        {state.locations.map((spot, i) => (
+          <span
+            key={i}
+            className={`spot${i === state.locationIndex ? " here" : ""}${
+              spot.winner ? ` won-${spot.winner}` : ""
+            }`}
+          />
+        ))}
       </div>
     </>
   );
@@ -144,6 +153,16 @@ export function Annals({
   );
 }
 
+/**
+ * The tools, as marks rather than sentences.
+ *
+ * Four labelled buttons stacked down the rail read as a settings page, and they
+ * were competing for attention with the only two things in that column that
+ * matter while you are playing: the battlefield and whose turn it is. None of
+ * them is used often enough to earn a word. They are a row of glyphs now, each
+ * with its name on hover and for assistive tech, which is the same trade every
+ * toolbar makes.
+ */
 export function Tools({
   bare,
   setBare,
@@ -155,18 +174,35 @@ export function Tools({
 }: FieldProps & { onLog: () => void; logOpen: boolean }) {
   return (
     <div className="rail-tools">
-      <button className={`tiny${logOpen ? " ember" : ""}`} onClick={onLog}>
-        Krónika
+      <button
+        className={`glyph${logOpen ? " on" : ""}`}
+        onClick={onLog}
+        title="Krónika"
+        aria-label="Krónika"
+        aria-pressed={logOpen}
+      >
+        ☰
       </button>
-      <button className="quiet tiny" onClick={stepBack} disabled={!canStepBack}>
-        Vissza
+      <button
+        className="glyph"
+        onClick={stepBack}
+        disabled={!canStepBack}
+        title="Vissza"
+        aria-label="Vissza"
+      >
+        ↺
       </button>
-      <label className="swap">
-        <input type="checkbox" checked={bare} onChange={(e) => setBare(e.target.checked)} />
-        Mindent mutat
-      </label>
-      <button className="quiet tiny" onClick={onQuit}>
-        Új parti
+      <button
+        className={`glyph${bare ? " on" : ""}`}
+        onClick={() => setBare(!bare)}
+        title="Mindent mutat"
+        aria-label="Mindent mutat"
+        aria-pressed={bare}
+      >
+        {bare ? "◉" : "◎"}
+      </button>
+      <button className="glyph" onClick={onQuit} title="Új parti" aria-label="Új parti">
+        ⟲
       </button>
     </div>
   );
@@ -246,20 +282,10 @@ export function TurnCue(props: FieldProps & { moves: Action[]; viewer: PlayerId 
 
       {state.phase === "scored" && <span className="turn">{verdict(state)}</span>}
 
-      {/* Leszerelés, 12.5. Throwing cards away is optional and costs nothing to
-          decline, so the only thing that has to be on screen is the way out. */}
+      {/* Leszerelés, 12.5, is asked in a panel of its own now — see `Disarming`
+          — so the rail says only whose turn it is. */}
       {state.phase === "cleanup" && actor && (
-        <>
-          <span className={`turn ${actor}`}>{SIDE[actor]} leszerel</span>
-          {can("declareTossDone") && (
-            <button
-              className="ember tiny"
-              onClick={() => send({ type: "declareTossDone", player: actor })}
-            >
-              Kész, húzz fel
-            </button>
-          )}
-        </>
+        <span className={`turn ${actor}`}>{SIDE[actor]} leszerel</span>
       )}
     </div>
   );

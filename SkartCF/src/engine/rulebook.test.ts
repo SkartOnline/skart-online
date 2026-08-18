@@ -9,7 +9,7 @@ import {
 } from "./effects";
 import { ALL_SLOTS } from "./grid";
 import { abilitiesActive, cardKeywords, power, unitsOf } from "./power";
-import { applyAction } from "./reducer";
+import { applyAction, legalActions } from "./reducer";
 import { createGame, DEFAULT_CONFIG } from "./setup";
 import { fireBelepo, hasViableCaster } from "./resolve";
 import { boardTotal, locationWinner, visibleCapSpent } from "./totaling";
@@ -253,15 +253,29 @@ describe("leszerelés", () => {
 // ---------------------------------------------------------------------------
 
 describe("kötelező befejezés", () => {
-  it("closes gathering when nothing in hand fits the remaining cap (6.6.2)", () => {
+  it("leaves finishing to the player when nothing in hand fits the cap (6.6.2)", () => {
     const state = blankState("sikator"); // cap 6
     state.players.p1.unitHand = [{ uid: "a", cardId: "umbradog" }]; // cost 12
     state.players.p2.unitHand = [{ uid: "b", cardId: "patkany" }];
-    // Nothing legal to place, so the flag has to come down on its own rather
-    // than leaving the player holding a card they may never play.
     const after = applyAction(state, { type: "declareUnitsDone", player: "p2" });
-    expect(after.players.p1.flags.unitsClosed).toBe(true);
-    expect(after.log.some((l) => l.text.includes("nincs letehető egység"))).toBe(true);
+
+    // The obligation is real and the turn is still theirs to take. Closing the
+    // flag for them ended the phase inside somebody else's action, with nothing
+    // to press and nothing announced.
+    expect(after.players.p1.flags.unitsClosed).toBe(false);
+    expect(after.turn).toBe("p1");
+    expect(after.phase).toBe("units");
+  });
+
+  it("offers finishing as the only thing left to do", () => {
+    const state = blankState("sikator");
+    state.players.p1.unitHand = [{ uid: "a", cardId: "umbradog" }]; // never affordable
+    state.players.p2.unitHand = [{ uid: "b", cardId: "patkany" }];
+    const after = applyAction(state, { type: "declareUnitsDone", player: "p2" });
+
+    // One legal move, which is what lets the screen light the button up rather
+    // than leaving the player hunting for what they are allowed to do.
+    expect(legalActions(after, "p1")).toEqual([{ type: "declareUnitsDone", player: "p1" }]);
   });
 });
 

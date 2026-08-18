@@ -2,7 +2,7 @@ import { useState } from "react";
 import { promptSatisfied } from "../../engine";
 import type { Action, LocationCard, PlayerId, Prompt, Reveal, SpellCard, UnitCard } from "../../engine";
 import CardFace from "../card/CardFace";
-import { cardFor, isSpellCard, tryLocation } from "./common";
+import { cardFor, isSpellCard, SIDE, tryLocation } from "./common";
 
 /**
  * The surfaces an asking ability speaks through: the almanac panel for a pile
@@ -127,6 +127,47 @@ export function Almanac({
           <CardFace card={shown} className={shown.kind === "spell" ? "spell" : ""} />
         </div>
       )}
+    </div>
+  );
+}
+
+// ------------------------------------------------------------- the disarming
+
+/**
+ * Leszerelés, given a panel instead of a caption.
+ *
+ * Chapter 12 is a real decision — how much of a hand you are willing to throw
+ * away to draw fresh — and it used to be announced by one line of small text
+ * wedged above the fan, with the only way out being a button in the corner of a
+ * rail. It reads as an interruption now, which is what it is: the battle is
+ * over, the board has emptied, and the question is what you keep.
+ *
+ * It sits above the board and never over the hands, because the hands are what
+ * the question is about.
+ */
+export function Disarming({
+  player,
+  kept,
+  onDone,
+}: {
+  player: PlayerId;
+  /** How many cards are still in both hands, so the panel can count down. */
+  kept: number;
+  onDone: () => void;
+}) {
+  return (
+    <div className="disarming timber">
+      <b>Leszerelés</b>
+      <em>
+        {SIDE[player]}: dobj el, amennyit akarsz mindkét kezedből, aztán húzz vissza hétig.
+      </em>
+      <span className="disarming-count num">
+        {kept} <i>lap a kézben</i>
+      </span>
+      <button className="ember" onClick={onDone}>
+        Kész, húzz fel
+      </button>
+      <span className="disarming-note">Eldobni semmit nem kötelező.</span>
     </div>
   );
 }

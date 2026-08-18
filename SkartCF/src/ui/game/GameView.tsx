@@ -34,7 +34,7 @@ import { Battlefield, Annals, Tools, TurnCue } from "./LeftRail";
 import { Counters, Ledger } from "./RightRail";
 import type { Tracking } from "./RightRail";
 import { FarHand, NearHand, Reading } from "./Hands";
-import { Almanac, Coin, Curtain } from "./Asking";
+import { Almanac, Coin, Curtain, Disarming } from "./Asking";
 import { Beacon, Spotlight } from "./Spotlight";
 import Prologue from "./Prologue";
 import { Chronicle, Aftermath } from "./Overlays";
@@ -126,14 +126,27 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       const next = run.reduce(applyAction, state);
       const at = Date.now();
       setPast((h) => [...h.slice(-40), state]);
-      setBeats((b) => [
-        ...b,
-        ...beatsBetween(state, next).map((beat) => ({
-          ...beat,
-          startsAt: at + beat.at,
-          expiresAt: at + beat.at + BEAT_MS[beat.kind],
-        })),
-      ]);
+      const fresh = beatsBetween(state, next);
+      setBeats((b) => {
+        // A phase turning over waits for the phase it is ending.
+        //
+        // Batches are independent — each is timed from the moment its action
+        // landed — so a player's last unit could still be settling onto the
+        // board while the banner announcing the end of the gathering came
+        // across the middle of the screen. A step or a pass is a full stop, and
+        // a full stop cannot be said over the top of the sentence it ends, so a
+        // batch carrying one queues up behind whatever is still playing.
+        const closing = fresh.some((beat) => beat.kind === "step" || beat.kind === "done");
+        const base = closing ? Math.max(at, ...b.map((live) => live.expiresAt)) : at;
+        return [
+          ...b,
+          ...fresh.map((beat) => ({
+            ...beat,
+            startsAt: base + beat.at,
+            expiresAt: base + beat.at + BEAT_MS[beat.kind],
+          })),
+        ];
+      });
       // A reveal waits for the card that caused it to be on screen: Fejvadász
       // has to be down and readable before the hand he is going through opens.
       setShows((s) => [
@@ -407,12 +420,20 @@ function Field(props: FieldProps) {
   const enemySearching = searching && !almanacUp;
   // A question that is about neither a card nor a tile. Only the coin so far,
   // and it brings its own panel.
-  const coinAsking = asking?.picking === "option" ? asking : null;
+  // Their coin is theirs to press. The throw itself is public — it happens on
+  // the table and both players watch it — but the decision to throw again is a
+  // decision, and handing it to whoever is looking at the screen would let you
+  // play the other side's card for them.
+  const coinAsking =
+    asking?.picking === "option" && asking.player === viewer ? asking : null;
   const coinShowing = shows.some((s) => s.kind === "coin");
   const curtainUp = shows.some(
     (s) => s.kind !== "coin" && (s.open || s.player === viewer || bare),
   );
   const heldUp = beats.some((b) => b.kind === "land" || b.kind === "cast" || b.kind === "veil");
+  // Leszerelés belongs to whoever is doing it, and only while they still can.
+  const disarming =
+    state.phase === "cleanup" && !!actor && actor === viewer && !state.players[actor].tossDone;
   const panelUp = almanacUp || handPanel || !!coinAsking;
   // Their search still dims the board — something is happening and it is not
   // your turn to do anything about it — but there is nothing to read.
@@ -635,7 +656,13 @@ function Field(props: FieldProps) {
     // appear in the same frame.
     out.set(cast.slot, "caster");
     const since = now - cast.startsAt;
-    if (since >= 520 && cast.targetSlot && cast.targetSlot !== cast.slot) {
+    // Where it is going, before it goes. A spell that moves its caster reads as
+    // three things in sequence — this unit, that tile, then the walk — and the
+    // tile has to be named while the unit is still standing where it started.
+    if (since >= 320 && cast.destinationSlot && cast.destinationSlot !== cast.slot) {
+      out.set(cast.destinationSlot, "step");
+    }
+    if (since >= 620 && cast.targetSlot && cast.targetSlot !== cast.slot) {
       const caster = shown.board[cast.slot];
       const target = shown.board[cast.targetSlot];
       // Whose tile it is, when the unit that was standing there has already
@@ -777,6 +804,17 @@ function Field(props: FieldProps) {
 
       {/* Szerencsejátékos' coin, and the question that follows a win. */}
       <Coin shows={shows} prompt={coinAsking} send={send} />
+
+      {/* Leszerelés: a real decision, so it gets a real panel. */}
+      {disarming && actor && (
+        <Disarming
+          player={actor}
+          kept={
+            state.players[actor].unitHand.length + state.players[actor].spellHand.length
+          }
+          onDone={() => send({ type: "declareTossDone", player: actor })}
+        />
+      )}
 
       {props.prologue && <Prologue state={state} onDone={props.endPrologue} />}
 

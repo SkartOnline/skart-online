@@ -385,6 +385,23 @@ function newGame(seed = "test-1") {
   return createGame({ seed, decks: { p1: "felindori", p2: "bestia" } });
 }
 
+/**
+ * Everybody passes until the phase moves on.
+ *
+ * Finishing is the player's own turn now, even when the rules leave them no
+ * choice (6.6.2.1), so a test that wants to reach the battle has to take those
+ * turns rather than expect the engine to have taken them.
+ */
+function passPhase(state: GameState, phase: GameState["phase"]): GameState {
+  const type = phase === "units" ? "declareUnitsDone" : "declareSpellsDone";
+  for (let guard = 0; guard < 12 && state.phase === phase; guard++) {
+    const done = firstAction(state, state.turn, type);
+    if (!done) break;
+    state = applyAction(state, done);
+  }
+  return state;
+}
+
 function firstAction<T extends Action["type"]>(
   state: GameState,
   player: PlayerId,
@@ -545,8 +562,10 @@ describe("hiding a unit", () => {
       slot: "p1.F2",
     });
     expect(hidden.players.p1.discard).toHaveLength(0);
-    // Placement ended the location, so the reveal has already happened.
-    expect(hidden.log.some((l) => l.text.includes("Felfedve"))).toBe(true);
+    // Both hands are empty, so finishing is all either of them can do — and
+    // they still have to do it (6.6.2.1). Then the Mustra turns it over.
+    const revealed = passPhase(hidden, "units");
+    expect(revealed.log.some((l) => l.text.includes("Felfedve"))).toBe(true);
   });
 
   it("holds the Belépő until reveal", () => {
@@ -568,10 +587,11 @@ describe("hiding a unit", () => {
       faceDown: true,
       discardUid: "b",
     });
-    // Placement is over, hands are empty, so the location runs straight to a
-    // score, and the Belépő fired at reveal rather than on placement.
-    expect(hidden.board["p2.F1"]).toBeNull();
-    expect(hidden.log.some((l) => l.text.includes("Felfedve"))).toBe(true);
+    // Hidden, so nothing happened yet: the Belépő is owed to the Mustra.
+    expect(hidden.board["p2.F1"]).not.toBeNull();
+    const revealed = passPhase(hidden, "units");
+    expect(revealed.board["p2.F1"]).toBeNull();
+    expect(revealed.log.some((l) => l.text.includes("Felfedve"))).toBe(true);
   });
 });
 
@@ -705,10 +725,7 @@ describe("phase flow", () => {
    */
   function skipUnits(state: GameState, seat = true): GameState {
     if (seat) for (const player of ["p1", "p2"] as PlayerId[]) seatCaster(state, player);
-    for (const player of ["p1", "p2"] as PlayerId[]) {
-      state = applyAction(state, { type: "declareUnitsDone", player });
-    }
-    return state;
+    return passPhase(state, "units");
   }
 
   it("keeps spells out of the units phase entirely", () => {
@@ -749,11 +766,17 @@ describe("phase flow", () => {
    * battle. An empty board funds nothing, so an empty Mustra scores straight
    * away rather than trading turns nobody can act on.
    */
-  it("closes the battle when neither side can cast anything", () => {
+  it("closes the battle once both sides say so, with nothing castable", () => {
     let state = newGame();
     state = skipUnits(state, false);
+    // An empty board funds nothing, so finishing is the only move either of
+    // them has — but it is still a move, and each of them takes it.
+    expect(state.phase).toBe("battle");
+    expect(legalActions(state, state.turn)).toEqual([
+      { type: "declareSpellsDone", player: state.turn },
+    ]);
+    state = passPhase(state, "battle");
     expect(state.phase).toBe("scored");
-    expect(state.log.some((l) => l.text.includes("nincs kijátszható varázslat"))).toBe(true);
   });
 
   it("never offers a spell no unit of yours can fund", () => {
@@ -945,8 +968,7 @@ describe("Diadal és Vigasz", () => {
     return state;
   }
 
-  const settleOut = (state: GameState) =>
-    applyAction(state, { type: "declareUnitsDone", player: state.turn });
+  const settleOut = (state: GameState) => passPhase(passPhase(state, "units"), "battle");
 
   it("pays Diadal to a unit standing on a won location", () => {
     const state = arena();
@@ -1029,14 +1051,16 @@ describe("Mustra", () => {
       uid: "a",
       slot: "p1.B2",
     });
-    // The hand emptied, so units closed, Mustra ran, and Szarvas marched up an
-    // empty column keeping a ring per tile. It does not stop at the centreline:
-    // an empty enemy column is space, and 8.4.5 lets a move land on either half.
-    expect(after.board["p1.B2"]).toBeNull();
-    expect(after.board["p1.F2"]).toBeNull();
-    expect(after.board["p2.B2"]).not.toBeNull();
-    expect(after.board["p2.B2"]!.rings).toBe(3); // own front, their front, their back
-    expect(after.log.some((l) => l.text.includes("Mustra"))).toBe(true);
+    // Both hands are empty, so both players pass, and the Mustra sends Szarvas
+    // up an empty column keeping a ring per tile. It does not stop at the
+    // centreline: an empty enemy column is space, and 8.4.5 lets a move land on
+    // either half.
+    const mustered = passPhase(after, "units");
+    expect(mustered.board["p1.B2"]).toBeNull();
+    expect(mustered.board["p1.F2"]).toBeNull();
+    expect(mustered.board["p2.B2"]).not.toBeNull();
+    expect(mustered.board["p2.B2"]!.rings).toBe(3); // own front, theirs, their back
+    expect(mustered.log.some((l) => l.text.includes("Mustra"))).toBe(true);
   });
 
   it("stops where the column stops being empty, wherever that is", () => {
@@ -1054,9 +1078,10 @@ describe("Mustra", () => {
       slot: "p1.B2",
     });
     // One tile forward, up to the enemy front rank, and no further.
-    expect(after.board["p1.F2"]).not.toBeNull();
-    expect(after.board["p1.F2"]!.rings).toBe(1);
-    expect(after.board["p2.B2"]).toBeNull();
+    const mustered = passPhase(after, "units");
+    expect(mustered.board["p1.F2"]).not.toBeNull();
+    expect(mustered.board["p1.F2"]!.rings).toBe(1);
+    expect(mustered.board["p2.B2"]).toBeNull();
   });
 
   it("leaves it put when the slot ahead is taken", () => {

@@ -516,41 +516,24 @@ function passTurn(state: GameState): void {
 // settle, auto-closing, phase transitions, skipping finished players
 // ---------------------------------------------------------------------------
 
+
 /**
- * 6.6.2: if at the start of your turn you have no unit you could put down, or no
- * free tile, you must finish gathering. "Could put down" is the whole test, so a
- * hand of units that all overshoot the remaining cap closes the flag too — you
- * cannot sit open on cards you are not allowed to play.
+ * Passing is a turn, and the engine does not take it for you.
+ *
+ * 6.6.2 and 8.7.2 both say that a player with nothing playable *must* finish —
+ * and for a long time this file did the finishing, the moment the condition
+ * became true, silently, in the middle of settling somebody else's action. The
+ * obligation is real; doing it on the player's behalf is not the same thing.
+ * It meant a full board ended your gathering inside the same turn you filled it
+ * on, with no announcement and nothing to press, and the phase changed under
+ * the player who caused it.
+ *
+ * So the rule stands and the action is theirs: with nothing else playable,
+ * `declareUnitsDone` is the only legal move on their next turn, the screen
+ * lights it up, and pressing it is what ends the phase. `legalActions` has
+ * always offered it, so nothing else had to change — and neither the bot nor
+ * the simulator noticed, because both pick from whatever is legal.
  */
-function autoCloseUnits(state: GameState): void {
-  for (const id of PLAYERS) {
-    const p = state.players[id];
-    if (p.flags.unitsClosed) continue;
-    const free = emptySlotsOf(state, id);
-    const boardFull = free.length === 0;
-    const handEmpty = playablePile(state, id).length === 0;
-    const cap = remainingCap(state, id);
-    const nothingPlayable =
-      !boardFull &&
-      !playablePile(state, id).some((card) => {
-        const unitCard = getUnit(card.cardId);
-        if (effectiveCost(unitCard, state) > cap) return false;
-        return free.some((slot) => placementAllowed(state, unitCard, id, slot));
-      });
-    if (boardFull || handEmpty || nothingPlayable) {
-      p.flags.unitsClosed = true;
-      log(
-        state,
-        boardFull
-          ? "Egységek: kész (tele a rács)."
-          : handEmpty
-            ? "Egységek: kész (üres kéz)."
-            : "Egységek: kész (nincs letehető egység).",
-        id,
-      );
-    }
-  }
-}
 
 /**
  * Finishing a Mesteri spell costs a spell out of hand. With nothing left to pay
@@ -568,35 +551,6 @@ function fizzleDeadChannels(state: GameState): void {
   }
 }
 
-/**
- * 8.7.2: if at the start of your turn you have no castable spell, you must
- * finish the battle. Holding cards nobody on your board can fund or aim is not a
- * reason to keep taking turns.
- */
-function autoCloseSpells(state: GameState): void {
-  const banned = castingBanned(state);
-  for (const id of PLAYERS) {
-    const p = state.players[id];
-    if (p.flags.spellsClosed || state.channel[id]) continue;
-    const handEmpty = p.spellHand.length === 0;
-    const nothingCastable =
-      !handEmpty &&
-      !banned &&
-      !p.spellHand.some((card) => hasViableCaster(state, getSpell(card.cardId), id));
-    if (handEmpty || banned || nothingCastable) {
-      p.flags.spellsClosed = true;
-      log(
-        state,
-        banned
-          ? "Varázslatok: kész (nem lehet varázsolni)."
-          : handEmpty
-            ? "Varázslatok: kész (üres kéz)."
-            : "Varázslatok: kész (nincs kijátszható varázslat).",
-        id,
-      );
-    }
-  }
-}
 
 const bothStopped = (state: GameState, flag: "unitsClosed" | "spellsClosed"): boolean =>
   PLAYERS.every((id) => state.players[id].flags[flag]);
@@ -644,7 +598,6 @@ export function settle(state: GameState): void {
   }
 
   if (state.phase === "units") {
-    autoCloseUnits(state);
     if (!bothStopped(state, "unitsClosed")) {
       skipStopped(state, "unitsClosed");
       return;
@@ -664,7 +617,6 @@ export function settle(state: GameState): void {
     }
 
     fizzleDeadChannels(state);
-    autoCloseSpells(state);
     // A player still owing a Mesteri spell has not finished the battle, even
     // with both flags down.
     const owing = PLAYERS.some((id) => state.channel[id]);

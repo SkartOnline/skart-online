@@ -308,13 +308,7 @@ export function NearHand(
         </div>
       )}
 
-      {cleanup && mine && (
-        <div className="toll">
-          <span className="label">
-            Leszerelés: kattints bármelyik lapra, amit eldobsz. Nem kötelező eldobni semmit.
-          </span>
-        </div>
-      )}
+
 
       <div className="hand-rail near">
         <div className={`hand-group${mine && (unitsPhase || cleanup) ? "" : " muted"}`}>

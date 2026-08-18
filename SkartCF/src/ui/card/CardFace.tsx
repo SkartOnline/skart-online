@@ -87,6 +87,11 @@ export default function CardFace({ card, livePower, className }: Props) {
         {isSpell(card) && card.target && (
           <span className="cf-range num">{card.target.range}</span>
         )}
+        {/* A battlefield's cap belongs in the corner every other card keeps its
+            one number in. It is the stat you check before deciding anything on
+            this board, and it spent far too long as a word in a line of small
+            print down the side of the screen. */}
+        {isLocation(card) && <span className="cf-cap num">{card.cap ?? "∞"}</span>}
       </footer>
     </article>
   );
