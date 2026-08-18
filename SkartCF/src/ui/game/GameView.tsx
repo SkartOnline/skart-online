@@ -27,7 +27,7 @@ import {
   slotElement,
 } from "./theatre";
 import type { BeatKind, Flight } from "./theatre";
-import { cardFor, handHeld, other, SIDE } from "./common";
+import { cardFor, handHeld, other } from "./common";
 import type { FieldProps, Held, LiveBeat, LiveReveal } from "./common";
 import Theatre from "./TheatreView";
 import { Battlefield, Annals, Tools, TurnCue } from "./LeftRail";
@@ -682,6 +682,10 @@ function Field(props: FieldProps) {
   return (
     <div
       className={classes.join(" ")}
+      // Which room this is. The stylesheet keys the whole ground and the
+      // frame's one accent colour off it, so a battlefield changes the light
+      // in here without any component knowing it happened.
+      data-bf={state.locations[state.locationIndex]?.cardId}
       // Right click takes back a spell that has not finished being declared.
       // Anywhere on the screen, because there is no one place a player would
       // think to aim at — the card is in a panel, the picks are on the board,
@@ -735,9 +739,9 @@ function Field(props: FieldProps) {
       {/* The far player's piles, the ledger, then yours. The ledger sits between
           them because that is where both sets of piles can reach it. */}
       <aside className="rail-right">
-        <Counters state={state} side={far} viewer={viewer} bare={bare} onTrack={setTracking} />
+        <Counters state={state} side={far} viewer={viewer} botSide={botSide} bare={bare} onTrack={setTracking} />
         <Ledger state={state} tracking={tracking} />
-        <Counters state={state} side={viewer} viewer={viewer} bare={bare} onTrack={setTracking} />
+        <Counters state={state} side={viewer} viewer={viewer} botSide={botSide} bare={bare} onTrack={setTracking} />
       </aside>
 
       {!over && (
@@ -786,7 +790,7 @@ function Field(props: FieldProps) {
           word about what is in it. */}
       {enemySearching && (
         <div className="searching timber">
-          <b>{SIDE[asking!.player]} keresgél</b>
+          <b>Az ellenfeled keresgél</b>
           <em>{asking!.sourceCardId ? (cardFor(asking!.sourceCardId)?.name ?? "") : ""}</em>
         </div>
       )}
@@ -808,7 +812,6 @@ function Field(props: FieldProps) {
       {/* Leszerelés: a real decision, so it gets a real panel. */}
       {disarming && actor && (
         <Disarming
-          player={actor}
           kept={
             state.players[actor].unitHand.length + state.players[actor].spellHand.length
           }
@@ -816,14 +819,13 @@ function Field(props: FieldProps) {
         />
       )}
 
-      {props.prologue && <Prologue state={state} onDone={props.endPrologue} />}
+      {props.prologue && <Prologue state={state} botSide={botSide} onDone={props.endPrologue} />}
 
       {logOpen && <Chronicle state={state} onClose={() => setLogOpen(false)} />}
       {over && (
         <Aftermath
           state={state}
           viewer={human ?? viewer}
-          hotseat={human === null}
           onLeave={props.onLeave}
           onQuit={props.onQuit}
         />

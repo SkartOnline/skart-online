@@ -28,6 +28,33 @@ export interface Held {
 
 export const SIDE: Record<PlayerId, string> = { p1: "Első", p2: "Második" };
 
+/**
+ * What to call somebody, from the chair the screen belongs to.
+ *
+ * "Első" and "Második" are how the rulebook has to talk, because a rulebook has
+ * no idea who is reading it. A screen does. Whoever is looking at this one is
+ * holding the near hand — that is what near means — so they are "te" and the
+ * other one is "az ellenfeled", and against the machine the two seats have
+ * names anybody would use: Játékos and Gép.
+ *
+ * Second person for anything addressed to the player, `seatName` for a label
+ * that has to sit in a column heading and cannot be a sentence.
+ */
+export function seatName(player: PlayerId, viewer: PlayerId, botSide: PlayerId | null): string {
+  if (botSide) return player === botSide ? "Gép" : "Játékos";
+  return player === viewer ? "Te" : "Ellenfél";
+}
+
+/** "Te" or "Az ellenfeled", for a sentence. */
+export function youOrThem(player: PlayerId, viewer: PlayerId): string {
+  return player === viewer ? "Te" : "Az ellenfeled";
+}
+
+/** Lowercase, for the middle of a sentence: "a tiéd" / "az ellenfeledé". */
+export function whose(player: PlayerId, viewer: PlayerId): string {
+  return player === viewer ? "a tiéd" : "az ellenfeledé";
+}
+
 export const other = (player: PlayerId): PlayerId => (player === "p1" ? "p2" : "p1");
 
 /** A beat plus the two moments that bracket it on screen. */

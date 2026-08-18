@@ -1,6 +1,5 @@
 import { getLocation } from "../../engine";
 import type { GameState, PlayerId } from "../../engine";
-import { SIDE } from "./common";
 
 /**
  * The two full-screen overlays: the chronicle panel and the end-of-game casket.
@@ -39,29 +38,27 @@ export function Chronicle({ state, onClose }: { state: GameState; onClose: () =>
  * are laid out underneath as a row of results you can read across rather than a
  * chronicle you have to parse.
  *
- * Hotseat has no "you", so it keeps the old wording: both players are sitting
- * there and the screen has to name the winner.
+ * Hotseat works the same way: the table turns between battles, so whoever is
+ * looking at the end screen is the player the last seat belonged to.
  */
 export function Aftermath({
   state,
   viewer,
-  hotseat,
   onLeave,
   onQuit,
 }: {
   state: GameState;
   /** The seat this screen belongs to, when there is one. */
   viewer: PlayerId;
-  /** Two people at one keyboard: there is nobody for "you" to refer to. */
-  hotseat: boolean;
+
   onLeave: () => void;
   onQuit: () => void;
 }) {
   const played = state.locations.filter((l) => l.winner !== null);
   const draw = state.winner === "draw";
   const won = state.winner === viewer;
-  const verdict = draw ? "Döntetlen" : hotseat ? `${SIDE[state.winner as PlayerId]} nyert` : won ? "Győzelem" : "Vereség";
-  const tone = draw ? "draw" : hotseat ? (state.winner as PlayerId) : won ? "won" : "lost";
+  const verdict = draw ? "Döntetlen" : won ? "Győzelem" : "Vereség";
+  const tone = draw ? "draw" : won ? "won" : "lost";
 
   return (
     <div className="veilcloth">
@@ -86,13 +83,7 @@ export function Aftermath({
                   {l.totals ? `${l.totals.p1} : ${l.totals.p2}` : "—"}
                 </span>
                 <span className="battle-verdict">
-                  {l.winner === "void"
-                    ? "senkié"
-                    : hotseat
-                      ? SIDE[l.winner as PlayerId]
-                      : mine
-                        ? "megtartva"
-                        : "elveszett"}
+                  {l.winner === "void" ? "senkié" : mine ? "megtartva" : "elveszett"}
                 </span>
               </li>
             );

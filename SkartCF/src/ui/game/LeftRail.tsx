@@ -10,7 +10,7 @@ import {
 import type { Action, GameState, PlayerId } from "../../engine";
 import CardFace from "../card/CardFace";
 import { artFor } from "../card/model";
-import { SIDE, cardFor, other } from "./common";
+import { SIDE, cardFor, other, seatName } from "./common";
 import type { FieldProps } from "./common";
 
 /**
@@ -213,13 +213,27 @@ export function Tools({
  * near hand. It is the only chrome the board tolerates, so it stays to a line.
  */
 export function TurnCue(props: FieldProps & { moves: Action[]; viewer: PlayerId }) {
-  const { state, actor, send, moves, fault, viewer } = props;
+  const { state, actor, send, moves, fault, viewer, botSide } = props;
   const asking = pendingPrompt(state);
   const pending = state.resolution?.pending ?? null;
-  const can = (type: Action["type"]) => moves.some((m) => m.type === type);
   const channel = state.channel[viewer];
   const enemyChannel = state.channel[other(viewer)];
   if (state.phase === "gameOver") return null;
+
+  /**
+   * Is the thing on offer mine to take?
+   *
+   * `moves` is the *actor's* legal actions, which is right for lighting up the
+   * board and wrong for putting a button on the screen: against the machine the
+   * actor is often the machine, and this rail cheerfully offered its "finish
+   * the battle" button to the person playing against it. Nothing here is
+   * clickable unless the turn belongs to whoever is looking.
+   */
+  const mine = actor === viewer;
+  const can = (type: Action["type"]) => mine && moves.some((m) => m.type === type);
+
+  const phase =
+    state.phase === "units" ? "Gyülekezés" : state.phase === "battle" ? "Csata" : "";
 
   return (
     <div className="turn-cue">
@@ -227,13 +241,12 @@ export function TurnCue(props: FieldProps & { moves: Action[]; viewer: PlayerId 
 
       {asking ? (
         <>
-          <span className={`turn ${asking.player}`}>
-            {SIDE[asking.player]}: {asking.prompt}
+          <span className={`turn ${asking.player === viewer ? "mine" : "theirs"}`}>
+            {asking.player === viewer ? asking.prompt : "Az ellenfeled dönt"}
           </span>
-          {/* The one way out of a question that allows one. Its twin lives on
-              whichever surface is holding the cards, so both are reachable
-              wherever the player's eyes already are. */}
-          {promptSatisfied(asking) && asking.picking === "slot" && (
+          {/* The one way out of a question that allows one, and only ever out of
+              your own question. */}
+          {asking.player === viewer && promptSatisfied(asking) && asking.picking === "slot" && (
             <button
               className="tiny"
               onClick={() => send({ type: "finishPrompt", player: asking.player })}
@@ -244,33 +257,34 @@ export function TurnCue(props: FieldProps & { moves: Action[]; viewer: PlayerId 
         </>
       ) : pending ? (
         <>
-          <span className={`turn ${pending.player}`}>{pending.prompt}</span>
-          {/* Nothing has happened yet, and the way back is worth saying out
-              loud: a gesture nobody is told about is a gesture nobody uses. */}
-          <span className="faint">jobb gomb: mégsem</span>
+          <span className={`turn ${pending.player === viewer ? "mine" : "theirs"}`}>
+            {pending.player === viewer ? pending.prompt : "Az ellenfeled varázsol"}
+          </span>
+          {pending.player === viewer && <span className="faint">jobb gomb: mégsem</span>}
         </>
       ) : (
         actor &&
         (state.phase === "units" || state.phase === "battle") && (
           <>
-            <span className={`turn ${actor}`}>
-              {SIDE[actor]} lép, {state.phase === "units" ? "egységek" : "csata"}
+            <span className={`turn ${mine ? "mine" : "theirs"}`}>
+              {mine ? "Te jössz!" : `${seatName(actor, viewer, botSide)} köre`}
             </span>
+            <span className="phase">{phase}</span>
             {state.phase === "units"
               ? can("declareUnitsDone") && (
                   <button
-                    className="tiny"
-                    onClick={() => send({ type: "declareUnitsDone", player: actor })}
+                    className="ember tiny"
+                    onClick={() => send({ type: "declareUnitsDone", player: viewer })}
                   >
-                    Egységek: kész
+                    Gyülekezés vége
                   </button>
                 )
               : can("declareSpellsDone") && (
                   <button
-                    className="tiny"
-                    onClick={() => send({ type: "declareSpellsDone", player: actor })}
+                    className="ember tiny"
+                    onClick={() => send({ type: "declareSpellsDone", player: viewer })}
                   >
-                    Varázslatok: kész
+                    Csata vége
                   </button>
                 )}
           </>
@@ -280,21 +294,25 @@ export function TurnCue(props: FieldProps & { moves: Action[]; viewer: PlayerId 
       {channel && <span className="channel mine">{getSpell(channel.cardId).name} készül</span>}
       {enemyChannel && <span className="channel theirs">Mesteri varázslat készül</span>}
 
-      {state.phase === "scored" && <span className="turn">{verdict(state)}</span>}
+      {state.phase === "scored" && <span className="turn">{verdict(state, viewer)}</span>}
 
       {/* Leszerelés, 12.5, is asked in a panel of its own now — see `Disarming`
           — so the rail says only whose turn it is. */}
       {state.phase === "cleanup" && actor && (
-        <span className={`turn ${actor}`}>{SIDE[actor]} leszerel</span>
+        <span className={`turn ${mine ? "mine" : "theirs"}`}>
+          {mine ? "Leszerelsz" : "Az ellenfeled leszerel"}
+        </span>
       )}
     </div>
   );
 }
 
-function verdict(state: GameState): string {
+function verdict(state: GameState, viewer: PlayerId): string {
   const here = state.locations[state.locationIndex];
   const t = here.totals;
   if (!t) return getLocation(here.cardId).name;
-  if (here.winner === "void") return `${t.p1}:${t.p2}, senkié`;
-  return `${SIDE[here.winner as PlayerId]} viszi, ${t.p1}:${t.p2}`;
+  const mine = viewer === "p1" ? t.p1 : t.p2;
+  const theirs = viewer === "p1" ? t.p2 : t.p1;
+  if (here.winner === "void") return `${mine}:${theirs}, senkié`;
+  return here.winner === viewer ? `Tiéd, ${mine}:${theirs}` : `Elveszett, ${mine}:${theirs}`;
 }

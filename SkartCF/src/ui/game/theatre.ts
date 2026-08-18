@@ -1,5 +1,4 @@
 import { ALL_SLOTS, newReveals } from "../../engine";
-import { SIDE_NAME } from "../../engine";
 import type { GameState, PlayerId, SlotId } from "../../engine";
 
 /**
@@ -80,6 +79,12 @@ export interface Beat {
   text?: string;
   /** A second line under the banner. Only the scored step uses it. */
   detail?: string;
+  /** For a `done` beat: which phase this player has finished with. */
+  phaseDone?: "units" | "spells";
+  /** For the scored step: who took the battlefield, so the view can word it. */
+  winner?: PlayerId | "void";
+  /** For the scored step: the totals, in p1:p2 order. */
+  totals?: { p1: number; p2: number };
   /** Milliseconds after the batch lands before this beat starts playing. */
   at: number;
 }
@@ -100,7 +105,7 @@ export interface Beat {
 export const BEAT_MS: Record<BeatKind, number> = {
   battlefield: 4400,
   step: 2600,
-  done: 1500,
+  done: 2400,
   cast: 2600,
   land: 2200,
   veil: 2000,
@@ -286,18 +291,14 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
       // carries the result rather than only naming the step.
       const here = next.locations[next.locationIndex];
       const detail =
-        next.phase === "scored" && here?.totals
-          ? here.winner === "void"
-            ? `${here.totals.p1} : ${here.totals.p2} — senkié`
-            : `${here.totals.p1} : ${here.totals.p2} — ${SIDE_NAME[here.winner as PlayerId]} viszi`
-          : prev.phase === "units" && next.phase === "battle"
-            ? "Kezdődhet a csata!"
-            : undefined;
+        prev.phase === "units" && next.phase === "battle" ? "Kezdődhet a csata!" : undefined;
       out.push({
         id: nextId(),
         kind: "step",
         text,
         detail,
+        winner: next.phase === "scored" ? (here?.winner ?? undefined) : undefined,
+        totals: next.phase === "scored" ? (here?.totals ?? undefined) : undefined,
         // Összesítés: the banner *is* the result, so the rail must not have
         // quietly counted it up while the banner was still on its way.
         heldScores: next.phase === "scored" ? { ...prev.scores } : undefined,
@@ -315,21 +316,14 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
   for (const player of ["p1", "p2"] as PlayerId[]) {
     const was = prev.players[player].flags;
     const now = next.players[player].flags;
+    // Who, and which phase they are done with. Not what to call them: a beat
+    // has no idea which chair the screen belongs to, and "Első" is a rulebook
+    // word rather than something you would say to somebody playing.
     if (!was.unitsClosed && now.unitsClosed) {
-      out.push({
-        id: nextId(),
-        kind: "done",
-        player,
-        text: `${SIDE_NAME[player]}: a gyülekezés kész`,
-      });
+      out.push({ id: nextId(), kind: "done", player, phaseDone: "units" });
     }
     if (!was.spellsClosed && now.spellsClosed) {
-      out.push({
-        id: nextId(),
-        kind: "done",
-        player,
-        text: `${SIDE_NAME[player]}: nem varázsol többet`,
-      });
+      out.push({ id: nextId(), kind: "done", player, phaseDone: "spells" });
     }
   }
 

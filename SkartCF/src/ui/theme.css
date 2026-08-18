@@ -59,6 +59,29 @@
 
   --edge: 8px; /* chamfer size for cut-timber corners */
 
+  /* ---------------------------------------------------------------- chrome
+   *
+   * The interface is not made of wood any more.
+   *
+   * Oak panels on an oak table meant every surface competed with every other
+   * one, and the thing that actually needs to carry a mood — the battlefield —
+   * was the one surface that could not, because it was the same brown as the
+   * buttons in front of it. So the chrome went neutral and metallic: near-black
+   * glass, a thin cold hairline, and no colour of its own worth noticing.
+   *
+   * `--metal` is the one accent, and it is a *variable* accent: each
+   * battlefield sets it from its own palette (see `--bf-metal` in game.css), so
+   * the frame quietly picks up the room it is standing in without any panel
+   * having to know which room that is. Everything below is the fallback for
+   * screens with no battlefield — menu, collection, editor.
+   */
+  --panel: rgba(14, 15, 17, 0.86);
+  --panel-lit: rgba(28, 30, 34, 0.9);
+  --panel-edge: rgba(198, 208, 214, 0.16);
+  --panel-edge-lit: rgba(212, 222, 228, 0.32);
+  --metal: #9aa3aa;
+  --metal-dim: #626b72;
+
   /* Grain for a single board. */
   --grain: repeating-linear-gradient(
     92deg,
@@ -127,8 +150,33 @@ textarea {
 }
 
 :focus-visible {
-  outline: 2px solid var(--flame);
+  outline: 2px solid var(--metal);
   outline-offset: 1px;
+}
+
+/* Nothing on this screen is a document.
+ *
+ * Dragging across a board dropped the browser's blue selection over half the
+ * interface, which is the single loudest colour anywhere in the game and reads
+ * exactly like an unfinished web page. The chrome opts out of selection
+ * entirely; anything genuinely worth copying — a rules box, the chronicle —
+ * opts back in below. */
+body {
+  user-select: none;
+  -webkit-user-select: none;
+}
+.cf-rules,
+.cf-name,
+.chronicle,
+.rulebook,
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+::selection {
+  background: rgba(154, 163, 170, 0.3);
+  color: var(--tallow);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -144,9 +192,10 @@ textarea {
 
 /* Cut timber: chamfered corners, grain, an iron hairline. */
 .timber {
-  background-color: var(--oak);
-  background-image: var(--grain);
-  border: 1px solid var(--iron);
+  background-color: var(--panel);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(0, 0, 0, 0.12));
+  backdrop-filter: blur(3px);
+  border: 1px solid var(--panel-edge);
   clip-path: polygon(
     var(--edge) 0,
     calc(100% - var(--edge)) 0,
@@ -196,9 +245,9 @@ textarea {
  * without a border radius: this is meant to be an iron-bound wooden plate, and
  * a rounded rectangle would be from a different game. */
 button {
-  background: linear-gradient(180deg, var(--oak-raised), var(--oak-lit));
-  border: 1px solid var(--iron);
-  border-top-color: var(--iron-bright);
+  background: linear-gradient(180deg, var(--panel-lit), var(--panel));
+  border: 1px solid var(--panel-edge);
+  border-top-color: var(--panel-edge-lit);
   border-radius: 0;
   padding: 6px 15px;
   cursor: pointer;
@@ -213,13 +262,13 @@ button {
 }
 button:hover:not(:disabled) {
   color: var(--tallow);
-  border-color: var(--ember);
+  border-color: var(--metal);
   box-shadow:
-    inset 0 1px 0 rgba(255, 233, 196, 0.1),
-    0 0 12px rgba(232, 129, 31, 0.22);
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 12px rgba(154, 163, 170, 0.18);
 }
 button:active:not(:disabled) {
-  background: linear-gradient(180deg, var(--oak-lit), var(--oak));
+  background: linear-gradient(180deg, var(--panel), var(--panel-lit));
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 button:disabled {
@@ -229,17 +278,17 @@ button:disabled {
 }
 
 button.ember {
-  background: linear-gradient(180deg, var(--ember), var(--ember-dim));
-  border-color: var(--flame);
-  color: #1c0e03;
+  background: linear-gradient(180deg, var(--metal), var(--metal-dim));
+  border-color: var(--panel-edge-lit);
+  color: #0e1013;
   font-weight: 700;
 }
 button.ember:hover:not(:disabled) {
-  background: linear-gradient(180deg, var(--flame), var(--ember));
-  color: #1c0e03;
+  filter: brightness(1.14);
+  color: #0e1013;
   box-shadow:
-    inset 0 1px 0 rgba(255, 233, 196, 0.24),
-    0 0 16px rgba(232, 129, 31, 0.4);
+    inset 0 1px 0 rgba(255, 255, 255, 0.26),
+    0 0 18px rgba(154, 163, 170, 0.3);
 }
 button.quiet {
   background: none;

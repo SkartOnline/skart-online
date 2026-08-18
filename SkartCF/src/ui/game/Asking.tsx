@@ -2,7 +2,7 @@ import { useState } from "react";
 import { promptSatisfied } from "../../engine";
 import type { Action, LocationCard, PlayerId, Prompt, Reveal, SpellCard, UnitCard } from "../../engine";
 import CardFace from "../card/CardFace";
-import { cardFor, isSpellCard, SIDE, tryLocation } from "./common";
+import { cardFor, isSpellCard, tryLocation } from "./common";
 
 /**
  * The surfaces an asking ability speaks through: the almanac panel for a pile
@@ -146,11 +146,9 @@ export function Almanac({
  * the question is about.
  */
 export function Disarming({
-  player,
   kept,
   onDone,
 }: {
-  player: PlayerId;
   /** How many cards are still in both hands, so the panel can count down. */
   kept: number;
   onDone: () => void;
@@ -158,9 +156,7 @@ export function Disarming({
   return (
     <div className="disarming timber">
       <b>Leszerelés</b>
-      <em>
-        {SIDE[player]}: dobj el, amennyit akarsz mindkét kezedből, aztán húzz vissza hétig.
-      </em>
+      <em>Dobj el, amennyit akarsz mindkét kezedből, aztán húzz vissza hétig.</em>
       <span className="disarming-count num">
         {kept} <i>lap a kézben</i>
       </span>

@@ -10,10 +10,15 @@
   overflow: hidden;
   display: grid;
   grid-template-columns: var(--rail) minmax(0, 1fr) var(--rail);
-  background-color: var(--oak-deep);
+  /* The ground is the battlefield's, not the furniture's. See the palette
+     table at the foot of this file. */
+  background-color: var(--bf-deep, #1a1a1c);
   background-image:
-    radial-gradient(70% 44% at 50% 48%, rgba(232, 129, 31, 0.17), transparent 68%),
-    var(--planks);
+    radial-gradient(72% 46% at 50% 46%, var(--bf-glow, rgba(150, 160, 170, 0.14)), transparent 70%),
+    linear-gradient(178deg, var(--bf-mid, #26272b), var(--bf-deep, #1a1a1c) 78%),
+    var(--bf-texture, none);
+  background-size: auto, auto, var(--bf-texture-size, auto);
+  transition: background-color 600ms ease;
 }
 
 .rail-left,
@@ -1447,14 +1452,21 @@ body.dragging-card {
 /* Somebody announcing they have finished. A whole turn, and the quietest one
    in the game, so it is announced at a smaller size than a step of 5.1 — it is
    news, not a new chapter. */
+/* Somebody stopping is a full stop, and the game is mostly full stops: the
+   opponent finishing the battle is the moment you find out nothing else is
+   coming. It reads at nearly the weight of a step of 5.1, and it stays up long
+   enough to be read rather than glimpsed. */
 .herald.done {
-  top: 30%;
-  padding: 7px 26px;
+  top: 31%;
+  padding: 9px 30px;
 }
 .herald.done b {
-  font-size: 21px;
-  color: var(--flame);
-  text-shadow: 0 0 18px rgba(232, 129, 31, 0.45);
+  font-size: 27px;
+  color: var(--tallow);
+}
+.herald.done em {
+  font-size: 15px;
+  color: var(--metal);
 }
 
 /* The card that was just played, printed at full size on the side of the board.
@@ -2945,4 +2957,147 @@ body.dragging-card {
   50% {
     opacity: 1;
   }
+}
+
+
+/* ------------------------------------------------- the ground you fight on
+
+ * Fifteen battlefields, fifteen rooms.
+ *
+ * These are placeholders in the same sense the plank background was one: three
+ * colours and a texture, no art. What they are actually for is the plumbing —
+ * every one of them sets `--bf-metal`, and the chrome reads that, so the rails,
+ * the buttons and the panels take their one accent from whichever board is on
+ * the table. Dropping a painting in later means adding `--bf-texture` to a
+ * block here and nothing else in the codebase moves.
+ *
+ * The palette rule throughout: muted, slightly off, and never competing with
+ * the cards. A card is the brightest thing on screen and has to stay that way,
+ * so no ground goes above roughly a fifth of full brightness.
+ */
+
+.field {
+  /* The neutral room, for anything without a block of its own. */
+  --bf-deep: #17181b;
+  --bf-mid: #24262b;
+  --bf-glow: rgba(150, 162, 172, 0.13);
+  --bf-metal: #97a0a8;
+  /* A faint weave, so the ground is a surface rather than a gradient. */
+  --bf-texture: repeating-linear-gradient(
+      104deg,
+      rgba(0, 0, 0, 0.16) 0 2px,
+      rgba(255, 255, 255, 0.012) 2px 5px
+    ),
+    repeating-linear-gradient(14deg, rgba(0, 0, 0, 0.1) 0 3px, rgba(255, 255, 255, 0.01) 3px 7px);
+}
+
+/* Whatever the room is, the frame borrows its metal. */
+.field {
+  --metal: var(--bf-metal);
+}
+
+/* A back alley: wet brick and soot, dirty grey-brown. */
+.field[data-bf="sikator"] {
+  --bf-deep: #1c1815;
+  --bf-mid: #322a24;
+  --bf-glow: rgba(190, 160, 120, 0.1);
+  --bf-metal: #9c8b76;
+}
+/* The black market: plum shadow and cold silver. */
+.field[data-bf="feketepiac"] {
+  --bf-deep: #16131b;
+  --bf-mid: #272033;
+  --bf-glow: rgba(170, 150, 200, 0.12);
+  --bf-metal: #9b8fae;
+}
+/* An acacia stand: dusty olive under hard light. */
+.field[data-bf="akaczos"] {
+  --bf-deep: #191c15;
+  --bf-mid: #2c3324;
+  --bf-glow: rgba(190, 200, 140, 0.11);
+  --bf-metal: #9aa87c;
+}
+/* The baker's bridge: cold river stone. */
+.field[data-bf="a_pek_hidja"] {
+  --bf-deep: #14181b;
+  --bf-mid: #252e35;
+  --bf-glow: rgba(150, 180, 200, 0.12);
+  --bf-metal: #8ea2ad;
+}
+/* The mage circle: muted indigo, the one properly cool room. */
+.field[data-bf="maguskor"] {
+  --bf-deep: #131520;
+  --bf-mid: #232840;
+  --bf-glow: rgba(140, 150, 210, 0.16);
+  --bf-metal: #949ac6;
+}
+/* Lingadori library: lamplight on old paper and gilt. */
+.field[data-bf="lingadori_konyvtar"] {
+  --bf-deep: #1a150f;
+  --bf-mid: #2f2719;
+  --bf-glow: rgba(220, 185, 120, 0.14);
+  --bf-metal: #b8a170;
+}
+/* The harbour: brine and verdigris. */
+.field[data-bf="kikoto"] {
+  --bf-deep: #101a1b;
+  --bf-mid: #1d3033;
+  --bf-glow: rgba(130, 190, 185, 0.12);
+  --bf-metal: #83a8a4;
+}
+/* A moonlit clearing: silver-green, the brightest ground in the set. */
+.field[data-bf="holdfenyes_tisztas"] {
+  --bf-deep: #151d1b;
+  --bf-mid: #27352f;
+  --bf-glow: rgba(190, 215, 200, 0.17);
+  --bf-metal: #adbfb2;
+}
+/* The mill: flour dust and dun sacking. */
+.field[data-bf="malom"] {
+  --bf-deep: #1a1713;
+  --bf-mid: #2e2820;
+  --bf-glow: rgba(210, 190, 150, 0.12);
+  --bf-metal: #ab9a79;
+}
+/* The garden of plenty: soft green going to gold. */
+.field[data-bf="bosegkert"] {
+  --bf-deep: #161d13;
+  --bf-mid: #283420;
+  --bf-glow: rgba(195, 205, 130, 0.13);
+  --bf-metal: #a6b47b;
+}
+/* The cursed forest: sick green, almost no light. */
+.field[data-bf="elatkozott_rengeteg"] {
+  --bf-deep: #0e120e;
+  --bf-mid: #1b241a;
+  --bf-glow: rgba(120, 160, 115, 0.1);
+  --bf-metal: #75906c;
+}
+/* The fog meadow: flat pale grey, nothing to see, which is the point. */
+.field[data-bf="kodret"] {
+  --bf-deep: #191b1b;
+  --bf-mid: #2c3030;
+  --bf-glow: rgba(200, 208, 208, 0.14);
+  --bf-metal: #9ba3a3;
+}
+/* Plázs: grass down to the water. */
+.field[data-bf="plazs"] {
+  --bf-deep: #141d12;
+  --bf-mid: #27381f;
+  --bf-glow: rgba(170, 205, 130, 0.14);
+  --bf-metal: #9cba7c;
+}
+/* Umbra: dark grey, and darker than anything else here. */
+.field[data-bf="umbra"] {
+  --bf-deep: #121213;
+  --bf-mid: #202124;
+  --bf-glow: rgba(160, 165, 175, 0.1);
+  --bf-metal: #8b8f95;
+}
+/* The endless waste: bleached sand under a white sky. */
+.field[data-bf="vegtelen_puszta"] {
+  --bf-deep: #1a1714;
+  --bf-mid: #302a22;
+  --bf-glow: rgba(225, 205, 165, 0.13);
+  --bf-metal: #b3a289;
 }

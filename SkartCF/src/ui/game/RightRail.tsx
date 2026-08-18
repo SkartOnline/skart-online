@@ -1,6 +1,6 @@
 import { boardTotal, getLocation, remainingCap, slotsOf, visibleCapSpent, visibleTotal } from "../../engine";
 import type { GameState, HandCard, PlayerId } from "../../engine";
-import { SIDE, tryCard } from "./common";
+import { seatName, tryCard } from "./common";
 
 /**
  * The right rail: each player's counters and piles, with the ledger between
@@ -29,12 +29,15 @@ export function Counters({
   state,
   side,
   viewer,
+  botSide,
   bare,
   onTrack,
 }: {
   state: GameState;
   side: PlayerId;
   viewer: PlayerId;
+  /** The seat the machine plays, so the heading can say Gép rather than a number. */
+  botSide: PlayerId | null;
   bare: boolean;
   onTrack: (what: Tracking | null) => void;
 }) {
@@ -53,7 +56,7 @@ export function Counters({
   return (
     <div className={`counters ${side}`}>
       <span className="who">
-        {SIDE[side]}
+        {seatName(side, viewer, botSide)}
         <b
           className="held-fields num"
           onMouseEnter={() => onTrack({ kind: "score", side })}
@@ -198,7 +201,7 @@ export function Ledger({ state, tracking }: { state: GameState; tracking: Tracki
     const played = state.locations.filter((l) => l.winner !== null);
     return (
       <div className="ledger">
-        <b className="ledger-head">{SIDE[tracking.side]}: eddigi csaták</b>
+        <b className="ledger-head">Eddigi csaták</b>
         <ul className="ledger-list">
           {played.length === 0 && <li className="faint">Még nincs lejátszott csata.</li>}
           {played.map((l, i) => (
@@ -221,7 +224,7 @@ export function Ledger({ state, tracking }: { state: GameState; tracking: Tracki
   const lines = tally(cards);
   const label =
     tracking.kind === "grave"
-      ? `${SIDE[tracking.side]}: temető`
+      ? "Temető"
       : tracking.pile === "unit"
         ? "Egységpakli"
         : "Varázslatpakli";

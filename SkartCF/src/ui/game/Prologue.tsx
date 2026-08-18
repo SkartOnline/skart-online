@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { announcedBattlefields } from "../../engine";
 import type { GameState, PlayerId } from "../../engine";
 import CardFace from "../card/CardFace";
-import { SIDE, tryLocation } from "./common";
+import { seatName, tryLocation } from "./common";
 import { anchorRect, flyBack } from "./theatre";
 
 /**
@@ -80,7 +80,15 @@ function monte(i: number): React.CSSProperties {
   } as React.CSSProperties;
 }
 
-export default function Prologue({ state, onDone }: { state: GameState; onDone: () => void }) {
+export default function Prologue({
+  state,
+  botSide,
+  onDone,
+}: {
+  state: GameState;
+  botSide: PlayerId | null;
+  onDone: () => void;
+}) {
   const [act, setAct] = useState<Act>("roster");
 
   useEffect(() => {
@@ -151,7 +159,7 @@ export default function Prologue({ state, onDone }: { state: GameState; onDone: 
         <div className="prologue-sides">
           {(["p1", "p2"] as PlayerId[]).map((side) => (
             <div className={`prologue-side ${side}`} key={side}>
-              <b>{SIDE[side]}</b>
+              <b>{seatName(side, state.turn, botSide)}</b>
               <span className="prologue-brings">három csatateret hoz</span>
               <ul className="prologue-fan">
                 {brought

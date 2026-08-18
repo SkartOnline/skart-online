@@ -46,10 +46,30 @@ export default function Theatre({
                   told the name of. */}
               {locationText(frame.cardId) && <i>{locationText(frame.cardId)}</i>}
             </>
+          ) : frame.kind === "done" ? (
+            // Somebody stopping. Said to the person watching, in the person
+            // they are: you finished, or the other one did.
+            <>
+              <b>
+                {frame.player === viewer ? "Végeztél" : "Az ellenfeled végzett"}
+              </b>
+              <em>{frame.phaseDone === "spells" ? "a csatával" : "a gyülekezéssel"}</em>
+            </>
           ) : (
             <>
               <b>{frame.text}</b>
               {frame.detail && <em>{frame.detail}</em>}
+              {frame.totals && (
+                <em>
+                  {viewer === "p1" ? frame.totals.p1 : frame.totals.p2} :{" "}
+                  {viewer === "p1" ? frame.totals.p2 : frame.totals.p1} —{" "}
+                  {frame.winner === "void"
+                    ? "senkié"
+                    : frame.winner === viewer
+                      ? "a tiéd"
+                      : "az ellenfeledé"}
+                </em>
+              )}
             </>
           )}
         </div>
