@@ -163,17 +163,27 @@
 .rail-gap {
   flex: 1;
 }
+/* The head of the left rail: the way out, and the match score.
+ *
+ * The score is the single most important number on this screen and it used to
+ * be set at the same weight as the button beside it. It is a scoreboard now —
+ * ruled off underneath, spaced, and the two sides in their own colours — which
+ * is the same treatment the piles get in the right rail. */
 .rail-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(116, 82, 44, 0.4);
 }
 .rail-top .score {
   display: flex;
-  gap: 4px;
-  font-size: 20px;
-  font-weight: 600;
+  gap: 5px;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
 }
 .rail-top .score .p1 {
   color: var(--brass);
@@ -186,22 +196,41 @@
   --card-w: 150px;
   align-self: center;
 }
+/* What battlefield this is, and what it costs to fight on. Boxed like the
+   counters opposite it, so the two rails read as a matched pair rather than as
+   a panel on one side and loose text on the other. */
 .rail-note {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 8px;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 5px 8px;
   font-size: 12px;
+  letter-spacing: 0.05em;
   color: var(--ash);
   font-variant-caps: small-caps;
+  background: rgba(23, 15, 8, 0.55);
+  border: 1px solid var(--iron);
 }
 .rail-note .cap {
   color: var(--flame);
+  font-weight: 600;
+}
+
+/* The tools. Full width and evenly ruled, because four controls at four
+   different widths hanging off the left edge is the thing that made this corner
+   look unfinished next to the rest of the screen. */
+.rail-tools button {
+  width: 100%;
+  text-align: center;
 }
 .rail-tools {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 5px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(116, 82, 44, 0.4);
 }
 
 /* ------------------------------------------------------- player counters */
@@ -1063,15 +1092,30 @@
 
 /* The turn cue floats over the board, just clear of the near fan. It is the
    only chrome the board tolerates, so it stays to one line. */
+/* Whose turn it is, and the one thing they may announce. It carries the acting
+   player's colour down its edge, the same way the counters do, so "who is on"
+   is answerable from the corner of your eye. */
 .turn-cue {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 5px;
-  padding: 6px 8px;
+  align-items: stretch;
+  gap: 6px;
+  padding: 7px 9px;
   font-size: 12.5px;
   background: rgba(23, 15, 8, 0.72);
   border: 1px solid var(--iron);
+  border-left: 3px solid var(--iron-bright);
+}
+.turn-cue:has(.turn.p1) {
+  border-left-color: var(--brass);
+}
+.turn-cue:has(.turn.p2) {
+  border-left-color: var(--blood);
+}
+.turn-cue .faint {
+  font-size: 11px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.06em;
 }
 .turn-cue:empty {
   display: none;
@@ -1079,7 +1123,9 @@
 .turn-cue .turn {
   font-weight: 600;
   font-size: 13px;
-  line-height: 1.2;
+  line-height: 1.25;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.05em;
 }
 .turn-cue .turn.p1 {
   color: var(--brass);
@@ -1115,13 +1161,30 @@
   background: #4a3358;
   border: 1px solid #1c1226;
 }
+/* The reveal switch, dressed as one of the tools rather than as a stray form
+   control: same box, same small caps, and it lights up when it is on so there
+   is never a doubt about whether you are looking at a game or at the answers. */
 .swap {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 13px;
+  justify-content: center;
+  gap: 6px;
+  padding: 3px 9px;
+  font-size: 12px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.06em;
   color: var(--ash);
   cursor: pointer;
+  border: 1px solid transparent;
+  transition: color 120ms, border-color 120ms;
+}
+.swap:hover {
+  color: var(--tallow);
+  border-color: var(--iron);
+}
+.swap:has(input:checked) {
+  color: var(--flame);
+  border-color: var(--ember);
 }
 .toll {
   position: absolute;

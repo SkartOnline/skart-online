@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyAction, createGame } from "../../engine";
 import type { GameState, SlotId } from "../../engine";
-import { BEAT_MS, beatsBetween } from "./theatre";
+import { BEAT_MS, beatsBetween, boardAsOf } from "./theatre";
 
 /**
  * The theatre's clock, which is the difference between a game you can follow and
@@ -106,5 +106,131 @@ describe("the Mustra, one card at a time", () => {
     for (const beat of beatsBetween(before, after)) {
       expect(BEAT_MS[beat.kind]).toBeGreaterThanOrEqual(400);
     }
+  });
+});
+
+describe("the board waits for the beat", () => {
+  it("carries the position each beat replaced, so the screen can lag behind", () => {
+    const before = opening();
+    hide(before, "p1", "p1.F1");
+    hide(before, "p2", "p2.F1");
+    before.players.p1.flags.unitsClosed = true;
+    before.players.p2.flags.unitsClosed = true;
+    const after = applyAction(before, { type: "declareUnitsDone", player: "p1" });
+
+    const beats = beatsBetween(before, after);
+    const reveals = beats.filter((b) => b.kind === "reveal");
+    expect(reveals.length).toBeGreaterThan(0);
+
+    // Replaying every beat that has not started yet has to put the board back
+    // to something this game actually passed through — that is the whole basis
+    // of drawing a lagging position, and inventing tiles would show the player
+    // a board that never existed.
+    for (const beat of reveals) {
+      expect(beat.hold?.length).toBe(1);
+      const held = beat.hold![0];
+      expect(held.slot).toBe(beat.slot);
+      expect(held.unit?.faceDown).toBe(true);
+      expect(held.unit?.uid).toBe(after.board[beat.slot!]?.uid);
+    }
+  });
+
+  it("keeps a unit standing where it set off from until its walk plays", () => {
+    const before = opening();
+    // A stag advances at the Mustra, so the diff carries a march.
+    before.board["p2.B2"] = {
+      uid: "walker",
+      cardId: "szarvas",
+      owner: "p2",
+      slot: "p2.B2",
+      faceDown: false,
+      paidCost: 0,
+      order: 1,
+      setPower: null,
+      damage: 0,
+      powerDelta: 0,
+      rings: 0,
+      placed: [],
+      immunities: [],
+      fizzleShields: [],
+      locked: false,
+      lockedPower: 0,
+      spellSpent: {},
+      freeCastsUsed: 0,
+    };
+    before.players.p1.flags.unitsClosed = true;
+    before.players.p2.flags.unitsClosed = true;
+    const after = applyAction(before, { type: "declareUnitsDone", player: "p1" });
+
+    const march = beatsBetween(before, after).find((b) => b.kind === "march");
+    expect(march).toBeDefined();
+    // Two tiles: the one it is arriving at, empty until it gets there, and the
+    // one it left, still holding it until then. A unit that vanished from its
+    // old tile the instant the action landed and appeared at the new one a
+    // second later is not a walk, it is a teleport with a delay.
+    const slots = march!.hold!.map((h) => h.slot);
+    expect(slots).toContain(march!.slot);
+    expect(slots.length).toBe(2);
+    const origin = march!.hold!.find((h) => h.slot !== march!.slot)!;
+    expect(origin.unit?.uid).toBe("walker");
+  });
+});
+
+describe("boardAsOf", () => {
+  /** The beats as the screen holds them: each with the moment it begins. */
+  function live(before: GameState, after: GameState, at = 0) {
+    return beatsBetween(before, after).map((b) => ({ ...b, startsAt: at + b.at }));
+  }
+
+  function mustraPair() {
+    const before = opening();
+    hide(before, "p1", "p1.F1");
+    hide(before, "p1", "p1.F2");
+    hide(before, "p2", "p2.F1");
+    hide(before, "p2", "p2.F2");
+    before.players.p1.flags.unitsClosed = true;
+    before.players.p2.flags.unitsClosed = true;
+    return { before, after: applyAction(before, { type: "declareUnitsDone", player: "p1" }) };
+  }
+
+  it("shows nothing turned over before the first reveal plays", () => {
+    const { before, after } = mustraPair();
+    const beats = live(before, after);
+    const shown = boardAsOf(after, beats, -1);
+    // The rules have already flipped all four. The screen has not.
+    for (const slot of ["p1.F1", "p1.F2", "p2.F1", "p2.F2"] as SlotId[]) {
+      expect(after.board[slot]?.faceDown).toBe(false);
+      expect(shown.board[slot]?.faceDown).toBe(true);
+    }
+  });
+
+  it("turns them over one at a time as their moments arrive", () => {
+    const { before, after } = mustraPair();
+    const beats = live(before, after);
+    const reveals = beats
+      .filter((b) => b.kind === "reveal")
+      .sort((a, b) => a.startsAt - b.startsAt);
+
+    // Sampled just after each reveal's moment, exactly that many cards are up.
+    reveals.forEach((reveal, i) => {
+      const shown = boardAsOf(after, beats, reveal.startsAt);
+      const faceUp = reveals.filter((r) => !shown.board[r.slot!]?.faceDown).length;
+      expect(faceUp).toBe(i + 1);
+    });
+  });
+
+  it("catches up with the truth once every beat has played", () => {
+    const { before, after } = mustraPair();
+    const beats = live(before, after);
+    const last = Math.max(...beats.map((b) => b.startsAt));
+    const shown = boardAsOf(after, beats, last + 1);
+    // Whatever the screen does on the way, it must land on the real position:
+    // a board that stayed lagging would be a board that lies.
+    expect(shown.board).toEqual(after.board);
+  });
+
+  it("hands back the state untouched when nothing is pending", () => {
+    const { before, after } = mustraPair();
+    expect(boardAsOf(after, live(before, after, -99999), 0)).toBe(after);
   });
 });

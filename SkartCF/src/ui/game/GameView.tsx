@@ -19,6 +19,7 @@ import {
   BEAT_MS,
   beatsBetween,
   beginCardDrag,
+  boardAsOf,
   captureHandCard,
   flyBack,
   flyTo,
@@ -334,12 +335,15 @@ function Field(props: FieldProps) {
     () => props.shows.filter((s) => s.startsAt <= now),
     [props.shows, now],
   );
+  /** The position the screen is showing, which trails the real one by a beat. */
+  const shown = useMemo(() => boardAsOf(state, props.beats, now), [state, props.beats, now]);
+
   const asking = pendingPrompt(state);
   const pending = state.resolution?.pending ?? null;
   const [logOpen, setLogOpen] = useState(false);
   /** The tile being read. Never a rule, only what the loupe beside the board shows. */
   const [inspect, setInspect] = useState<SlotId | null>(null);
-  const inspected = inspect ? state.board[inspect] : null;
+  const inspected = inspect ? shown.board[inspect] : null;
   /** The card in hand being read, and the one currently in the air. */
   const [reading, setReading] = useState<string | null>(null);
   /** The same, for a card in the enemy's fan this player has peeked at. */
@@ -608,8 +612,8 @@ function Field(props: FieldProps) {
   }, [beats]);
 
   const fallen = useMemo(
-    () => beats.filter((b) => b.kind === "fall" && b.slot && !state.board[b.slot]),
-    [beats, state.board],
+    () => beats.filter((b) => b.kind === "fall" && b.slot && !shown.board[b.slot]),
+    [beats, shown.board],
   );
 
   /**
@@ -625,10 +629,15 @@ function Field(props: FieldProps) {
     const out = new Map<SlotId, string>();
     const cast = [...beats].reverse().find((b) => b.kind === "cast" && b.slot);
     if (!cast?.slot) return out;
+    // In the order the sentence goes: this card, thrown by this unit, at that
+    // one. The target waits, because naming both ends at once is the thing that
+    // made a spell unreadable — you cannot follow an arrow whose two ends
+    // appear in the same frame.
     out.set(cast.slot, "caster");
-    if (cast.targetSlot && cast.targetSlot !== cast.slot) {
-      const caster = state.board[cast.slot];
-      const target = state.board[cast.targetSlot];
+    const since = now - cast.startsAt;
+    if (since >= 520 && cast.targetSlot && cast.targetSlot !== cast.slot) {
+      const caster = shown.board[cast.slot];
+      const target = shown.board[cast.targetSlot];
       // Whose tile it is, when the unit that was standing there has already
       // been killed by the very spell being shown.
       const targetOwner = target?.owner ?? (cast.targetSlot.slice(0, 2) as PlayerId);
@@ -636,7 +645,7 @@ function Field(props: FieldProps) {
       out.set(cast.targetSlot, friendly ? "friend" : "foe");
     }
     return out;
-  }, [beats, state.board]);
+  }, [beats, shown.board, now]);
 
   const classes = ["field"];
   if (!over) classes.push("opening");
@@ -675,7 +684,7 @@ function Field(props: FieldProps) {
 
       <div className="arena">
         <Board
-          state={state}
+          state={shown}
           open={open}
           onPick={pickSlot}
           bare={bare}
@@ -692,7 +701,7 @@ function Field(props: FieldProps) {
           it and it never covers the units it is being compared against. */}
       {inspected && (
         <div className={`loupe ${inspected.owner === viewer ? "mine" : "theirs"}`}>
-          <Loaded unit={inspected} state={state} />
+          <Loaded unit={inspected} state={shown} />
         </div>
       )}
 

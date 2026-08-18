@@ -58,6 +58,18 @@ export interface Beat {
   count?: number;
   /** For a cast: the tile it was aimed at. `slot` is the caster's. */
   targetSlot?: SlotId;
+  /**
+   * The tiles this beat is about, and what stood on them before it happened.
+   *
+   * This is what lets the board wait. The engine settles a whole chain inside
+   * one action, so by the time React renders, the victim of a Belépő is already
+   * off the board — the beat that was supposed to show it dying was decorating
+   * a tile that had been empty since before the animation started. Holding the
+   * old occupant here lets the screen keep drawing the position as it was until
+   * the beat's moment arrives, so a play, its trigger, and what the trigger
+   * killed happen in that order instead of all at once.
+   */
+  hold?: { slot: SlotId; unit: GameState["board"][SlotId] }[];
   text?: string;
   /** A second line under the banner. Only the scored step uses it. */
   detail?: string;
@@ -144,7 +156,9 @@ const BEAT_GAP: Record<BeatKind, number> = {
   battlefield: 0,
   step: 0,
   done: 900,
-  cast: 260,
+  // A spell is four things in a row — the card, who threw it, what it hit, and
+  // what that did — and they only read as an order if the last of them waits.
+  cast: 1000,
   veil: 260,
   land: 260,
   reveal: 1000,
@@ -327,16 +341,25 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
     const before = prev.board[slot];
     const after = next.board[slot];
     if (after && (!before || before.uid !== after.uid)) {
+      const walked = wasAt.get(after.uid);
       out.push({
         id: nextId(),
         // Only a card coming from outside the board is a play worth showing in
         // the panel; a unit that walked here just lands.
-        kind: after.faceDown ? "veil" : wasAt.has(after.uid) ? "march" : "land",
+        kind: after.faceDown ? "veil" : walked ? "march" : "land",
         player: after.owner,
         // A face-down unit is not named. The tile shows a back and so does the
         // panel, because the panel is fed from the same beat.
-        cardId: after.faceDown || wasAt.has(after.uid) ? undefined : after.cardId,
+        cardId: after.faceDown || walked ? undefined : after.cardId,
         slot,
+        // The tile is empty until it arrives — and for a walk, it is still
+        // standing where it set off from until then.
+        hold: walked
+          ? [
+              { slot, unit: before ?? null },
+              { slot: walked, unit: prev.board[walked] },
+            ]
+          : [{ slot, unit: before ?? null }],
       });
     } else if (after && before && before.faceDown && !after.faceDown) {
       out.push({
@@ -345,6 +368,7 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
         player: after.owner,
         cardId: after.cardId,
         slot,
+        hold: [{ slot, unit: before }],
       });
     } else if (before && !after) {
       // Still on the board somewhere else: it moved, and the tile it left needs
@@ -356,9 +380,16 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
         player: before.owner,
         cardId: before.faceDown ? undefined : before.cardId,
         slot,
+        hold: [{ slot, unit: before }],
       });
     } else if (before && after && struck(before, after)) {
-      out.push({ id: nextId(), kind: "strike", player: after.owner, slot });
+      out.push({
+        id: nextId(),
+        kind: "strike",
+        player: after.owner,
+        slot,
+        hold: [{ slot, unit: before }],
+      });
     }
   }
 
@@ -420,6 +451,40 @@ function stagger(beats: Omit<Beat, "at">[]): Beat[] {
     clock = at + BEAT_GAP[beat.kind];
     return { ...beat, at };
   });
+}
+
+/**
+ * The board as it stood at the last beat that has actually played.
+ *
+ * The engine settles a whole chain inside one action, so the real board is
+ * always the *finished* position: Bérgyilkos goes down and the unit it killed
+ * is gone before the card has finished flying out of the hand. Every beat after
+ * that was decorating a tile that had been empty the whole time, which is why a
+ * death looked instant however carefully the timings were set.
+ *
+ * So the screen draws a position that lags. Each beat carries what stood on its
+ * tiles beforehand; every beat whose moment has not come yet puts its tiles
+ * back, newest first, so the oldest pending beat wins and what you see is the
+ * earliest state still owed.
+ *
+ * It can only ever lag. Nothing here invents a position — every tile is either
+ * the true one or one this game really passed through a moment ago — and the
+ * rules never read it.
+ */
+export function boardAsOf<T extends { startsAt: number } & Beat>(
+  state: GameState,
+  beats: T[],
+  now: number,
+): GameState {
+  const waiting = beats
+    .filter((b) => b.startsAt > now && b.hold?.length)
+    .sort((a, b) => b.startsAt - a.startsAt);
+  if (waiting.length === 0) return state;
+  const board = { ...state.board };
+  for (const beat of waiting) {
+    for (const held of beat.hold!) board[held.slot] = held.unit;
+  }
+  return { ...state, board };
 }
 
 // ---------------------------------------------------------------------------

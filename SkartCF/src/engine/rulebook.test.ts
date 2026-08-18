@@ -595,6 +595,29 @@ describe("egyidejű Mustra képességek", () => {
     expect(after.board["p1.B2"]?.cardId).toBe("szarvas");
   });
 
+  it("protects a unit Bol'Jin was already watching, because that is not a trigger", () => {
+    const state = blankState("umbra");
+    state.locations[0].broughtBy = "p2";
+    state.players.p1.spellHand = [];
+    state.players.p2.spellHand = [];
+
+    place(state, "bergyilkos", "p1.F1");
+    state.board["p1.F1"]!.faceDown = true;
+    // Bol'Jin makes the unit in front of him Sérthetetlen. He is hidden too, so
+    // he turns over in the same Mustra — but the reveal happens before any
+    // ability fires, and what he grants is a static rather than something that
+    // goes off. It is simply true of the board by the time anybody picks.
+    place(state, "boljin", "p2.B1");
+    state.board["p2.B1"]!.faceDown = true;
+    place(state, "patkany", "p2.F1"); // in his column front, and the weakest
+
+    const after = runMustra(state);
+    // Untargetable when the shot was aimed means it was never aimed here. There
+    // is no race to settle: nothing was in the air.
+    expect(after.board["p2.F1"]).not.toBeNull();
+    expect(after.board["p2.B1"]).not.toBeNull();
+  });
+
   it("gives a genuine clash to the player who brought the battlefield", () => {
     // Two stags with one empty column between them. Each advances until the way
     // is blocked, and the way is blocked by the other one — so whoever goes
