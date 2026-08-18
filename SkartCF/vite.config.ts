@@ -5,6 +5,10 @@ export default defineConfig({
   plugins: [react()],
   // Relative base so a static build works from any subdirectory.
   base: "./",
+  // Honour an assigned port (tooling sets PORT); fall back to vite's default.
+  server: {
+    port: process.env.PORT ? Number(process.env.PORT) : undefined,
+  },
   build: {
     // Fonts and any other asset get base64'd into the CSS, which is what lets
     // the whole site ship as one self-contained HTML file.

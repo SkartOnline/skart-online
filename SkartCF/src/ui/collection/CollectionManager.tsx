@@ -1,3 +1,4 @@
+import "./collection.css";
 import { useMemo, useState } from "react";
 import {
   BASE_CARD_SET,

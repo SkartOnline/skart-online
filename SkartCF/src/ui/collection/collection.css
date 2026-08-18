@@ -1,0 +1,276 @@
+/* ------------------------------------------------------------- the vault */
+
+.vault {
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+.vault-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 322px;
+  gap: 12px;
+  padding: 12px;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* The gallery: two rows of four, and the sieve under them. */
+.gallery {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 10px;
+  min-height: 0;
+  min-width: 0;
+}
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, auto);
+  gap: 10px;
+  place-content: center;
+  place-items: center;
+  min-height: 0;
+  overflow: hidden;
+}
+/* The width has to be set on the card itself: `.cardface` declares its own
+   --card-w, so a value inherited from an ancestor would never win. Two rows of
+   cards at 88/63 have to clear the sieve and the crossbar, which is what the
+   dvh term pays for. */
+.gallery-grid .cardface {
+  --card-w: clamp(104px, min(calc((100vw - 400px) / 4.2), calc((100dvh - 168px) * 63 / 176)), 250px);
+  cursor: pointer;
+  transition: transform 110ms, border-color 110ms;
+}
+.gallery-slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.gallery-slot > button {
+  background: none;
+  border: none;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  cursor: default;
+}
+.gallery-slot > button.addable {
+  cursor: pointer;
+}
+.gallery-slot > button.addable:hover .cardface {
+  border-color: var(--ember);
+  transform: translateY(-3px);
+}
+/* Dim the card, never the button: `button:disabled` would take the whole face
+   down to a third of its opacity and the art would read as see-through. */
+.gallery-slot.full .cardface {
+  filter: grayscale(0.5) brightness(0.68);
+}
+.gallery-slot .have {
+  position: absolute;
+  right: -6px;
+  top: -6px;
+  z-index: 3;
+  min-width: 22px;
+  padding: 0 5px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  color: #1c0e03;
+  background: var(--brass);
+  border: 1px solid var(--oak-pitch);
+}
+
+.sieve {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px;
+}
+.sieve .costs {
+  display: flex;
+  gap: 3px;
+}
+.sieve .costs button {
+  min-width: 27px;
+  padding: 2px 6px;
+  font-variant-numeric: tabular-nums;
+}
+.sieve button.here {
+  background: linear-gradient(180deg, var(--ember), var(--ember-dim));
+  border-color: var(--flame);
+  color: #1c0e03;
+}
+.sieve .grow {
+  flex: 1;
+  min-width: 120px;
+}
+.sieve .grow input {
+  width: 100%;
+}
+.sieve .pager {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ash);
+}
+
+/* The right rail: the deck list, then the open deck's cards in its place. */
+.rail-deck {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 10px 11px;
+  min-height: 0;
+}
+.rail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rail-head h3 {
+  font-size: 17px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rail-scroll {
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--iron) transparent;
+}
+.deck-index {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.deck-index li button {
+  width: 100%;
+  text-align: left;
+  background: rgba(23, 15, 8, 0.5);
+  border: 1px solid var(--iron);
+  border-left-width: 3px;
+  padding: 8px 11px;
+  margin-bottom: 5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 16px;
+}
+.deck-index li button:hover {
+  border-color: var(--ember);
+  border-left-color: var(--ember);
+  color: var(--tallow);
+}
+.deck-index .count {
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--ash);
+  font-variant-numeric: tabular-nums;
+}
+
+/* One line per card in the open deck: cost, name, copies. */
+.deck-lines {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+}
+.deck-lines .head {
+  padding: 3px 4px;
+  font-size: 13px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.04em;
+  color: var(--ember);
+  border-bottom: 1px solid var(--iron);
+}
+.deck-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 3px 6px 3px 0;
+  margin: 0;
+  background: rgba(23, 15, 8, 0.42);
+  border: 1px solid transparent;
+  border-bottom: 1px solid rgba(116, 82, 44, 0.35);
+  font-weight: 400;
+}
+.deck-line:hover {
+  background: rgba(74, 47, 24, 0.7);
+  border-color: var(--ember);
+}
+.deck-line .cost {
+  flex: none;
+  width: 26px;
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--flame);
+  background: rgba(0, 0, 0, 0.4);
+}
+.deck-line .name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--parchment);
+}
+.deck-line .copies {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--brass);
+  font-weight: 600;
+}
+.deck-line.legendary .copies {
+  color: var(--flame);
+}
+.deck-line .revealed {
+  right: calc(100% + 10px);
+}
+
+.tally-row {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ash);
+}
+.tally-row b {
+  color: var(--tallow);
+}
+.tally-row .off b {
+  color: var(--flame);
+}
+
+.bf-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bf-picks select {
+  width: 100%;
+  font-size: 13px;
+  padding: 3px 6px;
+}
+
+
+/* ------------------------------------------------------------------ narrow */
+
+@media (max-width: 1180px) {
+  .gallery-grid .cardface {
+    --card-w: clamp(84px, min(calc((100vw - 340px) / 4.2), calc((100dvh - 168px) * 63 / 176)), 250px);
+  }
+  .vault-body {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
+}

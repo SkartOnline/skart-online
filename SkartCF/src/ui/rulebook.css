@@ -1,0 +1,91 @@
+/* ------------------------------------------------------------- the rulebook */
+
+.tome {
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+.tome-page {
+  overflow-y: auto;
+  min-height: 0;
+  padding: 26px 20px 60px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--iron) transparent;
+}
+.prose {
+  width: min(78ch, 92vw);
+  margin: 0 auto;
+  color: var(--parchment);
+}
+.prose h1 {
+  font-size: 34px;
+  margin: 0 0 18px;
+  color: var(--tallow);
+}
+.prose h2 {
+  font-size: 25px;
+  margin: 34px 0 10px;
+  color: var(--flame);
+}
+.prose h3 {
+  font-size: 19px;
+  margin: 24px 0 8px;
+  color: var(--tallow);
+}
+.prose h4 {
+  font-size: 16px;
+  margin: 18px 0 6px;
+  font-variant-caps: small-caps;
+  color: var(--ash);
+}
+.prose p {
+  margin: 0 0 12px;
+}
+.prose ul,
+.prose ol {
+  margin: 0 0 14px;
+  padding-left: 22px;
+}
+.prose li {
+  margin-bottom: 5px;
+}
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--iron);
+  margin: 26px 0;
+}
+.prose b {
+  color: var(--tallow);
+}
+.prose code {
+  color: var(--flame);
+}
+.prose pre {
+  background: var(--oak-pitch);
+  border: 1px solid var(--iron);
+  padding: 10px 12px;
+  overflow-x: auto;
+  font-size: 12px;
+}
+.prose-table {
+  overflow-x: auto;
+  margin: 0 0 16px;
+}
+.prose table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+}
+.prose th,
+.prose td {
+  border: 1px solid var(--iron);
+  padding: 4px 9px;
+  text-align: left;
+}
+.prose th {
+  background: rgba(74, 47, 24, 0.6);
+  font-variant-caps: small-caps;
+  color: var(--tallow);
+}
+

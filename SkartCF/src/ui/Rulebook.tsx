@@ -1,3 +1,4 @@
+import "./rulebook.css";
 import { useMemo, useState } from "react";
 import fullSource from "../../docs/szabaly-teljes.md?raw";
 import quickSource from "../../docs/szabaly-gyors.md?raw";

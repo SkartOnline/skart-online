@@ -36,11 +36,11 @@ public site.
 | Power, statics, positional bonuses | `src/engine/power.ts` (`basePower` vs `power` — see invariants) |
 | Slot adjacency, ranges | `src/engine/grid.ts` |
 | Game setup, decks, rule config | `src/engine/setup.ts`, `src/engine/cards.ts` (registry + `validateCardSet`) |
-| Game screen UI | `src/ui/game/GameView.tsx` (large — search, don't read whole), `Board.tsx`, `theatre.ts` (state-diff → animation beats), `NewGame.tsx`, `bot.ts` |
+| Game screen UI | `src/ui/game/`: `GameView.tsx` (orchestrator: state, undo, beats, bot timer, drag), `LeftRail.tsx` (battlefield card, turn cue, tools, annals), `RightRail.tsx` (counters, piles, ledger), `Hands.tsx` (both hands, hover reading), `TheatreView.tsx` (banner + played-card panel), `Overlays.tsx` (chronicle, aftermath), `common.ts` (shared props/lookups), `Board.tsx`, `theatre.ts` (state-diff → animation beats), `NewGame.tsx`, `bot.ts` |
 | Card rendering | `src/ui/card/model.ts`, `CardFace.tsx`, `card.css` |
 | Card editor | `src/ui/editor/CardEditor.tsx`, `fields.tsx` (form generated from schema.ts) |
 | Deck building / collection | `src/ui/collection/CollectionManager.tsx`, `src/ui/cardSet.ts` (localStorage overlay) |
-| Styling | `src/ui/theme.css` (one big file — search by class name) |
+| Styling | Per screen, next to the component: `src/ui/theme.css` (tokens, reset, shared vocabulary — loaded first), `menu.css`, `rulebook.css`, `collection/collection.css`, `game/game.css`, `editor/editor.css` |
 | In-app rulebook screen | `src/ui/Rulebook.tsx` renders `docs/szabaly-*.md` directly — edit the docs, never the screen |
 | Balance simulator | `src/sim/run.ts`, `src/sim/policy.ts` (deliberately dumb; consistency over strength) |
 | Learning bot | `src/bot/` — `docs/bot.md` first; `agent.ts`, `features.ts`, `observe.ts`, `model.ts`, `learn.ts`, `selfplay.ts`, `train.ts` |
@@ -85,8 +85,8 @@ public site.
   summarising output, card-data edits (validated by `validateCardSet` /
   `npm test`), test runs, doc lookups. Keep in the main context: engine
   semantics, rules interpretation, anything touching `schema.ts`/`effects.ts`.
-- **Large files** — search within rather than reading whole: `theme.css`
-  (~59 KB), `GameView.tsx` (~50 KB), `effects.ts` (~45 KB), `engine.test.ts`
-  (~42 KB), `units.json` (~47 KB), `schema.ts` (~39 KB), `power.ts` (~37 KB).
+- **Large files** — search within rather than reading whole: `effects.ts`
+  (~45 KB), `engine.test.ts` (~42 KB), `units.json` (~47 KB), `schema.ts`
+  (~39 KB), `power.ts` (~35 KB), `game/game.css` (~30 KB).
 - Commit messages here are one wry sentence about what changed and why —
   match the `git log` voice.

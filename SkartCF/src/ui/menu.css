@@ -1,0 +1,69 @@
+/* ---------------------------------------------------------------- the menu */
+
+.hall {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  background-color: var(--oak);
+  background-image:
+    radial-gradient(120% 70% at 50% -14%, rgba(232, 129, 31, 0.3), transparent 62%),
+    radial-gradient(140% 110% at 50% 118%, rgba(0, 0, 0, 0.7), transparent 62%),
+    var(--planks);
+}
+
+.hall-inner {
+  position: relative;
+  width: min(420px, 88vw);
+  padding: 24px 0;
+}
+
+.crest {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 46px;
+  text-align: center;
+}
+.crest-main {
+  font-size: clamp(60px, 13vw, 108px);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  font-variant-caps: small-caps;
+  color: var(--tallow);
+  text-shadow: 0 0 48px rgba(232, 129, 31, 0.45);
+}
+.crest-sub {
+  margin-top: 6px;
+  font-size: clamp(17px, 3.4vw, 24px);
+  font-weight: 500;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.09em;
+  color: var(--ember);
+}
+
+.gates {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.gate {
+  width: 100%;
+  padding: 13px 18px;
+  font-size: 21px;
+  font-weight: 500;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.07em;
+  color: var(--parchment);
+  background: linear-gradient(180deg, var(--oak-raised), var(--oak-lit));
+  border: 1px solid var(--iron);
+  border-top-color: var(--iron-bright);
+}
+.gate:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--oak-lit), var(--oak));
+  border-color: var(--ember);
+  color: var(--tallow);
+}
+

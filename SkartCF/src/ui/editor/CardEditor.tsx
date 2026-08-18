@@ -1,3 +1,4 @@
+import "./editor.css";
 import { useMemo, useState } from "react";
 import {
   AUTO_TARGET_SCOPES,

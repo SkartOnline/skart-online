@@ -1,0 +1,220 @@
+/* ---------------------------------------------------- workshop (the editor) */
+
+.workshop {
+  height: 100dvh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.shelf {
+  display: grid;
+  grid-template-columns: 268px minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 12px;
+  min-height: 0;
+  min-width: 0;
+}
+.shelf > aside,
+.shelf > section {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+}
+.index {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--iron) transparent;
+}
+.index li button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 1px solid transparent;
+  padding: 4px 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+  font-weight: 400;
+}
+.index li button:hover {
+  background: rgba(74, 47, 24, 0.6);
+  border-color: transparent;
+}
+.index li button.here {
+  background: rgba(232, 129, 31, 0.13);
+  border-left: 3px solid var(--ember);
+  color: var(--tallow);
+}
+.stamp {
+  font-size: 11px;
+  font-variant-caps: small-caps;
+  color: var(--ember);
+  border: 1px solid var(--ember-dim);
+  padding: 0 4px;
+}
+
+.sheet {
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--iron) transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.sheet-head h2 {
+  font-size: 24px;
+}
+.sheet-head .acts {
+  display: flex;
+  gap: 7px;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(206px, 1fr));
+  gap: 10px;
+}
+.f {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13.5px;
+}
+.f > span {
+  font-variant-caps: small-caps;
+  color: var(--ash);
+  letter-spacing: 0.03em;
+}
+.f small {
+  color: var(--ash-dim);
+  font-size: 11.5px;
+}
+.f.tick {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.f.tick small {
+  flex-basis: 100%;
+}
+.f.wide {
+  grid-column: 1 / -1;
+}
+.f .inline {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.f .inline input {
+  width: 100%;
+}
+
+.block {
+  border: 1px solid var(--iron);
+  background: rgba(23, 15, 8, 0.45);
+  padding: 10px 12px;
+}
+.block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.block-head b {
+  font-weight: 600;
+  font-variant-caps: small-caps;
+  font-size: 16px;
+  letter-spacing: 0.03em;
+}
+.piece {
+  border: 1px solid var(--iron);
+  background: var(--oak);
+  padding: 8px 10px;
+  margin-bottom: 8px;
+}
+.piece-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.tally-note {
+  font-variant-numeric: tabular-nums;
+  color: var(--ash);
+  font-size: 13px;
+}
+.tally-note.off {
+  color: var(--flame);
+}
+
+.verdict {
+  flex: 1;
+  font-size: 13px;
+}
+.verdict.sound {
+  color: var(--sprout);
+}
+.verdict.torn code {
+  color: var(--flame);
+}
+.raw pre {
+  background: var(--oak-pitch);
+  border: 1px solid var(--iron);
+  padding: 9px;
+  overflow-x: auto;
+  font-size: 11.5px;
+  color: var(--parchment);
+}
+
+.empty {
+  max-width: 58ch;
+  color: var(--parchment);
+}
+.empty h2 {
+  margin-bottom: 8px;
+}
+.empty p {
+  margin: 0 0 10px;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.tabs button {
+  padding: 3px 10px;
+  font-size: 13.5px;
+  font-variant-caps: small-caps;
+}
+.tabs button.here {
+  background: linear-gradient(180deg, var(--ember), var(--ember-dim));
+  border-color: var(--flame);
+  color: #1c0e03;
+}
+
+
+/* ------------------------------------------------------------------ narrow */
+
+@media (max-width: 1180px) {
+  .shelf {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,3 +1,5 @@
+import "./menu.css";
+
 export type Room = "menu" | "play" | "collection" | "editor" | "rules";
 
 const GATES: { room: Room; name: string }[] = [
