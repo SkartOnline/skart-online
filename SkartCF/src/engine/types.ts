@@ -104,6 +104,8 @@ export interface TargetSpec {
   side: "enemy" | "ally" | "self" | "any";
   /** Measured from the nominated caster, via the 12×12 distance matrix. */
   range: number;
+  /** 4.8.1: a spell may say it does not need a clear line to its target. */
+  ignoreSight?: boolean;
   /** Target an empty slot instead of a unit (Idézés, Teleport destinations). */
   emptyOnly?: boolean;
   filter?: TargetFilter;

@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { BASE_CARD_SET, getSpell, getUnit, loadCardSet } from "./cards";
-import { applyEffect, legalDestinations, makeUnitInstance } from "./effects";
+import {
+  applyEffect,
+  hasLineOfSight,
+  legalDestinations,
+  legalTargets,
+  makeUnitInstance,
+} from "./effects";
 import { ALL_SLOTS } from "./grid";
 import { cardKeywords, power, unitsOf } from "./power";
 import { applyAction } from "./reducer";
@@ -67,6 +73,76 @@ function noop() {}
 
 beforeEach(() => {
   loadCardSet(BASE_CARD_SET);
+});
+
+// ---------------------------------------------------------------------------
+// Chapter 4.8, rálátás
+// ---------------------------------------------------------------------------
+
+describe("rálátás", () => {
+  const explar = () => getSpell("explar");
+  const enemyAtRangeTwo = { side: "enemy", range: 2 } as const;
+  const sees = (state: GameState, caster: SlotId, target: SlotId) =>
+    legalTargets(state, enemyAtRangeTwo, caster, "p1", explar()).includes(target);
+
+  it("screens a back corner once both routes are held (4.8.5)", () => {
+    const state = blankState();
+    place(state, "felindori_polgar", "p1.F2");
+    place(state, "felindori_polgar", "p2.B1");
+    expect(sees(state, "p1.F2", "p2.B1")).toBe(true);
+
+    // One route runs past their B2 and F2, the other past their F1.
+    place(state, "felindori_polgar", "p2.F2");
+    expect(sees(state, "p1.F2", "p2.B1")).toBe(true);
+    place(state, "felindori_polgar", "p2.F1");
+    expect(sees(state, "p1.F2", "p2.B1")).toBe(false);
+
+    // Break the wall and the shot opens again, which is the two-card play.
+    state.board["p2.F2"] = null;
+    expect(sees(state, "p1.F2", "p2.B1")).toBe(true);
+  });
+
+  it("never lets your own units block your own line (4.8.4)", () => {
+    const state = blankState();
+    place(state, "felindori_polgar", "p1.F2");
+    place(state, "felindori_polgar", "p1.F1"); // sits on the second route
+    place(state, "felindori_polgar", "p2.F2"); // blocks the first
+    place(state, "felindori_polgar", "p2.B1");
+    expect(sees(state, "p1.F2", "p2.B1")).toBe(true);
+  });
+
+  it("is not mutual (4.8.6)", () => {
+    const state = blankState();
+    place(state, "felindori_polgar", "p1.F2");
+    place(state, "felindori_polgar", "p2.F1");
+    place(state, "felindori_polgar", "p2.F2");
+    place(state, "felindori_polgar", "p2.B1");
+    // Their own wall does not stand in their way.
+    expect(hasLineOfSight(state, "p1.F2", "p2.B1", "p1")).toBe(false);
+    expect(hasLineOfSight(state, "p2.B1", "p1.F2", "p2")).toBe(true);
+  });
+
+  it("keeps the enemy front row targetable behind any wall (4.8.8)", () => {
+    const state = blankState();
+    place(state, "felindori_polgar", "p1.B3");
+    for (const slot of ["p2.F1", "p2.F2", "p2.F3", "p2.B1", "p2.B2", "p2.B3"] as SlotId[]) {
+      place(state, "felindori_polgar", slot);
+    }
+    expect(sees(state, "p1.B3", "p2.F1")).toBe(true);
+    expect(sees(state, "p1.B3", "p2.F2")).toBe(true);
+    // The back row behind that wall is another matter.
+    expect(sees(state, "p1.B3", "p2.B2")).toBe(false);
+  });
+
+  it("lets a spell say it does not need the line (4.8.1)", () => {
+    const state = blankState();
+    place(state, "felindori_polgar", "p1.F2");
+    place(state, "felindori_polgar", "p2.F1");
+    place(state, "felindori_polgar", "p2.F2");
+    place(state, "felindori_polgar", "p2.B1");
+    const blind = { side: "enemy", range: 2, ignoreSight: true } as const;
+    expect(legalTargets(state, blind, "p1.F2", "p1", explar())).toContain("p2.B1");
+  });
 });
 
 // ---------------------------------------------------------------------------

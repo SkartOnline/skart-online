@@ -10,6 +10,7 @@ import {
   opposedSlot,
   orthogonalNeighbours,
   ownerOfSlot,
+  sightRoutes,
   slotLabel,
   slotsOf,
 } from "./grid";
@@ -987,6 +988,27 @@ function staticsOfSafe(state: GameState, unit: UnitInstance) {
 }
 
 /**
+ * Rálátás (4.8). A route is blocked by a tile holding a unit the caster is
+ * fighting, and only by that: your own units never block your own lines
+ * (4.8.4). That is what makes sight asymmetric (4.8.6), and it is why a unit
+ * that infiltrated the enemy half cuts their lines rather than yours.
+ */
+export function hasLineOfSight(
+  state: GameState,
+  from: SlotId,
+  to: SlotId,
+  controller: PlayerId,
+): boolean {
+  if (from === to) return true;
+  return sightRoutes(from, to).some((route) =>
+    route.every((slot) => {
+      const blocker = state.board[slot];
+      return !blocker || blocker.owner === controller;
+    }),
+  );
+}
+
+/**
  * Legal targets for one spell, measured from a nominated caster. Immunity, the
  * Jéghegy lock and every flavour of Sérthetetlen remove a unit from the list
  * rather than making the spell fizzle after the fact.
@@ -1001,6 +1023,7 @@ export function legalTargets(
   const range = effectiveRange(state, spec.range);
   return ALL_SLOTS.filter((slot) => {
     if (distance(casterSlot, slot) > range) return false;
+    if (!spec.ignoreSight && !hasLineOfSight(state, casterSlot, slot, controller)) return false;
     if (!sideMatches(slot, spec, controller, casterSlot)) return false;
     const unit = state.board[slot];
     if (spec.emptyOnly) return !unit && !isBlocked(state, slot);

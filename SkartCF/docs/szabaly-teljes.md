@@ -176,15 +176,16 @@ A 3. fejezet kivételével a szabályok nem időrendben állnak, hanem tárgykö
 
 ### 4.5 Távolság
 
-4.5.1 Két mező távolsága a szomszédos mezőkön át megtett legrövidebb lépéssorozat hossza.
+4.5.1 A két térfél együtt egyetlen rácsot alkot, amely négy sorból és három oszlopból áll: az ellenfél hátsó sora, az ellenfél első sora, a te első sorod, végül a te hátsó sorod.
 
-4.5.2 Átlósan lépni nem lehet, tehát az átlós érintkezés nem számít lépésnek.
+4.5.2 Két mező távolsága a sorkülönbségük és az oszlopkülönbségük közül a nagyobbik.
 
 4.5.3 Minden mező távolsága önmagától nulla.
 
-4.5.4 A lépéssorozat foglalt mezőn is átvezethet, az egységek nem takarnak ki semmit.
+4.5.4 A távolságot a mezők foglaltsága nem befolyásolja. Azt, hogy a varázslat átér-e a közbeeső egységeken, a rálátás dönti el (4.8), nem a távolság.
 
-4.5.5 A saját mezőid egymástól mért távolsága ugyanezzel a szabállyal számolandó.
+4.5.5 A távolság és a szomszédosság két külön dolog. A távolság számol az átlóval, a szomszédosság nem. A szomszédos vagy átlósan érintkező mezőkre hivatkozó lapszövegeket ezért mindig a 4.2 és a 4.3 szerint kell érteni, függetlenül attól, mekkora távolságot mérnél. A mozgás is a szomszédosságot követi: az egység a vele közös élű mezőre lép át, nem átlósan.
+
 
 ### 4.6 Távolságtáblázatok
 
@@ -192,23 +193,23 @@ Az alábbi táblázat a saját mezőidtől az ellenfél mezőiig mért távolsá
 
 | A te meződ | ellenség E1 | E2 | E3 | H1 | H2 | H3 |
 |---|---|---|---|---|---|---|
-| E1 | 1 | 2 | 3 | 2 | 3 | 4 |
-| E2 | 2 | 1 | 2 | 3 | 2 | 3 |
-| E3 | 3 | 2 | 1 | 4 | 3 | 2 |
-| H1 | 2 | 3 | 4 | 3 | 4 | 5 |
-| H2 | 3 | 2 | 3 | 4 | 3 | 4 |
-| H3 | 4 | 3 | 2 | 5 | 4 | 3 |
+| E1 | 1 | 1 | 2 | 2 | 2 | 2 |
+| E2 | 1 | 1 | 1 | 2 | 2 | 2 |
+| E3 | 2 | 1 | 1 | 2 | 2 | 2 |
+| H1 | 2 | 2 | 2 | 3 | 3 | 3 |
+| H2 | 2 | 2 | 2 | 3 | 3 | 3 |
+| H3 | 2 | 2 | 2 | 3 | 3 | 3 |
 
 Az alábbi táblázat a saját térféleden belüli távolságokat adja meg.
 
 | | E1 | E2 | E3 | H1 | H2 | H3 |
 |---|---|---|---|---|---|---|
-| E1 | 0 | 1 | 2 | 1 | 2 | 3 |
-| E2 | 1 | 0 | 1 | 2 | 1 | 2 |
-| E3 | 2 | 1 | 0 | 3 | 2 | 1 |
-| H1 | 1 | 2 | 3 | 0 | 1 | 2 |
-| H2 | 2 | 1 | 2 | 1 | 0 | 1 |
-| H3 | 3 | 2 | 1 | 2 | 1 | 0 |
+| E1 | 0 | 1 | 2 | 1 | 1 | 2 |
+| E2 | 1 | 0 | 1 | 1 | 1 | 1 |
+| E3 | 2 | 1 | 0 | 2 | 1 | 1 |
+| H1 | 1 | 1 | 2 | 0 | 1 | 2 |
+| H2 | 1 | 1 | 1 | 1 | 0 | 1 |
+| H3 | 2 | 1 | 1 | 2 | 1 | 0 |
 
 ### 4.7 Hatótáv
 
@@ -217,6 +218,79 @@ Az alábbi táblázat a saját térféleden belüli távolságokat adja meg.
 4.7.2 Az *n* hatótávú varázslat célpontjának távolsága a kijátszó egység mezőjétől legfeljebb *n* lehet.
 
 4.7.3 A hatótávot mindig annak az egységnek a mezőjétől kell mérni, amelyik a varázslatot kijátssza.
+
+4.7.4 A hatótáv önmagában nem elég. A célponthoz rálátás is kell (4.8).
+
+### 4.8 Rálátás
+
+4.8.1 A varázslat célpontjának a varázslótól rálátásban kell lennie, kivéve ha a varázslat szövege mást mond.
+
+4.8.2 Két mező között egy vagy két útvonal fut. Az útvonalak a mezők oldalfelező pontjait kötik össze, a sarkokat pedig soha nem vesszük figyelembe. Azonos sorban vagy azonos oszlopban álló mezők között egy útvonal van, minden más esetben kettő.
+
+4.8.3 Az útvonal elzárt, ha olyan mezőn halad át, amelyen a varázsló ellenfelének egysége áll.
+
+4.8.4 A saját egységeid soha nem zárják el a saját útvonalaidat, és a célpont mezője sem számít elzárásnak.
+
+4.8.5 Rálátás akkor van, ha legalább az egyik útvonal szabad.
+
+4.8.6 A rálátás nem kölcsönös. Mindkét játékos a maga szemszögéből vizsgálja, mert csak a másik játékos egységei zárnak el, ezért ugyanaz a mezőpár az egyik irányban szabad lehet, a másikban nem.
+
+4.8.7 A rejtett egység ugyanúgy elzárja az útvonalat, mint a felfordított.
+
+4.8.8 Az útvonalakat az alábbi két táblázat adja meg. A prefix nélküli mezők a varázsló térfelén állnak, az ő-vel jelöltek az ellenfelén. Az itt fel nem sorolt mezőpárok között mindkét útvonal szabad. Ahol a második útvonal helyén gondolatjel áll, ott egyetlen útvonal van.
+
+Varázsló a saját térfelén, célpont az ellenfél térfelén:
+
+| Varázsló | Célpont | 1. útvonal | 2. útvonal |
+|---|---|---|---|
+| E1 | ő E2 | ő E1 | E2 |
+| E1 | ő E3 | ő E1, ő E2 | E2, E3 |
+| E1 | ő H1 | ő E1 | — |
+| E1 | ő H2 | ő H1, ő E1 | ő E2, E2 |
+| E1 | ő H3 | ő H2, ő E1, ő E2 | ő E2, ő E3, E2 |
+| E2 | ő E1 | ő E2 | E1 |
+| E2 | ő E3 | ő E2 | E3 |
+| E2 | ő H1 | ő H2, ő E2 | ő E1, E1 |
+| E2 | ő H2 | ő E2 | — |
+| E2 | ő H3 | ő H2, ő E2 | ő E3, E3 |
+| E3 | ő E1 | ő E2, ő E3 | E1, E2 |
+| E3 | ő E2 | ő E3 | E2 |
+| E3 | ő H1 | ő H2, ő E2, ő E3 | ő E1, ő E2, E2 |
+| E3 | ő H2 | ő H3, ő E3 | ő E2, E2 |
+| E3 | ő H3 | ő E3 | — |
+| H1 | ő E1 | E1 | — |
+| H1 | ő E2 | ő E1, E1 | E2, H2 |
+| H1 | ő E3 | ő E2, E1, E2 | E2, E3, H2 |
+| H1 | ő H1 | ő E1, E1 | — |
+| H1 | ő H2 | ő H1, ő E1, E1 | ő E2, E2, H2 |
+| H1 | ő H3 | ő H2, ő E2, E1, E2 | ő E2, ő E3, E2, H2 |
+| H2 | ő E1 | ő E2, E2 | E1, H1 |
+| H2 | ő E2 | E2 | — |
+| H2 | ő E3 | ő E2, E2 | E3, H3 |
+| H2 | ő H1 | ő H2, ő E2, E2 | ő E1, E1, H1 |
+| H2 | ő H2 | ő E2, E2 | — |
+| H2 | ő H3 | ő H2, ő E2, E2 | ő E3, E3, H3 |
+| H3 | ő E1 | ő E2, E2, E3 | E1, E2, H2 |
+| H3 | ő E2 | ő E3, E3 | E2, H2 |
+| H3 | ő E3 | E3 | — |
+| H3 | ő H1 | ő H2, ő E2, E2, E3 | ő E1, ő E2, E2, H2 |
+| H3 | ő H2 | ő H3, ő E3, E3 | ő E2, E2, H2 |
+| H3 | ő H3 | ő E3, E3 | — |
+
+Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor számítanak, ha ellenséges egység áll az adott térfélen:
+
+| Varázsló | Célpont | 1. útvonal | 2. útvonal |
+|---|---|---|---|
+| E1 | E3 | E2 | — |
+| E1 | H2 | H1 | E2 |
+| E1 | H3 | H1, H2 | E2, E3 |
+| E2 | H1 | H2 | E1 |
+| E2 | H3 | H2 | E3 |
+| E3 | H1 | H2, H3 | E1, E2 |
+| E3 | H2 | H3 | E2 |
+| H1 | H3 | H2 | — |
+
+4.8.9 A rálátás csak a varázslatok célzására vonatkozik. A képességek hatóköre (szomszédos, átlósan érintkező, szemközti, oszlop) rálátástól független.
 
 ---
 
@@ -404,15 +478,17 @@ Az alábbi táblázat a saját térféleden belüli távolságokat adja meg.
 
 8.4.2.1 a varázsló mezőjétől mért távolsága nem nagyobb a varázslat hatótávjánál;
 
-8.4.2.2 megfelel a varázslat oldalmegkötésének, tehát annak, hogy ellenséges, szövetséges vagy saját egységre szól-e;
+8.4.2.2 a varázslónak rálátása van rá a 4.8 szerint;
 
-8.4.2.3 áll rajta egység, kivéve ha a varázslat üres mezőt kér;
+8.4.2.3 megfelel a varázslat oldalmegkötésének, tehát annak, hogy ellenséges, szövetséges vagy saját egységre szól-e;
 
-8.4.2.4 az ott álló egység célozható;
+8.4.2.4 áll rajta egység, kivéve ha a varázslat üres mezőt kér;
 
-8.4.2.5 az ott álló egység nem immunis a varázslat egyik iskolájára vagy megjelölésére sem;
+8.4.2.5 az ott álló egység célozható;
 
-8.4.2.6 az ott álló egység megfelel a varázslat szűrőjének, például a költségre, az erőre, az alaperőre, a kulcsszóra vagy a sorra tett megkötésnek.
+8.4.2.6 az ott álló egység nem immunis a varázslat egyik iskolájára vagy megjelölésére sem;
+
+8.4.2.7 az ott álló egység megfelel a varázslat szűrőjének, például a költségre, az erőre, az alaperőre, a kulcsszóra vagy a sorra tett megkötésnek.
 
 8.4.3 A varázsló akkor is megcélozhatja saját magát, ha egyébként célozhatatlan lenne.
 
@@ -746,6 +822,8 @@ Az alábbi táblázat a saját térféleden belüli távolságokat adja meg.
 **Mustra.** Az a lépés, amelyben a rejtett egységek felfordulnak (7. fejezet).
 
 **Ráhelyezett lap.** Egységre kijátszott varázslat, amely ott is marad (10.6).
+
+**Rálátás.** Takarásmentes útvonal a varázsló és a célpont mezője között (4.8).
 
 **Rejtett egység.** Lefordítva letett egység (6.5).
 
