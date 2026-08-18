@@ -26,6 +26,7 @@ import {
   currentLocation,
   damageCapFor,
   effectiveRange,
+  isDead,
   isUntargetable,
   keywordMatches,
   keywordsOf,
@@ -34,6 +35,7 @@ import {
   printedSpellpower,
   readStat,
   slotsInScope,
+  staticSources,
   unitAt,
   unitsOf,
 } from "./power";
@@ -125,18 +127,12 @@ export function sweepDead(state: GameState, log: (text: string) => void): void {
     for (const slot of ALL_SLOTS) {
       const unit = state.board[slot];
       if (!unit) continue;
-      if (!isDeadNow(unit, state)) continue;
+      if (!isDead(unit, state)) continue;
       log(`${cardOf(unit).name} elesik.`);
       killUnit(state, unit, log);
       changed = true;
     }
   }
-}
-
-function isDeadNow(unit: UnitInstance, state: GameState): boolean {
-  if (cannotDie(state, unit)) return false;
-  const current = power(unit, state);
-  return current <= 0 || unit.damage >= current;
 }
 
 /**
@@ -968,23 +964,12 @@ function sideMatches(
 export function redirectTarget(state: GameState, slot: SlotId): SlotId {
   const target = unitAt(state, slot);
   if (!target) return slot;
-  for (const guard of allUnitsOnBoard(state)) {
-    if (guard.uid === target.uid) continue;
-    for (const ability of staticsOfSafe(state, guard)) {
-      if (ability.kind !== "redirectSpells") continue;
-      if (!slotsInScope(guard, (ability.scope ?? "adjacent") as Scope).includes(slot)) continue;
-      const side = String(ability.side ?? "ally");
-      if (side === "ally" && target.owner !== guard.owner) continue;
-      if (side === "enemy" && target.owner === guard.owner) continue;
-      if (isUntargetable(state, guard)) continue;
-      return guard.slot;
-    }
+  for (const { source } of staticSources(state, target, "redirectSpells", "adjacent")) {
+    if (source.uid === target.uid) continue;
+    if (isUntargetable(state, source)) continue;
+    return source.slot;
   }
   return slot;
-}
-
-function staticsOfSafe(state: GameState, unit: UnitInstance) {
-  return abilitiesActive(unit, state) ? (cardOf(unit).statics ?? []) : [];
 }
 
 /**

@@ -1,29 +1,56 @@
-# Képességleltár — mit csinálnak a lapok
+# Ability inventory — what the cards do
 
-Ez a dokumentum a Skart lapkészletének teljes képességelemzése. Minden egység-,
-varázslat- és csatatérszöveg vissza van vezetve egy **paraméterezett alapelemre**.
-A motor sosem ágazik el lapazonosítón: egy lap adatsor, ami megnevez egy `kind`-ot
-és a paramétereit. Új, hasonló lap készítése a szerkesztőben ezért mindig
-paraméterállítás, nem kódolás.
+This document is the complete ability analysis of the Skart card set. Every
+unit, spell and battlefield text is traced back to a **parameterised
+primitive**. The engine never branches on a card id: a card is a row of data
+naming a `kind` and its parameters. Building a new, similar card in the editor
+is therefore always parameter-setting, never coding.
 
-Három tábla van, mind a `schema.ts`-ben deklarálva, és mind a hármat ugyanaz a
-szerkesztő-űrlap generálja:
+There are three tables, all declared in `schema.ts`, and all three are rendered
+by the same generated editor form:
 
-| Tábla | Mikor fut | Hol |
+| Table | When it runs | Where |
 |---|---|---|
-| `STATIC_SPECS` | folyamatos, olvasáskor számolva | `power.ts` |
-| `EFFECT_SPECS` | egyszer, elsüléskor | `effects.ts` |
-| `LOCATION_EFFECT_SPECS` | a csatatér teljes ideje alatt | `power.ts` / `reducer.ts` |
+| `STATIC_SPECS` | continuously, computed on read | `power.ts` |
+| `EFFECT_SPECS` | once, when it fires | `effects.ts` |
+| `LOCATION_EFFECT_SPECS` | for the whole battlefield | `power.ts` / `reducer.ts` |
+
+## Design principles: build from blocks, animate for free
+
+Two rules govern every new ability, and they are the reason this document
+exists:
+
+1. **Compose, never duplicate.** A new ability is a new *combination* of
+   existing primitives — an effect kind plus a target filter plus a condition
+   from the shared enum — before it is ever a new kind. Five different "kill a
+   unit" spells are one `destroy` with five filters (§2). Every "+X if …" unit
+   is one `powerBonus` with a condition value (§1). If a card text seems to
+   need new code, first try to express it as parameters on what exists; only
+   when that genuinely fails does `schema.ts` grow a new kind — and that new
+   kind should itself be parameterised broadly enough that the *next* similar
+   card is data again.
+
+2. **Reused primitives reuse animations.** The game screen's theatre
+   (`src/ui/game/theatre.ts`) never animates effects by name — it diffs the
+   state before and after an action and emits beats: `land`, `veil`, `reveal`,
+   `cast`, `fall`, `march`, `strike`, `draw`, `toss`, `battlefield`, `step`.
+   Any ability composed from existing primitives is therefore fully animated
+   the moment it exists, because its consequences (a unit dying, moving,
+   getting struck, cards drawn) are already beats. A bespoke ability that
+   invents a new *category* of state change is also signing up to invent a new
+   beat and its presentation. Staying inside the building blocks keeps the
+   whole animation layer at zero marginal cost per card.
 
 ---
 
-## 1. Állandó képességek (`statics`)
+## 1. Static abilities (`statics`)
 
-Tizennégy alapelem fedi le mind a 88 egység összes folyamatos képességét.
-Az attachment-lapok (ráakasztott varázslatok) **ugyanezeket** hordozhatják, ezért
-a Falanx, a Vérszomj, a Halálfélelem és a Csordaszellem nem igényel külön kódot.
+Fourteen primitives cover every continuous ability across all 88 units.
+Attachment cards (spells that sit on a unit) can carry **the same ones**, which
+is why Falanx, Vérszomj, Halálfélelem and Csordaszellem need no code of their
+own.
 
-| Alapelem | Paraméterek | Mit fed le |
+| Primitive | Parameters | What it covers |
 |---|---|---|
 | `powerBonus` | `amount`, `condition`, `value` | Vízköpő, Hetvenkedő katona, Sir Werdzsell, Medve, Ninja, Guner, Vérfarkas, Cassanus, Felindori íjász (Távolsági), Falanx, Kopja, Halálfélelem |
 | `countBonus` | `amount`, `side`, `scope`, `keyword`, `requires`, `atLeast` | Farkas, Papagáj, Zsalu, Bárkakedvenc, Piráto Sanchez, Korgon, I. Iniquus, Vérszomj |
@@ -39,121 +66,124 @@ a Falanx, a Vérszomj, a Halálfélelem és a Csordaszellem nem igényel külön
 | `placementRule` | `requireAdjacentKeyword` | Papagáj |
 | `selfRestrict` | `restrict` | Némítás, Indák, Kötél, Szorítás, Elfeledés |
 | `powerOverride` | `mode`, `value` | Természetes forma, Enormorf |
-| `damageCap` | `amount`, `side`, `scope` | A Faarcú — egy hatás legfeljebb ennyit sebez |
-| `castRing` | `amount`, `side`, `keyword` | Elfina — a megcélzott szövetséges Állat gyűrűt kap |
+| `damageCap` | `amount`, `side`, `scope` | A Faarcú — one effect can deal at most this much damage |
+| `castRing` | `amount`, `side`, `keyword` | Elfina — the targeted allied Állat gains a ring |
 
-### A `condition` felsorolás
+### The `condition` enum
 
-Egyetlen feltétel-enum szolgálja ki a `powerBonus`-t és a `selfGrant`-ot:
+A single condition enum serves both `powerBonus` and `selfGrant`:
 `always`, `frontRow`, `backRow`, `enemyHalf`, `noHidden`, `opposedOccupied`,
 `opposedEmpty`, `opposedWeaker`, `opposedStronger`, `isolated`,
 `isolatedDiagonal`, `aloneInRow`, `aloneInFrontRow`, `aloneOnBoard`, `immobile`,
 `graveyardAtLeast`, `noPlacedOnMe`.
 
-Új „+X, ha …” egység készítése tehát mindig: `powerBonus` + a megfelelő feltétel.
+Building a new "+X if …" unit is therefore always: `powerBonus` + the right
+condition. If the condition you need is missing, extend the enum — one new
+value serves every future card that wants it, and the editor picks it up from
+the schema automatically.
 
 ---
 
-## 2. Hatások (`effects`)
+## 2. Effects (`effects`)
 
-Egyszer sülnek el: Belépőből, kiváltóból (`triggers`), vagy egy kijátszott
-varázslatból a csata fázisban.
+Fire once: from a Belépő, from a trigger (`triggers`), or from a spell cast
+during the battle phase.
 
-### Tábla-hatások
+### Board effects
 `modifyPower`, `setPower`, `damage`, `destroy`, `massDestroy`, `move`,
 `swapWithAdjacent`, `transform`, `attach`, `grantImmunity`, `fizzleShield`,
 `lock`, `summon`, `thresholdAoe`, `grantRing`, `duel`, `devour`, `advance`,
 `modifySpellpower`, `revealHidden`, `clearPlaced`.
 
-A `damage` mennyisége háromféleképpen jöhet: `amount` a fix szám;
-`altAmount` + `altIf` a második szám, ha a feltétel a megcélzott egységre igaz
-(Hátbaszúrás 2, a hátsó sorban 4); `casterPowerDiv` pedig a varázsló erejéből
-származtatja (Eltaposás: a fele, felfelé kerekítve). A `fizzleShield`
-`maxCost: 0` értéke azt jelenti, hogy **nincs** költséghatár — az Álomfogó és az
-Omnifex a következő rá szálló varázslatot nyeli el, akármennyibe került.
+The amount of `damage` can come three ways: `amount` is the fixed number;
+`altAmount` + `altIf` is the second number when the condition holds for the
+targeted unit (Hátbaszúrás: 2, or 4 in the back row); `casterPowerDiv` derives
+it from the caster's power (Eltaposás: half, rounded up). A `fizzleShield` with
+`maxCost: 0` means **no** cost limit — Álomfogó and Omnifex swallow the next
+spell that lands on them regardless of what it cost.
 
-### Lapgazdálkodási hatások
+### Card-economy effects
 `draw`, `discard`, `searchDeck`, `revive`, `returnToHand`, `stealCard`,
 `bounceToDeckBottom`, `swapHandGraveyard`, `drawNextLocation`, `coinFlip`,
 `peek`, `note`.
 
-### A célzószűrő az, ami az ölő varázslatokat egyetlen alapelemre hozza
+### The target filter is what folds the kill spells into one primitive
 
-Az Óriásölő, a Fojtás, a Rajtaütés, a Kegyelemdöfés és a Carnifex mind
-`destroy` — csak a szűrőjük más:
+Óriásölő, Fojtás, Rajtaütés, Kegyelemdöfés and Carnifex are all `destroy` —
+only their filters differ:
 
-| Lap | Szűrő |
+| Card | Filter |
 |---|---|
 | Óriásölő | `minPower: 8` |
 | Fojtás | `maxPower: 3` |
 | Rajtaütés | `isolated: true` |
 | Kegyelemdöfés | `damaged: true` |
 | Carnifex (Belépő) | `maxBasePower: 4` |
-| Valóságtörés | `hasPlaced: true` (tömeges) |
+| Valóságtörés | `hasPlaced: true` (mass) |
 
-A `TargetFilter` mezői: `keyword`, `keywords` (bármelyik), `notKeyword`,
+The `TargetFilter` fields: `keyword`, `keywords` (any of), `notKeyword`,
 `maxCost`, `minCost`, `maxBasePower`, `minBasePower`, `maxPower`, `minPower`,
 `damaged`, `isolated`, `hasPlaced`, `hidden`, `row`, `weakerThanCaster`.
 
-Minden hatás ugyanazt a három kaput kapja meg: `if` (+ `ifValue`) a fenti
-feltétel-enumból, valamint `ifKeyword` és `ifNotKeyword` kulcsszóra. A Sújtás
-ezekből áll össze: 3 sebzés `ifKeyword: "Élettelen"`, 1 sebzés
-`ifNotKeyword: "Druida,Állat,Élettelen"`, a természet gyermekeinek pedig semmi.
+Every effect receives the same three gates: `if` (+ `ifValue`) from the
+condition enum above, plus `ifKeyword` and `ifNotKeyword` on keywords. Sújtás
+is assembled from these: 3 damage `ifKeyword: "Élettelen"`, 1 damage
+`ifNotKeyword: "Druida,Állat,Élettelen"`, and nothing for the children of
+nature.
 
 ---
 
-## 3. Kiváltók (`triggers`)
+## 3. Triggers (`triggers`)
 
-A Belépőn kívül öt esemény létezik. Ez teszi lehetővé a **gyűrűt**: olyan
-erőt, amit egy feltétel adott, és a megajándékozott akkor is megtartja, ha az
-adományozó már nincs a táblán.
+Beyond the Belépő there are five events. This is what makes the **ring**
+possible: power granted for a condition that has already happened, which the
+recipient keeps even after the granter has left the board.
 
-| Esemény | Lapok |
+| Event | Cards |
 |---|---|
 | `onAnyDeath` | Temetkezési vállalkozó |
-| `onAllyMove` | **Bodur kapitány** — a mozgó szövetséges gyűrűt kap |
-| `onMustra` | Szarvas — a felfedéskor nyomul előre, kész táblára; Októ-abnormitás — ekkor mérlegeli, mit falhat fel |
+| `onAllyMove` | **Bodur kapitány** — the moving ally gains a ring |
+| `onMustra` | Szarvas — pushes forward at the reveal, onto a finished board; Októ-abnormitás — weighs what to devour then |
 | `onLocationWon` (Diadal) | Kincskereső |
 | `onLocationLost` (Vigasz) | Makacs élőhalott, Felix |
 
-**A Diadal és a Vigasz nem haláleffekt.** Mindkettő azt nézi, hogy az egység a
-csatatéren áll-e, amikor a csata eldől: a Diadal a győztesnek fizet, a Vigasz a
-vesztesnek. Döntetlennél egyik sem sül el, mert senki nem nyert és senki nem
-vesztett. Önálló „amikor meghalok" kiváltó szándékosan nincs.
+**Diadal and Vigasz are not death effects.** Both check whether the unit is
+standing on the battlefield when the battle is decided: Diadal pays the winner,
+Vigasz the loser. On a draw neither fires, because nobody won and nobody lost.
+There is deliberately no standalone "when I die" trigger.
 
-A `scope: "trigger"` célzás az eseményt kiváltó egységre mutat.
+The `scope: "trigger"` targeting points at the unit that caused the event.
 
-### Gyűrű (`rings`)
+### Rings (`rings`)
 
-`UnitInstance.rings` egy szám. Beleszámít a `power()`-be, **nem** függ az
-adományozótól, és a táblán ⊙ jellel jelenik meg. Forrásai: `grantRing` hatás
-(Bodur, Temetkezési vállalkozó, Szarvas, Hajnalmadár, Azman, Októ, Lélekszipoly,
-Vadász, Varjú, Fejvadász, Szerencsejátékos) és a Vaskarom, ami gyűrű-jelölt
-ráakasztott lap.
-
----
-
-## 4. Ráakasztott lapok (varázslat az egységen)
-
-Minden tartós hatású varázslat egy egységre kerül. `UnitInstance.placed` őrzi az
-összes ráhelyezett varázslatot — a tartósakat is, az egyszer elsülőket is —,
-ezért lebegtetéskor mindegyik látszik. A tartós hatás az `attachment` mezőn
-keresztül kap mechanikát, és a lap levétele megszünteti (Tisztítás, Vedlés,
-Napéjegyenlőség).
-
-Egy ráakasztott lap `statics` tömböt hordozhat, tehát ugyanazt a tizennégy
-alapelemet használja, mint az egységek.
+`UnitInstance.rings` is a number. It counts into `power()`, does **not** depend
+on the granter, and shows on the board with a ⊙ mark. Its sources: the
+`grantRing` effect (Bodur, Temetkezési vállalkozó, Szarvas, Hajnalmadár, Azman,
+Októ, Lélekszipoly, Vadász, Varjú, Fejvadász, Szerencsejátékos) and Vaskarom,
+which is a ring-flagged attachment.
 
 ---
 
-## 5. Csatatér-hatások
+## 4. Attachments (a spell on a unit)
 
-| Alapelem | Csatatér |
+Every spell with a lasting effect sits on a unit. `UnitInstance.placed` keeps
+every spell placed on it — lasting and one-shot alike — so hovering the unit
+fans them all out. The lasting mechanics come through the `attachment` field,
+and removing the card removes the effect (Tisztítás, Vedlés, Napéjegyenlőség).
+
+An attachment can carry a `statics` array, so it uses the same fourteen
+primitives the units do.
+
+---
+
+## 5. Battlefield effects
+
+| Primitive | Battlefield |
 |---|---|
 | `flatBonus` | Holdfényes tisztás (+1), Elátkozott rengeteg (−1) |
 | `keywordBonus` (`row`, `invert`) | Akáczos |
 | `strongestPenalty` | Sikátor |
-| `autoHide` | Feketepiac (Csempész), Ködrét (mind) |
+| `autoHide` | Feketepiac (Csempész), Ködrét (all) |
 | `hideCostMod` | Feketepiac |
 | `blockedSlots` | A Pék hídja |
 | `spellCostMod` | Máguskör |
@@ -161,44 +191,45 @@ alapelemet használja, mint az egységek.
 | `rangeCap` | Ködrét |
 | `suppressPositional` | Ködrét (Távolsági) |
 | `playFromGraveyard` | Umbra |
-| `salvage` | Plázs — a Felindori egységek a pakli aljára kerülnek leszereléskor |
+| `salvage` | Plázs — Felindori units go to the bottom of the deck at leszerelés |
 | `startEffect` | Lingadori könyvtár, Malom, Bőségkert |
-| `perCost`, `costAtMostBonus`, `rowBonus`, `schoolSpellpowerBonus` | tartalék, szerkesztőben elérhető |
+| `perCost`, `costAtMostBonus`, `rowBonus`, `schoolSpellpowerBonus` | in reserve, available in the editor |
 
 ---
 
-## 6. Varázsiskolák
+## 6. Spell schools
 
-Hat iskola: **Mágus, Feketemágus, Harcos, Zsivány, Druida, Bestia.**
+Six schools: **Mágus, Feketemágus, Harcos, Zsivány, Druida, Bestia.**
 
-Két régi név eltűnt. Az `Állat` varázsiskola **beolvadt a Bestiába** — minden
-korábbi „Állat N” varázserő „Bestia N” lett —, a `Ravaszság` pedig **`Zsivány`
-lett**, ahhoz a rendhez igazodva, amelyikhez tartozik. Mindkettő *kulcsszóként*
-él tovább, varázserő-készletként soha.
+Two old names are gone. The `Állat` spell school **merged into Bestia** — every
+former "Állat N" spellpower became "Bestia N" — and `Ravaszság` **became
+`Zsivány`**, aligned with the order it belongs to. Both live on as *keywords*,
+never as spellpower pools.
 
-Egy varázslat több iskolát is megnevezhet (`schools: string[]`); a varázsló az
-egyikből fizet, teljes egészében. Nincs összeadás iskolák vagy egységek között.
-Ilyen a Kegyelemdöfés (Harcos, Zsivány).
+A spell may name several schools (`schools: string[]`); the caster pays from
+one of them, in full. There is no adding across schools or units. Kegyelemdöfés
+(Harcos, Zsivány) is one of these.
 
-A lapon négy kulcsszó-oszlop van — Eredet, Rend, Faj, Extra tag —, a motorban
-`origin`, `order`, `race` és `keywords`. A `cardKeywords()` mind a négyet egyetlen
-listába olvasztja, ezért egyetlen szűrőnek sem kell tudnia, melyik oszlopból jött
-a szó.
+A card has four keyword columns — Eredet, Rend, Faj, extra tag — which the
+engine stores as `origin`, `order`, `race` and `keywords`. `cardKeywords()`
+folds all four into a single list, so no filter ever needs to know which column
+a word came from.
 
-A `tags` mező adja a varázslat elemét: `Tűz`, `Fagy`, `Mesteri`. Erre hivatkozik
-a Tűzköpeny, a Fagypáncél, az Explodus és az Erif mester.
+The `tags` field gives a spell its element: `Tűz`, `Fagy`, `Mesteri`.
+Tűzköpeny, Fagypáncél, Explodus and Erif mester reference it.
 
 ---
 
-## 7. Ami tudatosan szövegként maradt
+## 7. What deliberately stayed as text
 
-Ezek a motor jelenlegi állapotában nem gépesíthetők; a lap létezik, a szöveg
-olvasható, de mechanikát nem kap. Mindegyik `note` hatással van megjelölve.
+These cannot be mechanised in the engine's current state; the card exists, the
+text is readable, but it gets no mechanics. Each is marked with a `note`
+effect.
 
-| Lap | Miért |
+| Card | Why |
 |---|---|
-| Fuedrax | csapdaként lehelyezett varázslat — új zóna kellene a táblán |
-| Felix, a Hajnali Utas | átvitel a következő csatatérre, keret nélkül |
-| Gouraldir | a Három Ereklye lap nem létezik a készletben |
-| Griff, a hamiskártyás | kézcsere mindkét irányban, játékosi választással |
-| Mágusinkvizítor, Fejvadász, Gréta, Leskelődés | tiszta információ — hotseatben a „Mindent mutat” kapcsoló adja |
+| Fuedrax | a spell placed as a trap — would need a new zone on the board |
+| Felix, a Hajnali Utas | carry-over to the next battlefield, no framework for it |
+| Gouraldir | the Három Ereklye card does not exist in the set |
+| Griff, a hamiskártyás | two-way hand swap with player choice |
+| Mágusinkvizítor, Fejvadász, Gréta, Leskelődés | pure information — hotseat's "Mindent mutat" switch already provides it |

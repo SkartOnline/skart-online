@@ -61,11 +61,16 @@ export function cardOf(unit: UnitInstance): UnitCard {
  * and "dobj el egy Állatot vagy Bestiát" share a single filter with no special
  * case for which column of the spreadsheet the word came from.
  */
+const keywordCache = new WeakMap<UnitCard, string[]>();
+
 export function cardKeywords(card: UnitCard): string[] {
+  const hit = keywordCache.get(card);
+  if (hit) return hit;
   const out = [...(card.keywords ?? [])];
   if (card.origin) out.push(card.origin);
   if (card.order) out.push(card.order);
   if (card.race) out.push(card.race);
+  keywordCache.set(card, out);
   return out;
 }
 
@@ -245,6 +250,33 @@ export function unitsInScope(
     .map((s) => unitAt(state, s))
     .filter((u): u is UnitInstance => !!u)
     .filter((u) => (includeSelf || u.uid !== source.uid) && sideOk(u, source, side));
+}
+
+/**
+ * Every static of one kind, on any unit on the board, whose scope reaches the
+ * given unit and whose side matches. This is the shape shared by every
+ * "watching over" ability — powerFloor, damageCap, auraGrant, redirectSpells —
+ * so a new kind of guardian static is a KindSpec, a handler case, and nothing
+ * else. Callers add their own kind-specific checks (cardId, untargetable, …).
+ */
+export function staticSources(
+  state: GameState,
+  target: UnitInstance,
+  kind: string,
+  defaultScope: Scope,
+): { source: UnitInstance; ability: StaticAbility }[] {
+  const out: { source: UnitInstance; ability: StaticAbility }[] = [];
+  for (const source of allUnitsOnBoard(state)) {
+    for (const ability of staticsOf(source, state)) {
+      if (ability.kind !== kind) continue;
+      if (!slotsInScope(source, (ability.scope ?? defaultScope) as Scope).includes(target.slot)) {
+        continue;
+      }
+      if (!sideOk(target, source, String(ability.side ?? "ally"))) continue;
+      out.push({ source, ability });
+    }
+  }
+  return out;
 }
 
 export function isIsolated(state: GameState, unit: UnitInstance, diagonal = false): boolean {
@@ -479,40 +511,38 @@ function selfStaticBonus(unit: UnitInstance, state: GameState): number {
   return total;
 }
 
-/** Bonuses other units grant this one. */
-function auraBonus(unit: UnitInstance, state: GameState): number {
-  let total = 0;
-  for (const other of allUnitsOnBoard(state)) {
-    for (const ability of staticsOf(other, state)) {
-      if (ability.kind !== "aura") continue;
-      const includeSelf = ability.includeSelf === true;
-      if (other.uid === unit.uid && !includeSelf) continue;
-      const scope = (ability.scope ?? "adjacent") as Scope;
-      if (!slotsInScope(other, scope).includes(unit.slot) && !(includeSelf && other.uid === unit.uid)) {
-        continue;
-      }
-      if (!sideOk(unit, other, String(ability.side ?? "ally"))) continue;
-      const keyword = ability.keyword ? String(ability.keyword) : undefined;
-      if (!keywordMatches(keywordsOf(unit), keyword)) continue;
-      const maxBasePower = Number(ability.maxBasePower ?? 0);
-      if (maxBasePower > 0 && basePower(unit) > maxBasePower) continue;
-      const condition = String(ability.condition ?? "always") as StaticCondition;
-      if (!conditionHolds(state, other, condition, Number(ability.value ?? 0))) continue;
-      const atLeastCount = Number(ability.atLeastCount ?? 0);
-      if (atLeastCount > 0) {
-        const crowd = unitsInScope(state, other, scope, String(ability.side ?? "ally"), true).filter(
-          (u) => keywordMatches(keywordsOf(u), keyword),
-        );
-        if (crowd.length < atLeastCount) continue;
-      }
-      total += Number(ability.amount ?? 0);
+/**
+ * What one granting unit's auras are worth to this one. The single
+ * implementation behind both the number `power()` adds and the per-source
+ * lines the hover shows, so the two can never disagree.
+ */
+function auraAmountFrom(state: GameState, granter: UnitInstance, unit: UnitInstance): number {
+  let amount = 0;
+  for (const ability of staticsOf(granter, state)) {
+    if (ability.kind !== "aura") continue;
+    const includeSelf = ability.includeSelf === true;
+    if (granter.uid === unit.uid && !includeSelf) continue;
+    const scope = (ability.scope ?? "adjacent") as Scope;
+    if (!slotsInScope(granter, scope).includes(unit.slot) && !(includeSelf && granter.uid === unit.uid)) {
+      continue;
     }
+    if (!sideOk(unit, granter, String(ability.side ?? "ally"))) continue;
+    const keyword = ability.keyword ? String(ability.keyword) : undefined;
+    if (!keywordMatches(keywordsOf(unit), keyword)) continue;
+    const maxBasePower = Number(ability.maxBasePower ?? 0);
+    if (maxBasePower > 0 && basePower(unit) > maxBasePower) continue;
+    const condition = String(ability.condition ?? "always") as StaticCondition;
+    if (!conditionHolds(state, granter, condition, Number(ability.value ?? 0))) continue;
+    const atLeastCount = Number(ability.atLeastCount ?? 0);
+    if (atLeastCount > 0) {
+      const crowd = unitsInScope(state, granter, scope, String(ability.side ?? "ally"), true).filter(
+        (u) => keywordMatches(keywordsOf(u), keyword),
+      );
+      if (crowd.length < atLeastCount) continue;
+    }
+    amount += Number(ability.amount ?? 0);
   }
-  return total;
-}
-
-function attachmentBonus(unit: UnitInstance): number {
-  return attachmentsOn(unit).reduce((sum, a) => sum + (a.powerDelta ?? 0), 0);
+  return amount;
 }
 
 /** Which units are currently granting this one an aura, and for how much. */
@@ -522,35 +552,19 @@ function auraSources(
 ): { from: UnitInstance; amount: number }[] {
   const out: { from: UnitInstance; amount: number }[] = [];
   for (const other of allUnitsOnBoard(state)) {
-    const before = out.length;
-    let amount = 0;
-    for (const ability of staticsOf(other, state)) {
-      if (ability.kind !== "aura") continue;
-      const includeSelf = ability.includeSelf === true;
-      if (other.uid === unit.uid && !includeSelf) continue;
-      const scope = (ability.scope ?? "adjacent") as Scope;
-      if (!slotsInScope(other, scope).includes(unit.slot) && !(includeSelf && other.uid === unit.uid)) {
-        continue;
-      }
-      if (!sideOk(unit, other, String(ability.side ?? "ally"))) continue;
-      const keyword = ability.keyword ? String(ability.keyword) : undefined;
-      if (!keywordMatches(keywordsOf(unit), keyword)) continue;
-      const maxBasePower = Number(ability.maxBasePower ?? 0);
-      if (maxBasePower > 0 && basePower(unit) > maxBasePower) continue;
-      const condition = String(ability.condition ?? "always") as StaticCondition;
-      if (!conditionHolds(state, other, condition, Number(ability.value ?? 0))) continue;
-      const atLeastCount = Number(ability.atLeastCount ?? 0);
-      if (atLeastCount > 0) {
-        const crowd = unitsInScope(state, other, scope, String(ability.side ?? "ally"), true).filter(
-          (u) => keywordMatches(keywordsOf(u), keyword),
-        );
-        if (crowd.length < atLeastCount) continue;
-      }
-      amount += Number(ability.amount ?? 0);
-    }
-    if (amount !== 0 && out.length === before) out.push({ from: other, amount });
+    const amount = auraAmountFrom(state, other, unit);
+    if (amount !== 0) out.push({ from: other, amount });
   }
   return out;
+}
+
+/** Bonuses other units grant this one. */
+function auraBonus(unit: UnitInstance, state: GameState): number {
+  return auraSources(unit, state).reduce((sum, s) => sum + s.amount, 0);
+}
+
+function attachmentBonus(unit: UnitInstance): number {
+  return attachmentsOn(unit).reduce((sum, a) => sum + (a.powerDelta ?? 0), 0);
 }
 
 export interface PowerLine {
@@ -669,15 +683,10 @@ export function grantsOf(state: GameState, unit: UnitInstance): Grants {
     apply(ability);
   }
 
-  for (const other of allUnitsOnBoard(state)) {
-    if (other.uid === unit.uid) continue;
-    for (const ability of staticsOf(other, state)) {
-      if (ability.kind !== "auraGrant") continue;
-      if (!slotsInScope(other, (ability.scope ?? "adjacent") as Scope).includes(unit.slot)) continue;
-      if (!sideOk(unit, other, String(ability.side ?? "ally"))) continue;
-      if (ability.cardId && unit.cardId !== ability.cardId) continue;
-      apply(ability);
-    }
+  for (const { source, ability } of staticSources(state, unit, "auraGrant", "adjacent")) {
+    if (source.uid === unit.uid) continue;
+    if (ability.cardId && unit.cardId !== ability.cardId) continue;
+    apply(ability);
   }
 
   return out;
@@ -735,15 +744,7 @@ function rawPower(unit: UnitInstance, state: GameState): number {
 }
 
 function hasPowerFloor(state: GameState, unit: UnitInstance): boolean {
-  for (const other of allUnitsOnBoard(state)) {
-    for (const ability of staticsOf(other, state)) {
-      if (ability.kind !== "powerFloor") continue;
-      if (!slotsInScope(other, (ability.scope ?? "board") as Scope).includes(unit.slot)) continue;
-      if (!sideOk(unit, other, String(ability.side ?? "ally"))) continue;
-      return true;
-    }
-  }
-  return false;
+  return staticSources(state, unit, "powerFloor", "board").length > 0;
 }
 
 /**
@@ -815,6 +816,29 @@ export function isMasterSpell(spell: SpellCard): boolean {
  * discounts the controller's Tűzmágia spells. The floor comes from the location
  * so a discount can never make a spell free by accident.
  */
+/**
+ * The sum of a player's `spellMod` statics that apply to this spell, for one
+ * `what` ("cost" or "damage"). One scan serves Máguskör-style discounts and
+ * Erif-style damage boosts alike, so a new spell modifier is only a new `what`.
+ */
+function spellModTotal(
+  state: GameState,
+  controller: PlayerId,
+  spell: SpellCard,
+  what: "cost" | "damage",
+): number {
+  let total = 0;
+  for (const ally of unitsOf(state, controller)) {
+    for (const ability of staticsOf(ally, state)) {
+      if (ability.kind !== "spellMod" || (ability.what ?? "cost") !== what) continue;
+      if (ability.tag && !(spell.tags ?? []).includes(String(ability.tag))) continue;
+      if (ability.school && !spell.schools.includes(String(ability.school))) continue;
+      total += Number(ability.amount ?? 0);
+    }
+  }
+  return total;
+}
+
 export function spellCost(spell: SpellCard, state: GameState, caster: UnitInstance | null): number {
   let cost = spell.cost;
   let floor = 0;
@@ -823,16 +847,7 @@ export function spellCost(spell: SpellCard, state: GameState, caster: UnitInstan
     cost += Number(effect.amount ?? 0);
     floor = Math.max(floor, Number(effect.min ?? 0));
   }
-  if (caster) {
-    for (const ally of unitsOf(state, caster.owner)) {
-      for (const ability of staticsOf(ally, state)) {
-        if (ability.kind !== "spellMod" || (ability.what ?? "cost") !== "cost") continue;
-        if (ability.tag && !(spell.tags ?? []).includes(String(ability.tag))) continue;
-        if (ability.school && !spell.schools.includes(String(ability.school))) continue;
-        cost += Number(ability.amount ?? 0);
-      }
-    }
-  }
+  if (caster) cost += spellModTotal(state, caster.owner, spell, "cost");
   return Math.max(floor, Math.max(0, cost));
 }
 
@@ -842,16 +857,7 @@ export function spellDamageBonus(
   state: GameState,
   controller: PlayerId,
 ): number {
-  let bonus = 0;
-  for (const ally of unitsOf(state, controller)) {
-    for (const ability of staticsOf(ally, state)) {
-      if (ability.kind !== "spellMod" || ability.what !== "damage") continue;
-      if (ability.tag && !(spell.tags ?? []).includes(String(ability.tag))) continue;
-      if (ability.school && !spell.schools.includes(String(ability.school))) continue;
-      bonus += Number(ability.amount ?? 0);
-    }
-  }
-  return bonus;
+  return spellModTotal(state, controller, spell, "damage");
 }
 
 /** Ködrét squeezes every spell down to arm's length. */
@@ -921,13 +927,8 @@ export function freeCastsLeft(unit: UnitInstance, state: GameState): number {
  */
 export function damageCapFor(state: GameState, unit: UnitInstance): number {
   let cap = Infinity;
-  for (const other of allUnitsOnBoard(state)) {
-    for (const ability of staticsOf(other, state)) {
-      if (ability.kind !== "damageCap") continue;
-      if (!slotsInScope(other, (ability.scope ?? "board") as Scope).includes(unit.slot)) continue;
-      if (!sideOk(unit, other, String(ability.side ?? "ally"))) continue;
-      cap = Math.min(cap, Math.max(0, Number(ability.amount ?? 0)));
-    }
+  for (const { ability } of staticSources(state, unit, "damageCap", "board")) {
+    cap = Math.min(cap, Math.max(0, Number(ability.amount ?? 0)));
   }
   return cap;
 }
