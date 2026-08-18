@@ -250,7 +250,14 @@ function Field(props: FieldProps) {
   /** The card in hand being read, and the one currently in the air. */
   const [reading, setReading] = useState<string | null>(null);
   const [lifted, setLifted] = useState<string | null>(null);
-  /** Which pile the ledger is holding open. */
+  /**
+   * Which pile the ledger is holding open.
+   *
+   * It stays on whatever you last pointed at rather than emptying when the
+   * pointer leaves. A panel that clears itself the moment you move away cannot be
+   * scrolled at all — and a thirty-card deck listing on a short screen is exactly
+   * the thing you need to scroll. Pointing at another pile replaces it.
+   */
   const [tracking, setTracking] = useState<Tracking | null>(null);
 
   // The table turns so whoever is acting sits at the bottom of the screen, with
@@ -280,6 +287,22 @@ function Field(props: FieldProps) {
     }, pause);
     return () => clearTimeout(timer);
   }, [botToMove, state, botSide, bot, send, beats]);
+
+  // The scored step has nothing to decide: the totals are in, Diadal and Vigasz
+  // have fired, and leszerelés follows. So it follows on its own, after long
+  // enough to read the result. Pressing a button to acknowledge arithmetic is not
+  // a turn.
+  const sendRef = useRef(send);
+  sendRef.current = send;
+  useEffect(() => {
+    if (state.phase !== "scored") return;
+    const timer = setTimeout(() => sendRef.current({ type: "nextLocation" }), 2200);
+    return () => clearTimeout(timer);
+    // Deliberately keyed to the battle rather than to the whole state: beats
+    // expiring re-render this component, and a timer that restarted on every
+    // render would keep pushing the step further away for as long as anything
+    // was still animating.
+  }, [state.phase, state.locationIndex]);
 
   const moves = useMemo(() => (actor ? legalActions(state, actor) : []), [state, actor]);
 
@@ -706,7 +729,6 @@ function Counters({
         <b
           className="held-fields num"
           onMouseEnter={() => onTrack({ kind: "score", side })}
-          onMouseLeave={() => onTrack(null)}
         >
           {state.scores[side]}
         </b>
@@ -775,7 +797,6 @@ function Pile({
       className={`pile-icon ${kind}${track ? " readable" : ""}`}
       data-pile={kind}
       onMouseEnter={() => track && onTrack(track)}
-      onMouseLeave={() => track && onTrack(null)}
     >
       <b className="num">{count}</b>
     </span>
@@ -962,14 +983,7 @@ function TurnCue(props: FieldProps & { moves: Action[]; viewer: PlayerId }) {
       {channel && <span className="channel mine">{getSpell(channel.cardId).name} készül</span>}
       {enemyChannel && <span className="channel theirs">Mesteri varázslat készül</span>}
 
-      {state.phase === "scored" && (
-        <>
-          <span className="turn">{verdict(state)}</span>
-          <button className="ember tiny" onClick={() => send({ type: "nextLocation" })}>
-            Leszerelés
-          </button>
-        </>
-      )}
+      {state.phase === "scored" && <span className="turn">{verdict(state)}</span>}
 
       {/* Leszerelés, 12.5. Throwing cards away is optional and costs nothing to
           decline, so the only thing that has to be on screen is the way out. */}
