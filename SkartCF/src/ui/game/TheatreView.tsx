@@ -25,7 +25,9 @@ export default function Theatre({
   viewer: PlayerId;
   bare: boolean;
 }) {
-  const frame = [...beats].reverse().find((b) => b.kind === "battlefield" || b.kind === "step");
+  const frame = [...beats]
+    .reverse()
+    .find((b) => b.kind === "battlefield" || b.kind === "step" || b.kind === "done");
   const shown = [...beats]
     .reverse()
     .find((b) => b.kind === "land" || b.kind === "cast" || b.kind === "veil");

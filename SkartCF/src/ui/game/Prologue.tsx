@@ -3,6 +3,7 @@ import { announcedBattlefields } from "../../engine";
 import type { GameState, PlayerId } from "../../engine";
 import CardFace from "../card/CardFace";
 import { SIDE, tryLocation } from "./common";
+import { anchorRect, flyBack } from "./theatre";
 
 /**
  * What happens before a card is played.
@@ -28,16 +29,20 @@ import { SIDE, tryLocation } from "./common";
  * which is exactly why the shuffle can be shown at all: nothing here decides
  * anything, so nothing here can get it wrong.
  */
-const ACTS = ["roster", "shuffle", "crown"] as const;
+const ACTS = ["roster", "shuffle", "crown", "descend", "deal"] as const;
 type Act = (typeof ACTS)[number];
 
 const ACT_MS: Record<Act, number> = {
   // Long enough to read six names and see who brought which.
   roster: 4200,
-  shuffle: 3200,
+  shuffle: 3400,
   // Long enough to read a cap and a rules box on a battlefield you have never
   // seen, which is the whole reason this screen exists.
   crown: 4800,
+  // The veil pulling back off the table it has been standing in front of.
+  descend: 1500,
+  // Both hands coming off both decks, one card at a time.
+  deal: 2100,
 };
 
 /**
@@ -86,6 +91,39 @@ export default function Prologue({ state, onDone }: { state: GameState; onDone: 
     }, ACT_MS[act]);
     return () => clearTimeout(timer);
   }, [act, onDone]);
+
+  /**
+   * Dealing, once the veil is off the table.
+   *
+   * Both hands are already full — `createGame` dealt them before this screen
+   * existed — so this is theatre, like the shuffle, and safe for exactly the
+   * same reason: it cannot get anything wrong because it decides nothing. What
+   * it buys is the difference between a game that begins and a game that is
+   * simply already in progress when you arrive.
+   *
+   * It reuses the same flight the refill after leszerelés uses, so a card coming
+   * off a deck looks the same on turn one as it does on turn forty.
+   */
+  useEffect(() => {
+    if (act !== "deal") return;
+    const hands = { near: anchorRect(".hand-rail.near"), far: anchorRect(".hand-rail.far") };
+    for (const side of ["p1", "p2"] as PlayerId[]) {
+      const to = side === state.turn ? hands.near : hands.far;
+      // The count restarts per side, so both hands fill at once rather than one
+      // player waiting out the other's fourteen cards. Two people take their
+      // opening hands at the same time; watching one deal and then the other
+      // would be twice as long and say something untrue.
+      let nth = 0;
+      for (const kind of ["unit", "spell"] as const) {
+        const deck = anchorRect(`.counters.${side} .pile-icon.${kind}`);
+        const held =
+          kind === "unit"
+            ? state.players[side].unitHand.length
+            : state.players[side].spellHand.length;
+        for (let i = 0; i < held; i++) flyBack(kind, deck, to, nth++, 480);
+      }
+    }
+  }, [act, state]);
 
   const brought = announcedBattlefields(state);
   const first = state.locations[0];
@@ -139,14 +177,15 @@ export default function Prologue({ state, onDone }: { state: GameState; onDone: 
             <b>{card.name}</b>
             <span className="num">keret {card.cap === null ? "∞" : card.cap}</span>
             {card.text && <em>{card.text}</em>}
-            <span className="faint">
-              {SIDE[first.broughtBy]} hozta, {SIDE[first.broughtBy]} kezd
-            </span>
           </div>
         </div>
       )}
 
-      <span className="prologue-skip">kattints az átugráshoz</span>
+      {/* The last two acts have nothing of their own to show. The board is
+          already behind this screen, so they get out of its way instead: the
+          veil pulls back, and then the hands are dealt onto the table it was
+          hiding. */}
+      {act !== "deal" && <span className="prologue-skip">kattints az átugráshoz</span>}
     </div>
   );
 }

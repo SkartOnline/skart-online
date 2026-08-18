@@ -546,6 +546,84 @@ describe("rejtett egység képességei", () => {
 });
 
 // ---------------------------------------------------------------------------
+// 7.6 to 7.8, what "at the same time" means when two abilities disagree
+// ---------------------------------------------------------------------------
+
+describe("egyidejű Mustra képességek", () => {
+  function runMustra(state: GameState): GameState {
+    state.players.p1.flags.unitsClosed = true;
+    state.players.p2.flags.unitsClosed = true;
+    return applyAction(state, { type: "declareUnitsDone", player: "p1" });
+  }
+
+  it("follows the unit it picked, even when that unit moves in the same instant", () => {
+    const state = blankState("umbra");
+    state.locations[0].broughtBy = "p2"; // so the stag resolves first and moves
+    state.players.p1.spellHand = [];
+    state.players.p2.spellHand = [];
+
+    place(state, "bergyilkos", "p1.F1"); // power 4, kills the weakest weaker enemy
+    state.board["p1.F1"]!.faceDown = true; // so its Belépő waits for the Mustra
+    place(state, "szarvas", "p2.B1"); // advances at the Mustra
+    state.board["p2.B1"]!.setPower = 2; // weak enough for the assassin to pick
+
+    const after = runMustra(state);
+    // The stag walked out of the tile it was standing on before the assassin's
+    // Belépő landed. The shot was already in the air and aimed at the stag, not
+    // at the tile, so it follows: dead where it ended up, not alive because it
+    // dodged.
+    expect(after.board["p2.B1"]).toBeNull();
+    expect(after.board["p2.F1"]).toBeNull();
+  });
+
+  it("leaves alone whoever it did not pick", () => {
+    const state = blankState("umbra");
+    state.locations[0].broughtBy = "p2";
+    state.players.p1.spellHand = [];
+    state.players.p2.spellHand = [];
+
+    place(state, "bergyilkos", "p1.F1");
+    state.board["p1.F1"]!.faceDown = true;
+    place(state, "patkany", "p2.B1"); // power 1, the weakest in the column
+    place(state, "szarvas", "p2.B2"); // another column, free to run
+
+    const after = runMustra(state);
+    // The rat was named and dies. The stag was never named, so following the
+    // pick does not turn into hitting whoever happens to be nearby: it advances
+    // the length of its empty column and lives.
+    expect(after.board["p2.B1"]).toBeNull();
+    expect(after.board["p1.B2"]?.cardId).toBe("szarvas");
+  });
+
+  it("gives a genuine clash to the player who brought the battlefield", () => {
+    // Two stags with one empty column between them. Each advances until the way
+    // is blocked, and the way is blocked by the other one — so whoever goes
+    // first crosses the line and whoever goes second cannot move at all. They
+    // fire at the same instant and there is no answer in simultaneity, so 3.8
+    // supplies one: the battlefield's owner starts here, and starting wins it.
+    const contested = (broughtBy: PlayerId): GameState => {
+      const state = blankState("umbra");
+      state.locations[0].broughtBy = broughtBy;
+      state.players.p1.spellHand = [];
+      state.players.p2.spellHand = [];
+      place(state, "szarvas", "p1.B2");
+      place(state, "szarvas", "p2.B2");
+      return runMustra(state);
+    };
+
+    const first = contested("p1");
+    expect(first.board["p2.F2"]?.owner).toBe("p1"); // p1 crossed the line
+    expect(first.board["p2.B2"]?.owner).toBe("p2"); // p2 never got to move
+    expect(first.board["p1.B2"]).toBeNull();
+
+    const second = contested("p2");
+    expect(second.board["p1.F2"]?.owner).toBe("p2");
+    expect(second.board["p1.B2"]?.owner).toBe("p1");
+    expect(second.board["p2.B2"]).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 8.4.5, the arrival tile may sit on either half
 // ---------------------------------------------------------------------------
 

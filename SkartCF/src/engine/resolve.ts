@@ -12,6 +12,7 @@ import {
   sweepDead,
 } from "./effects";
 import type { EffectContext } from "./effects";
+import { ALL_SLOTS } from "./grid";
 import {
   abilitiesActive,
   cardOf,
@@ -106,44 +107,79 @@ export function fireBelepo(state: GameState, unit: UnitInstance, deferDeaths = f
  * before the first hit landed, and the results take effect together, so their
  * order does not matter.
  *
- * Two things make that work. Targets are chosen for all of them up front, off
- * the same snapshot, and deaths are held back until every ability has run (7.8).
- * An ability aimed at a unit that dies in the same moment still runs and simply
- * has no consequence on it (7.7), which falls out for free once the sweep is
- * deferred.
+ * Three things make that work.
+ *
+ * Targets are chosen for all of them up front, off the same snapshot, and
+ * deaths are held back until every ability has run (7.8). An ability aimed at a
+ * unit that dies in the same moment still runs and simply has no consequence on
+ * it (7.7), which falls out for free once the sweep is deferred.
+ *
+ * A pick names a *unit*, not a tile. Everything fires at once, so an ability
+ * that chose Szarvas and a Szarvas that stepped forward in the same instant are
+ * not a contradiction: the shot was already in the air, and it follows whoever
+ * it was aimed at to wherever they got to. Resolving against the tile instead
+ * would mean Bérgyilkos killing whatever happened to be standing where its
+ * target used to be, which is a different card.
+ *
+ * And when two of them genuinely contend for one thing — the same empty tile to
+ * advance into — simultaneity has no answer, so the tie goes to the player who
+ * brought the battlefield and therefore starts here (3.8, 7.10). The loser is
+ * not delayed, it is cancelled: its ability found the tile taken.
  */
 export function fireMustra(state: GameState, revealed: UnitInstance[]): void {
-  const owed: { unit: UnitInstance; effects: Effect[]; targets: SlotId[] }[] = [];
+  const owed: {
+    unit: UnitInstance;
+    effects: Effect[];
+    /** Whom it picked, by uid, so the shot can follow them. */
+    targetUids: string[];
+    /** Tiles it picked that hold nobody — an advance, a summon. */
+    emptyTargets: SlotId[];
+  }[] = [];
+
+  const remember = (unit: UnitInstance, effects: Effect[], targets: SlotId[]) => {
+    const targetUids: string[] = [];
+    const emptyTargets: SlotId[] = [];
+    for (const slot of targets) {
+      const occupant = state.board[slot];
+      if (occupant) targetUids.push(occupant.uid);
+      else emptyTargets.push(slot);
+    }
+    owed.push({ unit, effects, targetUids, emptyTargets });
+  };
 
   for (const unit of revealed) {
     if (state.board[unit.slot]?.uid !== unit.uid) continue;
     if (!abilitiesActive(unit, state)) continue;
     const belepo = cardOf(unit).belepo;
     if (!belepo?.effects?.length) continue;
-    owed.push({
-      unit,
-      effects: belepo.effects,
-      targets: resolveAutoTargets(state, unit, belepo.target),
-    });
+    remember(unit, belepo.effects, resolveAutoTargets(state, unit, belepo.target));
   }
 
   for (const unit of unitsOf(state, "p1").concat(unitsOf(state, "p2"))) {
     if (!abilitiesActive(unit, state)) continue;
     for (const trigger of cardOf(unit).triggers ?? []) {
       if (trigger.on !== "onMustra") continue;
-      owed.push({
-        unit,
-        effects: trigger.effects,
-        targets: resolveAutoTargets(state, unit, trigger.target),
-      });
+      remember(unit, trigger.effects, resolveAutoTargets(state, unit, trigger.target));
     }
   }
 
-  for (const { unit, effects, targets } of owed) {
+  // The tiebreak, and the only place order is allowed to matter. Everything
+  // else in this step is genuinely simultaneous; two abilities reaching for the
+  // same empty tile are not, and somebody has to have it.
+  const starter = state.locations[state.locationIndex].broughtBy;
+  const ordered = [...owed].sort((a, b) => {
+    if (a.unit.owner === b.unit.owner) return 0;
+    return a.unit.owner === starter ? -1 : 1;
+  });
+
+  for (const { unit, effects, targetUids, emptyTargets } of ordered) {
     // A unit that has already been taken off the board this step keeps its
     // ability: it read the same board everyone else did. What it cannot do is
     // act from a slot it no longer occupies, hence the guard.
     if (state.board[unit.slot]?.uid !== unit.uid) continue;
+    // Where the units it picked are standing *now*. One that left the board
+    // entirely drops out; one that merely moved is followed.
+    const targets = [...whereAreThey(state, targetUids), ...emptyTargets];
     log(state, `${cardOf(unit).name}: Mustra.`, unit.owner);
     const ctx = contextFor(state, unit, unit.owner, { deferDeaths: true });
     for (const effect of effects) {
@@ -155,6 +191,16 @@ export function fireMustra(state: GameState, revealed: UnitInstance[]): void {
 
   // 7.8: now, and only now, the deaths are settled — all of them at once.
   sweepDead(state, (text) => log(state, text));
+}
+
+/** Where a set of units is standing right now, skipping any that have gone. */
+function whereAreThey(state: GameState, uids: string[]): SlotId[] {
+  if (uids.length === 0) return [];
+  const wanted = new Set(uids);
+  return ALL_SLOTS.filter((slot) => {
+    const unit = state.board[slot];
+    return !!unit && wanted.has(unit.uid);
+  });
 }
 
 /** Effects that build their own target set and must run even with none passed in. */
@@ -528,6 +574,13 @@ function applyCastEntry(state: GameState, entry: CastEntry, spell: SpellCard): v
       return;
     }
   }
+
+  // Written down before the effect runs, because the effect is perfectly
+  // capable of killing the caster or moving the target off the tile it was
+  // aimed at, and what the screen has to show is where the spell came from and
+  // where it went — not where everyone ended up afterwards.
+  entry.casterSlot = caster.slot;
+  entry.targetSlot = targetSlot;
 
   log(state, `${spell.name} elsül (${cardOf(caster).name}).`, entry.owner);
   const ctx = contextFor(state, caster, entry.owner, {

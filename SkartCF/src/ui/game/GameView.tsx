@@ -26,7 +26,7 @@ import {
   slotElement,
 } from "./theatre";
 import type { BeatKind, Flight } from "./theatre";
-import { handHeld, other } from "./common";
+import { cardFor, handHeld, other, SIDE } from "./common";
 import type { FieldProps, Held, LiveBeat, LiveReveal } from "./common";
 import Theatre from "./TheatreView";
 import { Battlefield, Annals, Tools, TurnCue } from "./LeftRail";
@@ -391,7 +391,16 @@ function Field(props: FieldProps) {
   const handPanel =
     (!!asking && asking.player === viewer && handHeld(asking, state)) ||
     pending?.kind === "handCard";
-  const almanacUp = !!asking && !handHeld(asking, state) && asking.picking === "card";
+  // A pile being searched is the searcher's business alone.
+  //
+  // The Almanac lists a deck or a graveyard, and a deck is hidden information
+  // (1.5.2). Rendering it for whoever happened to be looking at the screen
+  // handed the machine's whole library to the person playing against it. The
+  // panel belongs to the player being asked; everyone else is told only that a
+  // search is happening, which is what they would see across a table.
+  const searching = !!asking && !handHeld(asking, state) && asking.picking === "card";
+  const almanacUp = searching && (asking!.player === viewer || bare);
+  const enemySearching = searching && !almanacUp;
   // A question that is about neither a card nor a tile. Only the coin so far,
   // and it brings its own panel.
   const coinAsking = asking?.picking === "option" ? asking : null;
@@ -401,7 +410,10 @@ function Field(props: FieldProps) {
   );
   const heldUp = beats.some((b) => b.kind === "land" || b.kind === "cast" || b.kind === "veil");
   const panelUp = almanacUp || handPanel || !!coinAsking;
-  const spotlit = panelUp || curtainUp || heldUp || coinShowing;
+  // Their search still dims the board — something is happening and it is not
+  // your turn to do anything about it — but there is nothing to read.
+  const spotlitQuietly = enemySearching;
+  const spotlit = panelUp || curtainUp || heldUp || coinShowing || spotlitQuietly;
 
   // A spell that has been played but is still being aimed. Nothing about it has
   // touched the board yet, so it can still be taken back, and until it cannot
@@ -434,7 +446,14 @@ function Field(props: FieldProps) {
         .map((b) => b.expiresAt - Date.now()),
       ...props.shows.map((s) => s.expiresAt - Date.now()),
     );
-    const pause = state.phase === "cleanup" ? 120 : Math.max(560, quiet + 240);
+    // Long enough to read what it just played before it plays the next thing.
+    //
+    // The theatre already holds a card up for a couple of seconds; the machine
+    // used to start its next turn the instant that finished, so the card left
+    // the screen and was immediately replaced. The extra beat is dead air on
+    // purpose — it is the pause a person takes picking their next card up, and
+    // it is where the player actually reads the board.
+    const pause = state.phase === "cleanup" ? 120 : Math.max(1100, quiet + 700);
     const timer = setTimeout(() => {
       const action = bot.current?.choose(state, botSide!);
       if (action) send(action);
@@ -477,7 +496,12 @@ function Field(props: FieldProps) {
       return set;
     }
     if (asking) return set;
+    // Only whoever is actually choosing gets the legal picks lit. Watching the
+    // machine cast used to light up every tile its spell could legally reach,
+    // which is both a hint it was never entitled to give and a screen full of
+    // glowing tiles that the player cannot click and did not ask about.
     if (pending && pending.kind !== "handCard") {
+      if (pending.player !== viewer) return set;
       for (const slot of pending.options) set.add(slot);
       return set;
     }
@@ -588,6 +612,32 @@ function Field(props: FieldProps) {
     [beats, state.board],
   );
 
+  /**
+   * The two tiles a spell on screen used: who threw it, and what it landed on.
+   *
+   * A spell resolves inside one action, so without this the board shows damage
+   * appearing on a tile and says nothing about where it came from — and "some
+   * unit of theirs hurt some unit of mine" is not a game anybody can follow. The
+   * target takes its colour from the caster's point of view, not the viewer's:
+   * green when the spell helped its own side, red when it went across the line.
+   */
+  const marks = useMemo(() => {
+    const out = new Map<SlotId, string>();
+    const cast = [...beats].reverse().find((b) => b.kind === "cast" && b.slot);
+    if (!cast?.slot) return out;
+    out.set(cast.slot, "caster");
+    if (cast.targetSlot && cast.targetSlot !== cast.slot) {
+      const caster = state.board[cast.slot];
+      const target = state.board[cast.targetSlot];
+      // Whose tile it is, when the unit that was standing there has already
+      // been killed by the very spell being shown.
+      const targetOwner = target?.owner ?? (cast.targetSlot.slice(0, 2) as PlayerId);
+      const friendly = (caster?.owner ?? cast.player) === targetOwner;
+      out.set(cast.targetSlot, friendly ? "friend" : "foe");
+    }
+    return out;
+  }, [beats, state.board]);
+
   const classes = ["field"];
   if (!over) classes.push("opening");
   if (spotlit && !tucked) classes.push("spotlit");
@@ -632,6 +682,7 @@ function Field(props: FieldProps) {
           viewer={viewer}
           stirring={stirring}
           fallen={fallen}
+          marks={marks}
           onInspect={setInspect}
         />
       </div>
@@ -695,6 +746,15 @@ function Field(props: FieldProps) {
           the hand itself, so only the piles reach this panel. */}
       {almanacUp && <Almanac prompt={asking!} send={send} tucked={tucked} />}
 
+      {/* The other side going through a pile. What it is and whose, and not one
+          word about what is in it. */}
+      {enemySearching && (
+        <div className="searching timber">
+          <b>{SIDE[asking!.player]} keresgél</b>
+          <em>{asking!.sourceCardId ? (cardFor(asking!.sourceCardId)?.name ?? "") : ""}</em>
+        </div>
+      )}
+
       {/* The way back out from under a panel. It stays on screen while the
           panel is tucked, which is the only thing that could bring it back. */}
       {panelUp && (
@@ -712,7 +772,15 @@ function Field(props: FieldProps) {
       {props.prologue && <Prologue state={state} onDone={props.endPrologue} />}
 
       {logOpen && <Chronicle state={state} onClose={() => setLogOpen(false)} />}
-      {over && <Aftermath state={state} onLeave={props.onLeave} onQuit={props.onQuit} />}
+      {over && (
+        <Aftermath
+          state={state}
+          viewer={human ?? viewer}
+          hotseat={human === null}
+          onLeave={props.onLeave}
+          onQuit={props.onQuit}
+        />
+      )}
     </div>
   );
 }

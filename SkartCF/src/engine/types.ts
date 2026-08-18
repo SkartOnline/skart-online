@@ -397,6 +397,18 @@ export interface CastEntry {
   cardId: string;
   /** Play order index within the location. */
   order: number;
+  /**
+   * Which unit cast it and what it was aimed at, filled in when the spell
+   * actually resolves.
+   *
+   * The rules never need this — the effect has already happened. The screen
+   * does: a spell that resolves inside one action leaves a diff showing damage
+   * appearing on a tile and nothing at all about who threw it, and "some unit
+   * of theirs hurt some unit of mine" is not a readable game. Recorded, so the
+   * board can mark the two tiles that mattered.
+   */
+  casterSlot?: SlotId;
+  targetSlot?: SlotId;
 }
 
 export interface Flags {

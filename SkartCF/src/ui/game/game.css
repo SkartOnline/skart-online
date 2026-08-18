@@ -1252,6 +1252,11 @@ body.dragging-card {
   padding: 10px 34px;
   pointer-events: none;
   text-align: center;
+  /* A fixed box, because the contents are not a fixed length: Ködrét's rules
+     text is four times Sikátor's, and a banner that sizes itself to its text
+     re-lays-out on every frame of the animation below. */
+  width: min(660px, 74vw);
+  box-sizing: border-box;
   background: linear-gradient(
     90deg,
     rgba(23, 15, 8, 0) 0%,
@@ -1280,11 +1285,17 @@ body.dragging-card {
   letter-spacing: 0.08em;
   color: var(--flame);
 }
+/* The letters spread on the title and nowhere else.
+ *
+ * This used to be animated on the banner itself, which meant it was inherited
+ * by the rules box — and a paragraph whose letter-spacing changes every frame
+ * re-wraps every frame. On a long battlefield like Ködrét the lines visibly
+ * reshuffled several times a second for the whole two and a half seconds. The
+ * title is one short line that cannot wrap, so it can spread all it likes. */
 @keyframes herald-passes {
   0% {
     opacity: 0;
     transform: translate(-50%, -50%) scale(0.82);
-    letter-spacing: 0.3em;
   }
   18% {
     opacity: 1;
@@ -1297,6 +1308,41 @@ body.dragging-card {
     opacity: 0;
     transform: translate(-50%, -58%) scale(1.02);
   }
+}
+.herald b {
+  animation: herald-title 2800ms ease-out both;
+}
+@keyframes herald-title {
+  0% {
+    letter-spacing: 0.3em;
+  }
+  18%,
+  100% {
+    letter-spacing: 0.06em;
+  }
+}
+/* The rules box gets a settled line length and stays on it. */
+.herald i {
+  display: block;
+  max-width: 56ch;
+  font-style: normal;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--parchment);
+  text-wrap: pretty;
+}
+
+/* Somebody announcing they have finished. A whole turn, and the quietest one
+   in the game, so it is announced at a smaller size than a step of 5.1 — it is
+   news, not a new chapter. */
+.herald.done {
+  top: 30%;
+  padding: 7px 26px;
+}
+.herald.done b {
+  font-size: 21px;
+  color: var(--flame);
+  text-shadow: 0 0 18px rgba(232, 129, 31, 0.45);
 }
 
 /* The card that was just played, printed at full size on the side of the board.
@@ -1544,17 +1590,160 @@ body.dragging-card {
   background: rgba(10, 6, 3, 0.84);
   overflow-y: auto;
 }
+/* The end of the game.
+ *
+ * No frame around it. Everything else on this screen is a panel because it sits
+ * over a board that is still being played; this sits over a game that is over,
+ * and a box would only make the verdict smaller. */
 .casket {
-  width: min(760px, 96vw);
-  padding: 22px 26px;
+  width: min(680px, 94vw);
+  padding: 26px 30px;
   max-height: 92dvh;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--iron) transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
-.casket h2 {
-  font-size: 26px;
-  margin-bottom: 14px;
+
+/* One word, and it is about you.
+ *
+ * Prefixed because `.verdict` is already taken by the card editor's validation
+ * line, and both stylesheets are live at once the moment anybody opens the
+ * editor — same specificity, so which font size won came down to load order. */
+.aftermath-verdict {
+  font-size: 62px;
+  font-weight: 600;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  margin: 0 0 6px;
+  animation: verdict-lands 620ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+}
+.aftermath-verdict.won {
+  color: var(--sprout);
+  text-shadow: 0 0 42px rgba(139, 165, 94, 0.6);
+}
+.aftermath-verdict.lost {
+  color: var(--blood);
+  text-shadow: 0 0 42px rgba(176, 60, 43, 0.55);
+}
+.aftermath-verdict.draw,
+.aftermath-verdict.p1,
+.aftermath-verdict.p2 {
+  color: var(--tallow);
+  text-shadow: 0 0 38px rgba(232, 129, 31, 0.5);
+}
+@keyframes verdict-lands {
+  from {
+    opacity: 0;
+    transform: scale(0.86);
+    letter-spacing: 0.34em;
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    letter-spacing: 0.1em;
+  }
+}
+.casket .tally {
+  font-size: 40px;
+  margin: 0 0 22px;
+}
+
+/* The battles, as a row of results rather than a paragraph of them. Four
+   columns on a fixed grid so the numbers line up down the page — a column of
+   scores you can read straight down is the whole reason to lay it out at all. */
+.battle-roll {
+  list-style: none;
+  margin: 0 0 24px;
+  padding: 0;
+  width: min(460px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.battle-line {
+  display: grid;
+  grid-template-columns: 22px 1fr auto 92px;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 12px;
+  text-align: left;
+  border-left: 3px solid var(--iron);
+  background: rgba(23, 15, 8, 0.5);
+  animation: battle-line-arrives 420ms ease-out both;
+}
+.battle-roll li:nth-child(1) {
+  animation-delay: 120ms;
+}
+.battle-roll li:nth-child(2) {
+  animation-delay: 200ms;
+}
+.battle-roll li:nth-child(3) {
+  animation-delay: 280ms;
+}
+.battle-roll li:nth-child(4) {
+  animation-delay: 360ms;
+}
+.battle-roll li:nth-child(5) {
+  animation-delay: 440ms;
+}
+.battle-roll li:nth-child(6) {
+  animation-delay: 520ms;
+}
+@keyframes battle-line-arrives {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.battle-line.won {
+  border-left-color: var(--sprout);
+}
+.battle-line.lost {
+  border-left-color: var(--blood);
+}
+.battle-line.void {
+  border-left-color: var(--iron);
+}
+.battle-nth {
+  color: var(--ash);
+  font-size: 13px;
+}
+.battle-name {
+  font-variant-caps: small-caps;
+  letter-spacing: 0.05em;
+  color: var(--parchment);
+}
+.battle-score {
+  color: var(--tallow);
+  font-size: 15px;
+}
+.battle-verdict {
+  text-align: right;
+  font-size: 12px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.08em;
+  color: var(--ash);
+}
+.battle-line.won .battle-verdict {
+  color: var(--sprout);
+}
+.battle-line.lost .battle-verdict {
+  color: var(--blood);
+}
+
+.casket-tail {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
 }
 
 .pick {
@@ -1971,6 +2160,40 @@ body.dragging-card {
     opacity: 1;
   }
 }
+/* The shuffle happens somewhere else: a green table rather than the fire-lit
+   dark the rest of the ceremony stands in. It is the one act where nobody is
+   being shown a card — the six are face down and moving — so the room changing
+   is what says "this is the part where the order is decided". */
+.prologue.shuffle {
+  background:
+    radial-gradient(58% 48% at 50% 46%, rgba(120, 190, 150, 0.14), transparent 72%),
+    linear-gradient(168deg, #14312a, #08150f 72%);
+}
+
+/* The veil coming off the table.
+ *
+ * Two acts with nothing of their own to show. `descend` pulls the backdrop
+ * away and scales past the viewer, which reads as moving in towards the board
+ * that has been behind it the whole time; `deal` is fully out of the way, so
+ * the cards flying out of the decks underneath are the only thing on screen. */
+.prologue.descend {
+  animation: prologue-descends 1500ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes prologue-descends {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+.prologue.deal {
+  background: none;
+  opacity: 0;
+}
+
 .prologue-sides {
   display: flex;
   gap: 48px;
@@ -2440,4 +2663,90 @@ body.dragging-card {
 .coin-choice {
   display: flex;
   gap: 8px;
+}
+
+/* ------------------------------------------- who cast it, and what it hit */
+
+/* A spell resolves inside a single action, so the board is left showing a
+ * consequence with no cause: damage lands on a tile and nothing on screen says
+ * which unit threw it. These are the cause.
+ *
+ * Blue is the caster, always. The target takes its colour from the caster's
+ * side of the line rather than the viewer's — green when the spell helped its
+ * own, red when it crossed over — so the same spell reads the same way whoever
+ * is sitting at the screen. */
+.cell.mark-caster {
+  border-color: var(--frost);
+  box-shadow:
+    0 0 0 2px var(--frost),
+    0 0 26px rgba(122, 176, 208, 0.55),
+    inset 0 0 30px rgba(122, 176, 208, 0.2);
+  animation: mark-breathes 1600ms ease-in-out infinite;
+}
+.cell.mark-foe {
+  border-color: var(--blood);
+  box-shadow:
+    0 0 0 2px var(--blood),
+    0 0 26px rgba(176, 60, 43, 0.6),
+    inset 0 0 30px rgba(176, 60, 43, 0.22);
+  animation: mark-breathes 1600ms ease-in-out infinite;
+}
+.cell.mark-friend {
+  border-color: var(--sprout);
+  box-shadow:
+    0 0 0 2px var(--sprout),
+    0 0 26px rgba(139, 165, 94, 0.55),
+    inset 0 0 30px rgba(139, 165, 94, 0.2);
+  animation: mark-breathes 1600ms ease-in-out infinite;
+}
+@keyframes mark-breathes {
+  0%,
+  100% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.16);
+  }
+}
+
+/* The other side going through a pile. Says that it is happening and whose card
+   is doing it; the pile itself is theirs to see and nobody else's. */
+.searching {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 36;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 30px;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 1px var(--iron-bright),
+    0 22px 50px rgba(0, 0, 0, 0.8);
+  animation: searching-waits 1800ms ease-in-out infinite both;
+}
+.searching b {
+  font-size: 19px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.1em;
+  color: var(--flame);
+}
+.searching em {
+  font-style: normal;
+  font-size: 13px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.08em;
+  color: var(--ash);
+}
+@keyframes searching-waits {
+  0%,
+  100% {
+    opacity: 0.72;
+  }
+  50% {
+    opacity: 1;
+  }
 }

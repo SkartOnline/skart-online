@@ -43,6 +43,8 @@ export type BeatKind =
   | "draw"
   /** Cards were thrown away at leszerelés. */
   | "toss"
+  /** A player announced they had finished gathering, or casting. */
+  | "done"
   /** A step of 5.1 began. */
   | "step";
 
@@ -54,6 +56,8 @@ export interface Beat {
   cardId?: string;
   slot?: SlotId;
   count?: number;
+  /** For a cast: the tile it was aimed at. `slot` is the caster's. */
+  targetSlot?: SlotId;
   text?: string;
   /** A second line under the banner. Only the scored step uses it. */
   detail?: string;
@@ -76,11 +80,12 @@ export interface Beat {
  */
 export const BEAT_MS: Record<BeatKind, number> = {
   battlefield: 4400,
-  step: 2400,
+  step: 2600,
+  done: 1500,
   cast: 2600,
   land: 2200,
   veil: 2000,
-  reveal: 1400,
+  reveal: 1800,
   fall: 1500,
   march: 800,
   strike: 1000,
@@ -106,6 +111,7 @@ export const BEAT_MS: Record<BeatKind, number> = {
 export const BEAT_LEAD: Record<BeatKind, number> = {
   battlefield: 0,
   step: 0,
+  done: 0,
   cast: 0,
   veil: 0,
   land: 0,
@@ -115,6 +121,60 @@ export const BEAT_LEAD: Record<BeatKind, number> = {
   fall: 900,
   draw: 260,
   toss: 120,
+};
+
+/**
+ * How long the next beat waits after this one starts.
+ *
+ * The lead above is a floor — "no sooner than this". This is the other half: a
+ * queue, so beats that arrived in the same batch play one after another instead
+ * of on top of one another.
+ *
+ * The Mustra is what forced it. Four hidden units turning over is four cards
+ * being shown, and the whole point of paying to hide them was that nobody knew
+ * what they were; flipping all four inside a third of a second answers four
+ * questions at once and reads as a board that simply changed. Each one gets its
+ * own moment now, and everything the step then owes — the Belépők, whatever
+ * they killed — waits until the last card is face up.
+ *
+ * Consequences stay tight against each other. Three units dying is still three
+ * deaths, but a board wipe is one event and must not take six seconds.
+ */
+const BEAT_GAP: Record<BeatKind, number> = {
+  battlefield: 0,
+  step: 0,
+  done: 900,
+  cast: 260,
+  veil: 260,
+  land: 260,
+  reveal: 1000,
+  march: 220,
+  strike: 280,
+  fall: 420,
+  draw: 110,
+  toss: 70,
+};
+
+/**
+ * The order beats read best in, whatever order the diff happened to find them.
+ *
+ * The frame first, then who announced what, then what arrived or turned over,
+ * then what that cost, then the book-keeping. It matters more than it did: the
+ * beats are a queue now, so their order in the list is their order in time.
+ */
+const BEAT_ORDER: Record<BeatKind, number> = {
+  battlefield: 0,
+  step: 1,
+  done: 2,
+  veil: 3,
+  land: 4,
+  march: 5,
+  reveal: 6,
+  cast: 7,
+  strike: 8,
+  fall: 9,
+  draw: 10,
+  toss: 11,
 };
 
 /**
@@ -158,6 +218,14 @@ function struck(
   );
 }
 
+/**
+ * How many cast entries the resolution machine has finished with. Anything at
+ * or past the cursor is either being aimed right now or has not been reached.
+ */
+function settledCasts(state: GameState): number {
+  return state.resolution ? state.resolution.index : state.spellsCast.length;
+}
+
 function slotsByUid(state: GameState): Map<string, SlotId> {
   const out = new Map<string, SlotId>();
   for (const slot of ALL_SLOTS) {
@@ -185,7 +253,9 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
     // fires what they owe and opens the battle in one go — so the step that gets
     // announced on the way out of gathering is the one that actually happened.
     const text =
-      prev.phase === "units" && next.phase === "battle" ? "Mustra" : STEP_TEXT[next.phase];
+      prev.phase === "units" && next.phase === "battle"
+        ? "Mindkét sereg készen áll"
+        : STEP_TEXT[next.phase];
     if (text) {
       // Összesítés is the one step whose whole point is a number, so the banner
       // carries the result rather than only naming the step.
@@ -195,8 +265,38 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
           ? here.winner === "void"
             ? `${here.totals.p1} : ${here.totals.p2} — senkié`
             : `${here.totals.p1} : ${here.totals.p2} — ${SIDE_NAME[here.winner as PlayerId]} viszi`
-          : undefined;
+          : prev.phase === "units" && next.phase === "battle"
+            ? "Kezdődhet a csata!"
+            : undefined;
       out.push({ id: nextId(), kind: "step", text, detail });
+    }
+  }
+
+  // Someone saying they are finished.
+  //
+  // It is a whole turn — the alternative to putting a unit down — and it used to
+  // be the only turn in the game that produced nothing to look at, so the board
+  // went quiet and then, with no warning, the Mustra happened. Announced, the
+  // step reads as what it is: both armies stop, and only then does the fighting
+  // start.
+  for (const player of ["p1", "p2"] as PlayerId[]) {
+    const was = prev.players[player].flags;
+    const now = next.players[player].flags;
+    if (!was.unitsClosed && now.unitsClosed) {
+      out.push({
+        id: nextId(),
+        kind: "done",
+        player,
+        text: `${SIDE_NAME[player]}: a gyülekezés kész`,
+      });
+    }
+    if (!was.spellsClosed && now.spellsClosed) {
+      out.push({
+        id: nextId(),
+        kind: "done",
+        player,
+        text: `${SIDE_NAME[player]}: nem varázsol többet`,
+      });
     }
   }
 
@@ -262,8 +362,22 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
     }
   }
 
-  for (const entry of next.spellsCast.slice(prev.spellsCast.length)) {
-    out.push({ id: nextId(), kind: "cast", player: entry.owner, cardId: entry.cardId });
+  // A spell is announced when it goes off, not when it leaves the hand.
+  //
+  // Those are different moments now. The card is played, then the caster is
+  // named, then the target, and only then does anything happen — and it is the
+  // last of those the panel is for: before it, there is no caster tile to point
+  // at, no target to colour, and the whole declaration can still be taken back.
+  // So the diff counts what the resolution machine has *finished* with.
+  for (const entry of next.spellsCast.slice(settledCasts(prev), settledCasts(next))) {
+    out.push({
+      id: nextId(),
+      kind: "cast",
+      player: entry.owner,
+      cardId: entry.cardId,
+      slot: entry.casterSlot,
+      targetSlot: entry.targetSlot,
+    });
   }
 
   for (const player of ["p1", "p2"] as PlayerId[]) {
@@ -296,11 +410,15 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
  * one event, not nine.
  */
 function stagger(beats: Omit<Beat, "at">[]): Beat[] {
-  const seen = new Map<BeatKind, number>();
-  return beats.map((beat) => {
-    const nth = seen.get(beat.kind) ?? 0;
-    seen.set(beat.kind, nth + 1);
-    return { ...beat, at: BEAT_LEAD[beat.kind] + Math.min(nth, 4) * 140 };
+  const queue = [...beats].sort((a, b) => BEAT_ORDER[a.kind] - BEAT_ORDER[b.kind]);
+  let clock = 0;
+  return queue.map((beat) => {
+    // The lead is a floor and the clock is a queue; the later of the two wins.
+    // A death still cannot play before the move that caused it, and no beat can
+    // play on top of the one in front of it.
+    const at = Math.max(BEAT_LEAD[beat.kind], clock);
+    clock = at + BEAT_GAP[beat.kind];
+    return { ...beat, at };
   });
 }
 

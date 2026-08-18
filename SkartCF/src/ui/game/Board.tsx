@@ -30,6 +30,11 @@ interface Props {
   stirring?: Map<SlotId, string>;
   /** Units that just left the board, still shown as a ghost for a beat. */
   fallen?: { id: number; slot?: SlotId; cardId?: string }[];
+  /**
+   * Who cast the spell being shown and what it hit: `"caster"`, `"foe"` or
+   * `"friend"`. Three tiles at most, and only while the cast is on screen.
+   */
+  marks?: Map<SlotId, string>;
   /** The tile the pointer is reading, so the field can print its card beside the board. */
   onInspect?: (slot: SlotId | null) => void;
 }
@@ -49,10 +54,11 @@ export default function Board({
   viewer,
   stirring,
   fallen,
+  marks,
   onInspect,
 }: Props) {
   const far: PlayerId = viewer === "p1" ? "p2" : "p1";
-  const shared = { state, open, onPick, bare, viewer, stirring, fallen, onInspect };
+  const shared = { state, open, onPick, bare, viewer, stirring, fallen, marks, onInspect };
   return (
     <div className="grids">
       <Side player={far} ranks={["B", "F"]} {...shared} />
@@ -72,6 +78,7 @@ function Side({
   viewer,
   stirring,
   fallen,
+  marks,
   onInspect,
 }: Props & { player: PlayerId; ranks: Row[] }) {
   return (
@@ -91,6 +98,7 @@ function Side({
                 viewer={viewer}
                 stir={stirring?.get(slot)}
                 ghost={fallen?.find((f) => f.slot === slot)}
+                mark={marks?.get(slot)}
                 onInspect={onInspect}
               />
             );
@@ -110,6 +118,7 @@ function Cell({
   viewer,
   stir,
   ghost,
+  mark,
   onInspect,
 }: {
   slot: SlotId;
@@ -122,6 +131,8 @@ function Cell({
   stir?: string;
   /** A unit that has just left, drawn fading out of the empty tile. */
   ghost?: { id: number; cardId?: string };
+  /** `"caster"`, `"foe"` or `"friend"` while a spell is being shown. */
+  mark?: string;
   onInspect?: (slot: SlotId | null) => void;
 }) {
   const unit = state.board[slot];
@@ -129,6 +140,7 @@ function Cell({
   if (rowOfSlot(slot) === "F") classes.push("front");
   if (open) classes.push("open");
   if (stir) classes.push(`stir-${stir}`);
+  if (mark) classes.push(`mark-${mark}`);
 
   // A Pék hídja turns the outer front slots into a chasm.
   if (isBlocked(state, slot)) {
