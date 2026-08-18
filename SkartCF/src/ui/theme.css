@@ -779,7 +779,7 @@ code {
    horizontally, because a bar across the top costs the board a row of tiles
    while a column down the side costs it nothing. */
 .field {
-  --rail: 166px;
+  --rail: 182px;
   position: relative;
   height: 100dvh;
   overflow: hidden;
@@ -803,56 +803,59 @@ code {
 }
 .rail-left {
   border-right: 1px solid rgba(116, 82, 44, 0.5);
-  /* The battlefield card and the turn cue take what they need; the annals take
-     the rest and scroll inside it. */
-  display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
 }
 
-/* The battle so far, as pictures rather than sentences. There is no card art in
-   the set yet, so every entry draws an empty frame in the right shape and the
-   right colour; the art slot fills itself in the moment `artFor` returns
-   something. */
+/* The battle so far, as a strip of pictures down the side of the board.
+ *
+ * Deliberately narrow, and deliberately outside the left rail: it used to live in
+ * the rail, where it covered the phase-ender button and ate its clicks. Pictures
+ * only — a name beside each made it wide enough to do that in the first place.
+ * Pointing at one prints the card next to it. */
 .annals {
+  position: absolute;
+  left: var(--rail);
+  top: 8px;
+  bottom: 8px;
+  z-index: 12;
+  width: 42px;
   display: flex;
-  flex-direction: column;
-  min-height: 0;
-  margin: 6px 0;
-}
-.annals-head {
-  padding-bottom: 3px;
-  margin-bottom: 4px;
-  border-bottom: 1px solid var(--iron);
-  font-size: 12px;
-  font-variant-caps: small-caps;
-  letter-spacing: 0.05em;
-  color: var(--ember);
+  align-items: flex-start;
+  pointer-events: none;
 }
 .annals-list {
   list-style: none;
   margin: 0;
-  padding: 0;
-  overflow-y: auto;
-  min-height: 0;
+  padding: 3px;
   display: flex;
   flex-direction: column;
   gap: 3px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--iron) transparent;
+  max-height: 100%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  pointer-events: auto;
 }
-.annals-empty {
-  font-size: 11px;
-  padding: 4px 0;
+.annals-list::-webkit-scrollbar {
+  display: none;
 }
 .annal {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px;
-  background: rgba(23, 15, 8, 0.5);
-  border-left: 3px solid var(--iron);
-  font-size: 11.5px;
-  color: var(--parchment);
+  flex: none;
+  width: 32px;
+  height: 24px;
+  overflow: hidden;
+  border: 1px solid var(--ink-edge);
+  border-left-width: 3px;
+  cursor: help;
+  background: repeating-linear-gradient(
+    135deg,
+    rgba(0, 0, 0, 0.34) 0 5px,
+    rgba(255, 255, 255, 0.02) 5px 10px
+  );
+}
+.annal.unit {
+  background-color: #533317;
+}
+.annal.spell {
+  background-color: #3b2f4e;
 }
 .annal.mine {
   border-left-color: var(--brass);
@@ -860,38 +863,35 @@ code {
 .annal.theirs {
   border-left-color: var(--blood);
 }
-.annal-art {
-  flex: none;
-  width: 34px;
-  height: 26px;
-  overflow: hidden;
-  border: 1px solid var(--ink-edge);
-  background: repeating-linear-gradient(
-    135deg,
-    rgba(0, 0, 0, 0.34) 0 5px,
-    rgba(255, 255, 255, 0.02) 5px 10px
-  );
+.annal:hover {
+  border-color: var(--ember);
 }
-.annal.unit .annal-art {
-  background-color: #533317;
-}
-.annal.spell .annal-art {
-  background-color: #3b2f4e;
-}
-.annal-art img {
+.annal img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
 }
-.annal-name {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* The card behind the picture, printed clear of the strip. */
+.annal-card {
+  position: fixed;
+  left: calc(var(--rail) + 50px);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 90;
+  pointer-events: none;
+  filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.8));
+}
+.annal-card .cardface {
+  --card-w: 208px;
 }
 .rail-right {
   border-left: 1px solid rgba(116, 82, 44, 0.5);
+  /* Grid and flex children default to a minimum size of their content, which is
+     what let a thirty-line deck listing shoulder its way past the rail and off
+     the screen. Nothing in here may be wider than the rail. */
+  min-width: 0;
+  overflow: hidden;
   /* The ledger takes whatever the two counter blocks leave, which is what lets it
      hold a thirty-line deck listing without anything being clipped. */
   display: grid;
@@ -1072,6 +1072,8 @@ code {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
   margin: 6px 0;
   padding: 6px 7px;
   background: rgba(23, 15, 8, 0.55);
@@ -1115,8 +1117,9 @@ code {
 .ledger-list li {
   display: flex;
   align-items: baseline;
-  gap: 5px;
+  gap: 4px;
   padding: 1px 0;
+  min-width: 0;
   color: var(--parchment);
 }
 .ledger-list li.spell .ledger-cost {
@@ -1133,6 +1136,7 @@ code {
 }
 .ledger-name {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

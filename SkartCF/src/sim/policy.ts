@@ -34,7 +34,9 @@ export interface PolicyParams {
   /**
    * Leszerelés (12.5): throw a unit away when its power is this far below what
    * its cost should buy. Tossing cycles the deck for a better card at the price
-   * of deck depth, so a low threshold trades supply for quality.
+   * of deck depth, so a low threshold trades supply for quality — and the price
+   * is steeper than it looks, because a deck that runs dry stops refilling the
+   * hand at all.
    */
   tossThreshold: number;
 }
@@ -43,7 +45,7 @@ export const DEFAULT_POLICY: PolicyParams = {
   stopMargin: 2,
   stopChance: 0.7,
   hideRate: 0.15,
-  tossThreshold: -1.5,
+  tossThreshold: -4,
 };
 
 export interface PolicyContext {
@@ -124,12 +126,18 @@ function chooseTossAction(
   options: Action[],
 ): Action {
   const p = state.players[player];
-  if (p.unitDeck.length > 0) {
+  // Only while there is enough deck left that refilling is worth the card, and
+  // never a caster: cost buys spellpower as well as power, so measuring a caster
+  // by power alone marks every good one for the graveyard. That was the bug —
+  // the sim was binning its archmages and running out of deck by the fourth
+  // battle.
+  if (p.unitDeck.length > 6) {
     for (const action of options) {
       if (action.type !== "toss") continue;
       const card = p.unitHand.find((c) => c.uid === action.uid);
       if (!card) continue;
       const unit = getUnit(card.cardId);
+      if (Object.values(unit.spellpower ?? {}).some((v) => v > 0)) continue;
       if (unit.power - unit.cost * 0.9 < ctx.params.tossThreshold) return action;
     }
   }

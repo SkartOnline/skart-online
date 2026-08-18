@@ -24,7 +24,6 @@ import {
   unitAt,
   unitsOf,
 } from "./power";
-import { slotsOf } from "./grid";
 import type {
   ChoiceRequest,
   Effect,
@@ -321,7 +320,11 @@ export function casterIsViable(state: GameState, spell: SpellCard, casterSlot: S
 
 export function viableCasters(state: GameState, entry: CastEntry): SlotId[] {
   const spell = getSpell(entry.cardId);
-  return slotsOf(entry.owner).filter((slot) => casterIsViable(state, spell, slot));
+  // Your casters, not the tiles on your half: a unit pushed across the line is
+  // still yours and can still cast.
+  return unitsOf(state, entry.owner)
+    .map((u) => u.slot)
+    .filter((slot) => casterIsViable(state, spell, slot));
 }
 
 /**
@@ -329,7 +332,7 @@ export function viableCasters(state: GameState, entry: CastEntry): SlotId[] {
  * or aim is simply not castable, so it is never offered.
  */
 export function hasViableCaster(state: GameState, spell: SpellCard, player: PlayerId): boolean {
-  return slotsOf(player).some((slot) => casterIsViable(state, spell, slot));
+  return unitsOf(state, player).some((u) => casterIsViable(state, spell, u.slot));
 }
 
 // ---------------------------------------------------------------------------

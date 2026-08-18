@@ -1091,11 +1091,15 @@ export function resolveAutoTargets(
       slots = across ? [across] : [];
       break;
     }
+    // Ownership, not geography: a unit standing on the far half is still an ally
+    // of whoever put it down, and still an enemy of whoever it is fighting.
     case "allEnemy":
-      slots = slotsOf(enemy);
+      slots = unitsOf(state, enemy).map((u) => u.slot);
       break;
     case "allAlly":
-      slots = slotsOf(owner).filter((s) => s !== source.slot);
+      slots = unitsOf(state, owner)
+        .map((u) => u.slot)
+        .filter((s) => s !== source.slot);
       break;
     case "allOther":
       slots = ALL_SLOTS.filter((s) => s !== source.slot);

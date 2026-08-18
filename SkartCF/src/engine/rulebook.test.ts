@@ -2,10 +2,11 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { BASE_CARD_SET, getSpell, getUnit, loadCardSet } from "./cards";
 import { applyEffect, legalDestinations, makeUnitInstance } from "./effects";
 import { ALL_SLOTS } from "./grid";
-import { cardKeywords, power } from "./power";
+import { cardKeywords, power, unitsOf } from "./power";
 import { applyAction } from "./reducer";
 import { createGame, DEFAULT_CONFIG } from "./setup";
-import { visibleCapSpent } from "./totaling";
+import { hasViableCaster } from "./resolve";
+import { boardTotal, locationWinner, visibleCapSpent } from "./totaling";
 import type { GameState, PlayerId, SlotId } from "./types";
 
 /**
@@ -430,5 +431,42 @@ describe("érkezési mező", () => {
     });
     expect(after.board["p2.F1"]).toBeNull();
     expect(after.players.p1.unitHand).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A unit belongs to whoever put it down, wherever it ends up standing
+// ---------------------------------------------------------------------------
+
+describe("tulajdon és térfél", () => {
+  it("counts a unit pushed across the line for its owner, not for the tiles", () => {
+    const state = blankState("umbra");
+    place(state, "ogre", "p1.F1"); // 7 power, p1's
+    place(state, "patkany", "p2.F2"); // 1 power, p2's
+    expect(boardTotal(state, "p1")).toBe(7);
+    expect(boardTotal(state, "p2")).toBe(1);
+
+    // Now walk the Ogre across the centreline onto p2's half, which 8.4.5 allows.
+    const ogre = state.board["p1.F1"]!;
+    state.board["p1.F1"] = null;
+    ogre.slot = "p2.F1";
+    state.board["p2.F1"] = ogre;
+
+    // It is standing on their half and it is still worth 7 to its owner.
+    expect(ogre.owner).toBe("p1");
+    expect(boardTotal(state, "p1")).toBe(7);
+    expect(boardTotal(state, "p2")).toBe(1);
+    expect(locationWinner(state)).toBe("p1");
+  });
+
+  it("keeps a unit on the far half castable and countable as its owner's", () => {
+    const state = blankState("umbra");
+    place(state, "celebrant", "p2.B2"); // a p2 tile...
+    const caster = state.board["p2.B2"]!;
+    caster.owner = "p1"; // ...holding one of p1's units
+    expect(unitsOf(state, "p1").map((u) => u.uid)).toEqual([caster.uid]);
+    expect(unitsOf(state, "p2")).toEqual([]);
+    expect(hasViableCaster(state, getSpell("explar"), "p1")).toBe(true);
+    expect(hasViableCaster(state, getSpell("explar"), "p2")).toBe(false);
   });
 });

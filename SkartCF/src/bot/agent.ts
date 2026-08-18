@@ -164,6 +164,17 @@ export function prune(
   const all = legalActions(state, player);
   if (all.length === 0) return [];
 
+  // Leszerelés is not a decision this agent can make. The featuriser has no
+  // notion of the phase — `PHASES` deliberately omits it, because adding one
+  // would invalidate every saved checkpoint — so the value model scores a hand
+  // with six cards in it exactly like a hand with one, and left to itself the
+  // agent throws its deck away by the fourth battle. Keeping is the safe default
+  // and the rules make it free: tossing is optional and refilling comes out of a
+  // finite deck. Give it the one move it can justify.
+  if (state.phase === "cleanup") {
+    return all.filter((a) => a.type === "declareTossDone");
+  }
+
   const plain: Action[] = [];
   const hidden = new Map<string, Extract<Action, { type: "playUnit" }>[]>();
 

@@ -268,14 +268,16 @@ function Field(props: FieldProps) {
   const botToMove = botSide !== null && actor === botSide && state.phase !== "gameOver";
   useEffect(() => {
     if (!botToMove || !bot.current) return;
+    // Leszerelés is book-keeping, not a move worth watching: the machine says it
+    // is done and the battle turns over. Everything else waits long enough for
+    // the previous beat to finish, because a card leaving its hand is the only
+    // sign it did anything.
     const busy = beats.some((b) => b.kind === "land" || b.kind === "veil" || b.kind === "cast");
-    const timer = setTimeout(
-      () => {
-        const action = bot.current?.choose(state, botSide!);
-        if (action) send(action);
-      },
-      busy ? 950 : 620,
-    );
+    const pause = state.phase === "cleanup" ? 120 : busy ? 950 : 620;
+    const timer = setTimeout(() => {
+      const action = bot.current?.choose(state, botSide!);
+      if (action) send(action);
+    }, pause);
     return () => clearTimeout(timer);
   }, [botToMove, state, botSide, bot, send, beats]);
 
@@ -376,9 +378,13 @@ function Field(props: FieldProps) {
       <aside className="rail-left">
         <Battlefield {...props} onLog={() => setLogOpen((v) => !v)} logOpen={logOpen} />
         <TurnCue {...props} moves={moves} viewer={viewer} />
-        <Annals state={state} viewer={viewer} />
+        <span className="rail-gap" />
         <Tools {...props} onLog={() => setLogOpen((v) => !v)} logOpen={logOpen} />
       </aside>
+
+      {/* A thin strip of pictures beside the left rail, clear of everything the
+          rail has to be clickable for. */}
+      <Annals state={state} viewer={viewer} />
 
       <div className="arena">
         <Board
@@ -573,20 +579,21 @@ function Battlefield({ state, onLeave }: FieldProps & { onLog: () => void; logOp
 }
 
 /**
- * The battle so far, down the left rail: one entry per thing that happened, with
- * a picture of the card that did it.
+ * The battle so far, as a thin column of pictures beside the board.
  *
- * This is the skeleton. There is no card art in the set yet, so every entry draws
- * an empty frame in the right shape and the right colour — a unit frame, a spell
- * frame, a battlefield frame — and the art slot fills itself in the moment
- * `artFor` starts returning anything. The point of building it now is the shape:
- * a column of pictures reads as a story at a glance, which the text chronicle
- * behind the Krónika button never will, however good the wording is.
+ * Pictures only. A name beside each one made the strip wide enough to sit over
+ * the rail's buttons and swallow their clicks, and the picture is the part that
+ * reads at a glance anyway — the whole reason to have this next to a text
+ * chronicle is that a column of images is scannable and a column of sentences is
+ * not. Pointing at one prints the card beside it.
+ *
+ * There is no card art in the set yet, so each entry draws an empty frame in the
+ * right shape and colour and fills itself in the moment `artFor` returns
+ * something.
  */
 function Annals({ state, viewer }: { state: GameState; viewer: PlayerId }) {
-  const here = state.locationIndex;
-  const entries: { key: string; owner: PlayerId | null; cardId: string; kind: "unit" | "spell" }[] =
-    [];
+  const [open, setOpen] = useState<string | null>(null);
+  const entries: { key: string; owner: PlayerId; cardId: string; kind: "unit" | "spell" }[] = [];
 
   for (const slot of ALL_SLOTS) {
     const unit = state.board[slot];
@@ -598,30 +605,32 @@ function Annals({ state, viewer }: { state: GameState; viewer: PlayerId }) {
     entries.push({ key: `s${cast.uid}`, owner: cast.owner, cardId: cast.cardId, kind: "spell" });
   }
 
+  const shown = open ? cardFor(open) : undefined;
+
   return (
-    <div className="annals" key={here}>
-      <b className="annals-head">Krónika</b>
+    <div className="annals" key={state.locationIndex}>
       <ul className="annals-list">
-        {entries.length === 0 && <li className="faint annals-empty">Még üres a csatatér.</li>}
         {entries.map((entry) => (
           <li
             key={entry.key}
             className={`annal ${entry.kind} ${entry.owner === viewer ? "mine" : "theirs"}`}
+            onMouseEnter={() => setOpen(entry.cardId)}
+            onMouseLeave={() => setOpen(null)}
+            title={cardFor(entry.cardId)?.name ?? ""}
           >
-            <span className="annal-art">
-              {artFor(entry.cardId) && <img src={artFor(entry.cardId)} alt="" />}
-            </span>
-            <span className="annal-name">{cardNameOf(entry.cardId)}</span>
+            {artFor(entry.cardId) && <img src={artFor(entry.cardId)} alt="" />}
           </li>
         ))}
       </ul>
+      {shown && (
+        <div className="annal-card">
+          <CardFace card={shown} className={shown.kind === "spell" ? "spell" : ""} />
+        </div>
+      )}
     </div>
   );
 }
 
-function cardNameOf(id: string): string {
-  return cardFor(id)?.name ?? "";
-}
 
 function Tools({
   bare,

@@ -99,7 +99,25 @@ export function unitAt(state: GameState, slot: SlotId): UnitInstance | null {
   return state.board[slot] ?? null;
 }
 
+/**
+ * A player's units, wherever they are standing.
+ *
+ * Ownership, not geography. This used to read the six tiles on a player's half of
+ * the board, which was the same thing right up until 8.4.5 let a move land on
+ * either half — and then it silently became a scoring bug, because a unit pushed
+ * across the centreline started counting for the player whose tiles it was
+ * standing on. A unit belongs to whoever put it down, and nothing that happens to
+ * it on the board changes that.
+ */
 export function unitsOf(state: GameState, player: PlayerId): UnitInstance[] {
+  return allUnitsOnBoard(state).filter((u) => u.owner === player);
+}
+
+/**
+ * The units standing on a player's own six tiles, whoever owns them. The rare
+ * other question: who is physically on my half.
+ */
+export function unitsStandingOn(state: GameState, player: PlayerId): UnitInstance[] {
   return slotsOf(player)
     .map((s) => state.board[s])
     .filter((u): u is UnitInstance => !!u);
