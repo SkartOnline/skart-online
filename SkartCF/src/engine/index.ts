@@ -9,5 +9,7 @@ export * from "./power";
 export * from "./totaling";
 export * from "./effects";
 export * from "./resolve";
+export * from "./prompts";
+export * from "./interactions";
 export * from "./reducer";
 export * from "./setup";

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   applyAction,
   boardTotal,
@@ -9,7 +9,12 @@ import {
   getUnit,
   isMasterSpell,
   ALL_SLOTS,
+  announcedBattlefields,
   legalActions,
+  newReveals,
+  trapSlots,
+  pendingPrompt,
+  promptSatisfied,
   remainingCap,
   slotsOf,
   visibleCapSpent,
@@ -19,7 +24,10 @@ import type {
   Action,
   GameState,
   HandCard,
+  LocationCard,
   PlayerId,
+  Prompt,
+  Reveal,
   SlotId,
   SpellCard,
   UnitCard,
@@ -39,6 +47,7 @@ import {
   captureHandCard,
   flyBack,
   flyTo,
+  REVEAL_MS,
   slotElement,
 } from "./theatre";
 import type { Beat, BeatKind, Flight } from "./theatre";
@@ -66,6 +75,24 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   // between two states and expire on their own, so they can only ever decorate
   // what the board already shows.
   const [beats, setBeats] = useState<LiveBeat[]>([]);
+  /** Cards a player has been shown: a peek, a tutor, a trap going off. */
+  const [shows, setShows] = useState<LiveReveal[]>([]);
+  /**
+   * The clock the theatre reads.
+   *
+   * Beats no longer all start at once. A death waits for the play that caused
+   * it, which means a beat has a moment it *begins* as well as one it ends, and
+   * something has to re-render the screen when that moment arrives. This is
+   * that something: the timer moves it forward, and everything derived from it
+   * — which tiles are stirring, what the banner says — falls out.
+   */
+  const [now, setNow] = useState(() => Date.now());
+  /**
+   * Whether the opening ceremony is still running. Nothing may move while it
+   * is: the point of it is that the first thing you see is not a board the
+   * machine has already played onto.
+   */
+  const [prologue, setPrologue] = useState(true);
   /** Captured before the state changes, launched after it has rendered. */
   const pendingFlight = useRef<{ flight: Flight; slot?: SlotId } | null>(null);
 
@@ -78,35 +105,61 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       setHeld(null);
       setFault(null);
       setBeats([]);
+      setShows([]);
+      setPrologue(true);
     } catch (e) {
       setFault(String(e));
     }
   }
 
-  function send(action: Action) {
+  /**
+   * One action, or a run of them that a single gesture produced.
+   *
+   * Dragging Fuedrax's trap out of the hand and onto a tile answers two
+   * questions at once — which spell, and where — and they cannot be two calls,
+   * because both would apply to the same stale state. They are folded here
+   * instead, and the theatre reads the difference across the whole run, so the
+   * gesture reads as the one thing it was.
+   */
+  function send(action: Action | Action[]) {
     if (!state) return;
+    const run = Array.isArray(action) ? action : [action];
+    if (run.length === 0) return;
     try {
       // The card has to be cloned while it still exists in the hand, which is
       // now: applying the action is what takes it away.
-      if (action.type === "playUnit" || action.type === "castSpell") {
-        const flight = captureHandCard(action.uid);
+      const first = run[0];
+      if (first.type === "playUnit" || first.type === "castSpell") {
+        const flight = captureHandCard(first.uid);
         if (flight) {
           pendingFlight.current = {
             flight,
-            slot: action.type === "playUnit" ? action.slot : undefined,
+            slot: first.type === "playUnit" ? first.slot : undefined,
           };
         }
       }
-      const next = applyAction(state, action);
-      const now = Date.now();
+      const next = run.reduce(applyAction, state);
+      const at = Date.now();
       setPast((h) => [...h.slice(-40), state]);
       setBeats((b) => [
         ...b,
         ...beatsBetween(state, next).map((beat) => ({
           ...beat,
-          expiresAt: now + BEAT_MS[beat.kind],
+          startsAt: at + beat.at,
+          expiresAt: at + beat.at + BEAT_MS[beat.kind],
         })),
       ]);
+      // A reveal waits for the card that caused it to be on screen: Fejvadász
+      // has to be down and readable before the hand he is going through opens.
+      setShows((s) => [
+        ...s,
+        ...newReveals(state, next).map((reveal, i) => ({
+          ...reveal,
+          startsAt: at + 520 + i * 220,
+          expiresAt: at + 520 + i * 220 + REVEAL_MS,
+        })),
+      ]);
+      setNow(at);
       setState(next);
       setHeld(null);
       setFault(null);
@@ -140,6 +193,7 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   useEffect(() => {
     if (!state) return;
     for (const beat of beats) {
+      if (beat.startsAt > Date.now()) continue;
       if (beat.kind !== "draw" && beat.kind !== "toss") continue;
       if (flown.current.has(beat.id)) continue;
       flown.current.add(beat.id);
@@ -157,17 +211,36 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
     }
   }, [beats, botSide, state]);
 
-  // One timer, aimed at whichever beat expires first. Each beat carries its own
-  // deadline, so a new batch arriving never extends the life of an old one.
+  /**
+   * One timer for the whole theatre, aimed at the next moment anything changes:
+   * a beat starting, a beat ending, a reveal going up or coming down. Each of
+   * them carries its own two deadlines, so a new batch arriving never extends
+   * the life of an old one, and a beat that has not started yet is simply not
+   * shown until its moment comes.
+   */
   useEffect(() => {
-    if (beats.length === 0) return;
-    const soonest = Math.min(...beats.map((b) => b.expiresAt));
+    if (beats.length === 0 && shows.length === 0) return;
+    const t = Date.now();
+    const marks = [
+      ...beats.flatMap((b) => [b.startsAt, b.expiresAt]),
+      ...shows.flatMap((s) => [s.startsAt, s.expiresAt]),
+    ].filter((mark) => mark > t);
+    const soonest = marks.length > 0 ? Math.min(...marks) : t;
     const timer = setTimeout(
-      () => setBeats((current) => current.filter((b) => b.expiresAt > Date.now())),
-      Math.max(16, soonest - Date.now()),
+      () => {
+        const at = Date.now();
+        setNow(at);
+        setBeats((current) => current.filter((b) => b.expiresAt > at));
+        setShows((current) => current.filter((s) => s.expiresAt > at));
+      },
+      Math.max(16, soonest - t),
     );
     return () => clearTimeout(timer);
-  }, [beats]);
+  }, [beats, shows, now]);
+
+  // Stable, because the ceremony's own timer has it in a dependency list and a
+  // new identity every render would restart the act it is in the middle of.
+  const endPrologue = useCallback(() => setPrologue(false), []);
 
   function stepBack() {
     setPast((h) => {
@@ -175,21 +248,29 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       setState(h[h.length - 1]);
       setHeld(null);
       setBeats([]);
+      setShows([]);
       return h.slice(0, -1);
     });
   }
 
   if (!state) return <NewGame onStart={begin} onLeave={onLeave} />;
 
+
+  const asking = pendingPrompt(state);
   const pending = state.resolution?.pending ?? null;
-  const actor: PlayerId | null = pending
-    ? pending.player
-    : state.phase === "units" ||
-        state.phase === "battle" ||
-        state.phase === "scored" ||
-        state.phase === "cleanup"
-      ? state.turn
-      : null;
+  // An ability waiting on a pick answers before anything else, and not
+  // necessarily on its own turn: a battlefield that hands both players a tutor
+  // asks the second one while the first still holds the turn.
+  const actor: PlayerId | null = asking
+    ? asking.player
+    : pending
+      ? pending.player
+      : state.phase === "units" ||
+          state.phase === "battle" ||
+          state.phase === "scored" ||
+          state.phase === "cleanup"
+        ? state.turn
+        : null;
 
   return (
     <Field
@@ -198,6 +279,10 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       botSide={botSide}
       bot={bot}
       beats={beats}
+      shows={shows}
+      now={now}
+      prologue={prologue}
+      endPrologue={endPrologue}
       held={held}
       setHeld={setHeld}
       send={send}
@@ -212,8 +297,11 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   );
 }
 
-/** A beat plus the moment it stops being shown. */
-type LiveBeat = Beat & { expiresAt: number };
+/** A beat plus the two moments that bracket it on screen. */
+type LiveBeat = Beat & { startsAt: number; expiresAt: number };
+
+/** A reveal plus the same bracket. */
+type LiveReveal = Reveal & { startsAt: number; expiresAt: number };
 
 interface FieldProps {
   state: GameState;
@@ -223,9 +311,16 @@ interface FieldProps {
   bot: React.MutableRefObject<Agent | null>;
   /** What just happened, for the theatre to show. Never read for rules. */
   beats: LiveBeat[];
+  /** What a player has been shown: a peeked card, a tutor, a trap going off. */
+  shows: LiveReveal[];
+  /** The theatre's clock. Everything timed is derived from it, never from Date. */
+  now: number;
+  /** The opening ceremony is still playing. Nothing else may move until it is not. */
+  prologue: boolean;
+  endPrologue: () => void;
   held: Held | null;
   setHeld: (h: Held | null) => void;
-  send: (a: Action) => void;
+  send: (a: Action | Action[]) => void;
   stepBack: () => void;
   canStepBack: boolean;
   bare: boolean;
@@ -241,7 +336,19 @@ interface FieldProps {
  * costs a row of tiles, a column down the side costs nothing the board wanted.
  */
 function Field(props: FieldProps) {
-  const { state, actor, held, setHeld, send, bare, botSide, bot, beats } = props;
+  const { state, actor, held, setHeld, send, bare, botSide, bot, now } = props;
+  // Only the beats whose moment has come. A beat that has not started yet is
+  // already in the queue — it has to be, the diff that produced it is gone —
+  // but nothing on screen may know about it until the clock reaches it.
+  const beats = useMemo(
+    () => props.beats.filter((b) => b.startsAt <= now),
+    [props.beats, now],
+  );
+  const shows = useMemo(
+    () => props.shows.filter((s) => s.startsAt <= now),
+    [props.shows, now],
+  );
+  const asking = pendingPrompt(state);
   const pending = state.resolution?.pending ?? null;
   const [logOpen, setLogOpen] = useState(false);
   /** The tile being read. Never a rule, only what the loupe beside the board shows. */
@@ -265,28 +372,50 @@ function Field(props: FieldProps) {
   // machine it does not turn: the camera stays with the person holding the
   // keyboard, and the machine plays from the far side like an opponent would.
   const human: PlayerId | null = botSide ? other(botSide) : null;
-  const viewer: PlayerId = human ?? actor ?? state.turn;
+  // A reveal holds the camera where it is.
+  //
+  // Without this, hotseat could never show one at all: playing Mágusinkvizítor
+  // is what turns the table, so the card he pulled out of the enemy's hand
+  // would come up on screen a frame after the seat it belongs to had already
+  // been handed over — the peeker's own ability, shown to the player it was
+  // used against. The table turns when the reveal is finished instead.
+  // A live question outranks a fading reveal: whoever is being asked something
+  // has to be looking at their own half while they answer it.
+  const peeking = shows.length > 0 ? shows[shows.length - 1].player : null;
+  const viewer: PlayerId = human ?? asking?.player ?? peeking ?? actor ?? state.turn;
   const far = other(viewer);
 
   // The machine moves on a timer rather than instantly, so its turn is something
   // you watch happen instead of a board that has already changed. The wait is
   // long enough for the previous beat to finish playing: a card flying out of the
   // machine's hand is the only signal that it did anything at all.
-  const botToMove = botSide !== null && actor === botSide && state.phase !== "gameOver";
+  const botToMove =
+    botSide !== null && actor === botSide && state.phase !== "gameOver" && !props.prologue;
   useEffect(() => {
     if (!botToMove || !bot.current) return;
     // Leszerelés is book-keeping, not a move worth watching: the machine says it
-    // is done and the battle turns over. Everything else waits long enough for
-    // the previous beat to finish, because a card leaving its hand is the only
-    // sign it did anything.
-    const busy = beats.some((b) => b.kind === "land" || b.kind === "veil" || b.kind === "cast");
-    const pause = state.phase === "cleanup" ? 120 : busy ? 950 : 620;
+    // is done and the battle turns over.
+    //
+    // Everything else waits for the theatre to finish. That is stronger than it
+    // used to be, and it has to be: beats no longer all start at once, so a
+    // death that has not begun playing yet is still owed its moment, and a
+    // machine that moved as soon as the *first* beat was over would talk over
+    // the consequences of its own last move. Draws and tosses are exempt —
+    // watching a hand refill is not watching a turn.
+    const quiet = Math.max(
+      0,
+      ...props.beats
+        .filter((b) => b.kind !== "draw" && b.kind !== "toss")
+        .map((b) => b.expiresAt - Date.now()),
+      ...props.shows.map((s) => s.expiresAt - Date.now()),
+    );
+    const pause = state.phase === "cleanup" ? 120 : Math.max(560, quiet + 240);
     const timer = setTimeout(() => {
       const action = bot.current?.choose(state, botSide!);
       if (action) send(action);
     }, pause);
     return () => clearTimeout(timer);
-  }, [botToMove, state, botSide, bot, send, beats]);
+  }, [botToMove, state, botSide, bot, send, props.beats, props.shows]);
 
   // The scored step has nothing to decide: the totals are in, Diadal and Vigasz
   // have fired, and leszerelés follows. So it follows on its own, after long
@@ -296,7 +425,7 @@ function Field(props: FieldProps) {
   sendRef.current = send;
   useEffect(() => {
     if (state.phase !== "scored") return;
-    const timer = setTimeout(() => sendRef.current({ type: "nextLocation" }), 2200);
+    const timer = setTimeout(() => sendRef.current({ type: "nextLocation" }), 3600);
     return () => clearTimeout(timer);
     // Deliberately keyed to the battle rather than to the whole state: beats
     // expiring re-render this component, and a timer that restarted on every
@@ -308,6 +437,21 @@ function Field(props: FieldProps) {
 
   const open = useMemo(() => {
     const set = new Set<SlotId>();
+    // Fuedrax naming the tile his trap watches. Same mechanism as a spell's
+    // target pick, so the tile lights up and takes a drop the same way.
+    if (asking?.picking === "slot") {
+      for (const slot of asking.slots ?? []) set.add(slot);
+      return set;
+    }
+    // The tiles are lit while the spell is still in hand, too, so burying one is
+    // the gesture the card describes — pick it up, drop it over there — rather
+    // than a click here followed by a click there. The two answers travel as one
+    // run of actions.
+    if (asking?.kind === "trapSpell") {
+      for (const slot of trapSlots(state, asking.player)) set.add(slot);
+      return set;
+    }
+    if (asking) return set;
     if (pending && pending.kind !== "handCard") {
       for (const slot of pending.options) set.add(slot);
       return set;
@@ -321,7 +465,7 @@ function Field(props: FieldProps) {
       }
     }
     return set;
-  }, [state.phase, pending, held, moves]);
+  }, [state, state.phase, asking, pending, held, moves]);
 
   function commit(slot: SlotId, card: Held) {
     if (!actor) return;
@@ -336,6 +480,10 @@ function Field(props: FieldProps) {
   }
 
   function pickSlot(slot: SlotId) {
+    if (asking?.picking === "slot") {
+      send({ type: "answerPrompt", player: asking.player, pick: slot });
+      return;
+    }
     if (pending) {
       send({ type: "chooseSlot", player: pending.player, slot });
       return;
@@ -350,6 +498,27 @@ function Field(props: FieldProps) {
    * else puts the card back and leaves it selected, which is what a hand of paper
    * would do.
    */
+  /**
+   * Burying Fuedrax's trap: pick the spell up, drop it on the tile it will
+   * watch. Two answers, one gesture, so they go as one run of actions — sent
+   * separately they would both land on the same stale state.
+   */
+  function startTrapDrag(event: React.PointerEvent, uid: string) {
+    if (event.button !== 0 || !asking || asking.kind !== "trapSpell") return;
+    const player = asking.player;
+    const session = beginCardDrag(uid, event.nativeEvent, {
+      onDrop: (slot) =>
+        send([
+          { type: "answerPrompt", player, pick: uid },
+          { type: "answerPrompt", player, pick: slot },
+        ]),
+      onEnd: () => setLifted(null),
+    });
+    if (!session) return;
+    event.preventDefault();
+    setLifted(uid);
+  }
+
   function startDrag(event: React.PointerEvent, card: Held) {
     if (event.button !== 0 || state.phase !== "units") return;
     setHeld(card);
@@ -446,6 +615,7 @@ function Field(props: FieldProps) {
           moves={moves}
           viewer={viewer}
           onDrag={startDrag}
+          onDragTrap={startTrapDrag}
           onRead={setReading}
           lifted={liftedStillHeld}
         />
@@ -455,10 +625,241 @@ function Field(props: FieldProps) {
           the fan. Nothing in the hand moves to make this happen. */}
       {readCard && !liftedStillHeld && <Reading uid={readCard.uid} cardId={readCard.cardId} />}
 
+      {/* An ability going through a pile: the deck a tutor is searching, the
+          hand Griff is helping himself to. A hand of your own is picked from
+          the hand itself, so only the piles reach this panel. */}
+      {asking && !handHeld(asking, state) && asking.picking === "card" && (
+        <Almanac prompt={asking} send={send} />
+      )}
+
+      {/* What somebody has just been shown, held up long enough to read. */}
+      <Curtain shows={shows} viewer={viewer} bare={bare} />
+
+      {props.prologue && <Prologue state={state} onDone={props.endPrologue} />}
+
       {logOpen && <Chronicle state={state} onClose={() => setLogOpen(false)} />}
       {over && <Aftermath state={state} onLeave={props.onLeave} onQuit={props.onQuit} />}
     </div>
   );
+}
+
+/**
+ * Is this prompt asking about cards the player is already holding?
+ *
+ * It decides where the question is put. Cards in your own hand are picked out
+ * of the hand — that is where they are, and clicking one there is what anyone
+ * would try first. Anything else is a pile nobody can see: a deck being
+ * searched, a graveyard being read, an opponent's hand Griff has opened. Those
+ * have nowhere on screen to be, so they get a panel of their own.
+ */
+function handHeld(prompt: Prompt, state: GameState): boolean {
+  if (prompt.picking !== "card") return false;
+  const mine = new Set(
+    [...state.players[prompt.player].unitHand, ...state.players[prompt.player].spellHand].map(
+      (c) => c.uid,
+    ),
+  );
+  return (prompt.cards ?? []).every((c) => mine.has(c.uid));
+}
+
+// --------------------------------------------------------------- the almanac
+
+/**
+ * A pile, opened, with the cards in it there to be pointed at.
+ *
+ * This is the ledger's shape on purpose. A column of counted lines is how
+ * anyone who plays these games already reads a pile, the right rail already
+ * teaches it, and a tutor is exactly the moment you want that reading to be
+ * clickable rather than only legible. Pointing at a line prints the whole card
+ * beside it, because a name and a cost is not enough to choose on.
+ *
+ * Copies are counted the way the ledger counts them — four rats are one line
+ * reading ×4 — but a pick still names a single card, so the line keeps the uid
+ * of the next unpicked copy and hands that over.
+ */
+function Almanac({ prompt, send }: { prompt: Prompt; send: (a: Action) => void }) {
+  const [reading, setReading] = useState<string | null>(null);
+  const picked = new Set(prompt.chosen);
+  const cards = prompt.cards ?? [];
+  const left = prompt.max - prompt.chosen.length;
+
+  const lines = new Map<string, { cardId: string; uids: string[] }>();
+  for (const card of cards) {
+    const found = lines.get(card.cardId);
+    if (found) found.uids.push(card.uid);
+    else lines.set(card.cardId, { cardId: card.cardId, uids: [card.uid] });
+  }
+  const rows = [...lines.values()]
+    .map((line) => ({
+      ...line,
+      card: cardFor(line.cardId),
+      free: line.uids.filter((uid) => !picked.has(uid)),
+    }))
+    .filter((row) => !!row.card)
+    .sort(
+      (a, b) =>
+        (a.card!.kind === b.card!.kind ? 0 : a.card!.kind === "unit" ? -1 : 1) ||
+        ("cost" in a.card! ? a.card!.cost : 0) - ("cost" in b.card! ? b.card!.cost : 0) ||
+        a.card!.name.localeCompare(b.card!.name, "hu"),
+    );
+
+  const shown = reading ? cardFor(reading) : undefined;
+  const chosenNames = prompt.chosen
+    .map((uid) => cards.find((c) => c.uid === uid)?.cardId)
+    .map((id) => (id ? (cardFor(id)?.name ?? id) : ""))
+    .filter(Boolean);
+
+  return (
+    <div className="almanac timber">
+      <div className="almanac-head">
+        <b>{prompt.prompt}</b>
+        <span className="num">
+          {prompt.chosen.length}/{prompt.max}
+        </span>
+      </div>
+
+      <ul className="almanac-list">
+        {rows.length === 0 && <li className="faint">Nincs több választható lap.</li>}
+        {rows.map((row) => {
+          const card = row.card!;
+          const spent = row.free.length === 0;
+          return (
+            <li
+              key={row.cardId}
+              className={`almanac-row ${card.kind === "spell" ? "spell" : "unit"}${
+                spent ? " spent" : ""
+              }`}
+              onMouseEnter={() => setReading(row.cardId)}
+              onMouseLeave={() => setReading(null)}
+            >
+              <button
+                disabled={spent || left <= 0}
+                onClick={() =>
+                  send({ type: "answerPrompt", player: prompt.player, pick: row.free[0] })
+                }
+              >
+                <span className="ledger-cost num">{"cost" in card ? card.cost : ""}</span>
+                <span className="ledger-name">{card.name}</span>
+                {row.uids.length > 1 && (
+                  <span className="ledger-count num">
+                    ×{row.free.length}/{row.uids.length}
+                  </span>
+                )}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="almanac-foot">
+        {chosenNames.length > 0 && <span className="almanac-picked">{chosenNames.join(", ")}</span>}
+        <span className="grow" />
+        {/* Only offered once the ability has had what it insists on. A tutor
+            that says one card comes up has no way out but to name one. */}
+        {promptSatisfied(prompt) && (
+          <button
+            className="ember tiny"
+            onClick={() => send({ type: "finishPrompt", player: prompt.player })}
+          >
+            {prompt.chosen.length === 0 ? "Kihagyom" : "Kész"}
+          </button>
+        )}
+      </div>
+
+      {shown && (
+        <div className="almanac-card">
+          <CardFace card={shown} className={shown.kind === "spell" ? "spell" : ""} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --------------------------------------------------------------- the curtain
+
+/**
+ * A card somebody has been shown.
+ *
+ * Three of these abilities — Gréta, Mágusinkvizítor, Leskelődés — used to write
+ * a line in the chronicle and stop, on the grounds that hotseat has a "Mindent
+ * mutat" switch. A switch you could have flicked yourself is not an ability, so
+ * what they produce now is this: the card comes up out of the far hand, is held
+ * long enough to actually read, and goes back where it came from.
+ *
+ * Fejvadász is the one with a verdict on it. His whole ability is the moment
+ * between the card turning over and the cost being read, so the card says which
+ * way it went: a green ring and a lean forward when it beat him, and a flat
+ * refusal when it did not.
+ *
+ * Nobody but the player entitled to look ever sees any of it. The record
+ * carries whose look it was, which is what keeps a bot peeking at a hand from
+ * showing that hand to the person it is playing against.
+ */
+function Curtain({
+  shows,
+  viewer,
+  bare,
+}: {
+  shows: (Reveal & { startsAt: number; expiresAt: number })[];
+  viewer: PlayerId;
+  bare: boolean;
+}) {
+  const shown = [...shows].reverse().find((s) => s.open || s.player === viewer || bare);
+  if (!shown) return null;
+
+  const cards = shown.cardIds
+    .map((id) => cardFor(id) ?? tryLocation(id))
+    .filter((card): card is UnitCard | SpellCard | LocationCard => !!card);
+  if (cards.length === 0) return null;
+
+  return (
+    <div key={shown.id} className={`curtain ${shown.kind}${shown.verdict ? ` ${shown.verdict}` : ""}`}>
+      <span className="curtain-note">{curtainNote(shown)}</span>
+      <div className="curtain-cards">
+        {cards.slice(0, 7).map((card, i) => (
+          <div className="curtain-card" key={i} style={{ "--nth": i } as React.CSSProperties}>
+            <CardFace card={card} className={isSpellCard(card) ? "spell" : ""} />
+          </div>
+        ))}
+      </div>
+      {shown.verdict && (
+        <span className={`curtain-verdict ${shown.verdict}`}>{verdictWord(shown)}</span>
+      )}
+    </div>
+  );
+}
+
+function curtainNote(reveal: Reveal): string {
+  if (reveal.text) return reveal.text;
+  if (reveal.kind === "tutor") return "kikeresve";
+  if (reveal.kind === "portal") return "portál a következő csatatérre";
+  if (reveal.kind !== "trap") return "felfedve";
+  if (reveal.verdict === undefined) return "csapda lehelyezve";
+  const victim = reveal.subjectCardId ? cardFor(reveal.subjectCardId)?.name : undefined;
+  return victim ? `${victim} csapdába lép` : "csapda";
+}
+
+/**
+ * The same two verdicts mean different things on different cards, so they are
+ * worded for the card that produced them: Fejvadász is asking whether what came
+ * out of the hand cost more than he did, a trap is asking whether the spell it
+ * was holding could touch whoever walked in.
+ */
+function verdictWord(reveal: Reveal): string {
+  if (reveal.kind === "trap") return reveal.verdict === "yes" ? "elsül" : "elszáll";
+  return reveal.verdict === "yes" ? "drágább" : "nem elég";
+}
+
+function tryLocation(id: string): LocationCard | undefined {
+  try {
+    return getLocation(id);
+  } catch {
+    return undefined;
+  }
+}
+
+function isSpellCard(card: UnitCard | SpellCard | LocationCard): boolean {
+  return (card as SpellCard).kind === "spell";
 }
 
 // ------------------------------------------------------------------ theatre
@@ -497,6 +898,11 @@ function Theatre({
             <>
               <b>{tryLocationName(frame.cardId)}</b>
               <em>{capLabel(frame.cardId)}</em>
+              {/* The rules box, not only the name. A battlefield changes what
+                  every tile on the board is worth, and a player who has not
+                  memorised fifteen of them cannot fight on one they were only
+                  told the name of. */}
+              {locationText(frame.cardId) && <i>{locationText(frame.cardId)}</i>}
             </>
           ) : (
             <>
@@ -544,6 +950,15 @@ function tryLocationName(id: string | undefined): string {
   }
 }
 
+function locationText(id: string | undefined): string {
+  if (!id) return "";
+  try {
+    return getLocation(id).text ?? "";
+  } catch {
+    return "";
+  }
+}
+
 function capLabel(id: string | undefined): string {
   if (!id) return "";
   try {
@@ -564,6 +979,104 @@ function cardFor(id: string): UnitCard | SpellCard | undefined {
       return undefined;
     }
   }
+}
+
+// ------------------------------------------------------------------ prologue
+
+/**
+ * What happens before a card is played.
+ *
+ * The game used to open on a board that was already running: the first
+ * battlefield was decided, drawn in the rail, and the machine had usually taken
+ * its opening turn before the fade-in had finished. Everything that makes the
+ * first minute of a game legible — who brought what, which of the six came up,
+ * what it does to the board you are about to fight on — happened off screen.
+ *
+ * So it happens on screen, in four acts, and nothing else may move until they
+ * are over. The order is the order a table would do it in: show the six boards
+ * both players brought, turn them face down, shuffle them where everyone can
+ * see, and turn the top one over.
+ *
+ * The draw is theatre only. `createGame` shuffled the locations before this
+ * component existed and the answer is already sitting in `state.locations[0]`,
+ * which is exactly why the shuffle can be shown at all: nothing here decides
+ * anything, so nothing here can get it wrong.
+ */
+const ACTS = ["roster", "shuffle", "crown"] as const;
+type Act = (typeof ACTS)[number];
+
+const ACT_MS: Record<Act, number> = {
+  // Long enough to read six names and see who brought which.
+  roster: 4200,
+  shuffle: 3200,
+  // Long enough to read a cap and a rules box on a battlefield you have never
+  // seen, which is the whole reason this screen exists.
+  crown: 4800,
+};
+
+function Prologue({ state, onDone }: { state: GameState; onDone: () => void }) {
+  const [act, setAct] = useState<Act>("roster");
+
+  useEffect(() => {
+    const index = ACTS.indexOf(act);
+    const timer = setTimeout(() => {
+      if (index + 1 < ACTS.length) setAct(ACTS[index + 1]);
+      else onDone();
+    }, ACT_MS[act]);
+    return () => clearTimeout(timer);
+  }, [act, onDone]);
+
+  const brought = announcedBattlefields(state);
+  const first = state.locations[0];
+  const card = tryLocation(first.cardId);
+
+  return (
+    // Clicking anywhere skips the rest. Anyone who has seen it once has seen it.
+    <div className={`prologue ${act}`} onClick={onDone}>
+      {act !== "crown" && (
+        <div className="prologue-sides">
+          {(["p1", "p2"] as PlayerId[]).map((side) => (
+            <div className={`prologue-side ${side}`} key={side}>
+              <b>{SIDE[side]}</b>
+              <span className="prologue-brings">három csatateret hoz</span>
+              <ul className="prologue-fan">
+                {brought
+                  .filter((bf) => bf.broughtBy === side)
+                  .map((bf, i) => (
+                    <li key={bf.id} style={{ "--nth": i } as React.CSSProperties}>
+                      {act === "roster" ? (
+                        <CardFace card={bf} className="battlefield" />
+                      ) : (
+                        <span className="cardback location" />
+                      )}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {act === "shuffle" && <span className="prologue-word">keverés</span>}
+
+      {act === "crown" && card && (
+        <div className="prologue-crown">
+          <span className="prologue-word">az első csatatér</span>
+          <CardFace card={card} className="battlefield" />
+          <div className="prologue-writ">
+            <b>{card.name}</b>
+            <span className="num">keret {card.cap === null ? "∞" : card.cap}</span>
+            {card.text && <em>{card.text}</em>}
+            <span className="faint">
+              {SIDE[first.broughtBy]} hozta, {SIDE[first.broughtBy]} kezd
+            </span>
+          </div>
+        </div>
+      )}
+
+      <span className="prologue-skip">kattints az átugráshoz</span>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------- left rail
@@ -940,6 +1453,7 @@ function Ledger({ state, tracking }: { state: GameState; tracking: Tracking | nu
  */
 function TurnCue(props: FieldProps & { moves: Action[]; viewer: PlayerId }) {
   const { state, actor, send, moves, fault, viewer } = props;
+  const asking = pendingPrompt(state);
   const pending = state.resolution?.pending ?? null;
   const can = (type: Action["type"]) => moves.some((m) => m.type === type);
   const channel = state.channel[viewer];
@@ -950,7 +1464,24 @@ function TurnCue(props: FieldProps & { moves: Action[]; viewer: PlayerId }) {
     <div className="turn-cue">
       {fault && <span className="bad">{fault}</span>}
 
-      {pending ? (
+      {asking ? (
+        <>
+          <span className={`turn ${asking.player}`}>
+            {SIDE[asking.player]}: {asking.prompt}
+          </span>
+          {/* The one way out of a question that allows one. Its twin lives on
+              whichever surface is holding the cards, so both are reachable
+              wherever the player's eyes already are. */}
+          {promptSatisfied(asking) && asking.picking === "slot" && (
+            <button
+              className="tiny"
+              onClick={() => send({ type: "finishPrompt", player: asking.player })}
+            >
+              Kihagyom
+            </button>
+          )}
+        </>
+      ) : pending ? (
         <span className={`turn ${pending.player}`}>{pending.prompt}</span>
       ) : (
         actor &&
@@ -1196,12 +1727,15 @@ function NearHand(
     moves: Action[];
     viewer: PlayerId;
     onDrag: (event: React.PointerEvent, held: Held) => void;
+    /** Only for Fuedrax's trap, where the drop tile is the second answer. */
+    onDragTrap: (event: React.PointerEvent, uid: string) => void;
     onRead: (uid: string | null) => void;
     /** The card currently in the air, drawn as a gap in the fan. */
     lifted: string | null;
   },
 ) {
-  const { state, actor, held, setHeld, send, moves, viewer, onDrag, onRead, lifted } = props;
+  const { state, actor, held, setHeld, send, moves, viewer, onDrag, onDragTrap, onRead, lifted } =
+    props;
   const read = (uid: string) => (on: boolean) => onRead(on ? uid : null);
   const pending = state.resolution?.pending ?? null;
   const p = state.players[viewer];
@@ -1230,6 +1764,74 @@ function NearHand(
       .filter((m) => m.type === "finishChannel")
       .map((m) => (m as { discardUid: string }).discardUid),
   );
+
+  // An ability going through your own hand — Griff paying back what he took,
+  // Fuedrax choosing what to bury — takes the hand over. It belongs here rather
+  // than in a panel: the cards are already in front of you, and pointing at one
+  // where it lies is what anyone tries first.
+  const asking = pendingPrompt(state);
+  if (asking && asking.player === viewer && handHeld(asking, state)) {
+    const options = asking.cards ?? [];
+    const picked = new Set(asking.chosen);
+    return (
+      <>
+        <div className="toll">
+          <span className="label">
+            {asking.prompt}
+            {asking.max > 1 && (
+              <b className="num">
+                {" "}
+                {asking.chosen.length}/{asking.max}
+              </b>
+            )}
+          </span>
+          {promptSatisfied(asking) && (
+            <button
+              className="ember tiny"
+              onClick={() => send({ type: "finishPrompt", player: asking.player, })}
+            >
+              {asking.chosen.length === 0 ? "Kihagyom" : "Kész"}
+            </button>
+          )}
+        </div>
+        <div className="hand-rail near">
+          <div className="hand-group">
+            {options.map((c, i) => {
+              const card = cardFor(c.cardId);
+              if (!card) return null;
+              const taken = picked.has(c.uid);
+              return (
+                <Slot
+                  key={c.uid}
+                  uid={c.uid}
+                  style={arc(i, options.length)}
+                  playable={!taken}
+                  picked={taken}
+                  lifted={lifted === c.uid}
+                  onRead={read(c.uid)}
+                  onClick={
+                    taken
+                      ? undefined
+                      : () => send({ type: "answerPrompt", player: asking.player, pick: c.uid })
+                  }
+                  // Fuedrax is the one prompt where the card has somewhere to
+                  // go, so it can be carried there. Clicking still works and
+                  // asks for the tile afterwards.
+                  onDragStart={
+                    asking.kind === "trapSpell" && !taken
+                      ? (e) => onDragTrap(e, c.uid)
+                      : undefined
+                  }
+                >
+                  <CardFace card={card} className={isSpellCard(card) ? "spell" : ""} />
+                </Slot>
+              );
+            })}
+          </div>
+        </div>
+      </>
+    );
+  }
 
   // A spell asking for a card out of hand takes over the hand entirely.
   if (pending?.kind === "handCard") {

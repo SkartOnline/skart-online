@@ -83,6 +83,9 @@ src/
     power.ts      basePower() and power(), statics computed on read
     effects.ts    one handler per effect kind
     resolve.ts    the spell resolution machine, Belépő firing
+    prompts.ts    the queue for the abilities that have to ask the player
+    interactions.ts
+                  what happens once they are answered, plus traps and portals
     reducer.ts    applyAction(state, action) => state, legalActions()
     setup.ts      createGame(), rule config defaults
     totaling.ts   final board sum
@@ -221,6 +224,110 @@ Fizzle is not a special case: it is "no viable caster", which advances the curso
 asking anyone. Under the old face-down stack that made an uncastable spell a legal bluff;
 now it is simply a wasted card, which is why the sim's bot no longer plays one.
 
+### The abilities that ask
+
+Most abilities do not need to. When the card says "one" and the choice is not interesting,
+the data can say *which* one and the ability resolves without stopping anyone: Bérgyilkos
+takes the weakest in its column, Carnifex the strongest it is allowed to kill. That is what
+`AutoTargetSpec.pick` is for, and it is what the bulk of the set uses.
+
+When the choosing *is* the ability, it asks. A tutor that picks for you is not a search, it
+is a draw with extra steps; Griff has to see what he took before he can decide what it is
+worth giving up for; Fuedrax commits a spell out of hand onto a tile.
+
+Such an ability pushes a **`Prompt`** onto `state.prompts` and stops. Nothing in the game may
+happen while one is standing — `settle` returns early, `legalActions` offers the picks and
+nothing else, and only the player being asked is offered anything at all.
+
+The answer arrives as an ordinary action (`answerPrompt`, `finishPrompt`), which is the
+whole trick: **the bot and the simulator play these cards without knowing any of this
+exists.** They enumerate legal actions and pick, the same as anywhere else.
+
+A prompt is data and its completion is a handler keyed by `kind`, in `interactions.ts`,
+exactly like an effect. Never a closure — every action does a `structuredClone`, and the
+bot evaluates a move by cloning the position it leads to, so a prompt holding a function
+would break the opponent rather than the rules.
+
+| Effect | The question | Cards |
+|---|---|---|
+| `searchDeck` | which card comes out of the listed pile | Sírásó, Feltámadás, Lingadori könyvtár |
+| `handSwap` | which cards you take, then which you hand back | Griff, a hamiskártyás |
+| `setTrap` | which spell goes down, and on which enemy tile | Fuedrax |
+
+These are the first abilities to ask, not the only ones the machinery is for. A new one is
+a prompt `kind` and a completion handler in `interactions.ts` — the same two-edit shape
+adding an effect kind has, and nothing else in the engine needs to know it exists.
+
+Where the question is *put* follows where the cards already are. Cards in your own hand
+are picked out of the hand, because that is where they are; a pile nobody can see — a deck
+being searched, a graveyard, an opponent's hand Griff has opened — gets the ledger-shaped
+panel on the right, since the right rail already teaches a counted column as the way to
+read a pile.
+
+### Reveals
+
+The engine had nowhere to put information. Gréta, Mágusinkvizítor and Leskelődés are pure
+information, so all three wrote a chronicle line and stopped, on the grounds that hotseat
+has a "Mindent mutat" switch — which made them abilities that did nothing you could point
+at, since a switch you could have flicked yourself is not an ability.
+
+So a peek now records a **`Reveal`**: what was seen, and who is entitled to have seen it.
+The theatre holds it up for one long beat and nobody else ever reads it — which is what
+keeps a bot peeking at a hand from showing that hand to the person it is playing against.
+A trap going off is the one kind marked `open`, because a spell resolving is public and
+the player whose unit just died is owed an explanation.
+
+Fejvadász is the version with a verdict on it: one card out of the hand, rolled off the
+game seed rather than taken off the top, and the reveal carries whether it beat him.
+
+### Two zones the rules do not have
+
+**Fuedrax's trap** is a spell committed face down onto an empty enemy tile. It lives on
+`state.traps` rather than on a unit, because the tile it watches may never be occupied at
+all. Springing is *pulled*, not pushed: a unit arrives on a tile from six directions —
+placement, a move, a swap, a summon, a revive, a transform — and hooking all six would be
+six chances to forget one, so `settle` asks "is anybody standing on my tile" once the dust
+is down. It does not check whose unit it is; that is the risk of setting one. A spell that
+could never have named whoever walked in fizzles, and anything else the spell wants — a
+destination — is rolled for.
+
+**Felix's portal** is the other. Losing the battle owes him a place on the next
+battlefield rather than a place in the graveyard: the same tile, or the nearest of his own
+if he ended up across the line, arriving clean — no damage, no modifiers, no rings,
+nothing placed, spellpower pools untouched — and outside the cost cap. Outside it again
+the next time he loses, too, because nothing about the arrival records that it has
+happened before.
+
+### The theatre has a clock
+
+Beats used to all start at once, which was wrong the moment a card had a Belépő. The
+engine settles a whole chain inside one action — Bérgyilkos goes down, reaches across the
+column and kills — and the diff arrives with the arrival and the death in the same list.
+Played together they read as a single event: the card appears and something is already
+gone, and a player meeting that card for the first time cannot tell what killed what.
+
+So a beat carries a lead as well as a lifetime. The play lands first and gets long enough
+to read, the strike lands on top of it, and the death comes last — its own animation marks
+the tile, named and ringed in red, before anything is taken off it. The board still renders
+the true position throughout; only the flourish over it is scheduled.
+
+The machine waits for all of it. It moves once the theatre is quiet rather than after a
+fixed pause, so it can never talk over the consequences of its own last move.
+
+### The prologue
+
+A game used to open on a board that was already running: the first battlefield decided,
+drawn in the rail, and the machine usually a turn in before the fade had finished.
+Everything that makes the first minute legible happened off screen.
+
+Now it happens on screen, in the order a table would do it in — show the six boards both
+players brought, turn them face down, shuffle where everyone can see, turn the top one
+over and hold it long enough to read a cap and a rules box. Nothing else may move until it
+is over. Clicking skips it.
+
+The shuffle decides nothing: `createGame` shuffled the locations before the screen existed
+and the answer is already in `state.locations[0]`, which is exactly why it is safe to show.
+
 ## The simulator
 
 ```
@@ -309,12 +416,12 @@ nothing in the engine plays that role now.
   element, so Explar and Lánglándzsa were tagged `Tűz` and Jéghegy `Fagy` from their card
   text. Tűzköpeny, Fagypáncél, Explodus and Erif mester all read those tags, so moving a
   tag moves four cards' worth of behaviour.
-- **Belépő abilities that say "one" need a rule for which one.** A Belépő never asks the
-  player anything, so `pick` decides: Bérgyilkos takes the `weakest` in its column,
-  Carnifex the `strongest` it is allowed to kill, Azman the `weakest` ally, Mágiacenzor
-  the `highestSpellpower` enemy in its column.
+- **A Belépő that resolves without asking still has to say which one.** `pick` decides:
+  Bérgyilkos takes the `weakest` in its column, Carnifex the `strongest` it is allowed to
+  kill, Azman the `weakest` ally, Mágiacenzor the `highestSpellpower` enemy in its column.
+  A Belépő that should ask instead pushes a `Prompt` — see *The abilities that ask*.
 - **Varjú discards "any number" by discarding all of it.** The card lets the player
-  choose how many; a Belépő cannot ask, so it empties the unit hand and keeps a ring per
+  choose how many, and this one does not ask, so it empties the unit hand and keeps a ring per
   card. Vadász and Chupacabra pick the cheapest for the same reason.
 - **The cost cap is enforced at placement, not audited at Mustra.** 7.4 has the cap
   checked at the reveal, with the whole battlefield forfeit for overshooting it. The
@@ -330,12 +437,9 @@ nothing in the engine plays that role now.
   who advances in an elimination bracket; a friendly game just ends in a draw.
 - **Végtelen puszta's first player** is picked at random at setup, which is what 3.8 asks
   for ("sorsolással").
-- **Five abilities are text only.** Fuedrax's trap zone, Felix's portal to the next
-  battlefield, Gouraldir's Three Relics (the card does not exist in the set) and Griff's
-  two-way hand swap all need machinery the engine does not have; the pure-information
-  plays (Greta, Mágusinkvizítor, Leskelődés) write to the chronicle and nothing else,
-  since hotseat already has a "Mindent mutat" switch. Each one carries a `note` effect
-  saying so, and they are listed at the end of `docs/abilities.md`.
+- **One ability is still text only.** Gouraldir names the Three Relics, and that card
+  does not exist in the set, so it keeps its `note` effect. The four that used to sit
+  beside it are built — see *The abilities that ask*.
 - **The shipped decks are starting points.** Five archetypes — Felindori sereg,
   Csempészgyűrű, Varázslótanács, Vadállatok, Élettelen menet — assembled to exercise the
   set, not balanced. The simulator already flags a couple of battlefields over the 75%

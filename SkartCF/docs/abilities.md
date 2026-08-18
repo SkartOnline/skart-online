@@ -75,7 +75,34 @@ Omnifex a következő rá szálló varázslatot nyeli el, akármennyibe került.
 ### Lapgazdálkodási hatások
 `draw`, `discard`, `searchDeck`, `revive`, `returnToHand`, `stealCard`,
 `bounceToDeckBottom`, `swapHandGraveyard`, `drawNextLocation`, `coinFlip`,
-`peek`, `note`.
+`peek`, `handSwap`, `setTrap`, `portal`, `note`.
+
+### Hatások, amelyek kérdeznek
+
+A legtöbb hatásnak nem kell kérdeznie: ha a lap szövege azt mondja, hogy „egy",
+és a választás nem érdekes, az adat megmondja, melyik — erre való a `pick`.
+Ahol viszont maga a választás a képesség, ott kérdez:
+
+| Alapelem | Mit kérdez | Lap |
+|---|---|---|
+| `searchDeck` | melyik lap jöjjön ki a kilistázott pakliból vagy temetőből | Sírásó, Feltámadás, Lingadori könyvtár |
+| `handSwap` | melyik lapokat húzod el, majd melyiket adod vissza | Griff, a hamiskártyás |
+| `setTrap` | melyik varázslat megy le, és melyik ellenséges mezőre | Fuedrax |
+
+Ezek egy `Prompt`-ot tesznek a sorba (`prompts.ts`) és megállnak; amíg meg nincs
+válaszolva, a játékban semmi más nem történhet. A válasz közönséges akcióként
+érkezik (`answerPrompt`, `finishPrompt`), ezért a bot és a szimulátor ezeket a
+lapokat is le tudja játszani anélkül, hogy tudnának a létezésükről. A lezárás
+`kind` szerinti kezelő az `interactions.ts`-ben, sosem closure — a prompt túl
+kell hogy élje a `structuredClone`-t, amivel a bot pozíciót értékel.
+
+Ez a három az első kérdező hatás, nem az egyetlen, amire a gépezet való. Egy új
+kérdező képesség egy prompt-`kind` és egy lezáró kezelő — ugyanaz a két szerkesztés,
+mint egy új hatásnál —, a motorban semmi másnak nem kell tudnia róla.
+
+A `peek` nem kérdez, de `Reveal`-t ír: mit láttak és ki jogosult látni. A
+`portal` sem kérdez, csak feljegyzi, hogy hol állt az egység, amikor a csata
+eldőlt.
 
 ### A célzószűrő az, ami az ölő varázslatokat egyetlen alapelemre hozza
 
@@ -192,13 +219,21 @@ a Tűzköpeny, a Fagypáncél, az Explodus és az Erif mester.
 
 ## 7. Ami tudatosan szövegként maradt
 
-Ezek a motor jelenlegi állapotában nem gépesíthetők; a lap létezik, a szöveg
-olvasható, de mechanikát nem kap. Mindegyik `note` hatással van megjelölve.
+Egyetlen ilyen lap maradt. A többi megkapta a gépezetét: a kérdező hatások a
+`Prompt`-sort, a csapda és a portál a saját zónáját, a betekintések pedig a
+`Reveal`-t, ami a felfedett lapot ténylegesen kirakja a képernyőre annak, akit
+megillet.
 
 | Lap | Miért |
 |---|---|
-| Fuedrax | csapdaként lehelyezett varázslat — új zóna kellene a táblán |
-| Felix, a Hajnali Utas | átvitel a következő csatatérre, keret nélkül |
 | Gouraldir | a Három Ereklye lap nem létezik a készletben |
-| Griff, a hamiskártyás | kézcsere mindkét irányban, játékosi választással |
-| Mágusinkvizítor, Fejvadász, Gréta, Leskelődés | tiszta információ — hotseatben a „Mindent mutat” kapcsoló adja |
+
+Ami időközben elkészült:
+
+| Lap | Alapelem |
+|---|---|
+| Fuedrax | `setTrap` — a varázslat a `state.traps`-ban ül, és arra sül el, aki rálép; szövetségesre is |
+| Felix, a Hajnali Utas | `portal` — a Vigasz feljegyzi a mezőt, a leszerelés átviszi a következő csatatérre, tisztán és a kereten kívül |
+| Griff, a hamiskártyás | `handSwap` — két kérdés: mit húzol el, aztán mit adsz vissza |
+| Mágusinkvizítor, Gréta, Leskelődés | `peek` — a felfedett lapokat a betekintő játékos képernyőjén tartja |
+| Fejvadász | `peek` + `ringIfCostlier` — egy véletlen lap fordul ki a kézből, és ha drágább nála, gyűrűt hoz |

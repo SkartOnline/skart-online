@@ -172,6 +172,8 @@ const SELF_PICKING = new Set([
   "coinFlip",
   "peek",
   "note",
+  "handSwap",
+  "setTrap",
   "devour",
   "advance",
   "revealHidden",
