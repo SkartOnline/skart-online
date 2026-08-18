@@ -1,8 +1,0 @@
-[gd_resource type="Theme" format=3 uid="uid://b48dafq2sbm5g"]
-
-[sub_resource type="SystemFont" id="SystemFont_1"]
-font_names = PackedStringArray("Segoe UI", "Segoe UI Emoji", "Noto Sans", "Noto Color Emoji", "Apple Color Emoji", "sans-serif")
-generate_mipmaps = true
-
-[resource]
-default_font = SubResource("SystemFont_1")
