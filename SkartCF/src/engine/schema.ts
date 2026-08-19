@@ -83,7 +83,7 @@ const CONDITION_FIELD: FieldSpec = {
 };
 
 /** Where a static looks when it counts or hands out power. */
-const SCOPE_OPTIONS = ["adjacent", "diagonal", "board", "row", "column", "columnFront"];
+const SCOPE_OPTIONS = ["self", "adjacent", "diagonal", "board", "row", "column", "columnFront"];
 
 // ---------------------------------------------------------------------------
 // Static abilities
@@ -332,7 +332,35 @@ export const EFFECT_SPECS: KindSpec[] = [
     label: "Gyűrű adása",
     summary:
       "Végleges erő, amit egy már bekövetkezett feltétel adott. Megmarad akkor is, ha az adományozó lekerül a tábláról. ⊙ jellel látszik.",
-    fields: [{ name: "amount", type: "number", label: "Mennyiség", default: 1, step: 1 }, ON_FIELD],
+    fields: [
+      { name: "amount", type: "number", label: "Mennyiség", default: 1, step: 1 },
+      {
+        name: "per",
+        type: "select",
+        label: "Mennyiért jár",
+        default: "once",
+        options: ["once", "keyword", "graveyard"],
+        help:
+          "A 'keyword' a táblán álló illeszkedő szövetségeseket számolja (Falkavezér), a 'graveyard' a temető lapjait, `perCount`-onként (Csontvért).",
+      },
+      { name: "keyword", type: "keyword", label: "Kulcsszó (per=keyword)", default: "" },
+      {
+        name: "perCount",
+        type: "number",
+        label: "Hány laponként (per=graveyard)",
+        default: 1,
+        min: 1,
+      },
+      { name: "max", type: "number", label: "Legfeljebb ennyi gyűrű (0 = nincs plafon)", default: 0, min: 0 },
+      {
+        name: "alsoCopies",
+        type: "boolean",
+        label: "A célpont minden szövetséges másolata is megkapja",
+        default: false,
+        help: "Ez a Csatacsorda: ugyanaz a lap a táblán bárhányszor.",
+      },
+      ON_FIELD,
+    ],
   },
   {
     kind: "setPower",
@@ -369,7 +397,16 @@ export const EFFECT_SPECS: KindSpec[] = [
         label: "A varázsló erejének ennyiedrésze (0 = fix mennyiség)",
         default: 0,
         min: 0,
-        help: "Az Eltaposás 2-t ír ide: a varázsló erejének fele, felfelé kerekítve.",
+        help: "Az Eltaposás 1-et ír ide: a varázsló teljes ereje.",
+      },
+      {
+        name: "source",
+        type: "select",
+        label: "Honnan jön a mennyiség",
+        default: "flat",
+        options: ["flat", "load"],
+        help:
+          "A 'load' a célponton fekvő lapokat számolja: minden ráhelyezett varázslat, minden sebzésjelölő és minden gyűrű egy sebzés. Ez a Lélektűz.",
       },
       ON_FIELD,
     ],
@@ -418,9 +455,9 @@ export const EFFECT_SPECS: KindSpec[] = [
         type: "select",
         label: "Célmező",
         default: "adjacent",
-        options: ["adjacent", "anyEmpty"],
+        options: ["adjacent", "diagonal", "anyEmpty"],
         help:
-          "Az 'adjacent' szomszédos (élben érintkező) üres mezőt jelent. Az érkezési mező a 8.4.5 szerint bármelyik térfélen lehet, ezt nem kell külön megengedni.",
+          "Az 'adjacent' szomszédos (élben érintkező) üres mezőt jelent, a 'diagonal' átlósan érintkezőt (Becsusszanás). Az érkezési mező a 8.4.5 szerint bármelyik térfélen lehet, ezt nem kell külön megengedni.",
       },
       {
         name: "optional",
@@ -436,9 +473,17 @@ export const EFFECT_SPECS: KindSpec[] = [
     kind: "swapWithAdjacent",
     label: "Két szomszédos egység cseréje",
     summary:
-      "A megcélzott egység helyet cserél egy vele szomszédos szövetségessel. Ez az Összjáték.",
+      "A megcélzott egység helyet cserél egy vele szomszédos egységgel. Összjáték (szövetségessel), Testcsel (ellenséggel).",
     needsDestination: true,
-    fields: [],
+    fields: [
+      {
+        name: "side",
+        type: "select",
+        label: "Kivel cserélhet",
+        default: "ally",
+        options: ["ally", "enemy", "any"],
+      },
+    ],
   },
   {
     kind: "advance",
@@ -489,6 +534,15 @@ export const EFFECT_SPECS: KindSpec[] = [
         label: "A tábla minden egységéről",
         default: false,
         help: "A Napéjegyenlőség söpri le az egész táblát; a Vedlés csak a varázslót.",
+      },
+      {
+        name: "only",
+        type: "select",
+        label: "Melyik lapokat",
+        default: "any",
+        options: ["any", "damage", "spell"],
+        help:
+          "A 'damage' csak a sebzésjelölőket veszi le, a legnagyobbal kezdve (Gyógyfüvek); a 'spell' csak a ráakasztott varázslatokat.",
       },
       ON_FIELD,
     ],
@@ -767,6 +821,69 @@ export const EFFECT_SPECS: KindSpec[] = [
     summary:
       "Az egység a következő csatatéren ugyanarra a mezőre érkezik, tisztán és a költségkereten kívül. Ez a Felix Vigasza.",
     fields: [ON_FIELD],
+  },
+  {
+    kind: "stealRing",
+    label: "Gyűrűlopás",
+    summary:
+      "Levesz a célpontról ennyi gyűrűt, és a varázslóra teszi. Sosem hoz létre gyűrűt a semmiből: amennyi nincs a célponton, annyi nem is kerül át. Ez az Elcsenés.",
+    fields: [{ name: "amount", type: "number", label: "Mennyiség", default: 1, min: 1 }],
+  },
+  {
+    kind: "massRing",
+    label: "Gyűrű mindenkinek",
+    summary:
+      "Egy oldal minden egysége kap egy gyűrűt. Ez az egyetlen megengedett többcélpontos erőhatás: a gyűrű egyszer lekerül a lapra és soha többé nem kell újraszámolni. Ez a Kivirágzás.",
+    selfTargeting: true,
+    fields: [
+      { name: "amount", type: "number", label: "Mennyiség", default: 1, step: 1 },
+      { name: "side", type: "select", label: "Kiknek", default: "ally", options: ["ally", "enemy", "all"] },
+      { name: "keyword", type: "keyword", label: "Csak ilyen kulcsszavúaknak", default: "" },
+    ],
+  },
+  {
+    kind: "moveAttachment",
+    label: "Ráakasztott lap áthelyezése",
+    summary:
+      "Egy ráhelyezett lapot átrak a varázslóról a megnevezett szomszédos egységre. Ez a Transzfúzió: az áldás és az átok ugyanazon az úton jár.",
+    needsDestination: true,
+    fields: [
+      {
+        name: "only",
+        type: "select",
+        label: "Melyik lapot",
+        default: "any",
+        options: ["any", "damage", "spell"],
+      },
+    ],
+  },
+  {
+    kind: "sacrificeStrike",
+    label: "Feláldozás csapásért",
+    summary:
+      "Megöli a megcélzott szövetségest, és az erejével egyenlő sebzést tesz egy vele szomszédos ellenségre. Ez a Megtorlás.",
+    needsDestination: true,
+    fields: [],
+  },
+  {
+    kind: "forceAttack",
+    label: "Kényszerített csapás",
+    summary:
+      "A megcélzott egység a saját erejével egyenlő sebzést tesz egy vele szomszédos szövetségesére. Ez az Elmezavar.",
+    needsDestination: true,
+    fields: [],
+  },
+  {
+    kind: "transformFromHand",
+    label: "Átváltozás kézből",
+    summary:
+      "Az egység lekerül, és a helyére a kézből érkezik egy másik, a keret és a lerakási sorrend megkerülésével. Metamorfózis, Monstrosis.",
+    needsHandCard: true,
+    fields: [
+      { name: "keyword", type: "keyword", label: "Csak ilyen kulcsszavú lap", default: "Állat" },
+      { name: "maxCost", type: "number", label: "Legfeljebb ekkora költségű", default: 5, min: 0 },
+      ON_FIELD,
+    ],
   },
   {
     kind: "note",

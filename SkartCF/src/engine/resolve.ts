@@ -7,12 +7,14 @@ import {
   needsDestination,
   needsHandCard,
   needsChosenTarget,
+  occupiedNeighbours,
   redirectTarget,
   resolveAutoTargets,
   sweepDead,
 } from "./effects";
 import type { EffectContext } from "./effects";
 import { ALL_SLOTS } from "./grid";
+import { EFFECT_SPECS, specFor } from "./schema";
 import {
   abilitiesActive,
   cardOf,
@@ -225,6 +227,14 @@ const SELF_PICKING = new Set([
   "revealHidden",
 ]);
 
+/** What the second pick is actually asking for, per effect that asks for one. */
+const DESTINATION_PROMPT: Record<string, string> = {
+  swapWithAdjacent: "Kivel cseréljen",
+  sacrificeStrike: "Kire csapjon le",
+  forceAttack: "Kire támadjon",
+  moveAttachment: "Kire kerüljön a lap",
+};
+
 // ---------------------------------------------------------------------------
 // Caster / target legality
 // ---------------------------------------------------------------------------
@@ -233,8 +243,13 @@ function moveEffectOf(spell: SpellCard): Effect | undefined {
   return spell.effects.find((e) => e.kind === "move");
 }
 
-function swapEffectOf(spell: SpellCard): Effect | undefined {
-  return spell.effects.find((e) => e.kind === "swapWithAdjacent");
+/**
+ * The one effect on the card that wants a second pick. Asking the spec rather
+ * than listing kinds here means a new destination-taking effect is a KindSpec
+ * and a handler, exactly like every other kind.
+ */
+function shifterOf(spell: SpellCard): Effect | undefined {
+  return spell.effects.find((e) => specFor(e.kind, EFFECT_SPECS)?.needsDestination);
 }
 
 /**
@@ -270,10 +285,22 @@ function destinationsFor(
   effect: Effect,
   mover: UnitInstance,
 ): SlotId[] {
-  if (effect.kind === "swapWithAdjacent") return legalSwapPartners(state, mover);
-  const mode = (effect.destination === "anyEmpty" ? "anyEmpty" : "adjacent") as
-    | "adjacent"
-    | "anyEmpty";
+  if (effect.kind === "swapWithAdjacent") {
+    return legalSwapPartners(state, mover, (effect.side ?? "ally") as "ally" | "enemy" | "any");
+  }
+  // The three effects that reach for a neighbour rather than an empty tile.
+  // Megtorlás strikes an enemy of the sacrifice, Elmezavar an ally of the
+  // confused unit, Transzfúzió hands its card to anyone next door.
+  if (effect.kind === "sacrificeStrike") return occupiedNeighbours(state, mover, "enemy");
+  if (effect.kind === "forceAttack") return occupiedNeighbours(state, mover, "ally");
+  if (effect.kind === "moveAttachment") return occupiedNeighbours(state, mover, "any");
+  const mode = (
+    effect.destination === "anyEmpty"
+      ? "anyEmpty"
+      : effect.destination === "diagonal"
+        ? "diagonal"
+        : "adjacent"
+  ) as "adjacent" | "diagonal" | "anyEmpty";
   const open = legalDestinations(state, mover, mode);
   return effect.optional === true ? [mover.slot, ...open] : open;
 }
@@ -287,7 +314,7 @@ export function legalTargetsFor(
   if (!spell.target) return [];
   const controller = casterSlot.slice(0, 2) as PlayerId;
   const base = legalTargets(state, spell.target, casterSlot, controller, spell);
-  const shifter = swapEffectOf(spell) ?? moveEffectOf(spell);
+  const shifter = shifterOf(spell);
   if (!shifter || (shifter.on ?? "target") !== "target") return base;
   return base.filter((slot) => {
     const unit = unitAt(state, slot);
@@ -455,7 +482,7 @@ export function advanceResolution(state: GameState): void {
 
     // 4. Destination, when something other than the caster's own step moves.
     if (needsDestination(spell.effects) && !res.chosen.destination) {
-      const shifter = swapEffectOf(spell) ?? moveEffectOf(spell)!;
+      const shifter = shifterOf(spell)!;
       const moverSlot =
         (shifter.on ?? "target") === "caster" ? res.chosen.caster : res.chosen.target;
       const mover = moverSlot ? unitAt(state, moverSlot) : null;
@@ -471,7 +498,7 @@ export function advanceResolution(state: GameState): void {
         entry,
         spell,
         destinations,
-        shifter.kind === "swapWithAdjacent" ? "Kivel cseréljen" : "Hova lépjen",
+        DESTINATION_PROMPT[shifter.kind] ?? "Hova lépjen",
       );
       return;
     }

@@ -39,6 +39,7 @@ function blankState(locationId = "holdfenyes_tisztas"): GameState {
     prompts: [],
     reveals: [],
     traps: [],
+    currentCaster: null,
     portals: [],
     placementCounter: 0,
     promptCounter: 0,
@@ -299,11 +300,14 @@ describe("Álomfogó", () => {
     expect(guarded.fizzleShields.some((s) => s.maxCost <= 0 || s.maxCost >= 8)).toBe(true);
   });
 
-  it("is what Omnifex brings, with no ceiling either", () => {
+  it("is what Omnifex brings, and only Omnifex has no ceiling", () => {
     expect(getUnit("omnifex").belepo!.effects).toEqual([
       { kind: "fizzleShield", maxCost: 0, on: "caster" },
     ]);
-    expect(getSpell("alomfogo").effects).toEqual([{ kind: "fizzleShield", maxCost: 0 }]);
+    // The card itself stops at five, so the big removal still gets through and
+    // a two-cost ward cannot blank an eight-cost spell.
+    expect(getSpell("alomfogo").effects).toEqual([{ kind: "fizzleShield", maxCost: 5 }]);
+    expect(getSpell("argeo").cost).toBeGreaterThan(5);
   });
 });
 
@@ -319,14 +323,14 @@ describe("sebzés mennyisége", () => {
 
   it("uses the second amount only where the condition holds (Hátbaszúrás)", () => {
     expect(getSpell("hatbaszuras").effects).toEqual([
-      { kind: "damage", amount: 2, altAmount: 4, altIf: "backRow" },
+      { kind: "damage", amount: 1, altAmount: 4, altIf: "backRow" },
     ]);
     const state = blankState();
     place(state, "ikerhidra", "p1.F1"); // caster
     place(state, "ikerhidra", "p2.F1"); // 11 power, survives either number
     place(state, "ikerhidra", "p2.B1");
-    const params = { amount: 2, altAmount: 4, altIf: "backRow" };
-    expect(hit(state, params, "p2.F1")).toBe(2);
+    const params = { amount: 1, altAmount: 4, altIf: "backRow" };
+    expect(hit(state, params, "p2.F1")).toBe(1);
     expect(hit(state, params, "p2.B1")).toBe(4);
   });
 
@@ -350,14 +354,14 @@ describe("sebzés mennyisége", () => {
 });
 
 describe("Sújtás", () => {
-  it("hits Élettelen for 3, other outsiders for 1, and nature for nothing", () => {
+  it("hits Élettelen for 4, other outsiders for 1, and nature for nothing", () => {
     const state = blankState("umbra");
     place(state, "korgon", "p1.F1"); // Druida caster
     place(state, "husgolem", "p2.F1"); // Élettelen
     place(state, "ikerhidra", "p2.F2"); // Bestia, neither Druida nor Állat
     place(state, "medve", "p2.F3"); // Állat, so nothing lands
     for (const [slot, expected] of [
-      ["p2.F1", 3],
+      ["p2.F1", 4],
       ["p2.F2", 1],
       ["p2.F3", 0],
     ] as [SlotId, number][]) {

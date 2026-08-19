@@ -25,6 +25,7 @@ import {
   conditionHolds,
   currentLocation,
   damageCapFor,
+  damageReductionFor,
   effectiveRange,
   isDead,
   isUntargetable,
@@ -145,8 +146,29 @@ export function sweepDead(state: GameState, log: (text: string) => void): void {
  * `sweepDead` has already taken off the board, which is how loops start.
  */
 export function killUnit(state: GameState, unit: UnitInstance, log: (text: string) => void): void {
+  payBounty(state, unit, log);
   removeUnit(state, unit.slot, "graveyard");
   fireTrigger(state, "onAnyDeath", unit, log);
+}
+
+/**
+ * Vérdíj. The price is on the card lying on the victim, so it pays out however
+ * the death arrived, and it pays whoever was resolving something at the time —
+ * `state.currentCaster`, which is set for exactly the length of a resolution.
+ * A unit that starves between spells collects nobody, which is the point: the
+ * bounty is for the kill, not for the corpse.
+ */
+function payBounty(state: GameState, unit: UnitInstance, log: (text: string) => void): void {
+  let bounty = 0;
+  for (const placed of unit.placed) {
+    if (!placed.attachment) continue;
+    bounty += Number(getAttachment(placed.attachment)?.bounty ?? 0);
+  }
+  if (bounty <= 0) return;
+  const killer = allUnitsOnBoard(state).find((u) => u.uid === state.currentCaster);
+  if (!killer || killer.owner === unit.owner) return;
+  killer.rings += bounty;
+  log(`${cardOf(killer).name} beváltja a vérdíjat: +${bounty} gyűrű.`);
 }
 
 /**
@@ -196,11 +218,20 @@ export function runEffects(
   trigger?: UnitInstance | null,
 ): void {
   const ctx: EffectContext = { state, source, controller, log, trigger };
-  for (const effect of effects) {
-    const needsTargets = (effect.on ?? "target") === "target";
-    const spec = specFor(effect.kind, EFFECT_SPECS);
-    if (needsTargets && !spec?.selfTargeting && targets.length === 0) continue;
-    applyEffect(ctx, effect, targets);
+  // Whoever is resolving owns the board until they are done. Vérdíj reads this
+  // to find out who did the killing without threading a killer through every
+  // death path in the engine.
+  const previousCaster = state.currentCaster;
+  state.currentCaster = source?.uid ?? null;
+  try {
+    for (const effect of effects) {
+      const needsTargets = (effect.on ?? "target") === "target";
+      const spec = specFor(effect.kind, EFFECT_SPECS);
+      if (needsTargets && !spec?.selfTargeting && targets.length === 0) continue;
+      applyEffect(ctx, effect, targets);
+    }
+  } finally {
+    state.currentCaster = previousCaster;
   }
 }
 
@@ -341,6 +372,30 @@ export function flipCoin(
   });
 }
 
+/**
+ * One place where a number becomes damage on a card. Ward first (Fagypáncél,
+ * Pajzs subtract), cap second (A Faarcú shaves), then the marker goes down —
+ * and it really is a marker: at a physical table the spell card stays on the
+ * unit, which is what Gyógyfüvek takes off and what Lélektűz counts.
+ */
+function applyDamage(ctx: EffectContext, unit: UnitInstance, raw: number, spellId?: string): void {
+  let amount = raw;
+  const reduction = damageReductionFor(ctx.state, unit);
+  if (reduction > 0 && amount > 0) {
+    amount = Math.max(0, amount - reduction);
+    ctx.log(`${cardOf(unit).name} páncélja ${reduction} sebzést fog fel.`);
+  }
+  const cap = damageCapFor(ctx.state, unit);
+  if (amount > cap) {
+    ctx.log(`${cardOf(unit).name} legfeljebb ${cap} sebzést szenvedhet el egy hatástól.`);
+    amount = cap;
+  }
+  if (amount <= 0) return;
+  unit.damage += amount;
+  unit.damageMarks.push({ spellId: spellId ?? ctx.spell?.id ?? "sebzes", amount });
+  ctx.log(`${cardOf(unit).name}: ${amount} sebzés (összesen ${unit.damage}).`);
+}
+
 function grantRings(unit: UnitInstance, amount: number, ctx: EffectContext): void {
   unit.rings += amount;
   ctx.log(`${cardOf(unit).name}: ${amount >= 0 ? "+" : ""}${amount} gyűrű (összesen ${unit.rings}).`);
@@ -365,8 +420,31 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
    * a separate number from `powerDelta` and gets its own mark on the card.
    */
   grantRing(ctx, effect, targets) {
-    const amount = Number(effect.amount ?? 1);
-    for (const unit of targetUnits(ctx, effect, targets)) grantRings(unit, amount, ctx);
+    const per = String(effect.per ?? "once");
+    let amount = Number(effect.amount ?? 1);
+    if (per === "keyword") {
+      // Falkavezér counts the pack it leads, itself excluded: "minden további".
+      const keyword = effect.keyword ? String(effect.keyword) : undefined;
+      const pack = unitsOf(ctx.state, ctx.controller).filter(
+        (u) => u.uid !== ctx.source?.uid && keywordMatches(keywordsOf(u), keyword),
+      );
+      amount *= pack.length;
+    } else if (per === "graveyard") {
+      const step = Math.max(1, Number(effect.perCount ?? 1));
+      amount *= Math.floor(ctx.state.players[ctx.controller].discard.length / step);
+    }
+    const cap = Number(effect.max ?? 0);
+    if (cap > 0) amount = Math.min(amount, cap);
+    if (amount === 0) return;
+    const units = targetUnits(ctx, effect, targets);
+    // Csatacsorda blesses a card rather than a unit: every copy of it you have out.
+    if (effect.alsoCopies === true) {
+      const named = new Set(units.map((u) => u.cardId));
+      for (const twin of unitsOf(ctx.state, ctx.controller)) {
+        if (named.has(twin.cardId) && !units.some((u) => u.uid === twin.uid)) units.push(twin);
+      }
+    }
+    for (const unit of units) grantRings(unit, amount, ctx);
   },
 
   setPower(ctx, effect, targets) {
@@ -397,17 +475,15 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     const altIf = effect.altIf ? (String(effect.altIf) as StaticCondition) : null;
     for (const unit of targetUnits(ctx, effect, targets)) {
       let amount = scaled;
+      // Lélektűz burns whatever is already weighing the unit down: every spell
+      // lying on it, every damage marker and every ring is one more point.
+      if (effect.source === "load") {
+        amount = unit.placed.length + unit.damageMarks.length + unit.rings;
+      }
       if (altIf && conditionHolds(ctx.state, unit, altIf, Number(effect.ifValue ?? 0))) {
         amount = Number(effect.altAmount ?? amount);
       }
-      const cap = damageCapFor(ctx.state, unit);
-      if (amount > cap) {
-        ctx.log(`${cardOf(unit).name} legfeljebb ${cap} sebzést szenvedhet el egy hatástól.`);
-        amount = cap;
-      }
-      if (amount <= 0) continue;
-      unit.damage += amount;
-      ctx.log(`${cardOf(unit).name}: ${amount} sebzés (összesen ${unit.damage}).`);
+      applyDamage(ctx, unit, amount);
     }
   },
 
@@ -478,6 +554,10 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     const first = targets.map((s) => unitAt(ctx.state, s)).find((u) => !!u);
     const second = destination ? unitAt(ctx.state, destination) : null;
     if (!first || !second || first.uid === second.uid) return;
+    // Összjáték trades two of yours; Testcsel drags an enemy into your place.
+    const side = String(_effect.side ?? "ally");
+    if (side === "ally" && second.owner !== first.owner) return;
+    if (side === "enemy" && second.owner === first.owner) return;
     if (!canMove(first, ctx.state) || !canMove(second, ctx.state)) {
       ctx.log("A csere elmarad, valamelyikük nem tud mozogni.");
       return;
@@ -549,20 +629,46 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
 
   clearPlaced(ctx, effect, targets) {
     const count = Number(effect.count ?? 0);
+    const only = String(effect.only ?? "any");
     const units =
       effect.everyUnit === true ? allUnitsOnBoard(ctx.state) : targetUnits(ctx, effect, targets);
     for (const unit of units) {
-      if (unit.placed.length === 0) continue;
+      // Gyógyfüvek lifts damage markers off, biggest first — the card a player
+      // would reach for, and the only deterministic reading of "one of them".
+      if (only === "damage") {
+        if (unit.damageMarks.length === 0) continue;
+        const take = count > 0 ? count : unit.damageMarks.length;
+        unit.damageMarks.sort((a, b) => b.amount - a.amount);
+        const healed = unit.damageMarks.splice(0, take);
+        const total = healed.reduce((sum, mark) => sum + mark.amount, 0);
+        unit.damage = Math.max(0, unit.damage - total);
+        ctx.log(`${cardOf(unit).name}: ${total} sebzés gyógyul (maradt ${unit.damage}).`);
+        continue;
+      }
+      if (unit.placed.length === 0 && unit.damage === 0) continue;
       const removed = count > 0 ? unit.placed.splice(0, count) : unit.placed.splice(0);
-      ctx.log(`${cardOf(unit).name}: ${removed.length} lap lekerül róla.`);
+      if (removed.length > 0) ctx.log(`${cardOf(unit).name}: ${removed.length} lap lekerül róla.`);
+      // Vedlés and Napéjegyenlőség take everything off, and at a physical table
+      // the damage markers are cards lying there too.
+      if (count === 0 && unit.damage > 0) {
+        ctx.log(`${cardOf(unit).name} sebzése is lekerül.`);
+        unit.damage = 0;
+        unit.damageMarks.length = 0;
+      }
     }
   },
 
   grantImmunity(ctx, effect, targets) {
-    const school = String(effect.school ?? "");
+    // Tűzköpeny wards two schools at once, so the field reads as a list.
+    const schools = String(effect.school ?? "")
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
     for (const unit of targetUnits(ctx, effect, targets)) {
-      if (!unit.immunities.includes(school)) unit.immunities.push(school);
-      ctx.log(`${cardOf(unit).name} immunis lesz: ${school}.`);
+      for (const school of schools) {
+        if (!unit.immunities.includes(school)) unit.immunities.push(school);
+      }
+      ctx.log(`${cardOf(unit).name} immunis lesz: ${schools.join(", ")}.`);
     }
   },
 
@@ -1028,6 +1134,131 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
    * all, and then the card was simply spent. Setting one is optional — the
    * Belépő is mandatory, but nothing forces you to give up a spell for it.
    */
+  /**
+   * Elcsenés. A gyűrű is a marker on a card, so this is literally a hand moving
+   * one across: nothing is created, and an enemy with no rings has nothing to
+   * lose.
+   */
+  stealRing(ctx, effect, targets) {
+    const wanted = Number(effect.amount ?? 1);
+    const thief = ctx.source;
+    if (!thief) return;
+    for (const unit of targetUnits(ctx, effect, targets)) {
+      const taken = Math.min(wanted, unit.rings);
+      if (taken <= 0) {
+        ctx.log(`${cardOf(unit).name}: nincs rajta gyűrű.`);
+        continue;
+      }
+      unit.rings -= taken;
+      thief.rings += taken;
+      ctx.log(`${cardOf(thief).name} elcsen ${taken} gyűrűt: ${cardOf(unit).name}.`);
+    }
+  },
+
+  /**
+   * Kivirágzás. The one mass power effect the set allows, and it is allowed
+   * because a gyűrű is placed once and never recalculated. "Everyone gets −2
+   * until further notice" is what a physical table cannot carry; a token on
+   * each card it can.
+   */
+  massRing(ctx, effect, _targets) {
+    const amount = Number(effect.amount ?? 1);
+    const side = String(effect.side ?? "ally");
+    const keyword = effect.keyword ? String(effect.keyword) : undefined;
+    for (const unit of allUnitsOnBoard(ctx.state)) {
+      if (side === "ally" && unit.owner !== ctx.controller) continue;
+      if (side === "enemy" && unit.owner === ctx.controller) continue;
+      if (!keywordMatches(keywordsOf(unit), keyword)) continue;
+      grantRings(unit, amount, ctx);
+    }
+  },
+
+  /**
+   * Transzfúzió. Lifts a card off the caster and puts it on a neighbour,
+   * blessing and curse alike — the card is the effect, so carrying the card
+   * across is the whole of it.
+   */
+  moveAttachment(ctx, effect, _targets) {
+    const from = ctx.source;
+    const to = ctx.destination ? unitAt(ctx.state, ctx.destination) : null;
+    if (!from || !to || from.uid === to.uid) return;
+    if (String(effect.only ?? "any") === "damage") {
+      if (from.damageMarks.length === 0) return;
+      const [mark] = from.damageMarks.splice(0, 1);
+      from.damage = Math.max(0, from.damage - mark.amount);
+      to.damage += mark.amount;
+      to.damageMarks.push(mark);
+      ctx.log(`${cardOf(from).name} átadja a sebzését: ${cardOf(to).name}.`);
+      return;
+    }
+    if (from.placed.length === 0) {
+      ctx.log(`${cardOf(from).name}: nincs rajta lap.`);
+      return;
+    }
+    const [card] = from.placed.splice(0, 1);
+    to.placed.push(card);
+    ctx.log(
+      `${attachmentName(card.attachment ?? card.spellId)} átkerül ide: ${cardOf(to).name}.`,
+    );
+  },
+
+  /**
+   * Megtorlás. The ally is the ammunition: it dies, and whatever it was worth
+   * standing there is what lands on the enemy beside it.
+   */
+  sacrificeStrike(ctx, _effect, targets) {
+    const victim = targets.map((slot) => unitAt(ctx.state, slot)).find((u) => !!u);
+    const struck = ctx.destination ? unitAt(ctx.state, ctx.destination) : null;
+    if (!victim) return;
+    const force = power(victim, ctx.state);
+    ctx.log(`${cardOf(victim).name} feláldoztatik (${force} erő).`);
+    killUnit(ctx.state, victim, ctx.log);
+    if (struck) applyDamage(ctx, struck, force);
+  },
+
+  /**
+   * Elmezavar. The confused unit swings at its own side for exactly what it is
+   * worth, which is why it is worth aiming at their biggest.
+   */
+  forceAttack(ctx, _effect, targets) {
+    const confused = targets.map((slot) => unitAt(ctx.state, slot)).find((u) => !!u);
+    const struck = ctx.destination ? unitAt(ctx.state, ctx.destination) : null;
+    if (!confused || !struck || confused.uid === struck.uid) return;
+    const force = power(confused, ctx.state);
+    ctx.log(`${cardOf(confused).name} rátámad a sajátjára: ${cardOf(struck).name}.`);
+    applyDamage(ctx, struck, force);
+  },
+
+  /**
+   * Metamorfózis and Monstrosis. The unit steps off and the card in hand steps
+   * into the same slot, outside the cost cap — the gathering is long over by
+   * the time anyone casts this, so there is no cap left to charge against.
+   * Like Idézés, the arrival's Belépő does not fire: the battle has moved on.
+   */
+  transformFromHand(ctx, effect, targets) {
+    const [unit] = targetUnits(ctx, effect, targets);
+    if (!unit) return;
+    const player = ctx.state.players[ctx.controller];
+    const handIndex = player.unitHand.findIndex((c) => c.uid === ctx.handCardUid);
+    if (handIndex === -1) return;
+    const card = getUnit(player.unitHand[handIndex].cardId);
+    const maxCost = Number(effect.maxCost ?? 0);
+    if (maxCost > 0 && card.cost > maxCost) return;
+    if (!keywordMatches(cardKeywords(card), effect.keyword ? String(effect.keyword) : undefined)) {
+      return;
+    }
+    const [handCard] = player.unitHand.splice(handIndex, 1);
+    const slot = unit.slot;
+    const before = cardOf(unit).name;
+    ctx.state.board[slot] = null;
+    ctx.state.players[unit.owner].discard.push({ uid: unit.uid, cardId: unit.cardId });
+    ctx.state.board[slot] = makeUnitInstance(handCard.uid, handCard.cardId, unit.owner, slot, {
+      order: unit.order,
+      paidCost: unit.paidCost,
+    });
+    ctx.log(`${before} átváltozik: ${card.name}.`);
+  },
+
   setTrap(ctx, _effect, _targets) {
     const hand = ctx.state.players[ctx.controller].spellHand;
     if (hand.length === 0) {
@@ -1161,6 +1392,7 @@ export function makeUnitInstance(
     order: opts.order,
     setPower: null,
     damage: 0,
+    damageMarks: [],
     powerDelta: 0,
     rings: 0,
     placed: [],
@@ -1321,11 +1553,31 @@ export function salvageDestination(
 }
 
 /** Where Összjáték may send the ally it picked up: an adjacent ally to trade with. */
-export function legalSwapPartners(state: GameState, unit: UnitInstance): SlotId[] {
+export function legalSwapPartners(
+  state: GameState,
+  unit: UnitInstance,
+  side: "ally" | "enemy" | "any" = "ally",
+): SlotId[] {
   return orthogonalNeighbours(unit.slot).filter((s) => {
     const other = state.board[s];
-    return !!other && other.owner === unit.owner && other.uid !== unit.uid;
+    if (!other || other.uid === unit.uid) return false;
+    if (side === "ally") return other.owner === unit.owner;
+    if (side === "enemy") return other.owner !== unit.owner;
+    return true;
   });
+}
+
+/**
+ * Occupied neighbours of a unit, on the side the effect names. Megtorlás wants
+ * the enemies standing next to the sacrifice; Elmezavar wants the friends
+ * standing next to the confused one; Transzfúzió does not care.
+ */
+export function occupiedNeighbours(
+  state: GameState,
+  unit: UnitInstance,
+  side: "ally" | "enemy" | "any",
+): SlotId[] {
+  return legalSwapPartners(state, unit, side);
 }
 
 /**
@@ -1341,9 +1593,14 @@ export function legalSwapPartners(state: GameState, unit: UnitInstance): SlotId[
 export function legalDestinations(
   state: GameState,
   unit: UnitInstance,
-  mode: "adjacent" | "anyEmpty",
+  mode: "adjacent" | "diagonal" | "anyEmpty",
 ): SlotId[] {
-  const candidates = mode === "adjacent" ? orthogonalNeighbours(unit.slot) : ALL_SLOTS;
+  const candidates =
+    mode === "adjacent"
+      ? orthogonalNeighbours(unit.slot)
+      : mode === "diagonal"
+        ? diagonalNeighbours(unit.slot)
+        : ALL_SLOTS;
   return candidates.filter((s) => !state.board[s] && !isBlocked(state, s));
 }
 

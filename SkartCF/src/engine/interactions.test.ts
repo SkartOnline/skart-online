@@ -35,6 +35,7 @@ function blankState(locationId = "plazs"): GameState {
     prompts: [],
     reveals: [],
     traps: [],
+    currentCaster: null,
     portals: [],
     placementCounter: 0,
     promptCounter: 0,

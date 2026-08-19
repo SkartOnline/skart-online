@@ -286,6 +286,14 @@ export interface Attachment {
   untargetableCondition?: StaticCondition;
   /** Sárkánypikkelyek: no spell may touch this unit at all. */
   spellImmune?: boolean;
+  /**
+   * Fagypáncél, Pajzs: every incoming damage application is this much smaller.
+   * Not a cap (that is `damageCap`) — a subtraction, so a swarm of 1s bounces
+   * off it entirely while one big hit barely notices.
+   */
+  damageReduction?: number;
+  /** Vérdíj: whoever kills the wearer collects this many gyűrű. */
+  bounty?: number;
   text?: string;
 }
 
@@ -354,6 +362,14 @@ export interface UnitInstance {
   setPower: number | null;
   /** Persistent −X damage tokens. Summed at totaling; reaching 0 power kills. */
   damage: number;
+  /**
+   * The same damage, itemised. At a physical table every damage spell stays on
+   * the unit as its own marker, so "take one damage card off" (Gyógyfüvek) and
+   * "count the cards lying on it" (Lélektűz) are things a player can do. The
+   * integer above stays the single source of truth for `isDead`; this list is
+   * what the two cards that address individual markers read.
+   */
+  damageMarks: { spellId: string; amount: number }[];
   /** Power modifiers from spells (+/−). Separate from damage on purpose. */
   powerDelta: number;
   /**
@@ -672,6 +688,13 @@ export interface GameState {
   reveals: Reveal[];
   /** Fuedrax: spells committed face down onto tiles, waiting to be stepped on. */
   traps: Trap[];
+  /**
+   * Vérdíj needs to know who did the killing, and a death can happen two or
+   * three effects deep inside a resolution. Rather than thread a killer through
+   * every `killUnit` call site, the unit currently resolving something owns the
+   * board until it is done, and whatever dies in that window died by its hand.
+   */
+  currentCaster: string | null;
   /** Felix: units owed a place on the next battlefield, outside the cap. */
   portals: Portal[];
   placementCounter: number;

@@ -91,16 +91,46 @@ during the battle phase.
 
 ### Board effects
 `modifyPower`, `setPower`, `damage`, `destroy`, `massDestroy`, `move`,
-`swapWithAdjacent`, `transform`, `attach`, `grantImmunity`, `fizzleShield`,
-`lock`, `summon`, `thresholdAoe`, `grantRing`, `duel`, `devour`, `advance`,
-`modifySpellpower`, `revealHidden`, `clearPlaced`.
+`swapWithAdjacent`, `transform`, `transformFromHand`, `attach`,
+`moveAttachment`, `grantImmunity`, `fizzleShield`, `lock`, `summon`,
+`thresholdAoe`, `grantRing`, `massRing`, `stealRing`, `duel`, `devour`,
+`advance`, `sacrificeStrike`, `forceAttack`, `modifySpellpower`,
+`revealHidden`, `clearPlaced`.
 
-The amount of `damage` can come three ways: `amount` is the fixed number;
+The amount of `damage` can come four ways: `amount` is the fixed number;
 `altAmount` + `altIf` is the second number when the condition holds for the
-targeted unit (Hátbaszúrás: 2, or 4 in the back row); `casterPowerDiv` derives
-it from the caster's power (Eltaposás: half, rounded up). A `fizzleShield` with
-`maxCost: 0` means **no** cost limit — Álomfogó and Omnifex swallow the next
-spell that lands on them regardless of what it cost.
+targeted unit (Hátbaszúrás: 1, or 4 in the back row); `casterPowerDiv` derives
+it from the caster's power (Eltaposás: all of it); `source: "load"` counts what
+is already lying on the target — spells, damage markers and rings alike
+(Lélektűz). A `fizzleShield` with `maxCost: 0` means **no** cost limit, which
+now only Omnifex has; the Álomfogó card itself stops at 5, so the big removal
+still gets through.
+
+### What the physical game rules out
+
+Skart is also a table game, and two whole families of effect did not survive
+that:
+
+- **No area damage.** Damage is a card that stays on the unit, and handing out
+  four of them at once is bookkeeping nobody wants. Mass removal is fine —
+  `massDestroy` reads the board once and the dead leave — but "sebezz 2-t
+  mindenkibe" does not exist and will not.
+- **No effect that leaves a modifier on two or more units.** One exception,
+  and it is exactly one: the gyűrű. `massRing` hands a token to every unit on
+  a side and is never recalculated afterwards, which is why Kivirágzás can be
+  a card and "minden szövetséges +1 erőt kap" cannot. `thresholdAoe` survives
+  in the schema for units and battlefields; **no spell uses it**, and
+  `physical.test.ts` pins that.
+
+Damage therefore lives twice on the unit: `damage` is the total every death
+check reads, and `damageMarks` is the same damage itemised, one entry per hit.
+That second list is what Gyógyfüvek lifts a card off (biggest first, the only
+deterministic reading of "one of them") and what Lélektűz counts.
+
+Armour is a **subtraction**, not a cap: `damageReduction` on an attachment
+(Fagypáncél 1, Pajzs 2) comes off every incoming application before A Faarcú's
+`damageCap` shaves it. A ward therefore blanks a swarm of small hits entirely
+while a Lánglándzsa barely notices.
 
 ### Card-economy effects
 `draw`, `discard`, `searchDeck`, `revive`, `returnToHand`, `stealCard`,
@@ -117,8 +147,20 @@ the choice itself *is* the ability, it asks:
 |---|---|---|
 | `searchDeck` | which card comes out of the listed deck or graveyard | Sírásó, Feltámadás, Lingadori könyvtár |
 | `handSwap` | which cards you take, then which you give back | Griff, a hamiskártyás |
-| `setTrap` | which spell goes down, and onto which enemy tile | Fuedrax |
+| `setTrap` | which spell goes down, and onto which enemy tile | Fuedrax, Csapdaállítás |
 | `coinFlip` | after a win, whether to throw again | Szerencsejátékos |
+| `transformFromHand` | which unit steps in off the bench | Metamorfózis, Monstrosis |
+
+A trap's **tile is public, its contents are not.** Both players see that
+something is buried there; only the owner is told which spell. A trap nobody
+can see is a gotcha, and one everybody can read is a fence — showing the tile
+and hiding the card makes walking onto it a decision.
+
+Three effects ask for a second pick that is a *neighbour* rather than an empty
+tile, and `destinationsFor` in `resolve.ts` is where that is decided:
+`sacrificeStrike` wants an enemy of the sacrifice (Megtorlás), `forceAttack` an
+ally of the confused unit (Elmezavar), `moveAttachment` anyone next door
+(Transzfúzió).
 
 These put a `Prompt` on the queue (`prompts.ts`) and stop; until it is
 answered, nothing else can happen in the game. The answer arrives as an
@@ -206,8 +248,16 @@ every spell placed on it — lasting and one-shot alike — so hovering the unit
 fans them all out. The lasting mechanics come through the `attachment` field,
 and removing the card removes the effect (Tisztítás, Vedlés, Napéjegyenlőség).
 
-An attachment can carry a `statics` array, so it uses the same fourteen
-primitives the units do.
+An attachment can carry a `statics` array, so it uses the same primitives the
+units do — including `scope: "self"`, which is what lets a guardian static
+watch over nobody but its own wearer (Oltalom's `powerFloor`) instead of
+leaking onto the neighbours.
+
+Two fields belong to attachments alone: `damageReduction` (Fagypáncél, Pajzs)
+subtracts from every incoming hit, and `bounty` (Vérdíj) pays whoever kills the
+wearer. The bounty finds its killer through `state.currentCaster`, which the
+unit resolving something owns for the length of that resolution — a unit that
+starves between spells collects nobody, which is the point.
 
 ---
 
@@ -250,8 +300,25 @@ engine stores as `origin`, `order`, `race` and `keywords`. `cardKeywords()`
 folds all four into a single list, so no filter ever needs to know which column
 a word came from.
 
-The `tags` field gives a spell its element: `Tűz`, `Fagy`, `Mesteri`.
-Tűzköpeny, Fagypáncél, Explodus and Erif mester reference it.
+`schools` is the sheet's **Rend** column: who may cast it. `tags` is the
+sheet's **Tipus** column: what it is. Every spell carries exactly one Tipus,
+plus `Mesteri` where the grade applies, and `physical.test.ts` pins that too.
+
+| Tipus | What lands here |
+|---|---|
+| `Támadás` | a physical strike — Kardcsapás, Hátbaszúrás, Párbaj, Rozzant gránát |
+| `Képesség` | non-magical and not a strike — Manőver, Testcsel, Leskelődés, Morál |
+| `Felszerelés` | gear that stays on a card — Acélpenge, Kötél, Pajzs, Füstbomba |
+| `Tűzmágia` | Explar, Lánglándzsa, Lélektűz, Sárkánytűz |
+| `Fagymágia` | Fagypáncél, Fagyos lehelet, Jéghegy |
+| `Természeti erő` | weather, growth, shapeshifting — Villámcsapás, Széllökés, Metamorfózis |
+| `Portálmágia` | Teleport, Idézés, Enormorf, Valóságtörés |
+| `Feketemágia` | death, decay, and every mind-control or transform-someone-else — Argeo, Csábítás, Elmezavar, Lépumorf |
+| `Mesteri` | a grade, never alone: always a second tag on top of the element |
+
+Tűzköpeny, Fagypáncél, Oltalom, Explodus and Erif mester all reference Tipus,
+which is why `grantImmunity` takes a comma-separated list (Tűzköpeny wards
+against Tűz **and** Fagy).
 
 ---
 

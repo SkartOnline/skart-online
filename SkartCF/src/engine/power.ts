@@ -216,11 +216,16 @@ export function abilitiesActive(unit: UnitInstance, state: GameState): boolean {
 // Scopes and conditions, shared by every static kind
 // ---------------------------------------------------------------------------
 
-export type Scope = "adjacent" | "diagonal" | "board" | "row" | "column" | "columnFront";
+export type Scope = "self" | "adjacent" | "diagonal" | "board" | "row" | "column" | "columnFront";
 
 /** Every slot a static of this scope reaches, before the side filter. */
 export function slotsInScope(unit: UnitInstance, scope: Scope): SlotId[] {
   switch (scope) {
+    // Oltalom: a guardian static that watches over nobody but its own wearer.
+    // Without this, personal armour has to be written as an aura that leaks
+    // onto the neighbours.
+    case "self":
+      return [unit.slot];
     case "adjacent":
       return orthogonalNeighbours(unit.slot);
     case "diagonal":
@@ -952,6 +957,22 @@ export function freeCastsLeft(unit: UnitInstance, state: GameState): number {
  * `Infinity` when nobody is watching over it. Read per effect application, not
  * per spell, exactly as the card says ("egy hatástól").
  */
+/**
+ * Fagypáncél, Pajzs: every incoming damage application arrives this much
+ * smaller. Deliberately a subtraction rather than a cap — a ward turns a swarm
+ * of small hits into nothing at all, while a Lánglándzsa barely notices it.
+ * Read off the cards lying on the unit, so taking the card off takes the armour
+ * off with it.
+ */
+export function damageReductionFor(state: GameState, unit: UnitInstance): number {
+  void state;
+  let total = 0;
+  for (const attachment of attachmentsOn(unit)) {
+    total += Number(attachment.damageReduction ?? 0);
+  }
+  return total;
+}
+
 export function damageCapFor(state: GameState, unit: UnitInstance): number {
   let cap = Infinity;
   for (const { ability } of staticSources(state, unit, "damageCap", "board")) {

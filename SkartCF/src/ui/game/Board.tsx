@@ -152,29 +152,35 @@ function Cell({
     );
   }
 
-  // Fuedrax's trap. It went down face down, so only the player who set it — or
-  // the hotseat reveal switch — is ever told which tile it is on, let alone
-  // which spell is lying there. The other side gets nothing at all: a mark they
-  // could see would turn a trap into a fence.
+  // Fuedrax's trap, and Csapdaállítás. The tile is marked for both players —
+  // a trap nobody can see is a gotcha, and a trap everybody can see is a
+  // decision: you may still walk onto it, knowing something is buried there.
+  // Only the owner is told *which* spell is lying in it, so the bluff survives.
   const trap = trapAt(state, slot);
   const trapMine = !!trap && (trap.owner === viewer || bare);
 
   if (!unit) {
     classes.push("empty-slot");
-    if (trapMine) classes.push("trapped");
+    if (trap) classes.push("trapped");
     return (
       <button
         className={classes.join(" ")}
         data-slot={slot}
         onClick={open ? onPick : undefined}
         aria-disabled={!open}
-        title={trapMine ? `Csapda: ${trySpellName(trap!.cardId) ?? ""}` : undefined}
+        title={
+          trap
+            ? trapMine
+              ? `Csapda: ${trySpellName(trap.cardId) ?? ""}`
+              : "Csapda: ismeretlen varázslat"
+            : undefined
+        }
       >
         <span className="coord">{coordLabel(slot)}</span>
-        {trapMine && (
+        {trap && (
           <span className="snare">
             <b>csapda</b>
-            <em>{trySpellName(trap!.cardId) ?? "varázslat"}</em>
+            <em>{trapMine ? (trySpellName(trap.cardId) ?? "varázslat") : "ismeretlen"}</em>
           </span>
         )}
         {/* The tile is already empty as far as the rules go; this is only the

@@ -1,450 +1,102 @@
 [
   {
-    "id": "explar",
-    "name": "Explar",
+    "id": "harapas",
+    "name": "Harapás",
     "kind": "spell",
     "schools": [
-      "Mágus"
+      "Bestia"
     ],
     "cost": 1,
     "rarity": "Gyakori",
     "target": {
       "side": "any",
-      "range": 2
+      "range": 1
     },
     "effects": [
       {
         "kind": "damage",
-        "amount": 1
+        "amount": 2
       }
     ],
     "tags": [
-      "Tűzmágia"
+      "Támadás"
     ],
-    "text": "Tűzcsóvát hajítok egy ellenségre. 1-et sebződik."
+    "text": "Belevájom fogaim egy ellenségbe. 2-t sebződik."
   },
   {
-    "id": "tuzkopeny",
-    "name": "Tűzköpeny",
+    "id": "odu",
+    "name": "Odú",
     "kind": "spell",
     "schools": [
-      "Mágus"
+      "Bestia"
     ],
     "cost": 1,
-    "rarity": "Gyakori",
-    "target": {
-      "side": "ally",
-      "range": 1
-    },
-    "effects": [
-      {
-        "kind": "grantImmunity",
-        "school": "Tűzmágia"
-      }
-    ],
-    "tags": [
-      "Tűzmágia"
-    ],
-    "text": "Tűzköpenyt adok egy szövetségesnek. Tűz varázslatok nem hatnak rá."
-  },
-  {
-    "id": "fagypancel",
-    "name": "Fagypáncél",
-    "kind": "spell",
-    "schools": [
-      "Mágus"
-    ],
-    "cost": 1,
-    "rarity": "Gyakori",
-    "target": {
-      "side": "ally",
-      "range": 1
-    },
-    "effects": [
-      {
-        "kind": "grantImmunity",
-        "school": "Fagymágia"
-      }
-    ],
-    "tags": [
-      "Fagymágia"
-    ],
-    "text": "Fagypáncélt adok egy szövetségesnek. Fagy varázslatok nem hatnak rá."
-  },
-  {
-    "id": "szellokes",
-    "name": "Széllökés",
-    "kind": "spell",
-    "schools": [
-      "Mágus"
-    ],
-    "cost": 1,
-    "rarity": "Gyakori",
-    "target": {
-      "side": "any",
-      "range": 1
-    },
-    "effects": [
-      {
-        "kind": "move",
-        "destination": "adjacent"
-      }
-    ],
-    "tags": [
-      "Portálmágia"
-    ],
-    "text": "Egy szomszédos mezőre mozgatok egy egységet."
-  },
-  {
-    "id": "alomfogo",
-    "name": "Álomfogó",
-    "kind": "spell",
-    "schools": [
-      "Mágus"
-    ],
-    "cost": 2,
-    "rarity": "Gyakori",
-    "target": {
-      "side": "ally",
-      "range": 1
-    },
-    "effects": [
-      {
-        "kind": "fizzleShield",
-        "maxCost": 0
-      }
-    ],
-    "tags": [
-      "Felszerelés"
-    ],
-    "text": "Álomfogót adok egy szövetségesnek. A következő rá szálló varázslat hatástalan."
-  },
-  {
-    "id": "vaskarom",
-    "name": "Vaskarom",
-    "kind": "spell",
-    "schools": [
-      "Mágus"
-    ],
-    "cost": 2,
-    "rarity": "Gyakori",
-    "target": {
-      "side": "ally",
-      "range": 1
-    },
-    "effects": [
-      {
-        "kind": "attach",
-        "attachment": "vaskarom"
-      }
-    ],
-    "tags": [
-      "Felszerelés"
-    ],
-    "text": "Vasmágiával gyűrűt formálok és egy szövetségesnek adom. +1 gyűrűt kap."
-  },
-  {
-    "id": "geomancia",
-    "name": "Geománcia",
-    "kind": "spell",
-    "schools": [
-      "Mágus"
-    ],
-    "cost": 3,
-    "rarity": "Kivételes",
+    "rarity": "Ritka",
     "target": null,
     "effects": [
       {
-        "kind": "searchDeck",
-        "cardKind": "spell",
-        "source": "graveyard",
-        "count": 1
+        "kind": "attach",
+        "attachment": "odu",
+        "on": "caster"
       }
     ],
     "tags": [
       "Természeti erő"
     ],
-    "text": "Kikeresek egy már elhasznált varázslatot a temetőből. Húzd fel!"
+    "text": "Bebújok az odúmba. Ha nincs mellettem szövetséges, nem lehet varázslattal megcélozni."
   },
   {
-    "id": "nemitas",
-    "name": "Némítás",
+    "id": "roham",
+    "name": "Roham",
     "kind": "spell",
     "schools": [
-      "Mágus"
+      "Bestia",
+      "Harcos"
     ],
-    "cost": 3,
-    "rarity": "Kivételes",
-    "target": {
-      "side": "any",
-      "range": 1
-    },
+    "cost": 1,
+    "rarity": "Ritka",
+    "target": {},
     "effects": [
       {
-        "kind": "attach",
-        "attachment": "nemitas"
+        "kind": "advance",
+        "ringPerTile": 0
       }
     ],
     "tags": [
-      "Feketemágia"
+      "Képesség"
     ],
-    "text": "Elnémítok egy egységet. Amíg a Némítás rajta van, nem varázsolhat."
+    "text": "Előrenyomulok, amíg egységnek vagy a csatatér szélének ütközök."
   },
   {
-    "id": "elfeledes",
-    "name": "Elfeledés",
+    "id": "ugras",
+    "name": "Ugrás",
     "kind": "spell",
     "schools": [
-      "Mágus"
+      "Bestia"
     ],
-    "cost": 3,
-    "rarity": "Kivételes",
-    "target": {
-      "side": "any",
-      "range": 2
-    },
-    "effects": [
-      {
-        "kind": "attach",
-        "attachment": "elfeledes"
-      }
-    ],
-    "tags": [
-      "Feketemágia"
-    ],
-    "text": "Kitörlöm egy egység emlékeit. Amíg az Elfeledés rajta van, nincs képessége."
-  },
-  {
-    "id": "teleport",
-    "name": "Teleport",
-    "kind": "spell",
-    "schools": [
-      "Mágus"
-    ],
-    "cost": 4,
-    "rarity": "Kivételes",
-    "target": {
-      "side": "ally",
-      "range": 1
-    },
+    "cost": 1,
+    "rarity": "Gyakori",
+    "target": null,
     "effects": [
       {
         "kind": "move",
-        "destination": "anyEmpty"
+        "destination": "adjacent",
+        "on": "caster"
       }
     ],
     "tags": [
-      "Portálmágia"
+      "Képesség"
     ],
-    "text": "Egy tetszőleges üres mezőre mozgatok egy szövetségest."
+    "text": "Egy szomszédos mezőre ugrok."
   },
   {
-    "id": "csabitas",
-    "name": "Csábítás",
+    "id": "gyogyfuvek",
+    "name": "Gyógyfüvek",
     "kind": "spell",
     "schools": [
-      "Mágus"
+      "Druida"
     ],
-    "cost": 4,
-    "rarity": "Kivételes",
-    "target": {
-      "side": "any",
-      "range": 2
-    },
-    "effects": [
-      {
-        "kind": "returnToHand",
-        "toOwner": "caster",
-        "afterLocation": true
-      }
-    ],
-    "tags": [
-      "Feketemágia"
-    ],
-    "text": "Elcsábítok egy egységet. A csata után helyezd a kezedbe!"
-  },
-  {
-    "id": "langlandzsa",
-    "name": "Lánglándzsa",
-    "kind": "spell",
-    "schools": [
-      "Mágus"
-    ],
-    "cost": 4,
-    "rarity": "Gyakori",
-    "target": {
-      "side": "any",
-      "range": 1
-    },
-    "effects": [
-      {
-        "kind": "damage",
-        "amount": 5
-      }
-    ],
-    "tags": [
-      "Tűzmágia"
-    ],
-    "text": "Lánglándzsát döfök egy ellenségbe. 5-öt sebződik."
-  },
-  {
-    "id": "enormorf",
-    "name": "Enormorf",
-    "kind": "spell",
-    "schools": [
-      "Mágus"
-    ],
-    "cost": 6,
-    "rarity": "Ritka",
-    "target": {
-      "side": "any",
-      "range": 1
-    },
-    "effects": [
-      {
-        "kind": "attach",
-        "attachment": "enormorf"
-      }
-    ],
-    "tags": [
-      "Portálmágia"
-    ],
-    "text": "Óriásira növelek egy egységet. Amíg az Enormorf rajta van, az ereje 6."
-  },
-  {
-    "id": "jeghegy",
-    "name": "Jéghegy",
-    "kind": "spell",
-    "schools": [
-      "Mágus"
-    ],
-    "cost": 6,
-    "rarity": "Legendás",
-    "target": {
-      "side": "any",
-      "range": 2
-    },
-    "effects": [
-      {
-        "kind": "lock",
-        "power": 1
-      }
-    ],
-    "tags": [
-      "Fagymágia"
-    ],
-    "text": "Jégbe zárok egy egységet. Amíg a Jéghegy rajta van, sérthetetlenné válik, de nem varázsolhat és az ereje 1."
-  },
-  {
-    "id": "idezes",
-    "name": "Idézés",
-    "kind": "spell",
-    "schools": [
-      "Mágus"
-    ],
-    "cost": 6,
-    "rarity": "Kivételes",
-    "target": {
-      "side": "ally",
-      "range": 1,
-      "emptyOnly": true
-    },
-    "effects": [
-      {
-        "kind": "summon",
-        "ignoreCap": false,
-        "maxCost": 4
-      }
-    ],
-    "tags": [
-      "Portálmágia"
-    ],
-    "text": "Megidézek egy egységet a kezedből egy szomszédos mezőre, akinek a költsége legfeljebb 4."
-  },
-  {
-    "id": "lepumorf",
-    "name": "Lépumorf",
-    "kind": "spell",
-    "schools": [
-      "Mágus"
-    ],
-    "cost": 7,
-    "rarity": "Kivételes",
-    "target": {
-      "side": "any",
-      "range": 2
-    },
-    "effects": [
-      {
-        "kind": "transform",
-        "into": "nyul",
-        "keepAbilities": false
-      }
-    ],
-    "tags": [
-      "Portálmágia",
-      "Mesteri"
-    ],
-    "text": "Mesteri.\nNyúllá változtatok egy egységet. Amíg a Lépumorf rajta van, egy képesség nélküli Állat 1 erővel."
-  },
-  {
-    "id": "valosagtores",
-    "name": "Valóságtörés",
-    "kind": "spell",
-    "schools": [
-      "Mágus"
-    ],
-    "cost": 10,
-    "rarity": "Legendás",
-    "target": null,
-    "effects": [
-      {
-        "kind": "massDestroy",
-        "side": "all",
-        "stat": "power",
-        "atMost": -1,
-        "requires": "placed",
-        "excludeSelf": false
-      }
-    ],
-    "tags": [
-      "Portálmágia",
-      "Mesteri"
-    ],
-    "text": "Megölök minden egységet, amelyen varázslat van."
-  },
-  {
-    "id": "senyvesztes",
-    "name": "Senyvesztés",
-    "kind": "spell",
-    "schools": [
-      "Feketemágus"
-    ],
-    "cost": 2,
-    "rarity": "Gyakori",
-    "target": {
-      "side": "any",
-      "range": 2
-    },
-    "effects": [
-      {
-        "kind": "modifyPower",
-        "amount": -1
-      }
-    ],
-    "tags": [
-      "Feketemágia"
-    ],
-    "text": "Elgyengítek egy egységet. -1 erőt kap."
-  },
-  {
-    "id": "lelekszipoly",
-    "name": "Lélekszipoly",
-    "kind": "spell",
-    "schools": [
-      "Feketemágus"
-    ],
-    "cost": 2,
+    "cost": 1,
     "rarity": "Ritka",
     "target": {
       "side": "ally",
@@ -452,703 +104,15 @@
     },
     "effects": [
       {
-        "kind": "destroy"
-      },
-      {
-        "kind": "grantRing",
-        "amount": 4,
-        "on": "caster"
-      }
-    ],
-    "tags": [
-      "Feketemágia"
-    ],
-    "text": "Megölök egy szövetségest, hogy +4 erőt kapjak."
-  },
-  {
-    "id": "halalfelelem",
-    "name": "Halálfélelem",
-    "kind": "spell",
-    "schools": [
-      "Feketemágus"
-    ],
-    "cost": 2,
-    "rarity": "Gyakori",
-    "target": {
-      "side": "any",
-      "range": 2
-    },
-    "effects": [
-      {
-        "kind": "attach",
-        "attachment": "halalfelelem"
-      }
-    ],
-    "tags": [
-      "Feketemágia"
-    ],
-    "text": "Rettegést ültetek egy ellenség szívébe. Amíg a Halálfélelem rajta van, -3 erőt kap, ha nincs vele szomszédos szövetséges."
-  },
-  {
-    "id": "rothadas",
-    "name": "Rothadás",
-    "kind": "spell",
-    "schools": [
-      "Feketemágus"
-    ],
-    "cost": 3,
-    "rarity": "Gyakori",
-    "target": null,
-    "effects": [
-      {
-        "kind": "attach",
-        "attachment": "rothadas",
-        "on": "caster"
-      }
-    ],
-    "tags": [
-      "Feketemágia"
-    ],
-    "text": "Minden szomszédos egység -2 erőt kap."
-  },
-  {
-    "id": "feltamadas",
-    "name": "Feltámadás",
-    "kind": "spell",
-    "schools": [
-      "Feketemágus"
-    ],
-    "cost": 4,
-    "rarity": "Gyakori",
-    "target": {
-      "side": "ally",
-      "range": 1
-    },
-    "effects": [
-      {
-        "kind": "revive",
+        "kind": "clearPlaced",
         "count": 1,
-        "maxPower": 3,
-        "ignoreCap": true
+        "only": "damage"
       }
     ],
     "tags": [
-      "Feketemágia"
+      "Természeti erő"
     ],
-    "text": "Kikeresek a temetőből egy egységet, amely ereje legfeljebb 3, és megidézem a csatatéren."
-  },
-  {
-    "id": "kaoszkolera",
-    "name": "Káoszkolera",
-    "kind": "spell",
-    "schools": [
-      "Feketemágus"
-    ],
-    "cost": 5,
-    "rarity": "Kivételes",
-    "target": null,
-    "effects": [
-      {
-        "kind": "massDestroy",
-        "side": "all",
-        "stat": "basePower",
-        "atMost": 2,
-        "excludeSelf": false
-      }
-    ],
-    "tags": [
-      "Feketemágia",
-      "Mesteri"
-    ],
-    "text": "Mesteri.\nHalálos járványt szabadítok el a csatatéren. Minden egység, akinek az alapereje 2 vagy kevesebb, meghal."
-  },
-  {
-    "id": "argeo",
-    "name": "Argeo",
-    "kind": "spell",
-    "schools": [
-      "Feketemágus"
-    ],
-    "cost": 8,
-    "rarity": "Legendás",
-    "target": {
-      "side": "any",
-      "range": 2
-    },
-    "effects": [
-      {
-        "kind": "destroy"
-      }
-    ],
-    "tags": [
-      "Feketemágia",
-      "Mesteri"
-    ],
-    "text": "Mesteri.\nMegölök egy egységet."
-  },
-  {
-    "id": "homalyhimlo",
-    "name": "Homályhimlő",
-    "kind": "spell",
-    "schools": [
-      "Feketemágus"
-    ],
-    "cost": 8,
-    "rarity": "Legendás",
-    "target": null,
-    "effects": [
-      {
-        "kind": "massDestroy",
-        "side": "all",
-        "stat": "basePower",
-        "atMost": 3,
-        "excludeSelf": false
-      }
-    ],
-    "tags": [
-      "Feketemágia",
-      "Mesteri"
-    ],
-    "text": "Mesteri.\nPusztító járványt szabadítok el a csatatéren. Minden egység, akinek az alapereje 3 vagy kevesebb, meghal."
-  },
-  {
-    "id": "nyirokhold",
-    "name": "Nyirokhold",
-    "kind": "spell",
-    "schools": [
-      "Feketemágus"
-    ],
-    "cost": 8,
-    "rarity": "Legendás",
-    "target": {
-      "side": "ally",
-      "range": 1
-    },
-    "effects": [
-      {
-        "kind": "revive",
-        "count": 2,
-        "maxPower": 4,
-        "ignoreCap": true
-      }
-    ],
-    "tags": [
-      "Feketemágia"
-    ],
-    "text": "Kikeresek két egységet a temetőből, amelyeknek az ereje legfeljebb 4-4, és megidézem őket a csatatéren."
-  },
-  {
-    "id": "manover",
-    "name": "Manőver",
-    "kind": "spell",
-    "schools": [
-      "Harcos"
-    ],
-    "cost": 1,
-    "rarity": "Gyakori",
-    "target": null,
-    "effects": [
-      {
-        "kind": "move",
-        "destination": "adjacent",
-        "on": "caster"
-      }
-    ],
-    "tags": [
-      "Támadás"
-    ],
-    "text": "Egy szomszédos mezőre mozgok."
-  },
-  {
-    "id": "falanx",
-    "name": "Falanx",
-    "kind": "spell",
-    "schools": [
-      "Harcos"
-    ],
-    "cost": 1,
-    "rarity": "Gyakori",
-    "target": null,
-    "effects": [
-      {
-        "kind": "attach",
-        "attachment": "falanx",
-        "on": "caster"
-      }
-    ],
-    "tags": [
-      "Támadás"
-    ],
-    "text": "Védekező pozíciót veszek fel. Ha az első sorban állok, +1 erőt kapok."
-  },
-  {
-    "id": "kardcsapas",
-    "name": "Kardcsapás",
-    "kind": "spell",
-    "schools": [
-      "Harcos"
-    ],
-    "cost": 1,
-    "rarity": "Gyakori",
-    "target": {
-      "side": "any",
-      "range": 1
-    },
-    "effects": [
-      {
-        "kind": "damage",
-        "amount": 2
-      }
-    ],
-    "tags": [
-      "Támadás"
-    ],
-    "text": "Odavágok egy ellenségnek. 2-t sebződik."
-  },
-  {
-    "id": "acelpenge",
-    "name": "Acélpenge",
-    "kind": "spell",
-    "schools": [
-      "Harcos"
-    ],
-    "cost": 2,
-    "rarity": "Gyakori",
-    "target": {
-      "side": "ally",
-      "range": 1
-    },
-    "effects": [
-      {
-        "kind": "attach",
-        "attachment": "acelpenge"
-      }
-    ],
-    "tags": [
-      "Felszerelés"
-    ],
-    "text": "Acélpengét adok egy szövetségesnek. +1 erőpontot kap."
-  },
-  {
-    "id": "kitores",
-    "name": "Kitörés",
-    "kind": "spell",
-    "schools": [
-      "Harcos"
-    ],
-    "cost": 2,
-    "rarity": "Gyakori",
-    "target": {
-      "side": "enemy",
-      "range": 1
-    },
-    "effects": [
-      {
-        "kind": "move",
-        "destination": "adjacent",
-        "on": "caster",
-        "optional": true
-      },
-      {
-        "kind": "damage",
-        "amount": 2
-      }
-    ],
-    "tags": [
-      "Támadás"
-    ],
-    "text": "Egy szomszédos mezőre mozoghatok, majd 2-t sebzek egy ellenségbe."
-  },
-  {
-    "id": "verszomj",
-    "name": "Vérszomj",
-    "kind": "spell",
-    "schools": [
-      "Harcos"
-    ],
-    "cost": 2,
-    "rarity": "Kivételes",
-    "target": null,
-    "effects": [
-      {
-        "kind": "attach",
-        "attachment": "verszomj",
-        "on": "caster"
-      }
-    ],
-    "tags": [
-      "Támadás"
-    ],
-    "text": "Minden sérült ellenség után +1 erőt kapok."
-  },
-  {
-    "id": "kopja",
-    "name": "Kopja",
-    "kind": "spell",
-    "schools": [
-      "Harcos"
-    ],
-    "cost": 2,
-    "rarity": "Gyakori",
-    "target": null,
-    "effects": [
-      {
-        "kind": "attach",
-        "attachment": "kopja",
-        "on": "caster"
-      }
-    ],
-    "tags": [
-      "Felszerelés"
-    ],
-    "text": "Hosszú kopjámmal távol tartom az ellenséget. Amíg a Kopja rajtam van és ellenség áll előttem, +1 erőt kapok és nem célozhat varázslattal."
-  },
-  {
-    "id": "egysegben_az_ero",
-    "name": "Egységben az erő",
-    "kind": "spell",
-    "schools": [
-      "Harcos"
-    ],
-    "cost": 2,
-    "rarity": "Kivételes",
-    "target": null,
-    "effects": [
-      {
-        "kind": "attach",
-        "attachment": "egysegben_az_ero",
-        "on": "caster"
-      }
-    ],
-    "tags": [
-      "Támadás"
-    ],
-    "text": "Ha 2 másik szövetségessel együtt állok az első sorban, mindannyian +1 erőt kapunk."
-  },
-  {
-    "id": "moral",
-    "name": "Morál",
-    "kind": "spell",
-    "schools": [
-      "Harcos"
-    ],
-    "cost": 3,
-    "rarity": "Ritka",
-    "target": null,
-    "effects": [
-      {
-        "kind": "attach",
-        "attachment": "moral",
-        "on": "caster"
-      }
-    ],
-    "tags": [
-      "Támadás"
-    ],
-    "text": "Feltüzelem a harcostársaim. Én, és minden szomszédos szövetséges Harcos +1 erőt kap."
-  },
-  {
-    "id": "oriasolo",
-    "name": "Óriásölő",
-    "kind": "spell",
-    "schools": [
-      "Harcos"
-    ],
-    "cost": 3,
-    "rarity": "Kivételes",
-    "target": {
-      "side": "any",
-      "range": 1,
-      "filter": {
-        "minPower": 8
-      }
-    },
-    "effects": [
-      {
-        "kind": "destroy"
-      }
-    ],
-    "tags": [
-      "Támadás",
-      "Mesteri"
-    ],
-    "text": "Mesteri.\nMegölök egy egységet, akinek az ereje legalább 8."
-  },
-  {
-    "id": "parbaj",
-    "name": "Párbaj",
-    "kind": "spell",
-    "schools": [
-      "Harcos"
-    ],
-    "cost": 3,
-    "rarity": "Kivételes",
-    "target": {
-      "side": "enemy",
-      "range": 1
-    },
-    "effects": [
-      {
-        "kind": "duel"
-      }
-    ],
-    "tags": [
-      "Támadás",
-      "Mesteri"
-    ],
-    "text": "Mesteri.\nPárbajra hívok egy ellenséget. Az erősebb megöli a gyengébbet."
-  },
-  {
-    "id": "kegyelemdofes",
-    "name": "Kegyelemdöfés",
-    "kind": "spell",
-    "schools": [
-      "Harcos",
-      "Zsivány"
-    ],
-    "cost": 4,
-    "rarity": "Kivételes",
-    "target": {
-      "side": "enemy",
-      "range": 1,
-      "filter": {
-        "damaged": true
-      }
-    },
-    "effects": [
-      {
-        "kind": "destroy"
-      }
-    ],
-    "tags": [
-      "Támadás",
-      "Mesteri"
-    ],
-    "text": "Mesteri.\nMegölök egy sérült ellenséget."
-  },
-  {
-    "id": "kotel",
-    "name": "Kötél",
-    "kind": "spell",
-    "schools": [
-      "Zsivány"
-    ],
-    "cost": 1,
-    "rarity": "Gyakori",
-    "target": {
-      "side": "any",
-      "range": 1
-    },
-    "effects": [
-      {
-        "kind": "attach",
-        "attachment": "kotel"
-      }
-    ],
-    "tags": [
-      "Felszerelés"
-    ],
-    "text": "Gúzsba kötök egy egységet. Amíg a Kötél rajta van, nem mozoghat."
-  },
-  {
-    "id": "hatbaszuras",
-    "name": "Hátbaszúrás",
-    "kind": "spell",
-    "schools": [
-      "Zsivány"
-    ],
-    "cost": 1,
-    "rarity": "Gyakori",
-    "target": {
-      "side": "enemy",
-      "range": 1
-    },
-    "effects": [
-      {
-        "kind": "damage",
-        "amount": 2,
-        "altAmount": 4,
-        "altIf": "backRow"
-      }
-    ],
-    "tags": [
-      "Támadás"
-    ],
-    "text": "Leszúrok egy óvatlan ellenséget. 2-t sebződik, ha a hátsó sorban van, 4-et."
-  },
-  {
-    "id": "osszjatek",
-    "name": "Összjáték",
-    "kind": "spell",
-    "schools": [
-      "Zsivány"
-    ],
-    "cost": 1,
-    "rarity": "Ritka",
-    "target": {
-      "side": "ally",
-      "range": 2
-    },
-    "effects": [
-      {
-        "kind": "swapWithAdjacent"
-      }
-    ],
-    "tags": [
-      "Támadás"
-    ],
-    "text": "Kicserélek két szomszédos szövetségest."
-  },
-  {
-    "id": "infiltracio",
-    "name": "Infiltráció",
-    "kind": "spell",
-    "schools": [
-      "Zsivány"
-    ],
-    "cost": 2,
-    "rarity": "Ritka",
-    "target": {
-      "side": "ally",
-      "range": 2,
-      "filter": {
-        "keywords": [
-          "Orgyilkos",
-          "Csempész"
-        ]
-      }
-    },
-    "effects": [
-      {
-        "kind": "move",
-        "destination": "anyEmpty"
-      }
-    ],
-    "tags": [
-      "Portálmágia"
-    ],
-    "text": "Egy tetszőleges üres mezőre mozgatok egy szövetséges Orgyilkost vagy Csempészt."
-  },
-  {
-    "id": "zsebmetszes",
-    "name": "Zsebmetszés",
-    "kind": "spell",
-    "schools": [
-      "Zsivány"
-    ],
-    "cost": 2,
-    "rarity": "Ritka",
-    "target": null,
-    "effects": [
-      {
-        "kind": "stealCard",
-        "from": "hand",
-        "cardKind": "spell",
-        "count": 1
-      }
-    ],
-    "tags": [
-      "Támadás"
-    ],
-    "text": "Kipakolom az ellenfelem zsebeit. Húzz egy varázslatot a kezéből!"
-  },
-  {
-    "id": "leskelodes",
-    "name": "Leskelődés",
-    "kind": "spell",
-    "schools": [
-      "Zsivány"
-    ],
-    "cost": 2,
-    "rarity": "Ritka",
-    "target": null,
-    "effects": [
-      {
-        "kind": "peek",
-        "what": "spellHand"
-      }
-    ],
-    "tags": [
-      "Támadás"
-    ],
-    "text": "Meglesem az ellenség terveit. Nézd meg a varázslatkezét!"
-  },
-  {
-    "id": "rajtautes",
-    "name": "Rajtaütés",
-    "kind": "spell",
-    "schools": [
-      "Zsivány"
-    ],
-    "cost": 3,
-    "rarity": "Kivételes",
-    "target": {
-      "side": "enemy",
-      "range": 1,
-      "filter": {
-        "isolated": true
-      }
-    },
-    "effects": [
-      {
-        "kind": "destroy"
-      }
-    ],
-    "tags": [
-      "Támadás",
-      "Mesteri"
-    ],
-    "text": "Mesteri.\nMegölök egy ellenséget, akinek nincs szomszédos szövetségese."
-  },
-  {
-    "id": "fustbomba",
-    "name": "Füstbomba",
-    "kind": "spell",
-    "schools": [
-      "Zsivány"
-    ],
-    "cost": 3,
-    "rarity": "Ritka",
-    "target": {
-      "side": "any",
-      "range": 2
-    },
-    "effects": [
-      {
-        "kind": "attach",
-        "attachment": "fustbomba"
-      }
-    ],
-    "tags": [
-      "Felszerelés"
-    ],
-    "text": "Füstbombát dobok egy mezőre. Az itt álló egységet nem lehet varázslattal megcélozni."
-  },
-  {
-    "id": "fojtas",
-    "name": "Fojtás",
-    "kind": "spell",
-    "schools": [
-      "Zsivány"
-    ],
-    "cost": 3,
-    "rarity": "Ritka",
-    "target": {
-      "side": "enemy",
-      "range": 1,
-      "filter": {
-        "maxPower": 3
-      }
-    },
-    "effects": [
-      {
-        "kind": "destroy"
-      }
-    ],
-    "tags": [
-      "Támadás"
-    ],
-    "text": "Megölök egy ellenséget, amelynek ereje legfeljebb 3."
+    "text": "Begyógyítom egy szövetséges sebeit. Vegyél le róla egy sebzést okozó lapot!"
   },
   {
     "id": "indak",
@@ -1202,6 +166,34 @@
     "text": "Egy szövetséges Állatnak +1 gyűrűt adok."
   },
   {
+    "id": "oltalom",
+    "name": "Oltalom",
+    "kind": "spell",
+    "schools": [
+      "Druida"
+    ],
+    "cost": 1,
+    "rarity": "Kivételes",
+    "target": {
+      "side": "ally",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "grantImmunity",
+        "school": "Feketemágia"
+      },
+      {
+        "kind": "attach",
+        "attachment": "oltalom"
+      }
+    ],
+    "tags": [
+      "Természeti erő"
+    ],
+    "text": "Megvédek egy szövetségest a sötétségtől. Feketemágia varázslatok nem hatnak rá, és az ereje nem csökkenhet az alapereje alá."
+  },
+  {
     "id": "sujtas",
     "name": "Sújtás",
     "kind": "spell",
@@ -1217,171 +209,135 @@
     "effects": [
       {
         "kind": "damage",
-        "amount": 3,
-        "ifKeyword": "Élettelen"
+        "amount": 4,
+        "ifKeyword": "Élettelen,Feketemágus"
       },
       {
         "kind": "damage",
         "amount": 1,
-        "ifNotKeyword": "Druida,Állat,Élettelen"
+        "ifNotKeyword": "Druida,Állat,Élettelen,Feketemágus"
       }
     ],
     "tags": [
       "Természeti erő"
     ],
-    "text": "Lesújtok a természet ellenségére. Ha a célpont nem Druida vagy Állat, 1-et sebződik. Ha Élettelen, 3-at sebződik."
+    "text": "Lesújtok a természet ellenségére. Ha a célpont nem Druida vagy Állat, 1-et sebződik. Ha Élettelen vagy Feketemágus, 4-et sebződik."
   },
   {
-    "id": "termeszetes_forma",
-    "name": "Természetes forma",
+    "id": "alku",
+    "name": "Alku",
     "kind": "spell",
     "schools": [
-      "Druida"
+      "Feketemágus"
     ],
-    "cost": 2,
-    "rarity": "Ritka",
-    "target": {
-      "side": "any",
-      "range": 2
-    },
+    "cost": 1,
+    "rarity": "Gyakori",
+    "target": {},
     "effects": [
       {
-        "kind": "attach",
-        "attachment": "termeszetes_forma"
+        "kind": "discard",
+        "cardKind": "spell",
+        "count": 1,
+        "ringPer": 1
       }
     ],
     "tags": [
-      "Természeti erő"
+      "Feketemágia"
     ],
-    "text": "Egy egységre helyezem ezt a lapot. Amíg a Természetes forma rajta van, az ereje egyenlő az alaperejével. Ez a lap minden más erősítést és gyengítést felülír."
+    "text": "Dobj el egy varázslatot, hogy +1 gyűrűt kapjak!"
   },
   {
-    "id": "toviskorbacs",
-    "name": "Töviskorbács",
+    "id": "megtorlas",
+    "name": "Megtorlás",
     "kind": "spell",
     "schools": [
-      "Druida"
+      "Feketemágus"
     ],
-    "cost": 2,
-    "rarity": "Gyakori",
+    "cost": 1,
+    "rarity": "Kivételes",
     "target": {
-      "side": "enemy",
+      "side": "ally",
       "range": 1
     },
     "effects": [
       {
-        "kind": "damage",
-        "amount": 3
+        "kind": "sacrificeStrike"
       }
     ],
     "tags": [
-      "Természeti erő"
+      "Feketemágia"
     ],
-    "text": "Tövises indákkal csapok egy ellenségre. 3-at sebződik."
+    "text": "Feláldozok egy szövetségest, és az erejével egyenlő sebzést okozok egy szomszédos ellenségnek."
   },
   {
-    "id": "tisztitas",
-    "name": "Tisztítás",
+    "id": "transzfuzio",
+    "name": "Transzfúzió",
     "kind": "spell",
     "schools": [
-      "Druida"
+      "Feketemágus"
     ],
-    "cost": 3,
-    "rarity": "Ritka",
-    "target": {
-      "side": "ally",
-      "range": 2
-    },
+    "cost": 1,
+    "rarity": "Kivételes",
+    "target": {},
     "effects": [
       {
-        "kind": "clearPlaced",
-        "count": 1
-      },
-      {
-        "kind": "attach",
-        "attachment": "tisztitas"
+        "kind": "moveAttachment"
       }
     ],
     "tags": [
-      "Természeti erő"
+      "Feketemágia"
     ],
-    "text": "Megtisztítok egy szövetségest egy negatív hatástól. Amikor a Tisztítás rákerül, levehetsz róla egy másik lapot."
+    "text": "Egy lapot áthelyezek magamról egy szomszédos egységre!"
   },
   {
-    "id": "csordaszellem",
-    "name": "Csordaszellem",
+    "id": "osi_omen",
+    "name": "Ősi omen",
     "kind": "spell",
     "schools": [
-      "Druida"
+      "Feketemágus"
     ],
-    "cost": 3,
+    "cost": 1,
     "rarity": "Ritka",
+    "target": {},
+    "effects": [
+      {
+        "kind": "peek",
+        "what": "nextLocation"
+      }
+    ],
+    "tags": [
+      "Feketemágia"
+    ],
+    "text": "Nézd meg a következő csatateret!"
+  },
+  {
+    "id": "falanx",
+    "name": "Falanx",
+    "kind": "spell",
+    "schools": [
+      "Harcos"
+    ],
+    "cost": 1,
+    "rarity": "Gyakori",
     "target": null,
     "effects": [
       {
         "kind": "attach",
-        "attachment": "csordaszellem",
+        "attachment": "falanx",
         "on": "caster"
       }
     ],
     "tags": [
-      "Természeti erő"
+      "Képesség"
     ],
-    "text": "Erőt adok a velem együtt harcoló Állatoknak. Minden velem szomszédos Állat +1 erőt kap."
+    "text": "Védekező pozíciót veszek fel. Ha az első sorban állok, +1 erőt kapok."
   },
   {
-    "id": "napejegyenloseg",
-    "name": "Napéjegyenlőség",
+    "id": "kardcsapas",
+    "name": "Kardcsapás",
     "kind": "spell",
     "schools": [
-      "Druida"
-    ],
-    "cost": 5,
-    "rarity": "Legendás",
-    "target": null,
-    "effects": [
-      {
-        "kind": "clearPlaced",
-        "count": 0,
-        "everyUnit": true,
-        "on": "caster"
-      }
-    ],
-    "tags": [
-      "Természeti erő"
-    ],
-    "text": "Minden egységről minden varázslatot eltávolítok."
-  },
-  {
-    "id": "villamcsapas",
-    "name": "Villámcsapás",
-    "kind": "spell",
-    "schools": [
-      "Druida"
-    ],
-    "cost": 5,
-    "rarity": "Ritka",
-    "target": {
-      "side": "enemy",
-      "range": 4
-    },
-    "effects": [
-      {
-        "kind": "damage",
-        "amount": 4
-      }
-    ],
-    "tags": [
-      "Természeti erő"
-    ],
-    "text": "Derült égből villám csap le egy ellenségbe. 4-et sebződik."
-  },
-  {
-    "id": "harapas",
-    "name": "Harapás",
-    "kind": "spell",
-    "schools": [
-      "Bestia"
+      "Harcos"
     ],
     "cost": 1,
     "rarity": "Gyakori",
@@ -1398,36 +354,39 @@
     "tags": [
       "Támadás"
     ],
-    "text": "Belevájom fogaim egy ellenségbe. 2-t sebződik."
+    "text": "Odavágok egy ellenségnek. 2-t sebződik."
   },
   {
-    "id": "odu",
-    "name": "Odú",
+    "id": "lefegyverzes",
+    "name": "Lefegyverzés",
     "kind": "spell",
     "schools": [
-      "Bestia"
+      "Harcos"
     ],
     "cost": 1,
-    "rarity": "Ritka",
-    "target": null,
+    "rarity": "Kivételes",
+    "target": {
+      "side": "enemy",
+      "range": 1
+    },
     "effects": [
       {
-        "kind": "attach",
-        "attachment": "odu",
-        "on": "caster"
+        "kind": "clearPlaced",
+        "count": 1,
+        "only": "spell"
       }
     ],
     "tags": [
-      "Természeti erő"
+      "Támadás"
     ],
-    "text": "Bebújok az odúmba. Ha nincs mellettem szövetséges, nem lehet varázslattal megcélozni."
+    "text": "Kiütöm a fegyvert egy ellenség kezéből. Vegyél le róla egy lapot!"
   },
   {
-    "id": "ugras",
-    "name": "Ugrás",
+    "id": "manover",
+    "name": "Manőver",
     "kind": "spell",
     "schools": [
-      "Bestia"
+      "Harcos"
     ],
     "cost": 1,
     "rarity": "Gyakori",
@@ -1440,9 +399,230 @@
       }
     ],
     "tags": [
-      "Természeti erő"
+      "Képesség"
     ],
-    "text": "Egy szomszédos mezőre ugrok."
+    "text": "Egy szomszédos mezőre mozgok."
+  },
+  {
+    "id": "explar",
+    "name": "Explar",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 1,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "any",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 1
+      }
+    ],
+    "tags": [
+      "Tűzmágia"
+    ],
+    "text": "Tűzcsóvát hajítok egy ellenségre. 1-et sebződik."
+  },
+  {
+    "id": "fagypancel",
+    "name": "Fagypáncél",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 1,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "ally",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "fagypancel"
+      }
+    ],
+    "tags": [
+      "Fagymágia"
+    ],
+    "text": "Fagypáncélt adok egy szövetségesnek. Minden beérkező sebzés 1-gyel kevesebb."
+  },
+  {
+    "id": "tuzkopeny",
+    "name": "Tűzköpeny",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 1,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "ally",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "grantImmunity",
+        "school": "Tűzmágia,Fagymágia"
+      }
+    ],
+    "tags": [
+      "Tűzmágia"
+    ],
+    "text": "Tűzköpenyt adok egy szövetségesnek. Tűz és Fagy varázslatok nem hatnak rá."
+  },
+  {
+    "id": "becsusszanas",
+    "name": "Becsusszanás",
+    "kind": "spell",
+    "schools": [
+      "Zsivány"
+    ],
+    "cost": 1,
+    "rarity": "Gyakori",
+    "target": {},
+    "effects": [
+      {
+        "kind": "move",
+        "destination": "diagonal",
+        "on": "caster"
+      }
+    ],
+    "tags": [
+      "Képesség"
+    ],
+    "text": "Átlósan mozgok egy mezőt."
+  },
+  {
+    "id": "elcsenes",
+    "name": "Elcsenés",
+    "kind": "spell",
+    "schools": [
+      "Zsivány"
+    ],
+    "cost": 1,
+    "rarity": "Ritka",
+    "target": {
+      "side": "enemy",
+      "range": 1,
+      "filter": {
+        "minRings": 1
+      }
+    },
+    "effects": [
+      {
+        "kind": "stealRing",
+        "amount": 1
+      }
+    ],
+    "tags": [
+      "Képesség"
+    ],
+    "text": "Elcsenek egy gyűrűt egy ellenségtől és megkapom."
+  },
+  {
+    "id": "hajitotor",
+    "name": "Hajítótőr",
+    "kind": "spell",
+    "schools": [
+      "Zsivány"
+    ],
+    "cost": 1,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "enemy",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 1,
+        "altAmount": 3,
+        "altIf": "isolated"
+      }
+    ],
+    "tags": [
+      "Támadás"
+    ],
+    "text": "Tőrt hajítok egy óvatlan ellenségre. 1-et sebződik, ha nincs mellette szövetséges, 3-at."
+  },
+  {
+    "id": "hatbaszuras",
+    "name": "Hátbaszúrás",
+    "kind": "spell",
+    "schools": [
+      "Zsivány"
+    ],
+    "cost": 1,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "enemy",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 1,
+        "altAmount": 4,
+        "altIf": "backRow"
+      }
+    ],
+    "tags": [
+      "Támadás"
+    ],
+    "text": "Leszúrok egy óvatlan ellenséget. 1-et sebződik, ha a hátsó sorban van, 4-et."
+  },
+  {
+    "id": "kotel",
+    "name": "Kötél",
+    "kind": "spell",
+    "schools": [
+      "Zsivány"
+    ],
+    "cost": 1,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "any",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "kotel"
+      }
+    ],
+    "tags": [
+      "Felszerelés"
+    ],
+    "text": "Gúzsba kötök egy egységet. Amíg a Kötél rajta van, nem mozoghat."
+  },
+  {
+    "id": "osszjatek",
+    "name": "Összjáték",
+    "kind": "spell",
+    "schools": [
+      "Zsivány"
+    ],
+    "cost": 1,
+    "rarity": "Ritka",
+    "target": {
+      "side": "ally",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "swapWithAdjacent",
+        "side": "ally"
+      }
+    ],
+    "tags": [
+      "Képesség"
+    ],
+    "text": "Kicserélek két szomszédos szövetségest."
   },
   {
     "id": "marcangolas",
@@ -1501,26 +681,641 @@
     "text": "Összeroppantom egy ellenség csontjait. Amíg a Szorítás rajta van, nem tud mozogni. Ha már valamilyen hatás megakadályozza a mozgásban, 4-et sebzek is bele."
   },
   {
-    "id": "vedles",
-    "name": "Vedlés",
+    "id": "csatacsorda",
+    "name": "Csatacsorda",
     "kind": "spell",
     "schools": [
-      "Bestia"
+      "Druida"
     ],
-    "cost": 3,
-    "rarity": "Kivételes",
-    "target": null,
+    "cost": 2,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "ally",
+      "range": 1,
+      "filter": {
+        "keyword": "Állat"
+      }
+    },
     "effects": [
       {
-        "kind": "clearPlaced",
-        "count": 0,
-        "on": "caster"
+        "kind": "grantRing",
+        "amount": 1,
+        "alsoCopies": true
       }
     ],
     "tags": [
       "Természeti erő"
     ],
-    "text": "Levedlem az irhám. Leveszek minden lapot magamról."
+    "text": "Megáldok egy szövetséges Állatot. Ő és minden szövetséges másolata +1 gyűrűt kap."
+  },
+  {
+    "id": "ki_mint_vet",
+    "name": "Ki mint vet",
+    "kind": "spell",
+    "schools": [
+      "Druida"
+    ],
+    "cost": 2,
+    "rarity": "Kivételes",
+    "target": {},
+    "effects": [
+      {
+        "kind": "drawNextLocation",
+        "cardKind": "unit",
+        "count": 1
+      },
+      {
+        "kind": "drawNextLocation",
+        "cardKind": "spell",
+        "count": 1
+      }
+    ],
+    "tags": [
+      "Természeti erő"
+    ],
+    "text": "Magokat vetek, felkészülve az ínséges időkre. A következő csata előtt húzz 1-1 extra egységet és varázslatot!"
+  },
+  {
+    "id": "termeszetes_forma",
+    "name": "Természetes forma",
+    "kind": "spell",
+    "schools": [
+      "Druida"
+    ],
+    "cost": 2,
+    "rarity": "Ritka",
+    "target": {
+      "side": "any",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "termeszetes_forma"
+      }
+    ],
+    "tags": [
+      "Természeti erő"
+    ],
+    "text": "Egy egységre helyezem ezt a lapot. Amíg a Természetes forma rajta van, az ereje egyenlő az alaperejével. Ez a lap minden más erősítést és gyengítést felülír."
+  },
+  {
+    "id": "tisztitas",
+    "name": "Tisztítás",
+    "kind": "spell",
+    "schools": [
+      "Druida"
+    ],
+    "cost": 2,
+    "rarity": "Ritka",
+    "target": {
+      "side": "ally",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "clearPlaced",
+        "count": 1
+      },
+      {
+        "kind": "attach",
+        "attachment": "tisztitas"
+      }
+    ],
+    "tags": [
+      "Természeti erő"
+    ],
+    "text": "Megtisztítok egy szövetségest egy negatív hatástól. Vegyél le róla egy másik lapot!"
+  },
+  {
+    "id": "toviskorbacs",
+    "name": "Töviskorbács",
+    "kind": "spell",
+    "schools": [
+      "Druida"
+    ],
+    "cost": 2,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "enemy",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 3
+      }
+    ],
+    "tags": [
+      "Természeti erő"
+    ],
+    "text": "Tövises indákkal csapok egy ellenségre. 3-at sebződik."
+  },
+  {
+    "id": "halalfelelem",
+    "name": "Halálfélelem",
+    "kind": "spell",
+    "schools": [
+      "Feketemágus"
+    ],
+    "cost": 2,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "any",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "halalfelelem"
+      }
+    ],
+    "tags": [
+      "Feketemágia"
+    ],
+    "text": "Rettegést ültetek egy ellenség szívébe. Amíg a Halálfélelem rajta van, -3 erőt kap, ha nincs vele szomszédos szövetséges."
+  },
+  {
+    "id": "lelekszipoly",
+    "name": "Lélekszipoly",
+    "kind": "spell",
+    "schools": [
+      "Feketemágus"
+    ],
+    "cost": 2,
+    "rarity": "Ritka",
+    "target": {
+      "side": "ally",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "destroy"
+      },
+      {
+        "kind": "grantRing",
+        "amount": 4,
+        "on": "caster"
+      }
+    ],
+    "tags": [
+      "Feketemágia"
+    ],
+    "text": "Megölök egy szövetségest, hogy +4 erőt kapjak."
+  },
+  {
+    "id": "senyvesztes",
+    "name": "Senyvesztés",
+    "kind": "spell",
+    "schools": [
+      "Feketemágus"
+    ],
+    "cost": 2,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "any",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "modifyPower",
+        "amount": -1
+      }
+    ],
+    "tags": [
+      "Feketemágia"
+    ],
+    "text": "Elgyengítek egy egységet. -1 erőt kap."
+  },
+  {
+    "id": "acelpenge",
+    "name": "Acélpenge",
+    "kind": "spell",
+    "schools": [
+      "Harcos"
+    ],
+    "cost": 2,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "ally",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "acelpenge"
+      }
+    ],
+    "tags": [
+      "Felszerelés"
+    ],
+    "text": "Acélpengét adok egy szövetségesnek. +1 erőpontot kap."
+  },
+  {
+    "id": "egysegben_az_ero",
+    "name": "Egységben az erő",
+    "kind": "spell",
+    "schools": [
+      "Harcos"
+    ],
+    "cost": 2,
+    "rarity": "Kivételes",
+    "target": null,
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "egysegben_az_ero",
+        "on": "caster"
+      }
+    ],
+    "tags": [
+      "Képesség"
+    ],
+    "text": "Ha 2 másik szövetségessel együtt állok az első sorban, mindannyian +1 erőt kapunk."
+  },
+  {
+    "id": "kitores",
+    "name": "Kitörés",
+    "kind": "spell",
+    "schools": [
+      "Harcos"
+    ],
+    "cost": 2,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "enemy",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "move",
+        "destination": "adjacent",
+        "on": "caster",
+        "optional": true
+      },
+      {
+        "kind": "damage",
+        "amount": 2
+      }
+    ],
+    "tags": [
+      "Támadás"
+    ],
+    "text": "Egy szomszédos mezőre mozoghatok, majd 2-t sebzek egy ellenségbe."
+  },
+  {
+    "id": "kopja",
+    "name": "Kopja",
+    "kind": "spell",
+    "schools": [
+      "Harcos"
+    ],
+    "cost": 2,
+    "rarity": "Gyakori",
+    "target": null,
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "kopja",
+        "on": "caster"
+      }
+    ],
+    "tags": [
+      "Felszerelés"
+    ],
+    "text": "Hosszú kopjámmal távol tartom az ellenséget. Amíg a Kopja rajtam van és ellenség áll előttem, +1 erőt kapok és nem célozhat varázslattal."
+  },
+  {
+    "id": "nehezvert",
+    "name": "Nehézvért",
+    "kind": "spell",
+    "schools": [
+      "Harcos"
+    ],
+    "cost": 2,
+    "rarity": "Ritka",
+    "target": {},
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "nehezvert",
+        "on": "caster"
+      }
+    ],
+    "tags": [
+      "Felszerelés"
+    ],
+    "text": "Nehéz acélpáncélt öltök. Amíg rajtam van, +2 erőt kapok, de nem tudok mozogni."
+  },
+  {
+    "id": "pajzs",
+    "name": "Pajzs",
+    "kind": "spell",
+    "schools": [
+      "Harcos"
+    ],
+    "cost": 2,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "ally",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "pajzs"
+      }
+    ],
+    "tags": [
+      "Felszerelés"
+    ],
+    "text": "Pajzsot adok egy szövetségesnek. Amíg a Pajzs rajta van, minden beérkező sebzés 2-vel kevesebb."
+  },
+  {
+    "id": "verszomj",
+    "name": "Vérszomj",
+    "kind": "spell",
+    "schools": [
+      "Harcos"
+    ],
+    "cost": 2,
+    "rarity": "Kivételes",
+    "target": null,
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "verszomj",
+        "on": "caster"
+      }
+    ],
+    "tags": [
+      "Képesség"
+    ],
+    "text": "Minden sérült ellenség után +1 erőt kapok."
+  },
+  {
+    "id": "lelektuz",
+    "name": "Lélektűz",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 2,
+    "rarity": "Kivételes",
+    "target": {
+      "side": "any",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 0,
+        "source": "load"
+      }
+    ],
+    "tags": [
+      "Tűzmágia"
+    ],
+    "text": "Belülről elemésztek egy ellenséget. Minden rajta lévő lap és gyűrű után 1-et sebződik."
+  },
+  {
+    "id": "szellokes",
+    "name": "Széllökés",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 2,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "any",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "move",
+        "destination": "adjacent"
+      }
+    ],
+    "tags": [
+      "Természeti erő"
+    ],
+    "text": "Egy vele szomszédos mezőre mozgatok egy egységet."
+  },
+  {
+    "id": "vaskarom",
+    "name": "Vaskarom",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 2,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "ally",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "vaskarom"
+      }
+    ],
+    "tags": [
+      "Felszerelés"
+    ],
+    "text": "Vasmágiával gyűrűt formálok és egy szövetségesnek adom. +1 gyűrűt kap."
+  },
+  {
+    "id": "alomfogo",
+    "name": "Álomfogó",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 2,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "ally",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "fizzleShield",
+        "maxCost": 5
+      }
+    ],
+    "tags": [
+      "Felszerelés"
+    ],
+    "text": "Álomfogót adok egy szövetségesnek. A következő rá szálló, legfeljebb 5 költségű varázslat hatástalan."
+  },
+  {
+    "id": "fedezek",
+    "name": "Fedezék",
+    "kind": "spell",
+    "schools": [
+      "Zsivány"
+    ],
+    "cost": 2,
+    "rarity": "Ritka",
+    "target": {},
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "fedezek",
+        "on": "caster"
+      }
+    ],
+    "tags": [
+      "Képesség"
+    ],
+    "text": "Fedezékbe húzódom. Amíg a Fedezék rajtam van és a hátsó sorban állok, nem lehet varázslattal megcélozni."
+  },
+  {
+    "id": "infiltracio",
+    "name": "Infiltráció",
+    "kind": "spell",
+    "schools": [
+      "Zsivány"
+    ],
+    "cost": 2,
+    "rarity": "Ritka",
+    "target": {
+      "side": "ally",
+      "range": 2,
+      "filter": {
+        "keywords": [
+          "Orgyilkos",
+          "Csempész"
+        ]
+      }
+    },
+    "effects": [
+      {
+        "kind": "move",
+        "destination": "anyEmpty"
+      }
+    ],
+    "tags": [
+      "Képesség"
+    ],
+    "text": "Egy tetszőleges üres mezőre mozgatok egy szövetséges Orgyilkost vagy Csempészt."
+  },
+  {
+    "id": "leskelodes",
+    "name": "Leskelődés",
+    "kind": "spell",
+    "schools": [
+      "Zsivány"
+    ],
+    "cost": 2,
+    "rarity": "Ritka",
+    "target": null,
+    "effects": [
+      {
+        "kind": "peek",
+        "what": "spellHand"
+      }
+    ],
+    "tags": [
+      "Képesség"
+    ],
+    "text": "Meglesem az ellenség terveit. Nézd meg a varázslatkezét!"
+  },
+  {
+    "id": "testcsel",
+    "name": "Testcsel",
+    "kind": "spell",
+    "schools": [
+      "Zsivány"
+    ],
+    "cost": 2,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "self",
+      "range": 0
+    },
+    "effects": [
+      {
+        "kind": "swapWithAdjacent",
+        "side": "enemy"
+      }
+    ],
+    "tags": [
+      "Képesség"
+    ],
+    "text": "Helyet cserélek egy szomszédos ellenséggel."
+  },
+  {
+    "id": "tuszejtes",
+    "name": "Túszejtés",
+    "kind": "spell",
+    "schools": [
+      "Zsivány"
+    ],
+    "cost": 2,
+    "rarity": "Gyakori",
+    "target": {},
+    "effects": [
+      {
+        "kind": "stealCard",
+        "from": "deckTop",
+        "cardKind": "unit",
+        "count": 1
+      }
+    ],
+    "tags": [
+      "Képesség"
+    ],
+    "text": "Túszt ejtek. Elveszem az ellenfél paklijának felső egységlapját."
+  },
+  {
+    "id": "verdij",
+    "name": "Vérdíj",
+    "kind": "spell",
+    "schools": [
+      "Zsivány"
+    ],
+    "cost": 2,
+    "rarity": "Kivételes",
+    "target": {
+      "side": "enemy",
+      "range": 3
+    },
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "verdij"
+      }
+    ],
+    "tags": [
+      "Képesség"
+    ],
+    "text": "Vérdíjat tűzök ki egy ellenségre. Az őt megölő szövetséges 3 gyűrűt kap."
+  },
+  {
+    "id": "zsebmetszes",
+    "name": "Zsebmetszés",
+    "kind": "spell",
+    "schools": [
+      "Zsivány"
+    ],
+    "cost": 2,
+    "rarity": "Ritka",
+    "target": null,
+    "effects": [
+      {
+        "kind": "stealCard",
+        "from": "hand",
+        "cardKind": "spell",
+        "count": 1
+      }
+    ],
+    "tags": [
+      "Képesség"
+    ],
+    "text": "Kipakolom az ellenfelem zsebeit. Húzz egy varázslatot a kezéből!"
   },
   {
     "id": "sarkanypikkelyek",
@@ -1545,6 +1340,685 @@
     "text": "Varázsellenálló sárkánypikkelyeket növesztek. Nem hatnak rám varázslatok."
   },
   {
+    "id": "vedles",
+    "name": "Vedlés",
+    "kind": "spell",
+    "schools": [
+      "Bestia"
+    ],
+    "cost": 3,
+    "rarity": "Kivételes",
+    "target": null,
+    "effects": [
+      {
+        "kind": "clearPlaced",
+        "count": 0,
+        "on": "caster"
+      }
+    ],
+    "tags": [
+      "Természeti erő"
+    ],
+    "text": "Levedlem az irhám. Leveszek minden lapot magamról."
+  },
+  {
+    "id": "csordaszellem",
+    "name": "Csordaszellem",
+    "kind": "spell",
+    "schools": [
+      "Druida"
+    ],
+    "cost": 3,
+    "rarity": "Ritka",
+    "target": null,
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "csordaszellem",
+        "on": "caster"
+      }
+    ],
+    "tags": [
+      "Természeti erő"
+    ],
+    "text": "Erőt adok a velem együtt harcoló Állatoknak. Minden velem szomszédos Állat +1 erőt kap."
+  },
+  {
+    "id": "metamorfozis",
+    "name": "Metamorfózis",
+    "kind": "spell",
+    "schools": [
+      "Druida"
+    ],
+    "cost": 3,
+    "rarity": "Gyakori",
+    "target": {},
+    "effects": [
+      {
+        "kind": "transformFromHand",
+        "keyword": "Állat",
+        "maxCost": 5,
+        "on": "caster"
+      }
+    ],
+    "tags": [
+      "Természeti erő"
+    ],
+    "text": "Állattá változok. Játssz ki a helyemre egy Állatot, amelynek költsége legfeljebb 5!"
+  },
+  {
+    "id": "napfeny",
+    "name": "Napfény",
+    "kind": "spell",
+    "schools": [
+      "Druida"
+    ],
+    "cost": 3,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "ally",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "modifyPower",
+        "amount": 2
+      }
+    ],
+    "tags": [
+      "Természeti erő"
+    ],
+    "text": "Napfényt hívok egy szövetségesre. +2 erőt kap."
+  },
+  {
+    "id": "rothadas",
+    "name": "Rothadás",
+    "kind": "spell",
+    "schools": [
+      "Feketemágus"
+    ],
+    "cost": 3,
+    "rarity": "Gyakori",
+    "target": null,
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "rothadas",
+        "on": "caster"
+      }
+    ],
+    "tags": [
+      "Feketemágia"
+    ],
+    "text": "Minden szomszédos egység -2 erőt kap."
+  },
+  {
+    "id": "moral",
+    "name": "Morál",
+    "kind": "spell",
+    "schools": [
+      "Harcos"
+    ],
+    "cost": 3,
+    "rarity": "Ritka",
+    "target": null,
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "moral",
+        "on": "caster"
+      }
+    ],
+    "tags": [
+      "Képesség"
+    ],
+    "text": "Feltüzelem a harcostársaim. Én, és minden szomszédos szövetséges Harcos +1 erőt kap."
+  },
+  {
+    "id": "parbaj",
+    "name": "Párbaj",
+    "kind": "spell",
+    "schools": [
+      "Harcos"
+    ],
+    "cost": 3,
+    "rarity": "Kivételes",
+    "target": {
+      "side": "enemy",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "duel"
+      }
+    ],
+    "tags": [
+      "Támadás",
+      "Mesteri"
+    ],
+    "text": "Mesteri.\nPárbajra hívok egy szomszédos ellenséget. Az erősebb megöli a gyengébbet."
+  },
+  {
+    "id": "attores",
+    "name": "Áttörés",
+    "kind": "spell",
+    "schools": [
+      "Harcos"
+    ],
+    "cost": 3,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "enemy",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 0,
+        "altAmount": 4,
+        "altIf": "frontRow"
+      }
+    ],
+    "tags": [
+      "Támadás"
+    ],
+    "text": "Áttöröm az arcvonalat. Egy első sorban álló ellenség 4-et sebződik."
+  },
+  {
+    "id": "oriasolo",
+    "name": "Óriásölő",
+    "kind": "spell",
+    "schools": [
+      "Harcos"
+    ],
+    "cost": 3,
+    "rarity": "Kivételes",
+    "target": {
+      "side": "any",
+      "range": 1,
+      "filter": {
+        "minPower": 8
+      }
+    },
+    "effects": [
+      {
+        "kind": "destroy"
+      }
+    ],
+    "tags": [
+      "Támadás",
+      "Mesteri"
+    ],
+    "text": "Mesteri.\nMegölök egy egységet, akinek az ereje legalább 8."
+  },
+  {
+    "id": "elfeledes",
+    "name": "Elfeledés",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 3,
+    "rarity": "Kivételes",
+    "target": {
+      "side": "any",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "elfeledes"
+      }
+    ],
+    "tags": [
+      "Feketemágia"
+    ],
+    "text": "Kitörlöm egy egység emlékeit. Amíg az Elfeledés rajta van, nincs képessége."
+  },
+  {
+    "id": "geomancia",
+    "name": "Geománcia",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 3,
+    "rarity": "Kivételes",
+    "target": null,
+    "effects": [
+      {
+        "kind": "searchDeck",
+        "cardKind": "spell",
+        "source": "graveyard",
+        "count": 1
+      }
+    ],
+    "tags": [
+      "Természeti erő"
+    ],
+    "text": "Kikeresek egy már elhasznált varázslatot a temetőből. Húzd fel!"
+  },
+  {
+    "id": "nemitas",
+    "name": "Némítás",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 3,
+    "rarity": "Kivételes",
+    "target": {
+      "side": "any",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "nemitas"
+      }
+    ],
+    "tags": [
+      "Feketemágia"
+    ],
+    "text": "Elnémítok egy egységet. Amíg a Némítás rajta van, nem varázsolhat."
+  },
+  {
+    "id": "szikraszilank",
+    "name": "Szikraszilánk",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 3,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "any",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 3
+      }
+    ],
+    "tags": [
+      "Tűzmágia"
+    ],
+    "text": "Izzó szikraszilánkot küldök egy ellenségre. 3-at sebződik."
+  },
+  {
+    "id": "csapdaallitas",
+    "name": "Csapdaállítás",
+    "kind": "spell",
+    "schools": [
+      "Zsivány"
+    ],
+    "cost": 3,
+    "rarity": "Kivételes",
+    "target": {},
+    "effects": [
+      {
+        "kind": "setTrap"
+      }
+    ],
+    "tags": [
+      "Felszerelés"
+    ],
+    "text": "Csapdát állítok. Tegyél le lefordítva egy varázslatot a kezedből egy üres ellenséges mezőre! Aki rálép, arra sül el."
+  },
+  {
+    "id": "fojtas",
+    "name": "Fojtás",
+    "kind": "spell",
+    "schools": [
+      "Zsivány"
+    ],
+    "cost": 3,
+    "rarity": "Ritka",
+    "target": {
+      "side": "enemy",
+      "range": 1,
+      "filter": {
+        "maxPower": 3
+      }
+    },
+    "effects": [
+      {
+        "kind": "destroy"
+      }
+    ],
+    "tags": [
+      "Támadás"
+    ],
+    "text": "Megölök egy ellenséget, amelynek ereje legfeljebb 3."
+  },
+  {
+    "id": "fustbomba",
+    "name": "Füstbomba",
+    "kind": "spell",
+    "schools": [
+      "Zsivány"
+    ],
+    "cost": 3,
+    "rarity": "Ritka",
+    "target": {
+      "side": "any",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "fustbomba"
+      }
+    ],
+    "tags": [
+      "Felszerelés"
+    ],
+    "text": "Füstbombát dobok egy mezőre. Az itt álló egységet nem lehet varázslattal megcélozni."
+  },
+  {
+    "id": "rajtautes",
+    "name": "Rajtaütés",
+    "kind": "spell",
+    "schools": [
+      "Zsivány"
+    ],
+    "cost": 3,
+    "rarity": "Kivételes",
+    "target": {
+      "side": "enemy",
+      "range": 1,
+      "filter": {
+        "isolated": true
+      }
+    },
+    "effects": [
+      {
+        "kind": "destroy"
+      }
+    ],
+    "tags": [
+      "Támadás",
+      "Mesteri"
+    ],
+    "text": "Mesteri.\nMegölök egy ellenséget, akinek nincs szomszédos szövetségese."
+  },
+  {
+    "id": "rozzant_granat",
+    "name": "Rozzant gránát",
+    "kind": "spell",
+    "schools": [
+      "Zsivány"
+    ],
+    "cost": 3,
+    "rarity": "Ritka",
+    "target": {
+      "side": "enemy",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "destroy"
+      },
+      {
+        "kind": "destroy",
+        "on": "caster"
+      }
+    ],
+    "tags": [
+      "Támadás"
+    ],
+    "text": "Megölöm magam és egy velem szomszédos ellenséget."
+  },
+  {
+    "id": "falkavezer",
+    "name": "Falkavezér",
+    "kind": "spell",
+    "schools": [
+      "Bestia"
+    ],
+    "cost": 4,
+    "rarity": "Ritka",
+    "target": {},
+    "effects": [
+      {
+        "kind": "grantRing",
+        "amount": 1,
+        "per": "keyword",
+        "keyword": "Állat",
+        "on": "caster"
+      }
+    ],
+    "tags": [
+      "Természeti erő"
+    ],
+    "text": "Átveszem a falka vezetését. Minden további szövetséges Állat után +1 gyűrűt kapok."
+  },
+  {
+    "id": "ven_tolgy",
+    "name": "Vén tölgy",
+    "kind": "spell",
+    "schools": [
+      "Druida"
+    ],
+    "cost": 4,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "ally",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "ven_tolgy"
+      }
+    ],
+    "tags": [
+      "Természeti erő"
+    ],
+    "text": "Vén tölggyé gyökereztetek egy szövetségest. +3 erőt kap, de nem mozoghat."
+  },
+  {
+    "id": "csontvert",
+    "name": "Csontvért",
+    "kind": "spell",
+    "schools": [
+      "Feketemágus"
+    ],
+    "cost": 4,
+    "rarity": "Kivételes",
+    "target": {},
+    "effects": [
+      {
+        "kind": "grantRing",
+        "amount": 1,
+        "per": "graveyard",
+        "perCount": 7,
+        "max": 5,
+        "on": "caster"
+      }
+    ],
+    "tags": [
+      "Feketemágia"
+    ],
+    "text": "A halottak csontjait használom páncélként. Minden 7 temetőben lévő lap után +1 gyűrűt kapok (de legfeljebb 5-öt)."
+  },
+  {
+    "id": "feltamadas",
+    "name": "Feltámadás",
+    "kind": "spell",
+    "schools": [
+      "Feketemágus"
+    ],
+    "cost": 4,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "ally",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "revive",
+        "count": 1,
+        "maxPower": 3,
+        "ignoreCap": true
+      }
+    ],
+    "tags": [
+      "Feketemágia"
+    ],
+    "text": "Kikeresek a temetőből egy egységet, amely ereje legfeljebb 3, és megidézem a csatatéren."
+  },
+  {
+    "id": "rontas",
+    "name": "Rontás",
+    "kind": "spell",
+    "schools": [
+      "Feketemágus"
+    ],
+    "cost": 4,
+    "rarity": "Ritka",
+    "target": {
+      "side": "any",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "rontas"
+      }
+    ],
+    "tags": [
+      "Feketemágia"
+    ],
+    "text": "Rontást küldök egy ellenségre. Amíg a Rontás rajta van, minden vele szomszédos egység -1 erőt kap."
+  },
+  {
+    "id": "kegyelemdofes",
+    "name": "Kegyelemdöfés",
+    "kind": "spell",
+    "schools": [
+      "Harcos",
+      "Zsivány"
+    ],
+    "cost": 4,
+    "rarity": "Kivételes",
+    "target": {
+      "side": "enemy",
+      "range": 1,
+      "filter": {
+        "damaged": true
+      }
+    },
+    "effects": [
+      {
+        "kind": "destroy"
+      }
+    ],
+    "tags": [
+      "Támadás",
+      "Mesteri"
+    ],
+    "text": "Mesteri.\nMegölök egy sérült ellenséget."
+  },
+  {
+    "id": "csabitas",
+    "name": "Csábítás",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 4,
+    "rarity": "Kivételes",
+    "target": {
+      "side": "any",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "returnToHand",
+        "toOwner": "caster",
+        "afterLocation": true
+      }
+    ],
+    "tags": [
+      "Feketemágia"
+    ],
+    "text": "Elcsábítok egy egységet. A csata után helyezd a kezedbe!"
+  },
+  {
+    "id": "fagyos_lehelet",
+    "name": "Fagyos lehelet",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 4,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "any",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "modifyPower",
+        "amount": -2
+      }
+    ],
+    "tags": [
+      "Fagymágia"
+    ],
+    "text": "Ráfagyasztom a leheletem egy ellenségre. -2 erőt kap."
+  },
+  {
+    "id": "langlandzsa",
+    "name": "Lánglándzsa",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 4,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "any",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 5
+      }
+    ],
+    "tags": [
+      "Tűzmágia"
+    ],
+    "text": "Lánglándzsát döfök egy ellenségbe. 5-öt sebződik."
+  },
+  {
+    "id": "teleport",
+    "name": "Teleport",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 4,
+    "rarity": "Kivételes",
+    "target": {
+      "side": "ally",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "move",
+        "destination": "anyEmpty"
+      }
+    ],
+    "tags": [
+      "Portálmágia"
+    ],
+    "text": "Egy tetszőleges üres mezőre mozgatok egy szövetségest."
+  },
+  {
     "id": "eltaposas",
     "name": "Eltaposás",
     "kind": "spell",
@@ -1561,12 +2035,454 @@
       {
         "kind": "damage",
         "amount": 0,
-        "casterPowerDiv": 2
+        "casterPowerDiv": 1
+      }
+    ],
+    "tags": [
+      "Támadás"
+    ],
+    "text": "Eltaposok egy ellenséget. Az erőmmel egyenlő sebzést kap."
+  },
+  {
+    "id": "hydrairha",
+    "name": "Hydrairha",
+    "kind": "spell",
+    "schools": [
+      "Bestia"
+    ],
+    "cost": 5,
+    "rarity": "Legendás",
+    "target": {},
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "hydrairha",
+        "on": "caster"
       }
     ],
     "tags": [
       "Természeti erő"
     ],
-    "text": "Eltaposom az ellenséget. Az erőm felével egyenlő sebzést kap (felfelé kerekítve)."
+    "text": "A Hydra áttörhetetlen irhája védelmez. Amíg rajtam van, Sérthetetlen vagyok."
+  },
+  {
+    "id": "sarkanytuz",
+    "name": "Sárkánytűz",
+    "kind": "spell",
+    "schools": [
+      "Bestia"
+    ],
+    "cost": 5,
+    "rarity": "Kivételes",
+    "target": {
+      "side": "any",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 5
+      }
+    ],
+    "tags": [
+      "Tűzmágia"
+    ],
+    "text": "Sárkánytüzet okádok egy ellenségre. 5-öt sebződik."
+  },
+  {
+    "id": "napejegyenloseg",
+    "name": "Napéjegyenlőség",
+    "kind": "spell",
+    "schools": [
+      "Druida"
+    ],
+    "cost": 5,
+    "rarity": "Legendás",
+    "target": null,
+    "effects": [
+      {
+        "kind": "clearPlaced",
+        "count": 0,
+        "everyUnit": true,
+        "on": "caster"
+      }
+    ],
+    "tags": [
+      "Természeti erő"
+    ],
+    "text": "Minden egységről minden varázslatot eltávolítok."
+  },
+  {
+    "id": "villamcsapas",
+    "name": "Villámcsapás",
+    "kind": "spell",
+    "schools": [
+      "Druida"
+    ],
+    "cost": 5,
+    "rarity": "Ritka",
+    "target": {
+      "side": "enemy",
+      "range": 3,
+      "ignoreSight": true
+    },
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 4
+      }
+    ],
+    "tags": [
+      "Természeti erő"
+    ],
+    "text": "Derült égből villám csap le egy ellenségbe, aki 4-et sebződik. Ehhez a varázslathoz nem szükséges rálátás."
+  },
+  {
+    "id": "enyeszet",
+    "name": "Enyészet",
+    "kind": "spell",
+    "schools": [
+      "Feketemágus"
+    ],
+    "cost": 5,
+    "rarity": "Gyakori",
+    "target": {
+      "side": "any",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "modifyPower",
+        "amount": -3
+      }
+    ],
+    "tags": [
+      "Feketemágia"
+    ],
+    "text": "Ráhozom az enyészetet egy ellenségre. -3 erőt kap."
+  },
+  {
+    "id": "kaoszkolera",
+    "name": "Káoszkolera",
+    "kind": "spell",
+    "schools": [
+      "Feketemágus"
+    ],
+    "cost": 5,
+    "rarity": "Kivételes",
+    "target": null,
+    "effects": [
+      {
+        "kind": "massDestroy",
+        "side": "all",
+        "stat": "power",
+        "atMost": 2,
+        "excludeSelf": false
+      }
+    ],
+    "tags": [
+      "Feketemágia",
+      "Mesteri"
+    ],
+    "text": "Mesteri.\nHalálos járványt szabadítok el a csatatéren. Minden egység, amelynek az ereje 2 vagy kevesebb, meghal."
+  },
+  {
+    "id": "eloskodes",
+    "name": "Élősködés",
+    "kind": "spell",
+    "schools": [
+      "Feketemágus"
+    ],
+    "cost": 5,
+    "rarity": "Kivételes",
+    "target": {
+      "side": "any",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "modifyPower",
+        "amount": -2
+      },
+      {
+        "kind": "grantRing",
+        "amount": 2,
+        "on": "caster"
+      }
+    ],
+    "tags": [
+      "Feketemágia"
+    ],
+    "text": "Elszívom egy ellenség erejét. -2 erőt kap, én pedig +2 gyűrűt."
+  },
+  {
+    "id": "kiviragzas",
+    "name": "Kivirágzás",
+    "kind": "spell",
+    "schools": [
+      "Druida"
+    ],
+    "cost": 6,
+    "rarity": "Kivételes",
+    "target": {},
+    "effects": [
+      {
+        "kind": "massRing",
+        "amount": 1,
+        "side": "ally"
+      }
+    ],
+    "tags": [
+      "Természeti erő"
+    ],
+    "text": "Virágokba borítom a csatateret. Minden szövetséges +1 gyűrűt kap."
+  },
+  {
+    "id": "monstrosis",
+    "name": "Monstrosis",
+    "kind": "spell",
+    "schools": [
+      "Druida"
+    ],
+    "cost": 6,
+    "rarity": "Ritka",
+    "target": {},
+    "effects": [
+      {
+        "kind": "transformFromHand",
+        "keyword": "Bestia",
+        "maxCost": 8,
+        "on": "caster"
+      }
+    ],
+    "tags": [
+      "Természeti erő"
+    ],
+    "text": "Bestiává változok. Játssz ki a helyemre egy Bestiát, amelynek költsége legfeljebb 8!"
+  },
+  {
+    "id": "enormorf",
+    "name": "Enormorf",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 6,
+    "rarity": "Ritka",
+    "target": {
+      "side": "any",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "attach",
+        "attachment": "enormorf"
+      }
+    ],
+    "tags": [
+      "Portálmágia"
+    ],
+    "text": "Óriásira növelek egy egységet. Amíg az Enormorf rajta van, az ereje 6."
+  },
+  {
+    "id": "idezes",
+    "name": "Idézés",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 6,
+    "rarity": "Kivételes",
+    "target": {
+      "side": "ally",
+      "range": 1,
+      "emptyOnly": true
+    },
+    "effects": [
+      {
+        "kind": "summon",
+        "ignoreCap": false,
+        "maxCost": 4
+      }
+    ],
+    "tags": [
+      "Portálmágia"
+    ],
+    "text": "Megidézek egy egységet a kezedből egy szomszédos mezőre, akinek a költsége legfeljebb 4."
+  },
+  {
+    "id": "jeghegy",
+    "name": "Jéghegy",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 6,
+    "rarity": "Legendás",
+    "target": {
+      "side": "any",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "lock",
+        "power": 1
+      }
+    ],
+    "tags": [
+      "Fagymágia"
+    ],
+    "text": "Jégbe zárok egy egységet. Amíg a Jéghegy rajta van, sérthetetlenné válik, de nem varázsolhat és az ereje 1."
+  },
+  {
+    "id": "elmezavar",
+    "name": "Elmezavar",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 7,
+    "rarity": "Kivételes",
+    "target": {
+      "side": "enemy",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "forceAttack"
+      }
+    ],
+    "tags": [
+      "Feketemágia",
+      "Mesteri"
+    ],
+    "text": "Mesteri.\nÖsszezavarok egy ellenséget. Megtámadja egy szomszédos szövetségesét, és az erejével egyenlő sebzést okoz neki."
+  },
+  {
+    "id": "lepumorf",
+    "name": "Lépumorf",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 7,
+    "rarity": "Kivételes",
+    "target": {
+      "side": "any",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "transform",
+        "into": "nyul",
+        "keepAbilities": false
+      }
+    ],
+    "tags": [
+      "Feketemágia",
+      "Mesteri"
+    ],
+    "text": "Mesteri.\nNyúllá változtatok egy egységet. Játssz ki a helyére egy Nyulat, aki egy képesség nélküli Állat 1 erővel!"
+  },
+  {
+    "id": "argeo",
+    "name": "Argeo",
+    "kind": "spell",
+    "schools": [
+      "Feketemágus"
+    ],
+    "cost": 8,
+    "rarity": "Legendás",
+    "target": {
+      "side": "any",
+      "range": 2
+    },
+    "effects": [
+      {
+        "kind": "destroy"
+      }
+    ],
+    "tags": [
+      "Feketemágia",
+      "Mesteri"
+    ],
+    "text": "Mesteri.\nMegölök egy egységet."
+  },
+  {
+    "id": "homalyhimlo",
+    "name": "Homályhimlő",
+    "kind": "spell",
+    "schools": [
+      "Feketemágus"
+    ],
+    "cost": 8,
+    "rarity": "Legendás",
+    "target": null,
+    "effects": [
+      {
+        "kind": "massDestroy",
+        "side": "all",
+        "stat": "power",
+        "atMost": 3,
+        "excludeSelf": false
+      }
+    ],
+    "tags": [
+      "Feketemágia",
+      "Mesteri"
+    ],
+    "text": "Mesteri.\nPusztító járványt szabadítok el a csatatéren. Minden egység, amelynek az ereje 3 vagy kevesebb, meghal."
+  },
+  {
+    "id": "nyirokhold",
+    "name": "Nyirokhold",
+    "kind": "spell",
+    "schools": [
+      "Feketemágus"
+    ],
+    "cost": 8,
+    "rarity": "Legendás",
+    "target": {
+      "side": "ally",
+      "range": 1
+    },
+    "effects": [
+      {
+        "kind": "revive",
+        "count": 2,
+        "maxPower": 4,
+        "ignoreCap": true
+      }
+    ],
+    "tags": [
+      "Feketemágia"
+    ],
+    "text": "Kikeresek két egységet a temetőből, amelyeknek az ereje legfeljebb 4-4, és megidézem őket a csatatéren."
+  },
+  {
+    "id": "valosagtores",
+    "name": "Valóságtörés",
+    "kind": "spell",
+    "schools": [
+      "Mágus"
+    ],
+    "cost": 10,
+    "rarity": "Legendás",
+    "target": null,
+    "effects": [
+      {
+        "kind": "massDestroy",
+        "side": "all",
+        "stat": "power",
+        "atMost": -1,
+        "requires": "placed",
+        "excludeSelf": false
+      }
+    ],
+    "tags": [
+      "Portálmágia",
+      "Mesteri"
+    ],
+    "text": "Megölök minden egységet, amelyen varázslat van."
   }
 ]

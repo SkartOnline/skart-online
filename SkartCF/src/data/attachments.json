@@ -189,5 +189,79 @@
     "id": "tisztitas",
     "name": "Tisztítás",
     "text": "Levett róla egy lapot."
+  },
+  {
+    "id": "fagypancel",
+    "name": "Fagypáncél",
+    "damageReduction": 1,
+    "text": "Minden beérkező sebzés 1-gyel kevesebb."
+  },
+  {
+    "id": "pajzs",
+    "name": "Pajzs",
+    "damageReduction": 2,
+    "text": "Minden beérkező sebzés 2-vel kevesebb."
+  },
+  {
+    "id": "nehezvert",
+    "name": "Nehézvért",
+    "powerDelta": 2,
+    "preventsMove": true,
+    "text": "+2 erő, de nem mozoghat."
+  },
+  {
+    "id": "ven_tolgy",
+    "name": "Vén tölgy",
+    "powerDelta": 3,
+    "preventsMove": true,
+    "text": "+3 erő, de nem mozoghat."
+  },
+  {
+    "id": "oltalom",
+    "name": "Oltalom",
+    "statics": [
+      {
+        "kind": "powerFloor",
+        "side": "ally",
+        "scope": "self"
+      }
+    ],
+    "text": "Az ereje nem csökkenhet az alapereje alá."
+  },
+  {
+    "id": "fedezek",
+    "name": "Fedezék",
+    "untargetableCondition": "backRow",
+    "text": "Amíg a hátsó sorban áll, nem célozható varázslattal."
+  },
+  {
+    "id": "verdij",
+    "name": "Vérdíj",
+    "bounty": 3,
+    "text": "Aki megöli, 3 gyűrűt kap."
+  },
+  {
+    "id": "rontas",
+    "name": "Rontás",
+    "statics": [
+      {
+        "kind": "aura",
+        "amount": -1,
+        "side": "all",
+        "scope": "adjacent"
+      }
+    ],
+    "text": "Minden vele szomszédos egység -1 erőt kap."
+  },
+  {
+    "id": "hydrairha",
+    "name": "Hydrairha",
+    "statics": [
+      {
+        "kind": "selfGrant",
+        "grant": "invulnerable"
+      }
+    ],
+    "text": "Sérthetetlen."
   }
 ]

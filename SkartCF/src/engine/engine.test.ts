@@ -35,6 +35,7 @@ function blankState(locationId = "plazs"): GameState {
     prompts: [],
     reveals: [],
     traps: [],
+    currentCaster: null,
     portals: [],
     placementCounter: 0,
     promptCounter: 0,
@@ -83,10 +84,10 @@ describe("card data", () => {
     expect(validateCardSet(BASE_CARD_SET)).toEqual([]);
   });
 
-  it("ships the whole set: 88 units, 64 spells, 15 battlefields", () => {
+  it("ships the whole set: 88 units, 102 spells, 15 battlefields", () => {
     const playable = BASE_CARD_SET.units.filter((u) => !(u.tags ?? []).includes("token"));
     expect(playable).toHaveLength(88);
-    expect(BASE_CARD_SET.spells).toHaveLength(64);
+    expect(BASE_CARD_SET.spells).toHaveLength(102);
     expect(BASE_CARD_SET.locations).toHaveLength(15);
   });
 
