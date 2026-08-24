@@ -86,6 +86,40 @@ wanted from it falls out:
 - A board that ate its cost cap and shows little power is not weak; it bought
   `Θ`.
 
+### Built, and what it cost
+
+`src/bot/theta.ts`. Θ enumerates plans and runs each one through `applyAction`,
+so range, line of sight, target filters, immunity, spellpower depletion, death
+sweeps and the Mesteri two-turn commitment are right by construction rather than
+by a second implementation nobody keeps in step. The probe puts the opponent in
+the *finished* state rather than removing them, which is a position the rules
+actually produce (8.1.3), so it is a legal game being read rather than a doctored
+one.
+
+Two things make it affordable. Candidates are deduplicated **by outcome**: two
+targets that leave the same board are one plan wearing different clothes, and on
+a crowded board that is most of the branching. And each spell in hand gets its
+own share of the node budget, so the plan cannot depend on which card happened
+to sit first.
+
+The measured cost is **~100 ms per call** at the shipped budget, against the
+3-second move budget the app allows. The full curve is in `theta.ts`; the short
+version is that 800 nodes agrees with 4000 on 97.2% of decisions and the last
+2.8% costs four times the time. `FAST_THETA` (~34 ms, 90.5% agreement) is for
+training and the balance runner, which call it hundreds of thousands of times.
+
+What it buys, on the cases greedy cannot see:
+
+| board | best single cast | Θ |
+|---|---|---|
+| two Explars against a 2-power body | 0 | 2 |
+| Senyvesztés + Káoszkolera against a 3-power archer | 1 | 3 |
+
+Both are in `theta.test.ts` with the arithmetic written out. The first is the
+whole argument in one line: 9.5.2 means a damage token that does not kill moves
+no total at all, so one Explar is worth *exactly* nothing and two are worth a
+unit.
+
 ### Why `Θ` and not a weighted spellpower feature
 
 Spellpower and power have no common scale. Multiply every spell cost and every
@@ -536,8 +570,8 @@ current monolith, where a wrong answer has no localisable cause.
 | # | Build | Oracle |
 |---|---|---|
 | 1 | ~~Combo graph from `schema.ts`~~ **done** — `src/bot/combo.ts` | `combo.test.ts`: `modifyPower`+`thresholdAoe(power)` connected; `modifyPower`+`massDestroy(basePower)` not; `setPower`+`massDestroy(basePower)` is; Infiltráció+Hátbaszúrás connected by `enable` and not by `value`; damage+Kegyelemdöfés connected |
-| 2 | `Θ` — plan enumeration and valuation | exhaustive plan search on toy boards; hand-checked combos from `abilities.md` |
-| 3 | `score` = realised + `Θ` | monotonicity: adding a castable bomb to hand must not lower score |
+| 2 | ~~`Θ` — plan enumeration and valuation~~ **done** — `src/bot/theta.ts` | `theta.test.ts`: hand-computed values on toy boards, including the two combos above and the caster-pricing identity. Exhaustive search was tried as the oracle at scale and is not affordable — see below |
+| 3 | ~~`score` = realised + `Θ`~~ **done** — same file | monotonicity holds: adding a castable bomb never lowers score, an unpayable card never moves it |
 | 4 | Board optimiser | brute force over small hands and caps |
 | 5 | Belief model | calibration on self-play logs: predicted school payload vs actual |
 | 6 | Battle-phase plan/schedule/re-plan | beats the current bot head to head; self-damage rate near zero |
@@ -555,10 +589,22 @@ the rest of this plan gets built.
 
 ## 12. Open, not settled
 
-- **Cost of `Θ` in the hot loop.** Every layer calls score, and score runs plan
-  enumeration. If it does not come in fast enough, the fallback is a cached
-  cheap `Θ` for interior nodes and the full one at leaves — but the cutover
-  point is unmeasured.
+- ~~**Cost of `Θ` in the hot loop.**~~ **Measured.** ~100 ms per call at the
+  shipped budget, ~34 ms at `FAST_THETA`, against a 3-second move budget. Fine
+  for play; still heavy for training, where a self-play game makes hundreds of
+  calls. The cached-cheap-Θ fallback has not been needed yet and may be once the
+  gathering search sits on top of it.
+- **Θ is verified against itself, not against exhaustive.** The budget sweep
+  compares small budgets to budget 4000, and 4000 is not proven optimal — mean Θ
+  was still creeping (1.78 → 1.80) at the top of the curve. Exhaustive search
+  over a real board is not affordable, so the honest statement is: correct on
+  the toy boards where the answer was worked out by hand, self-consistent above
+  that. A bounded exhaustive oracle over generated small boards would close it.
+- **The beam is not the whole story on wide hands.** `maxLines` and `maxPicks`
+  cut by rank and by arbitrary engine order respectively. Ordering picks by what
+  the combo graph says the spell is *for* — a removal spell wants the biggest
+  legal target, a threshold setup wants the one nearest the cutoff — would spend
+  the budget better than truncating `legalActions`. Unmeasured.
 - **How many determinizations.** `Θ(theirs)` is an expectation over the belief.
   Eight samples is a guess.
 - **Whether L1 needs to exist separately.** It may collapse into L0 plus score

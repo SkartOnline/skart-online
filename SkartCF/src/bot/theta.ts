@@ -76,13 +76,42 @@ export interface ThetaOptions {
   classes: readonly EdgeClass[];
 }
 
+/**
+ * `nodeBudget` is the dial that matters and it was measured, not picked. Over
+ * 504 battle-phase decisions from real games, against the answer at budget 4000:
+ *
+ * | budget | ms/call | mean Θ | same answer | shortfall when it differs |
+ * |---|---|---|---|---|
+ * | 100 | 21 | 1.44 | 85.7% | 2.53 |
+ * | 200 | 34 | 1.58 | 90.5% | 2.31 |
+ * | 400 | 60 | 1.68 | 95.0% | 2.36 |
+ * | **800** | **101** | **1.74** | **97.2%** | **2.07** |
+ * | 1600 | 174 | 1.78 | 98.8% | 1.67 |
+ * | 4000 | 342 | 1.80 | — | — |
+ *
+ * A smaller budget never once beat a larger one, on any of the 504 decisions,
+ * which is what you want from a beam: more search only ever finds more.
+ *
+ * 800 is the default because it is comfortably inside the 3-second move budget
+ * the app allows, and because the curve is flat past it — the last 2.8% of
+ * answers cost four times the time. Training and the balance runner call Θ
+ * hundreds of thousands of times and should take `FAST` instead.
+ *
+ * Times are from one container and will move; the agreement column will not.
+ */
 export const DEFAULT_THETA: ThetaOptions = {
   maxDepth: 4,
   maxLines: 12,
   maxPicks: 6,
-  nodeBudget: 4000,
+  nodeBudget: 800,
   classes: DEFAULT_CLASSES,
 };
+
+/** For the hot loop: a third of the time, and right nine times in ten. */
+export const FAST_THETA: ThetaOptions = { ...DEFAULT_THETA, nodeBudget: 200 };
+
+/** For measurement and for anything that only runs once. */
+export const DEEP_THETA: ThetaOptions = { ...DEFAULT_THETA, nodeBudget: 4000, maxDepth: 6 };
 
 export const EMPTY_PLAN: Plan = { casts: [], gain: 0 };
 
