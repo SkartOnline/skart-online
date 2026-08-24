@@ -236,23 +236,31 @@ way:
   it was what pushed the worst case to `2^11`. Walk ordered setup → payoff
   pairs instead and the cost is linear in the edges.
 
-With that split, what the generator emits per battle-phase decision:
+With that split, what the generator emits per battle-phase decision, over 400
+games and 12 114 decisions:
 
 | | mean | p50 | p95 | p99 | max |
 |---|---|---|---|---|---|
-| value subsets | 2.7 | 2 | 9 | 15 | 66 |
-| enable pairs | 2.6 | 0 | 14 | 26 | 42 |
-| **candidates** | **5.3** | **2** | **22** | **36** | **108** |
+| value subsets | 2.8 | 2 | 9 | 16 | 68 |
+| enable pairs | 2.6 | 0 | 14 | 30 | 48 |
+| **candidates** | **5.5** | **2** | **23** | **41** | **108** |
 
 Against a 3-second per-move budget, 108 candidates is about 28 ms each, which
 is a whole `structuredClone` and a re-total with room to spare. §5.2 holds.
 
+The tail is stable rather than undersampled: at 100 games the same figures were
+2 / 22 / 36 / 108, and quadrupling the sample moved p99 by five and the maximum
+not at all. A worst case that does not grow with sampling is a structural
+ceiling — six slots a side, seven cards in hand, one school per caster — not a
+number waiting to surprise the planner.
+
 Two other numbers from the same scan, both load-bearing elsewhere:
 
 - **35% of battle-phase decisions have nothing castable at all**, and another
-  13% have exactly one spell. Only about half of all turns involve choosing
-  between spells; the rest are a target choice or a *kész*. The planner is
-  cheaper than the per-decision figures suggest.
+  12% have exactly one spell. Only about half of all turns (52.7%) involve
+  choosing between spells; the rest are a target choice or a *kész*. The planner
+  is cheaper than the per-decision figures suggest, and the phase is shorter
+  than it looks.
 - **Pairwise density over the spell set**: `value` 14.7%, `+enable` 32.4%,
   `+indirect` 38.2%, everything 56.0%. The `reach` class alone — a kill opening
   a line of sight, a caster that has to still be standing — takes it from 38% to
@@ -562,7 +570,7 @@ the rest of this plan gets built.
   is immune to it either.
 - ~~Whether bundle enumeration stays small on live card data.~~ **Measured.**
   It does, once value subsets and enable pairs are enumerated separately: 2
-  candidates at the median, 36 at p99, 108 at the worst decision in 100 games.
+  candidates at the median, 41 at p99, 108 at the worst of 12 114 decisions.
   See §5.2.1. `npm run combos` re-runs it, and it should be re-run whenever the
   spell set changes shape.
 - **Whether the `slot` read is too broad.** Every targeted spell reads its
