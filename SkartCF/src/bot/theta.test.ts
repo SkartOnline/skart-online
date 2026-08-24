@@ -4,7 +4,7 @@ import { makeUnitInstance } from "../engine/effects";
 import { ALL_SLOTS } from "../engine/grid";
 import { DEFAULT_CONFIG } from "../engine/setup";
 import type { GameState, PlayerId, SlotId } from "../engine/types";
-import { bestPlan, margin, score, theta, thetaWithout, worthExploring } from "./theta";
+import { applyPlan, bestPlan, margin, score, theta, thetaWithout, worthExploring } from "./theta";
 import type { Line } from "./theta";
 
 beforeEach(() => {
@@ -170,6 +170,30 @@ describe("Θ on the combos a per-cast score cannot see", () => {
     // takes two turns of its own (8.6.1), so the sweep appears twice: once
     // channelled, once finished.
     expect(ids.indexOf("senyvesztes")).toBeLessThan(ids.indexOf("kaoszkolera"));
+  });
+});
+
+describe("Θ and the bot's recorded bad habit", () => {
+  it("never plans a spell onto its own board when that costs margin", () => {
+    // `bot.md`: the shipped agent threw a battle it had won by dropping a
+    // damage spell on one of its own units, because damage that does not kill
+    // moves no total and the difference sat inside the model's noise. Θ has no
+    // noise to hide in — self-damage either changes the margin, in which case
+    // it lowers it, or it changes nothing, and a plan worth nothing never
+    // displaces the empty plan.
+    const state = blankBattle();
+    place(state, "celebrant", "p1.F2"); // mine, power 7
+    place(state, "bandita", "p2.F2"); // theirs, power 2
+    hand(state, "p1", "explar", "explar"); // side: "any" — mine are legal targets
+
+    const plan = bestPlan(state, "p1");
+    expect(plan.gain).toBe(2);
+    // Read it off the board the plan actually produces. Checking the picks
+    // would not do it: naming the caster is a slot pick too, and that one is
+    // always on our own half.
+    const after = applyPlan(state, "p1", plan);
+    expect(after.board["p2.F2"]).toBeNull(); // the bandit took both
+    expect(after.board["p1.F2"]!.damage).toBe(0); // and we took none
   });
 });
 

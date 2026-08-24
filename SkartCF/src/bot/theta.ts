@@ -363,6 +363,22 @@ export function bestPlan(
   return best;
 }
 
+/**
+ * Replay a plan and hand back the board it produces.
+ *
+ * The scheduler above needs this to ask what a plan leaves behind before
+ * committing to its first cast, and it is the only honest way to inspect a plan
+ * from outside: the actions are engine actions, so they only mean anything
+ * applied in order to the probe they were found on.
+ */
+export function applyPlan(state: GameState, player: PlayerId, plan: Plan): GameState {
+  let out = probe(state, player);
+  for (const cast of plan.casts) {
+    for (const action of cast.actions) out = applyAction(out, action);
+  }
+  return out;
+}
+
 /** Θ itself: the number `score` adds to realised power. */
 export function theta(
   state: GameState,
