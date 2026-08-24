@@ -4,7 +4,7 @@ import { makeUnitInstance } from "../engine/effects";
 import { ALL_SLOTS } from "../engine/grid";
 import { DEFAULT_CONFIG } from "../engine/setup";
 import type { GameState, PlayerId, SlotId } from "../engine/types";
-import { bestPlan, margin, theta, thetaWithout, worthExploring } from "./theta";
+import { bestPlan, margin, score, theta, thetaWithout, worthExploring } from "./theta";
 import type { Line } from "./theta";
 
 beforeEach(() => {
@@ -185,6 +185,45 @@ describe("Θ as a price for a unit", () => {
 
     expect(theta(state, "p1")).toBe(2);
     expect(thetaWithout(state, "p1", "p1.F2")).toBe(0);
+  });
+});
+
+describe("score = realised power + Θ", () => {
+  it("never drops when a castable bomb is added to the hand", () => {
+    // The monotonicity the layers above rely on. A card cannot be a liability
+    // while it is still in hand: casting is optional (8.7.1), so the worst a
+    // new card can do is nothing.
+    const state = blankBattle();
+    place(state, "celebrant", "p1.F2");
+    place(state, "ogre", "p2.F2");
+
+    const bare = score(state, "p1");
+    const armed = structuredClone(state);
+    hand(armed, "p1", "langlandzsa");
+    expect(score(armed, "p1")).toBeGreaterThanOrEqual(bare);
+
+    const armedMore = structuredClone(armed);
+    hand(armedMore, "p1", "langlandzsa", "fagyos_lehelet");
+    expect(score(armedMore, "p1")).toBeGreaterThanOrEqual(score(armed, "p1"));
+  });
+
+  it("counts the board when the hand is empty, and adds Θ when it is not", () => {
+    const state = blankBattle();
+    place(state, "celebrant", "p1.F2"); // 7
+    place(state, "bandita", "p2.F2"); // 2
+    expect(score(state, "p1")).toBe(5);
+
+    hand(state, "p1", "langlandzsa"); // kills the bandit
+    expect(score(state, "p1")).toBe(7);
+  });
+
+  it("is unmoved by a card no unit on the board can pay for", () => {
+    const state = blankBattle();
+    place(state, "celebrant", "p1.F2"); // Mágus only
+    place(state, "ogre", "p2.F2");
+    const bare = score(state, "p1");
+    hand(state, "p1", "harapas", "sujtas", "kardcsapas"); // Bestia, Druida, Harcos
+    expect(score(state, "p1")).toBe(bare);
   });
 });
 
