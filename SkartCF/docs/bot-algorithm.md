@@ -212,12 +212,53 @@ where value is discontinuous:
    every positional condition.
 2. For each threshold, ask what would have to change to cross it, and which
    castable effects write that quantity — the combo graph answers this directly.
-3. Enumerate bundles over those chains. Castability collapses the set hard: a
-   real board has two to five spells that are actually payable, in range, and in
-   line of sight, so this is tens of bundles, not thousands of move sequences.
+3. Enumerate over those chains — but **not** as subsets of one merged
+   component, which is where the first draft of this section was wrong. See
+   below.
 
 Non-threshold targets still matter for raw margin. For those, take the maximum
 and stop; there is nothing combinatorial there.
+
+### 5.2.1 Two shapes, because the two edge classes are different relations
+
+This was measured (`npm run combos`) rather than assumed, and the measurement
+corrected the design. `value` edges and `enable` edges do not enumerate the same
+way:
+
+- A **`value` component is a genuine n-way interaction.** −3, a sweep and a
+  damage spell all reading each other's arithmetic means any subset of them can
+  be the right bundle, so it costs `2^n` — affordable only because `n` stays
+  tiny. Measured over 100 games: largest value component is 1 at the median, 2
+  at p95, 6 at the worst decision seen.
+- An **`enable` edge is not n-way.** A movement spell that brings eight
+  different spells into range does not make an eight-card combo; it makes eight
+  two-card setups. Enumerating subsets there counts a blob that is not one, and
+  it was what pushed the worst case to `2^11`. Walk ordered setup → payoff
+  pairs instead and the cost is linear in the edges.
+
+With that split, what the generator emits per battle-phase decision:
+
+| | mean | p50 | p95 | p99 | max |
+|---|---|---|---|---|---|
+| value subsets | 2.7 | 2 | 9 | 15 | 66 |
+| enable pairs | 2.6 | 0 | 14 | 26 | 42 |
+| **candidates** | **5.3** | **2** | **22** | **36** | **108** |
+
+Against a 3-second per-move budget, 108 candidates is about 28 ms each, which
+is a whole `structuredClone` and a re-total with room to spare. §5.2 holds.
+
+Two other numbers from the same scan, both load-bearing elsewhere:
+
+- **35% of battle-phase decisions have nothing castable at all**, and another
+  13% have exactly one spell. Only about half of all turns involve choosing
+  between spells; the rest are a target choice or a *kész*. The planner is
+  cheaper than the per-decision figures suggest.
+- **Pairwise density over the spell set**: `value` 14.7%, `+enable` 32.4%,
+  `+indirect` 38.2%, everything 56.0%. The `reach` class alone — a kill opening
+  a line of sight, a caster that has to still be standing — takes it from 38% to
+  56% and collapses the graph into one blob. It is real and it is off by
+  default: the planner covers it by re-planning every turn (§5.5), which 8.2.4
+  makes free.
 
 ### 5.3 Choose against the *required* margin, not the expected one
 
@@ -486,7 +527,7 @@ current monolith, where a wrong answer has no localisable cause.
 
 | # | Build | Oracle |
 |---|---|---|
-| 1 | Combo graph from `schema.ts` | assert known pairs: `modifyPower`+`thresholdAoe(power)` connected; `modifyPower`+`massDestroy(basePower)` not; Infiltráció+Hátbaszúrás connected |
+| 1 | ~~Combo graph from `schema.ts`~~ **done** — `src/bot/combo.ts` | `combo.test.ts`: `modifyPower`+`thresholdAoe(power)` connected; `modifyPower`+`massDestroy(basePower)` not; `setPower`+`massDestroy(basePower)` is; Infiltráció+Hátbaszúrás connected by `enable` and not by `value`; damage+Kegyelemdöfés connected |
 | 2 | `Θ` — plan enumeration and valuation | exhaustive plan search on toy boards; hand-checked combos from `abilities.md` |
 | 3 | `score` = realised + `Θ` | monotonicity: adding a castable bomb to hand must not lower score |
 | 4 | Board optimiser | brute force over small hands and caps |
@@ -519,6 +560,17 @@ the rest of this plan gets built.
   (6.4.2). A bot that miscounts its own hidden costs throws the field for free.
   Non-issue for the engine, but the belief model must not assume the opponent
   is immune to it either.
-- **Whether bundle enumeration stays small on live card data.** The claim in
-  §5.2 is that castability collapses it to tens. Unverified against
-  `units.json` / `spells.json`; that is the first measurement to take.
+- ~~Whether bundle enumeration stays small on live card data.~~ **Measured.**
+  It does, once value subsets and enable pairs are enumerated separately: 2
+  candidates at the median, 36 at p99, 108 at the worst decision in 100 games.
+  See §5.2.1. `npm run combos` re-runs it, and it should be re-run whenever the
+  spell set changes shape.
+- **Whether the `slot` read is too broad.** Every targeted spell reads its
+  caster's tile for range, so any movement spell links to all of them. Board-
+  aware refinement — only counting the edge when the mover could actually reach
+  a tile that changes legality — would cut the enable pairs, and the current
+  numbers are cheap enough that it has not had to.
+- **Whether the graph should carry units as well as spells.** `unitTouches`
+  exists and is unused: a Belépő that damages is a setup for Kegyelemdöfés
+  exactly as a spell would be, and an aura source is half of most indirect
+  edges. Adding them widens the components and has not been measured.
