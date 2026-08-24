@@ -69,7 +69,7 @@ function emptyPlayer(id: PlayerId) {
 let counter = 0;
 function place(state: GameState, cardId: string, slot: SlotId) {
   const owner = slot.slice(0, 2) as PlayerId;
-  const unit = makeUnitInstance(`t${counter++}`, cardId, owner, slot, {
+  const unit = makeUnitInstance(state, `t${counter++}`, cardId, owner, slot, {
     order: counter,
     paidCost: 0,
   });

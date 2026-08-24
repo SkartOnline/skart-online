@@ -56,7 +56,7 @@ The site opens on a main menu with three ways in.
 - **Játék** — hotseat. One fixed-viewport screen, no page scroll, you control both
   players. Full location loop: the units phase with its stop flags and face-down units,
   Mustra, the battle phase with caster/target/destination picks, totaling, six
-  battlefields plus Végtelen puszta on a tie.
+  battlefields plus A Zóna on a tie.
 - **Gyűjtemény** — the collection. Build your own decks: thirty units, thirty spells,
   three battlefields. Saved to the browser and live in the deck picker straight away.
   The shipped decks are starting points, nothing more.
@@ -198,7 +198,7 @@ decides what is playable:
 | Phase | What is on offer | Ends when |
 |---|---|---|
 | `units` | one unit per turn, or *units done* | both `unitsClosed` |
-| `mustra` | nothing — it flips the hidden units, fires their Belépő, then Mustra abilities | immediately |
+| `mustra` | nothing — it flips every hidden unit at once, then walks the tiles firing Belépő and Mustra abilities one at a time | immediately |
 | `battle` | one spell per turn, or *spells done* | both `spellsClosed` |
 | `scored` | Diadal and Vigasz have fired; *next location* | — |
 
@@ -337,7 +337,7 @@ npm run sim -- --games 500 --fold 4
 npm run sim -- --games 2000 --policy greedy --stop-margin 0,2,4
 ```
 
-Reports match win rate, how often games reach Végtelen puszta, and win rate per deck per
+Reports match win rate, how often games reach A Zóna, and win rate per deck per
 battlefield. Any deck over 75% on any single battlefield is flagged `BROKEN` — that is
 the hard failure condition from the rules doc, and the number this script exists to
 measure.
@@ -387,7 +387,16 @@ is no UI to change them:
   quality with deck depth.
 - Both phases open with the player who **brought the battlefield**. Going first costs
   information in each: on units you reveal intent a step ahead, in the battle you show a
-  spell and its target before the reply.
+  spell and its target before the reply. Whether that is a cost or a tempo advantage
+  depends on the board — striking first can delete a caster's whole payload.
+- **Mustra reveals as one moment and then fires in a queue.** Every hidden unit turns
+  over together, so nobody acts on a half-built board; then the Belépő and Mustra
+  abilities run one at a time in tile order — E1, E2, E3, H1, H2, H3 — alternating
+  between the players, starting with the one who brought the battlefield (7.5). This
+  replaced genuine simultaneity, which needed a board snapshot, picks that followed a
+  unit that had since walked off, a deferred death sweep and a tiebreak for two abilities
+  reaching for the same empty tile. The queue is a rule you can read off the board, and
+  it almost never changes an outcome — the abilities that fire here rarely contend.
 
 Still genuinely open, and still a switch:
 
@@ -441,7 +450,7 @@ nothing in the engine plays that role now.
   rakásra*, a zone the rules no longer have; the effect is unchanged.
 - **1.3.6's knockout tiebreak is not implemented.** Total power across the battles decides
   who advances in an elimination bracket; a friendly game just ends in a draw.
-- **Végtelen puszta's first player** is picked at random at setup, which is what 3.8 asks
+- **A Zóna's first player** is picked at random at setup, which is what 3.8 asks
   for ("sorsolással").
 - **One ability is still text only.** Gouraldir names the Three Relics, and that card
   does not exist in the set, so it keeps its `note` effect. The four that used to sit

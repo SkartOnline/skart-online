@@ -281,8 +281,10 @@ paraméterértékeken.
 ## A műveletek sorrendje, kódolva
 
 1. A lerakás azonnal elsüti a Belépőt, kivéve a lefordítva letett egységnél.
-2. A Mustra felfordítja a rejtett egységeket, majd elsülnek a Belépőik és a
-   Mustra képességek.
+2. A Mustra egyszerre felfordítja a rejtett egységeket, majd a Belépőik és a
+   Mustra képességek egyenként sülnek el, mezők szerinti sorrendben (E1, E2,
+   E3, H1, H2, H3), a két játékos között váltakozva, azzal kezdve, aki a
+   csatateret hozta.
 3. A varázslatok kijátszási sorrendben futnak le, mindegyik teljesen befejezve,
    mielőtt a következő elkezdődne.
 4. Az összesítés a végállást olvassa.

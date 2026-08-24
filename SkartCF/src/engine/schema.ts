@@ -10,9 +10,10 @@
  * for a static). The editor picks it up for free, and no engine code branches on
  * a card id.
  *
- * The tables are deliberately small. Eighty-eight units, fifty-nine spells and
- * fifteen battlefields come out of fourteen statics, thirty-two effects and
- * sixteen location effects, because the variation lives in the parameters.
+ * The tables are deliberately small. Eighty-nine units, a hundred and two
+ * spells and fifteen battlefields come out of sixteen statics, forty-two
+ * effects and eighteen location effects, because the variation lives in the
+ * parameters.
  */
 
 export type FieldSpec =
@@ -903,7 +904,14 @@ export const LOCATION_EFFECT_SPECS: KindSpec[] = [
   {
     kind: "flatBonus",
     label: "Fix bónusz",
-    summary: "+X minden itt álló egységnek. Holdfényes tisztás, Elátkozott rengeteg.",
+    summary: "+X minden itt álló egységnek, amíg a csatatéren áll. Kesergő.",
+    fields: [{ name: "amount", type: "number", label: "Mennyiség", default: 1, step: 1 }],
+  },
+  {
+    kind: "entryRing",
+    label: "Gyűrű belépéskor",
+    summary:
+      "Minden egység gyűrűt kap, ahogy a csatatérre lép. A fix bónusszal ellentétben ez az egységé marad: a 9.4 szerint elvehetetlen, és a lapon is látszik. Oppidium.",
     fields: [{ name: "amount", type: "number", label: "Mennyiség", default: 1, step: 1 }],
   },
   {
@@ -1058,7 +1066,7 @@ export const LOCATION_EFFECT_SPECS: KindSpec[] = [
     kind: "startEffect",
     label: "Nyitóhatás",
     summary:
-      "A csatatér elején mindkét játékosra elsül egy hatás. Lingadori könyvtár, Malom, Bőségkert.",
+      "A csatatér elején mindkét játékosra elsül egy hatás. Lingadori könyvtár, Malom, Faloda.",
     fields: [
       { name: "effect", type: "select", label: "Melyik", default: "draw", options: ["draw", "discard", "searchDeck"] },
       { name: "cardKind", type: "select", label: "Miből", default: "both", options: ["spell", "unit", "both"] },

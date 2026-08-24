@@ -65,7 +65,7 @@ function emptyPlayer(id: PlayerId) {
 }
 
 function put(state: GameState, cardId: string, owner: PlayerId, slot: SlotId) {
-  const unit = makeUnitInstance(`${owner}-${slot}`, cardId, owner, slot, {
+  const unit = makeUnitInstance(state, `${owner}-${slot}`, cardId, owner, slot, {
     order: state.placementCounter++,
     paidCost: 0,
   });

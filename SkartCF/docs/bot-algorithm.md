@@ -100,10 +100,22 @@ The same argument gives the value of removing a caster, without a weight:
 in power units. Disabling works identically, since 10.7.1 shuts off spellpower
 too.
 
-### Score is asymmetric in information
+### Score is asymmetric in information, but neither side is exact
 
-`Θ(mine)` is exact — own hand is known. `Θ(theirs)` is an expectation over the
-belief (§7). Do not pretend otherwise anywhere in the stack.
+`Θ(mine)` reads a hand that is known; `Θ(theirs)` reads one that is not. That is a
+real asymmetry and the stack must keep it.
+
+It is not the same as `Θ(mine)` being exact. The *value* of my plan depends on
+their hand too: a Mesteri removal is worth its full swing if they hold nothing
+to answer it and close to nothing if they hold a protection spell, and I
+usually cannot tell which. So `Θ(mine)` is an expectation over their possible
+answers, and only its *inputs* are certain.
+
+That gives information-gathering a price the rest of the stack can read.
+Inkvizitor and the other cards that look at a hand do not add power; they
+narrow the distribution `Θ(mine)` is averaged over, which is worth exactly the
+variance they remove. That is also the honest way to value a peek: not as a
+card advantage, but as a reduction in how wrong the plan can be.
 
 ---
 
@@ -240,8 +252,14 @@ Given a chosen bundle, the ordering rules, which mostly agree with each other:
   payoff half is itself hard to disrupt, or when the deficit means you must.
 - **Information late.** 8.4.1 forces naming caster and target at cast, so every
   cast fully reveals one card. Delay the ones that telegraph the bundle.
-- **Movement costs a whole turn** and moves the margin by zero, so it must buy
-  more than a turn. In practice: never open with it.
+- **Movement usually costs a whole turn** and moves the margin by zero, so it
+  normally has to buy more than a turn, and normally should not open the phase.
+  This is a rule for the generator's ordering, not a rule of the game: some
+  movement is worth power on its own, because the destination is worth power.
+  Vízköpő moving into an empty row, a Melee unit stepping into the front row, a
+  Távolsági one stepping back — those are margin moves and the generator must
+  price them as such. The combo graph already says so: `move` writes `slot`, and
+  `rowBonus`, positional keywords and `countBonus` all read it.
 
 ### 5.5 Re-plan every turn
 
@@ -334,6 +352,14 @@ received while face down — is close to free, because gathering-phase power
 barely interacts with anything. Note 6.5.9: a battlefield can raise the price, so
 this is a per-field calculation, not a constant.
 
+That is the default, not a rule. What is face down is *unknown*, not
+mislabelled: a body hidden where a caster would be expected reads as a caster,
+and a caster hidden where nobody would spend the discard reads as a body. The
+opponent is estimating a distribution, and the card put under it is a free
+choice — which makes hiding the most flexible tool in the gathering phase and
+the one place a genuinely mixed strategy pays. So the criterion above sets the
+*prior*; the mixing over it belongs with the other equilibrium work (§10).
+
 4.8.7 (hidden units block line of sight) is vestigial in practice: everything is
 revealed at Mustra (7.2) and nothing casts before then (5.3).
 
@@ -385,8 +411,8 @@ preparation (3.3); only the order is hidden (3.4).
 - 1.3.2 — an equal sum voids the field for *both*. Not a loss, not a win, and it
   changes what "catch up" means.
 - 1.3.7 — the match ends the moment the score cannot be overturned.
-- 1.3.4 — 3–3 sends it to the Végtelen puszta.
-- **2.3.2 / 6.4.6 — the Végtelen puszta has no cost cap at all.** So the decider
+- 1.3.4 — 3–3 sends it to A Zóna.
+- **2.3.2 / 6.4.6 — A Zóna has no cost cap at all.** So the decider
   is won largely by whoever has material left. Conserved resources carry a large
   terminal value *conditional on reaching 3–3*, which is precisely the kind of
   conditional the DP prices correctly and a hand-tuned heuristic does not.
