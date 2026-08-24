@@ -185,11 +185,15 @@ export interface Line {
  * Θ is what this side can do unaided, and a plan whose value depends on their
  * choice is not that.
  */
+/** Enough for one spell to reach at least a caster, a target and a destination. */
+const MIN_OPENER_SHARE = 12;
+
 function completeCasts(
   state: GameState,
   player: PlayerId,
   opts: ThetaOptions,
   spend: () => boolean,
+  budgetLeft: () => number,
 ): Line[] {
   const before = margin(state, player);
   const out: Line[] = [];
@@ -199,8 +203,18 @@ function completeCasts(
     (a) => a.type === "castSpell" || a.type === "finishChannel",
   );
 
+  // Every spell gets its own share of what is left. Without this the loop
+  // below is first-come-first-served: the spell that happens to sit earliest
+  // in hand enumerates every target it has, and a hand with one wide-open AoE
+  // in it can eat the whole budget before the second card is looked at. Which
+  // card that is depends on draw order, so the search would be quietly
+  // sensitive to something that means nothing.
+  const share = Math.max(MIN_OPENER_SHARE, Math.floor(budgetLeft() / Math.max(1, openers.length)));
+
   for (const opener of openers) {
-    if (!spend()) break;
+    let mine = share;
+    const spendMine = (): boolean => (mine > 0 && spend() ? (mine -= 1, true) : false);
+    if (!spendMine()) break;
     const spellId =
       opener.type === "castSpell"
         ? state.players[player].spellHand.find((c) => c.uid === opener.uid)?.cardId
@@ -226,7 +240,7 @@ function completeCasts(
         if (!ours(node.state, player)) continue; // their pick, not ours to plan
         const picks = legalActions(node.state, player).slice(0, opts.maxPicks);
         for (const pick of picks) {
-          if (!spend()) break;
+          if (!spendMine()) break;
           const after = applyAction(node.state, pick);
           // Mid-cast duplicates matter more than finished ones: cutting a
           // branch here saves every clone below it, not just its own.
@@ -322,6 +336,7 @@ export function bestPlan(
 
   let budget = opts.nodeBudget;
   const spend = (): boolean => (budget > 0 ? (budget -= 1, true) : false);
+  const budgetLeft = (): number => budget;
 
   const root = probe(state, player);
   const base = margin(root, player);
@@ -337,7 +352,7 @@ export function bestPlan(
     if (depth >= opts.maxDepth || budget <= 0) return;
     if (!ours(from, player) || resolving(from)) return;
 
-    const lines = completeCasts(from, player, opts, spend);
+    const lines = completeCasts(from, player, opts, spend, budgetLeft);
     if (lines.length === 0) return;
     for (const line of worthExploring(lines, setups, opts)) {
       walk(line.state, depth + 1, [...casts, line.cast]);
