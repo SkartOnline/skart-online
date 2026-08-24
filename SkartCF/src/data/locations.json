@@ -97,16 +97,16 @@
     "text": "Minden Kalóz 1 arannyal kevesebbe kerül."
   },
   {
-    "id": "holdfenyes_tisztas",
-    "name": "Holdfényes tisztás",
+    "id": "oppidium",
+    "name": "Oppidium",
     "cap": 18,
     "effects": [
       {
-        "kind": "flatBonus",
+        "kind": "entryRing",
         "amount": 1
       }
     ],
-    "text": "Minden egység +1 erőt kap."
+    "text": "Minden egység +1 gyűrűt kap, ahogy a csatatérre lép."
   },
   {
     "id": "malom",
@@ -123,8 +123,8 @@
     "text": "Mindkét játékos eldob 2 egységet és 2 varázslatot."
   },
   {
-    "id": "bosegkert",
-    "name": "Bőségkert",
+    "id": "faloda",
+    "name": "Faloda",
     "cap": 18,
     "effects": [
       {
@@ -137,8 +137,8 @@
     "text": "Mindkét játékos húz 2 egységet és 2 varázslatot."
   },
   {
-    "id": "elatkozott_rengeteg",
-    "name": "Elátkozott rengeteg",
+    "id": "kesergo",
+    "name": "Kesergő",
     "cap": 18,
     "effects": [
       {
@@ -192,8 +192,8 @@
     "text": "A temetőből is kijátszhatsz egységeket."
   },
   {
-    "id": "vegtelen_puszta",
-    "name": "Végtelen puszta",
+    "id": "a_zona",
+    "name": "A Zóna",
     "cap": null,
     "tiebreaker": true,
     "effects": [],

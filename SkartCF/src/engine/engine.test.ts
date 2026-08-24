@@ -67,7 +67,7 @@ function emptyPlayer(id: PlayerId) {
 let counter = 0;
 function place(state: GameState, cardId: string, slot: SlotId): void {
   const owner = slot.slice(0, 2) as PlayerId;
-  state.board[slot] = makeUnitInstance(`t${counter++}`, cardId, owner, slot, {
+  state.board[slot] = makeUnitInstance(state, `t${counter++}`, cardId, owner, slot, {
     order: counter,
     paidCost: 0,
   });
@@ -147,7 +147,7 @@ describe("power()", () => {
   });
 
   it("keeps basePower on the printed value while power() adds everything else", () => {
-    const state = blankState("holdfenyes_tisztas"); // every unit +1
+    const state = blankState("oppidium"); // every unit +1
     place(state, "medve", "p1.F1");
     const bear = state.board["p1.F1"]!;
     expect(basePower(bear)).toBe(5);
@@ -176,7 +176,7 @@ describe("power()", () => {
   });
 
   it("lets a lock override every other modifier", () => {
-    const state = blankState("holdfenyes_tisztas");
+    const state = blankState("oppidium");
     place(state, "medve", "p1.F1");
     const bear = state.board["p1.F1"]!;
     bear.locked = true;
@@ -276,7 +276,7 @@ describe("varázslat az egységen", () => {
   });
 
   it("lets Természetes forma override every other modifier", () => {
-    const state = blankState("holdfenyes_tisztas");
+    const state = blankState("oppidium");
     place(state, "farkas", "p1.F1");
     place(state, "farkas", "p1.F2");
     const wolf = state.board["p1.F1"]!;
@@ -1033,6 +1033,34 @@ describe("Diadal és Vigasz", () => {
     expect(scored.locations[0].winner).toBe("p2");
     expect(scored.players.p1.unitHand).toHaveLength(0);
     expect(scored.players.p1.discard.map((c) => c.cardId)).toContain("makacs_elohalott");
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe("Oppidium", () => {
+  it("hands every unit a ring at the door rather than a bonus while it stands", () => {
+    const state = blankState("oppidium");
+    place(state, "patkany", "p1.F1"); // power 1
+    const rat = state.board["p1.F1"]!;
+    // A ring is the unit's own (9.4): it sits on the card, it counts towards
+    // power, and nothing here can take it back. A flat battlefield bonus would
+    // have been a number recomputed on every read and gone the moment the
+    // battlefield stopped saying so.
+    expect(rat.rings).toBe(1);
+    expect(power(rat, state)).toBe(2);
+  });
+
+  it("rings a unit that arrives after the gathering, too", () => {
+    const state = blankState("oppidium");
+    place(state, "patkany", "p1.F1");
+    // Anything built through makeUnitInstance comes in through the same door,
+    // so a summon or a revival in the battle phase is not a way round it.
+    const late = makeUnitInstance(state, "late", "patkany", "p1", "p1.F2", {
+      order: 99,
+      paidCost: 0,
+    });
+    expect(late.rings).toBe(1);
   });
 });
 

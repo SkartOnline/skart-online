@@ -29,7 +29,7 @@ export const SCHOOLS = [
 
 /**
  * Battlefields are described by what they do, not by which one they are. The
- * card set is still being written, so a bot that learned "Holdfényes tisztás"
+ * card set is still being written, so a bot that learned "Oppidium"
  * would have to be retrained every time a battlefield is added, while one that
  * learned "everyone gets +1 here" transfers to the next card that does it.
  */

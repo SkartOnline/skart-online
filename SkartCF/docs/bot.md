@@ -162,6 +162,11 @@ Ranked by how much they distort the bot's judgement.
 
 ## Open work, in priority order
 
+`docs/bot-algorithm.md` proposes replacing this list rather than working through
+it: a layered design built around a score function, plan enumeration in the
+battle phase, and an exact match DP. Read it before picking anything up here.
+The items below stand as the incremental path if that plan is not taken.
+
 ### 1. Potential score, and the stopping calibration
 
 The strongest available idea, and it came from playtesting: the bot should know

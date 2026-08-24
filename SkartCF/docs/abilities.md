@@ -265,7 +265,8 @@ starves between spells collects nobody, which is the point.
 
 | Primitive | Battlefield |
 |---|---|
-| `flatBonus` | Holdfényes tisztás (+1), Elátkozott rengeteg (−1) |
+| `flatBonus` | Kesergő (−1) — a bonus recomputed on every read, gone when the battlefield is |
+| `entryRing` | Oppidium (+1) — a ring handed out at the door, and the unit's own from then on (9.4) |
 | `keywordBonus` (`row`, `invert`) | Akáczos |
 | `strongestPenalty` | Sikátor |
 | `autoHide` | Feketepiac (Csempész), Ködrét (all) |
@@ -277,7 +278,7 @@ starves between spells collects nobody, which is the point.
 | `suppressPositional` | Ködrét (Távolsági) |
 | `playFromGraveyard` | Umbra |
 | `salvage` | Plázs — Felindori units go to the bottom of the deck at leszerelés |
-| `startEffect` | Lingadori könyvtár, Malom, Bőségkert |
+| `startEffect` | Lingadori könyvtár, Malom, Faloda |
 | `perCost`, `costAtMostBonus`, `rowBonus`, `schoolSpellpowerBonus` | in reserve, available in the editor |
 
 ---

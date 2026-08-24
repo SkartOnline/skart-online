@@ -761,7 +761,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     const [handCard] = player.unitHand.splice(handIndex, 1);
     const card = getUnit(handCard.cardId);
     if (effect.ignoreCap !== true) player.capSpent += card.cost;
-    ctx.state.board[slot] = makeUnitInstance(handCard.uid, handCard.cardId, ctx.controller, slot, {
+    ctx.state.board[slot] = makeUnitInstance(ctx.state, handCard.uid, handCard.cardId, ctx.controller, slot, {
       order: ctx.state.placementCounter++,
       paidCost: card.cost,
     });
@@ -924,7 +924,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
       const [card] = player.discard.splice(index, 1);
       const unitCard = getUnit(card.cardId);
       if (effect.ignoreCap !== true) player.capSpent += unitCard.cost;
-      ctx.state.board[free[0]] = makeUnitInstance(card.uid, card.cardId, ctx.controller, free[0], {
+      ctx.state.board[free[0]] = makeUnitInstance(ctx.state, card.uid, card.cardId, ctx.controller, free[0], {
         order: ctx.state.placementCounter++,
         paidCost: unitCard.cost,
       });
@@ -1039,7 +1039,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
 
     if (what === "nextLocation") {
       // Gréta reads one battlefield ahead. Nothing after the last one, and the
-      // tiebreaker counts: knowing the fight is going to Végtelen puszta is
+      // tiebreaker counts: knowing the fight is going to A Zóna is
       // exactly the kind of thing she is for.
       const next = ctx.state.locations[ctx.state.locationIndex + 1];
       if (!next) {
@@ -1252,7 +1252,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     const before = cardOf(unit).name;
     ctx.state.board[slot] = null;
     ctx.state.players[unit.owner].discard.push({ uid: unit.uid, cardId: unit.cardId });
-    ctx.state.board[slot] = makeUnitInstance(handCard.uid, handCard.cardId, unit.owner, slot, {
+    ctx.state.board[slot] = makeUnitInstance(ctx.state, handCard.uid, handCard.cardId, unit.owner, slot, {
       order: unit.order,
       paidCost: unit.paidCost,
     });
@@ -1375,7 +1375,25 @@ export function applyEffect(ctx: EffectContext, effect: Effect, targets: SlotId[
 // Unit instance construction (shared by placement, summon and the simulator)
 // ---------------------------------------------------------------------------
 
+/**
+ * Rings the battlefield itself hands out at the door. Oppidium is the one that
+ * does it, and the reason it grants a ring rather than a flat bonus is that a
+ * ring belongs to the unit (9.4): it survives the battlefield's own effects
+ * being read again, it cannot be taken back, and it shows on the card. The
+ * price of that is this being an entry hook rather than a computed bonus, so a
+ * unit that arrives later — summoned, revived, pulled through a portal — gets
+ * its ring the same way, by coming through here.
+ */
+export function entryRings(state: GameState): number {
+  let rings = 0;
+  for (const effect of currentLocation(state).effects ?? []) {
+    if (effect.kind === "entryRing") rings += Number(effect.amount ?? 0);
+  }
+  return rings;
+}
+
 export function makeUnitInstance(
+  state: GameState,
   uid: string,
   cardId: string,
   owner: PlayerId,
@@ -1394,7 +1412,7 @@ export function makeUnitInstance(
     damage: 0,
     damageMarks: [],
     powerDelta: 0,
-    rings: 0,
+    rings: entryRings(state),
     placed: [],
     immunities: [],
     fizzleShields: [],

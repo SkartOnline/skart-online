@@ -13,7 +13,7 @@ import {
   sweepDead,
 } from "./effects";
 import type { EffectContext } from "./effects";
-import { ALL_SLOTS } from "./grid";
+import { opponentOf, slotsOf } from "./grid";
 import { EFFECT_SPECS, specFor } from "./schema";
 import {
   abilitiesActive,
@@ -104,105 +104,81 @@ export function fireBelepo(state: GameState, unit: UnitInstance, deferDeaths = f
 }
 
 /**
- * The Belépő and Mustra abilities owed at the reveal step, resolved the way 7.6
- * asks for: every one of them reads the board as it stood after the reveal and
- * before the first hit landed, and the results take effect together, so their
- * order does not matter.
+ * The Belépő and Mustra abilities owed at the reveal step.
  *
- * Three things make that work.
+ * The reveal itself is one moment: every face-down unit turns over together, so
+ * every static on the board is already true before anybody acts, and nobody
+ * gets to read a board their opponent has not finished building. What follows
+ * is not a moment. The abilities fire one at a time, in tile order — E1, E2,
+ * E3, H1, H2, H3 — alternating between the two players and starting with the
+ * one who brought the battlefield (7.5).
  *
- * Targets are chosen for all of them up front, off the same snapshot, and
- * deaths are held back until every ability has run (7.8). An ability aimed at a
- * unit that dies in the same moment still runs and simply has no consequence on
- * it (7.7), which falls out for free once the sweep is deferred.
+ * That order replaced a genuinely simultaneous step, and the trade was
+ * deliberate. Simultaneity is the honest reading of "everything happens at
+ * once", but it costs a snapshot of the board, a pick that follows a unit that
+ * has since walked away, a deferred death sweep, and a tiebreak for two
+ * abilities reaching for the same empty tile. Sequence costs a rule you can
+ * read off the board. It changes almost nothing in play — the abilities that
+ * fire here rarely contend — and where it does change something, the answer is
+ * now something a player can work out in advance rather than adjudicate.
  *
- * A pick names a *unit*, not a tile. Everything fires at once, so an ability
- * that chose Szarvas and a Szarvas that stepped forward in the same instant are
- * not a contradiction: the shot was already in the air, and it follows whoever
- * it was aimed at to wherever they got to. Resolving against the tile instead
- * would mean Bérgyilkos killing whatever happened to be standing where its
- * target used to be, which is a different card.
+ * Each ability picks its targets from the board as it stands when its turn
+ * comes, resolves completely, and its deaths are settled before the next one
+ * starts, exactly like a spell in the battle phase (8.5.2).
  *
- * And when two of them genuinely contend for one thing — the same empty tile to
- * advance into — simultaneity has no answer, so the tie goes to the player who
- * brought the battlefield and therefore starts here (3.8, 7.10). The loser is
- * not delayed, it is cancelled: its ability found the tile taken.
+ * A unit only fires once, even if an ability carries it across the board into a
+ * tile that has not come up yet.
  */
 export function fireMustra(state: GameState, revealed: UnitInstance[]): void {
-  const owed: {
-    unit: UnitInstance;
-    effects: Effect[];
-    /** Whom it picked, by uid, so the shot can follow them. */
-    targetUids: string[];
-    /** Tiles it picked that hold nobody — an advance, a summon. */
-    emptyTargets: SlotId[];
-  }[] = [];
-
-  const remember = (unit: UnitInstance, effects: Effect[], targets: SlotId[]) => {
-    const targetUids: string[] = [];
-    const emptyTargets: SlotId[] = [];
-    for (const slot of targets) {
-      const occupant = state.board[slot];
-      if (occupant) targetUids.push(occupant.uid);
-      else emptyTargets.push(slot);
-    }
-    owed.push({ unit, effects, targetUids, emptyTargets });
-  };
-
-  for (const unit of revealed) {
-    if (state.board[unit.slot]?.uid !== unit.uid) continue;
-    if (!abilitiesActive(unit, state)) continue;
-    const belepo = cardOf(unit).belepo;
-    if (!belepo?.effects?.length) continue;
-    remember(unit, belepo.effects, resolveAutoTargets(state, unit, belepo.target));
-  }
-
-  for (const unit of unitsOf(state, "p1").concat(unitsOf(state, "p2"))) {
-    if (!abilitiesActive(unit, state)) continue;
-    for (const trigger of cardOf(unit).triggers ?? []) {
-      if (trigger.on !== "onMustra") continue;
-      remember(unit, trigger.effects, resolveAutoTargets(state, unit, trigger.target));
-    }
-  }
-
-  // The tiebreak, and the only place order is allowed to matter. Everything
-  // else in this step is genuinely simultaneous; two abilities reaching for the
-  // same empty tile are not, and somebody has to have it.
+  const owed = new Set(revealed.map((u) => u.uid));
   const starter = state.locations[state.locationIndex].broughtBy;
-  const ordered = [...owed].sort((a, b) => {
-    if (a.unit.owner === b.unit.owner) return 0;
-    return a.unit.owner === starter ? -1 : 1;
-  });
+  const first = slotsOf(starter);
+  const second = slotsOf(opponentOf(starter));
+  const order: SlotId[] = [];
+  for (let i = 0; i < first.length; i += 1) order.push(first[i], second[i]);
 
-  for (const { unit, effects, targetUids, emptyTargets } of ordered) {
-    // A unit that has already been taken off the board this step keeps its
-    // ability: it read the same board everyone else did. What it cannot do is
-    // act from a slot it no longer occupies, hence the guard.
-    if (state.board[unit.slot]?.uid !== unit.uid) continue;
-    // Where the units it picked are standing *now*. One that left the board
-    // entirely drops out; one that merely moved is followed.
-    const targets = [...whereAreThey(state, targetUids), ...emptyTargets];
-    log(state, `${cardOf(unit).name}: Mustra.`, unit.owner);
-    const ctx = contextFor(state, unit, unit.owner, { deferDeaths: true });
+  const fired = new Set<string>();
+
+  const fire = (unit: UnitInstance, effects: Effect[], target: unknown, text: string): void => {
+    const targets = resolveAutoTargets(state, unit, target as never);
+    log(state, text, unit.owner);
+    const ctx = contextFor(state, unit, unit.owner);
     for (const effect of effects) {
       const needsTargets = (effect.on ?? "target") === "target";
       if (needsTargets && targets.length === 0 && !SELF_PICKING.has(effect.kind)) continue;
       applyEffect(ctx, effect, targets);
     }
+  };
+
+  /** Still the same unit, still standing, still allowed to do anything. */
+  const active = (unit: UnitInstance): boolean =>
+    state.board[unit.slot]?.uid === unit.uid && abilitiesActive(unit, state);
+
+  for (const slot of order) {
+    const unit = state.board[slot];
+    if (!unit || fired.has(unit.uid)) continue;
+    fired.add(unit.uid);
+    if (!abilitiesActive(unit, state)) continue;
+    const card = cardOf(unit);
+
+    // A unit that was face down owes its Belépő from the reveal (10.1.2). One
+    // that was face up already spent it when it was put down.
+    const belepo = card.belepo;
+    if (owed.has(unit.uid) && belepo?.effects?.length) {
+      fire(unit, belepo.effects, belepo.target, `${card.name} Belépő.`);
+    }
+
+    for (const trigger of card.triggers ?? []) {
+      if (trigger.on !== "onMustra") continue;
+      if (!active(unit)) break;
+      fire(unit, trigger.effects, trigger.target, `${card.name}: Mustra.`);
+    }
   }
 
-  // 7.8: now, and only now, the deaths are settled — all of them at once.
+  // Every ability already swept its own dead on the way through. This catches a
+  // board that only became lethal once the last of them had run — an aura going
+  // out from under somebody standing at exactly its strength.
   sweepDead(state, (text) => log(state, text));
-}
-
-/** Where a set of units is standing right now, skipping any that have gone. */
-function whereAreThey(state: GameState, uids: string[]): SlotId[] {
-  if (uids.length === 0) return [];
-  const wanted = new Set(uids);
-  return ALL_SLOTS.filter((slot) => {
-    const unit = state.board[slot];
-    return !!unit && wanted.has(unit.uid);
-  });
 }
 
 /** Effects that build their own target set and must run even with none passed in. */

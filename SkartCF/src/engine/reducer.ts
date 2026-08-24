@@ -410,7 +410,7 @@ function doPlayUnit(state: GameState, action: Extract<Action, { type: "playUnit"
   if (!handCard) return;
   p.capSpent += cost;
 
-  const unit = makeUnitInstance(handCard.uid, handCard.cardId, action.player, action.slot, {
+  const unit = makeUnitInstance(state, handCard.uid, handCard.cardId, action.player, action.slot, {
     order: state.placementCounter++,
     paidCost: cost,
     faceDown,
@@ -832,7 +832,7 @@ function landPortals(state: GameState): void {
       log(state, `${getUnit(portal.cardId).name} portálja bezárul, nincs szabad mező.`, portal.owner);
       continue;
     }
-    state.board[slot] = makeUnitInstance(portal.uid, portal.cardId, portal.owner, slot, {
+    state.board[slot] = makeUnitInstance(state, portal.uid, portal.cardId, portal.owner, slot, {
       order: state.placementCounter++,
       paidCost: 0,
     });
@@ -847,7 +847,7 @@ function landPortals(state: GameState): void {
 /**
  * 1.3.7: the game ends the moment the standing can no longer be turned around.
  * Taking more than half the regular battlefields does it, and so does running
- * out of them — Végtelen puszta only comes up on a tie.
+ * out of them — A Zóna only comes up on a tie.
  */
 function gameIsDecided(state: GameState): boolean {
   const played = state.locationIndex + 1;
@@ -860,7 +860,7 @@ function gameIsDecided(state: GameState): boolean {
 }
 
 /**
- * Lingadori könyvtár, Malom and Bőségkert all hand both players the same thing
+ * Lingadori könyvtár, Malom and Faloda all hand both players the same thing
  * before a card is committed. One location effect, three parameter sets.
  */
 export function applyLocationStart(state: GameState): void {
