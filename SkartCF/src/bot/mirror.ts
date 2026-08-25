@@ -193,8 +193,15 @@ export function main(argv: string[] = process.argv.slice(2)): void {
     // the battle phase. Measured at 69 boards ahead against 78 behind, the
     // search is not winning the board-building contest it exists to win.
     ...(off("gather") ? { gather: false } : {}),
+    // The arm the whole design rests on: pick the board by printed power alone,
+    // with the same battle phase behind it. If `margin + Θ` cannot beat this,
+    // Θ is not measuring what it claims to measure.
+    ...(argv.includes("--board-power")
+      ? { board: { beamWidth: 5, finalists: 3, theta, thetaWeight: 0, exposure: 0, castHint: 0 } }
+      : {}),
   });
   const ablations = ["secure", "believe", "toss", "exposure", "weight", "gather"].filter(off);
+  if (argv.includes("--board-power")) ablations.push("board scored by power alone");
   if (ablations.length > 0) console.log(`  ablated: ${ablations.join(", ")}\n`);
   const old = new Planner({ ...LEGACY_PLANNER, theta, board: { ...LEGACY_PLANNER.board, beamWidth: 5, finalists: 3, theta } });
   const baseline = { params: DEFAULT_BASELINE };

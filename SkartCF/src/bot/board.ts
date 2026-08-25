@@ -108,6 +108,12 @@ export interface BoardOptions {
    * range of their casters worth less than the same unit out of reach.
    */
   exposure: number;
+  /**
+   * Weight on the cheap caster hint inside the beam. Zero makes the guide read
+   * printed power and nothing else, which is the arm that answers "is the whole
+   * Θ apparatus earning anything over picking the biggest board".
+   */
+  castHint: number;
   /** Passed through to Θ on the finalists. */
   theta: Partial<ThetaOptions>;
 }
@@ -122,6 +128,7 @@ export const DEFAULT_BOARD: BoardOptions = {
   perDepth: 2,
   thetaWeight: DEFAULT_THETA_WEIGHT,
   exposure: 0.5,
+  castHint: 0.5,
   theta: DEFAULT_THETA,
 };
 
@@ -290,8 +297,12 @@ export function bestBoard(
   // the opponent stopping underneath you.
   const candidates: Node[] = [];
   const cheap = (s: GameState, placed: number): number =>
-    worth(realisedMargin(s, player) + 0.5 * castPotential(s, player), opts.secured, opts.doubt) -
-    opts.unitCost * placed;
+    worth(
+      realisedMargin(s, player) +
+        (opts.castHint > 0 ? opts.castHint * castPotential(s, player) : 0),
+      opts.secured,
+      opts.doubt,
+    ) - opts.unitCost * placed;
   let frontier: Node[] = [
     { state, placements: [], actions: [], depth: 0, guide: cheap(state, 0) },
   ];
