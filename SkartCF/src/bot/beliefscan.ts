@@ -25,6 +25,7 @@ import type { GameState, PlayerId, School } from "../engine/types";
 import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
 import { believe, payloadOdds, theirSpellpower } from "./belief";
 import { observe } from "./observe";
+import { Progress } from "./progress";
 
 const DECKS = ["felindori", "csempesz", "magus", "bestia", "elettelen"];
 const MAX_ACTIONS = 4000;
@@ -143,8 +144,13 @@ export function main(argv: string[] = process.argv.slice(2)): void {
   };
 
   const known = !argv.includes("--infer");
+  const progress = new Progress({ total: games, label: "games" });
   for (let i = 0; i < games; i += 1) {
     scan(DECKS[i % DECKS.length], DECKS[(i * 3 + 1) % DECKS.length], `belief-${i}`, tally, known);
+    progress.tick(
+      i + 1,
+      `${tally.samples} predictions, Brier ${(tally.brier / Math.max(1, tally.samples)).toFixed(4)}`,
+    );
   }
   console.log(known ? "\n(deck list known, the bot's normal mode)" : "\n(deck list inferred)");
 

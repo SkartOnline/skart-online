@@ -26,6 +26,7 @@ import type { Action, GameState, PlayerId } from "../engine/types";
 import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
 import type { BaselineContext } from "../sim/baseline";
 import { bestPlan } from "./theta";
+import { Progress } from "./progress";
 
 const DECKS = ["felindori", "csempesz", "magus", "bestia", "elettelen"];
 const MAX_ACTIONS = 4000;
@@ -136,8 +137,14 @@ export function main(argv: string[] = process.argv.slice(2)): void {
     decisions: 0,
   };
 
+  const progress = new Progress({ total: games, label: "games" });
   for (let i = 0; i < games; i += 1) {
     scan(DECKS[i % DECKS.length], DECKS[(i * 3 + 1) % DECKS.length], `theta-${i}`, tally, checkEvery);
+    progress.tick(
+      i + 1,
+      `${tally.decisions} decisions, mean ${mean(tally.ms).toFixed(1)}ms, ` +
+        `beam=exhaustive on ${tally.agree}/${tally.agree + tally.disagree}`,
+    );
   }
 
   console.log(`\nΘ scan: ${games} games, ${tally.decisions} battle-phase decisions\n`);

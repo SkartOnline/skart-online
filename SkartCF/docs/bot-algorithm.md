@@ -657,7 +657,7 @@ current monolith, where a wrong answer has no localisable cause.
 | 3 | ~~`score` = realised + `Θ`~~ **done** — same file | monotonicity holds: adding a castable bomb never lowers score, an unpayable card never moves it |
 | 4 | ~~Board optimiser~~ **done** — `src/bot/board.ts` | `board.test.ts`: beam equals exhaustive placement search on constrained boards, including under a cap; and `finalists: 1` demonstrably picks worse |
 | 5 | ~~Belief model~~ **done** — `src/bot/belief.ts` | `npm run belief`: Brier 0.050 against 0.243 for guessing the base rate, deck pinned on 100% of observations. `belief.test.ts` pins the mask invariant — moving what the viewer cannot see must not move the belief |
-| 6 | Battle-phase plan/schedule/re-plan | beats the current bot head to head; self-damage rate near zero |
+| 6 | ~~Battle-phase plan/schedule/re-plan~~ **done** — `src/bot/planner.ts` | `npm run planner`, 120 games each, battle phase only: **78.2%** vs greedy [69.9, 84.6], **62.5%** vs the trained bot [53.6, 70.6], **57.5%** vs baseline [48.6, 66.0] — that last interval crosses 50%. Self-damage **0 of 1 766 casts** |
 | 7 | Gathering search over best responses | beats a **never-stops-early** reference opponent |
 | 8 | Match DP | Monte Carlo over the same `p_i` |
 | 9 | Learned leaf, then CFR on the abstraction | arena, multiple training seeds |

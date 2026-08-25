@@ -25,6 +25,7 @@ import { Agent, DEFAULT_AGENT } from "./agent";
 import { FAST_THETA } from "./theta";
 import type { ThetaOptions } from "./theta";
 import { DEFAULT_PLANNER, Planner } from "./planner";
+import { Progress } from "./progress";
 
 const DECKS = ["felindori", "csempesz", "magus", "bestia", "elettelen"];
 const MAX_ACTIONS = 4000;
@@ -132,12 +133,20 @@ function run(opponent: Side, games: number, theta: Partial<ThetaOptions>): Resul
     opponent === "bot"
       ? new Agent(loadModel("src/bot/weights/latest.json"), { ...DEFAULT_AGENT, temperature: 0 }, 1)
       : null;
+  const progress = new Progress({ total: games, label: `vs ${opponent}` });
   for (let i = 0; i < games; i += 1) {
     const deckA = DECKS[i % DECKS.length];
     const deckB = DECKS[(i * 3 + 1) % DECKS.length];
     // Swap seats every other game: moving first is worth something.
     const seat: PlayerId = i % 2 === 0 ? "p1" : "p2";
     play(deckA, deckB, `plan-${i}`, seat, opponent, planner, result, bot);
+    const decided = result.wins + result.losses;
+    progress.tick(
+      i + 1,
+      `${result.wins}W ${result.losses}L ${result.draws}D` +
+        (decided ? ` (${((result.wins / decided) * 100).toFixed(0)}%)` : "") +
+        `, self-damage ${result.selfDamaging}/${result.casts}`,
+    );
   }
   return result;
 }
