@@ -74,6 +74,21 @@ export interface Plan {
   complete: boolean;
 }
 
+/**
+ * How wide the doubt is around the securing line, in power, when nothing is
+ * known about how the opponent will use what they hold.
+ *
+ * `secured` is built from their Θ, which is their *maximum* swing and therefore
+ * pessimistic — they may not find it, may not hold the range, may spend it
+ * elsewhere. So the line is soft rather than a step, and this is how soft.
+ *
+ * It is a parameter rather than a constant because the doubt is not always
+ * there: once they have closed the battle phase (8.7.3) their swing is exactly
+ * zero and nothing about the outcome is uncertain any more. Leaving the band
+ * wide in that case makes a field already safe by five look worth padding.
+ */
+export const DEFAULT_DOUBT = 2.5;
+
 export interface ThetaOptions {
   /** Casts deep. Spellpower depletion bounds this on its own; the cap is a guard. */
   maxDepth: number;
@@ -86,19 +101,17 @@ export interface ThetaOptions {
   /** Which combo edges count as "this could matter to that". */
   classes: readonly EdgeClass[];
   /**
-   * The margin at which winning is already secured, measured in the same units
-   * as `gain`. Points beyond it are worth almost nothing.
+   * The gain that would make this battlefield safe: their maximum remaining
+   * swing, less the margin already standing. Negative when it is safe already.
    *
-   * 1.3.1 gives the battlefield to the larger sum *by any amount*, so a plan
-   * that wins by eight is worth exactly what a plan that wins by one is worth,
-   * and the difference is resources that could have taken a different
-   * battlefield. Leaving this at `Infinity` maximises the margin instead, which
-   * is what the first version of this file did — and it produced a bot that won
-   * by an average of 6.65 and lost by an average of 4.65.
+   * Plans are ranked by `winChance(gain, secured)`, so this is the point the
+   * search is actually aiming at. `Infinity` disables it and ranks by raw
+   * margin instead, which is what the first version of this file did — and it
+   * produced a bot winning by an average of 6.65 and losing by 4.65.
    */
   secured: number;
   /**
-   * What one spell out of hand costs, in power.
+   * What one spell out of hand costs, as a share of this battlefield.
    *
    * Without this `secured` does nothing at all, and it is worth being precise
    * about why: saturating the value of a margin is a monotonically increasing
@@ -107,11 +120,13 @@ export interface ThetaOptions {
    * two. The saturation only bites when the second card is *charged for*, so
    * that once the extra margin has stopped counting, spending stops being free.
    *
-   * §9 says the true price is the card's option value on the battlefields still
-   * to come, which is the match layer's job (§8) and unbuilt. This is a flat
-   * stand-in for it.
+   * The units are win probability, because that is what `winChance` returns:
+   * `0.05` means a card is worth five points of this field's chances. §8 scales
+   * it by what the field is worth to the match.
    */
   cardCost: number;
+  /** Width of the doubt band around `secured`; see `DEFAULT_DOUBT`. */
+  doubt: number;
 }
 
 /**
@@ -145,25 +160,29 @@ export const DEFAULT_THETA: ThetaOptions = {
   classes: DEFAULT_CLASSES,
   secured: Infinity,
   cardCost: 0,
+  doubt: DEFAULT_DOUBT,
 };
 
-/**
- * What one more point of margin is worth once the battlefield is already won.
- * Not zero: the search still needs a gradient to break ties, and overkill is
- * genuinely worth a little — 1.3.6 makes total power the knockout tiebreak.
- */
-const OVERKILL_WORTH = 0.02;
 
 /**
- * The value of reaching a margin, as opposed to the margin itself.
+ * The chance of taking the battlefield, given a plan that gains this much.
  *
- * Below the securing line every point is a point. Above it they are rounding
- * error, which is what stops the planner spending a third card to turn a win
- * by six into a win by nine.
+ * **This is the objective**, and getting it wrong is what two rewrites of this
+ * file were about. The battlefield goes to the larger sum by any amount
+ * (1.3.1), so what a plan is worth is the probability it *wins the field* — not
+ * the margin it accumulates.
+ *
+ * Valuing the margin instead fails at both ends and in opposite directions. On
+ * a field already won it keeps buying margin nobody is paid for. On a field
+ * that cannot be reached it gives full credit for progress towards a line it
+ * will never cross, and spends the hand climbing towards a loss. The second one
+ * is the expensive mistake: those cards were the ones that could have taken a
+ * field still in doubt.
  */
-export function valueOfGain(gain: number, secured: number): number {
-  if (!Number.isFinite(secured) || gain <= secured) return gain;
-  return secured + (gain - secured) * OVERKILL_WORTH;
+export function winChance(gain: number, secured: number, doubt = DEFAULT_DOUBT): number {
+  if (!Number.isFinite(secured)) return gain; // uncapped: rank by margin
+  const edge = gain - secured;
+  return 1 / (1 + Math.exp(-edge / Math.max(0.05, doubt)));
 }
 
 /** For the hot loop: a third of the time, and right nine times in ten. */
@@ -453,7 +472,9 @@ export function bestPlan(
   const setups = setupSpells(root, player, opts);
 
   let best = { casts: [] as Cast[], gain: 0 };
-  let bestValue = 0;
+  // The empty plan is the thing to beat, and it is not worth zero: standing
+  // still already has a chance of taking the field.
+  let bestValue = winChance(0, opts.secured, opts.doubt);
 
   const walk = (from: GameState, depth: number, casts: Cast[]): void => {
     const gain = margin(from, player) - base;
@@ -461,7 +482,7 @@ export function bestPlan(
     // nothing and the running best is the max over every prefix, not the leaf.
     // Ranked by what the gain is *worth* — see `secured`. The plan still
     // reports its true margin, because callers price resources against that.
-    const value = valueOfGain(gain, opts.secured) - opts.cardCost * casts.length;
+    const value = winChance(gain, opts.secured, opts.doubt) - opts.cardCost * casts.length;
     if (value > bestValue) {
       bestValue = value;
       best = { casts: [...casts], gain };

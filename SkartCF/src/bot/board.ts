@@ -46,7 +46,7 @@ import { pendingPrompt } from "../engine/prompts";
 import { applyAction, legalActions } from "../engine/reducer";
 import { boardTotal } from "../engine/totaling";
 import type { Action, GameState, PlayerId, SlotId } from "../engine/types";
-import { DEFAULT_THETA, score, valueOfGain } from "./theta";
+import { DEFAULT_THETA, score, winChance } from "./theta";
 import type { ThetaOptions } from "./theta";
 
 export interface Placement {
@@ -80,6 +80,8 @@ export interface BoardOptions {
    * decision, because more margin is still weakly better.
    */
   unitCost: number;
+  /** Width of the doubt band around `secured`. */
+  doubt: number;
   /** Sequences carried forward at each placement. */
   beamWidth: number;
   /** Units placed at most, on top of whatever already stands. */
@@ -93,6 +95,7 @@ export interface BoardOptions {
 export const DEFAULT_BOARD: BoardOptions = {
   secured: Infinity,
   unitCost: 0,
+  doubt: 2.5,
   beamWidth: 8,
   maxPlacements: 6,
   finalists: 6,
@@ -111,13 +114,13 @@ function realisedMargin(state: GameState, player: PlayerId): number {
 /**
  * What a board is worth, as opposed to what it totals.
  *
- * The same saturation Θ uses, applied to the whole board: below the securing
- * line power is power, above it a bigger number is just a bigger number. This
- * is what turns "build the largest board" into "build a board that wins", and
- * the two are only the same when resources are free.
+ * The same objective Θ uses, applied to a whole board: the chance it takes the
+ * battlefield, not the size of the number on it. That is what turns "build the
+ * largest board" into "build a board that wins" — and on a battlefield already
+ * lost it correctly says that no board wins, so none is worth paying for.
  */
-function worth(score: number, secured: number): number {
-  return valueOfGain(score, secured);
+function worth(score: number, secured: number, doubt: number): number {
+  return winChance(score, secured, doubt);
 }
 
 /**
@@ -212,7 +215,7 @@ export function bestBoard(
   // the opponent stopping underneath you.
   const candidates: Node[] = [];
   let frontier: Node[] = [
-    { state, placements: [], actions: [], guide: worth(realisedMargin(state, player), opts.secured) },
+    { state, placements: [], actions: [], guide: worth(realisedMargin(state, player), opts.secured, opts.doubt) },
   ];
 
   for (let depth = 0; depth < opts.maxPlacements; depth += 1) {
@@ -231,7 +234,7 @@ export function bestBoard(
           placements: [...node.placements, { cardId, slot: move.slot }],
           actions: [...node.actions, move],
           guide:
-            worth(realisedMargin(after, player), opts.secured) -
+            worth(realisedMargin(after, player), opts.secured, opts.doubt) -
             opts.unitCost * (node.placements.length + 1),
         });
       }
@@ -253,11 +256,11 @@ export function bestBoard(
 
   const bare = scoreBoard(state, player, opts.theta);
   let best: BoardPlan = { ...empty, ...bare };
-  let bestWorth = worth(bare.score, opts.secured);
+  let bestWorth = worth(bare.score, opts.secured, opts.doubt);
   for (const node of finalists) {
     const valued = scoreBoard(node.state, player, opts.theta);
     const valueWorth =
-      worth(valued.score, opts.secured) - opts.unitCost * node.placements.length;
+      worth(valued.score, opts.secured, opts.doubt) - opts.unitCost * node.placements.length;
     if (valueWorth > bestWorth) {
       bestWorth = valueWorth;
       best = {

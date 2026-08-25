@@ -64,7 +64,7 @@ import type { BaselineContext } from "../sim/baseline";
 import { bestBoard, DEFAULT_BOARD } from "./board";
 import type { BoardOptions } from "./board";
 import { cardPrice, fieldValue } from "./match";
-import { bestPlan, DEFAULT_THETA, margin as marginOf, theta } from "./theta";
+import { bestPlan, DEFAULT_DOUBT, DEFAULT_THETA, margin as marginOf, theta } from "./theta";
 import type { ThetaOptions } from "./theta";
 
 export interface PlannerParams {
@@ -108,8 +108,10 @@ export const DEFAULT_PLANNER: PlannerParams = {
   fallback: { params: DEFAULT_BASELINE },
   gather: true,
   secure: true,
-  cardCost: 0.5,
-  unitCost: 0.5,
+  // In win-probability, not power: a card is worth this much of a battlefield's
+  // chances on an ordinary field. §8 scales it from there.
+  cardCost: 0.04,
+  unitCost: 0.04,
   weighByMatch: true,
 };
 
@@ -175,6 +177,7 @@ export class Planner {
       ...this.params.theta,
       secured: this.securedGain(state, player),
       cardCost: this.priceOf(state, player, this.params.cardCost),
+      doubt: this.doubtAbout(state, player),
     });
     this.stats.plans += 1;
 
@@ -227,6 +230,19 @@ export class Planner {
   }
 
   /**
+   * How uncertain the securing line is.
+   *
+   * It is built from their Θ, which is a ceiling on what they can still do — so
+   * it is soft while they can still act and hard once they cannot. A player who
+   * has declared done (8.7.3) will swing the total by exactly nothing, and a
+   * field safe by five against that is simply safe.
+   */
+  private doubtAbout(state: GameState, player: PlayerId): number {
+    const foe = player === "p1" ? "p2" : "p1";
+    return state.players[foe].flags.spellsClosed ? 0.5 : DEFAULT_DOUBT;
+  }
+
+  /**
    * What a card costs here, which is not what a card costs.
    *
    * §8: the same card is nearly free on the battlefield that decides the match
@@ -244,11 +260,50 @@ export class Planner {
     // is not counted among the battlefields still to be decided.
     const ordinary = state.locations.filter((l) => !getLocation(l.cardId).tiebreaker);
     const left = ordinary.filter((l) => l.winner === null).length;
-    const value = fieldValue(state.scores[player], state.scores[foe], left, {
+
+    // What this battlefield is worth to the match, from the scoreboard: a
+    // fourth is worth everything, a fifth nothing.
+    const stake = fieldValue(state.scores[player], state.scores[foe], left, {
       win: 0.5,
       loss: 0.5,
     });
-    return cardPrice(base, value);
+
+    // And how much of that is still on the table *here*, which the scoreboard
+    // cannot know and the board can. A field already safe, or already gone, is
+    // worth nothing more whatever the standings say — so the odds of it
+    // changing hands are the other half of the price.
+    //
+    // Leaving this out was the defect: the price read the standings and never
+    // the board, so a hopeless battlefield charged the same as a decisive one
+    // and the search spent its hand climbing towards a line it could not reach.
+    const swing = this.contestable(state, player);
+    return cardPrice(base, stake * swing);
+  }
+
+  /**
+   * How much this battlefield's outcome is still in doubt, from 0 to 1.
+   *
+   * Peaks where the field is genuinely close and falls away in both directions —
+   * a field safe by ten and a field lost by ten are equally not worth a card.
+   * Built out of the same two numbers the search uses: what they can still swing
+   * (their Θ) and what stands now.
+   */
+  private contestable(state: GameState, player: PlayerId): number {
+    if (state.phase !== "battle") return 1;
+    const foe = player === "p1" ? "p2" : "p1";
+    const line = theta(state, foe, this.params.theta) - marginOf(state, player);
+    const mine = theta(state, player, this.params.theta);
+    // `line` is what I would have to gain to be safe; `mine` is what I can
+    // gain. Both far apart in either direction means the outcome is settled.
+    if (line < 0 && mine >= 0) {
+      // Already safe. In doubt only to the extent they can still reach me.
+      return Math.exp(-Math.abs(line) / 4);
+    }
+    if (line > mine) {
+      // Out of reach. In doubt only to the extent the gap is small.
+      return Math.exp(-(line - mine) / 4);
+    }
+    return 1;
   }
 
   /**
@@ -263,8 +318,10 @@ export class Planner {
     const foe = player === "p1" ? "p2" : "p1";
     const threat = theta(state, foe, this.params.theta);
     const now = marginOf(state, player);
-    // Gain needed so that (now + gain) clears their threat by one.
-    return Math.max(0, threat - now + 1);
+    // Gain needed so that (now + gain) clears their threat by one. Deliberately
+    // *not* clamped at zero: a negative line says the field is already safe by
+    // that much, which is exactly what stops the search buying more of it.
+    return threat - now + 1;
   }
 
   /**
@@ -281,6 +338,8 @@ export class Planner {
     const foe = player === "p1" ? "p2" : "p1";
     const cap = currentLocation(state).cap;
     const room = cap === null ? 0 : Math.max(0, cap - visibleCapSpent(state, foe));
+    // The board's score is a margin plus Θ, so the line it has to clear is
+    // what they can still place on top of it.
     return room + 1;
   }
 }
