@@ -16,14 +16,16 @@ import { getLocation, getSpell, getUnit } from "../engine/cards";
 import { pendingPrompt } from "../engine/prompts";
 import { power } from "../engine/power";
 import { applyAction, legalActions, remainingCap } from "../engine/reducer";
+import { slotsOf } from "../engine/grid";
 import { createGame } from "../engine/setup";
 import { boardTotal } from "../engine/totaling";
 import type { Action, GameState, PlayerId, SlotId } from "../engine/types";
 import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
-import { DEFAULT_BOARD, scoreBoard } from "./board";
+import { bestBoard, DEFAULT_BOARD, scoreBoard } from "./board";
+import { compositions, enables } from "./compose";
 import { DEFAULT_PLANNER, Planner } from "./planner";
 import { bestPlan, DEFAULT_THETA, margin as marginOf, theta } from "./theta";
-import { estimateThreat } from "./threat";
+import { worstCaseThreat } from "./threat";
 
 const ROWS: ("F" | "B")[] = ["F", "B"];
 const COLS = [1, 2, 3];
@@ -111,84 +113,96 @@ function describe(state: GameState, player: PlayerId, action: Action): string {
 /**
  * Why this move and not the others.
  *
- * The trace's job is to be disagreed with, and "cast Lánglándzsa" is not
- * something a person can disagree with — "cast Lánglándzsa, because it kills
- * the archer and takes the field, where the next best line gains two and leaves
- * me a point short" is. So the search is re-run with `explain` on and the
- * runners-up are printed with what they were worth.
- *
- * Lines that gain nothing are left out. A plan worth zero is not a rejected
- * alternative, it is the search noticing there was nothing there.
+ * The trace exists to be disagreed with, and "cast Lánglándzsa" is not a thing
+ * anyone can disagree with. What the bot actually weighed is: what it needs to
+ * be safe, what each line it looked at would reach, and where the ones it threw
+ * away fell short.
  */
 function whyBattle(state: GameState, player: PlayerId): string[] {
-  const threat = estimateThreat(state, player, { theta: DEFAULT_THETA });
   const now = marginOf(state, player);
+  // The same ceiling the planner stops on: the best hand the belief still
+  // allows them, not an average over likely ones.
+  const ceiling = worstCaseThreat(state, player, DEFAULT_THETA);
   const plan = bestPlan(state, player, { ...DEFAULT_THETA, explain: true });
 
   const out: string[] = [];
   out.push(
-    `      standing ${now >= 0 ? "+" : ""}${now}; they can still swing ` +
-      `${threat.theta.toFixed(1)}` +
-      (threat.certain ? " (certain — closed, or nothing of theirs can pay)" : " (estimated)") +
-      `; so I need ${(threat.theta - now + 0.5).toFixed(1)} more to be safe`,
+    `      standing ${now >= 0 ? "+" : ""}${now}. Best they could possibly do: ` +
+      `${ceiling.theta}` +
+      (ceiling.theta === 0 ? " (nothing — closed, or nothing of theirs can pay)" : "") +
+      `, so I am ${now > ceiling.theta ? "SAFE" : `${ceiling.theta - now + 1} short of safe`}`,
   );
+  if (now > ceiling.theta) {
+    out.push(`      → already won whatever they hold, so no card is worth spending`);
+    return out;
+  }
 
   const lines = plan.considered.filter((c) => c.gain > 0).slice(0, 4);
   if (lines.length === 0) {
-    out.push(`      nothing in hand moves the total from here, so kész`);
+    out.push(`      nothing in hand moves the total from here (9.5.2: damage that does not kill moves it by zero)`);
     return out;
   }
   for (const [at, line] of lines.entries()) {
     const names = line.spellIds.map((id) => getSpell(id).name).join(" → ") || "(stand still)";
     const ends = now + line.gain;
     const verdict =
-      ends > threat.theta
-        ? "takes the field"
-        : `${(threat.theta - ends).toFixed(1)} short`;
+      ends > ceiling.theta
+        ? "clears their ceiling — takes the field"
+        : ends > 0
+          ? "gets in front, but they could still answer"
+          : ends === 0
+            ? "levels it (1.3.2 voids the field for both)"
+            : `still ${-ends} behind`;
     out.push(
-      `      ${at === 0 ? "chosen:  " : "rejected:"} ${names} — gains ${line.gain}, ` +
-        `ends ${ends >= 0 ? "+" : ""}${ends}, ${verdict}`,
+      `      ${at === 0 ? "PLAYED   " : "passed on"} ${names} — swing +${line.gain}, ` +
+        `ends ${ends >= 0 ? "+" : ""}${ends}: ${verdict}`,
     );
   }
   return out;
 }
 
-/** The same for a placement: what the other boards were worth. */
+/**
+ * The same for the gathering, over the thing it actually decides: which units
+ * to bring, not which single card to put down next.
+ *
+ * Compositions are enumerated — every subset of the hand that fits the cap — so
+ * this lists the real candidates rather than the first placement of each. The
+ * cheap ranking (`promise`) is printed beside the real score, because where
+ * they disagree is where the Θ tier earned its time.
+ */
 function whyBoard(state: GameState, player: PlayerId): string[] {
-  const moves = legalActions(state, player).filter(
-    (a): a is Extract<Action, { type: "playUnit" }> => a.type === "playUnit" && !a.faceDown,
-  );
-  const bare = scoreBoard(state, player, DEFAULT_THETA, DEFAULT_BOARD.thetaWeight, DEFAULT_BOARD.exposure);
-  const rows = moves.map((move) => {
-    const card = state.players[player].unitHand.find((c) => c.uid === move.uid);
-    const after = applyAction(state, move);
-    const valued = scoreBoard(after, player, DEFAULT_THETA, DEFAULT_BOARD.thetaWeight, DEFAULT_BOARD.exposure);
-    return {
-      label: `${card ? getUnit(card.cardId).name : move.uid} on ${move.slot}`,
-      score: valued.score,
-      margin: valued.margin,
-    };
-  });
-  rows.sort((a, b) => b.score - a.score);
+  const capLeft = remainingCap(state, player);
+  const free = slotsOf(player).filter((slot) => !state.board[slot]);
+  const room = Math.min(free.length, DEFAULT_BOARD.maxPlacements);
+  const sets = compositions(state, player, Number.isFinite(capLeft) ? capLeft : 999, room)
+    .filter((c) => c.uids.length > 0);
+  for (const composition of sets) {
+    const printed = composition.cards.reduce((sum, card) => sum + card.power, 0);
+    composition.promise =
+      printed + DEFAULT_BOARD.castHint * enables(state, player, composition, free);
+  }
+  sets.sort((a, b) => b.promise - a.promise);
 
+  const bare = scoreBoard(state, player, DEFAULT_THETA, DEFAULT_BOARD.thetaWeight);
   const out: string[] = [
-    `      stopping here scores ${bare.score.toFixed(1)} (margin ${bare.margin})`,
+    `      ${sets.length} compositions fit the cap (${capLeft} left); ` +
+      `stopping here scores ${bare.score.toFixed(1)}`,
   ];
-  // One row per distinct card: six tiles of the same unit is not six options a
-  // person wants to read, and the tiles only differ where exposure bites.
-  const seen = new Set<string>();
-  for (const row of rows) {
-    const name = row.label.split(" on ")[0];
-    if (seen.has(name)) continue;
-    seen.add(name);
-    if (seen.size > 4) break;
+  const hand = state.players[player].unitHand;
+  for (const composition of sets.slice(0, 5)) {
+    const only = structuredClone(state);
+    only.players[player].unitHand = hand.filter((c) => composition.uids.includes(c.uid));
+    const plan = bestBoard(only, player, { ...DEFAULT_BOARD, theta: DEFAULT_THETA });
+    const names = composition.cards.map((c) => c.name).join(" + ");
+    const theta = (plan.score - plan.margin) / DEFAULT_BOARD.thetaWeight;
     out.push(
-      `      ${row.label} — scores ${row.score.toFixed(1)} (margin ${row.margin}, ` +
-        `Θ ${((row.score - row.margin) / DEFAULT_BOARD.thetaWeight).toFixed(1)})`,
+      `      ${names.slice(0, 46).padEnd(46)} cost ${String(composition.cost).padStart(2)}  ` +
+        `score ${plan.score.toFixed(1)} (power ${plan.margin}, Θ ${theta.toFixed(1)})`,
     );
   }
   return out;
 }
+
 
 function header(state: GameState, viewer: PlayerId): string {
   const loc = state.locations[state.locationIndex];
