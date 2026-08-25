@@ -61,6 +61,17 @@ export interface Plan {
   casts: Cast[];
   /** Margin after the plan, minus margin now. Never negative: stopping is free. */
   gain: number;
+  /**
+   * False when the search cut something: the node budget ran out, the depth cap
+   * bit while casts were still on offer, the beam dropped a line, or a pick list
+   * was longer than `maxPicks`.
+   *
+   * It is the difference between "this is the best plan" and "this is the best
+   * plan I looked at", and without it there is no way to tell an exhaustive run
+   * from a truncated one — which makes it impossible to use one as an oracle for
+   * the other.
+   */
+  complete: boolean;
 }
 
 export interface ThetaOptions {
@@ -113,7 +124,7 @@ export const FAST_THETA: ThetaOptions = { ...DEFAULT_THETA, nodeBudget: 200 };
 /** For measurement and for anything that only runs once. */
 export const DEEP_THETA: ThetaOptions = { ...DEFAULT_THETA, nodeBudget: 4000, maxDepth: 6 };
 
-export const EMPTY_PLAN: Plan = { casts: [], gain: 0 };
+export const EMPTY_PLAN: Plan = { casts: [], gain: 0, complete: true };
 
 function opponentOf(player: PlayerId): PlayerId {
   return player === "p1" ? "p2" : "p1";
@@ -217,12 +228,19 @@ export interface Line {
 /** Enough for one spell to reach at least a caster, a target and a destination. */
 const MIN_OPENER_SHARE = 12;
 
+/** The search's shared budget, and its record of having cut something. */
+interface Search {
+  spend(): boolean;
+  left(): number;
+  /** Called wherever the search knowingly stops short of looking at everything. */
+  truncate(): void;
+}
+
 function completeCasts(
   state: GameState,
   player: PlayerId,
   opts: ThetaOptions,
-  spend: () => boolean,
-  budgetLeft: () => number,
+  search: Search,
 ): Line[] {
   const before = margin(state, player);
   const out: Line[] = [];
@@ -238,11 +256,18 @@ function completeCasts(
   // in it can eat the whole budget before the second card is looked at. Which
   // card that is depends on draw order, so the search would be quietly
   // sensitive to something that means nothing.
-  const share = Math.max(MIN_OPENER_SHARE, Math.floor(budgetLeft() / Math.max(1, openers.length)));
+  const share = Math.max(MIN_OPENER_SHARE, Math.floor(search.left() / Math.max(1, openers.length)));
 
   for (const opener of openers) {
     let mine = share;
-    const spendMine = (): boolean => (mine > 0 && spend() ? (mine -= 1, true) : false);
+    const spendMine = (): boolean => {
+      if (mine <= 0 || !search.spend()) {
+        search.truncate();
+        return false;
+      }
+      mine -= 1;
+      return true;
+    };
     if (!spendMine()) break;
     const spellId =
       opener.type === "castSpell"
@@ -267,7 +292,9 @@ function completeCasts(
           continue;
         }
         if (!ours(node.state, player)) continue; // their pick, not ours to plan
-        const picks = legalActions(node.state, player).slice(0, opts.maxPicks);
+        const all = legalActions(node.state, player);
+        if (all.length > opts.maxPicks) search.truncate();
+        const picks = all.slice(0, opts.maxPicks);
         for (const pick of picks) {
           if (!spendMine()) break;
           const after = applyAction(node.state, pick);
@@ -364,32 +391,51 @@ export function bestPlan(
   if (state.phase !== "battle") return EMPTY_PLAN;
 
   let budget = opts.nodeBudget;
-  const spend = (): boolean => (budget > 0 ? (budget -= 1, true) : false);
-  const budgetLeft = (): number => budget;
+  let complete = true;
+  const search: Search = {
+    spend: () => (budget > 0 ? (budget -= 1, true) : false),
+    left: () => budget,
+    truncate: () => {
+      complete = false;
+    },
+  };
 
   const root = probe(state, player);
   const base = margin(root, player);
   const setups = setupSpells(root, player, opts);
 
-  let best: Plan = EMPTY_PLAN;
+  let best = { casts: [] as Cast[], gain: 0 };
 
   const walk = (from: GameState, depth: number, casts: Cast[]): void => {
     const gain = margin(from, player) - base;
     // Stopping is always available (8.7.1), so no plan is ever worth less than
     // nothing and the running best is the max over every prefix, not the leaf.
     if (gain > best.gain) best = { casts: [...casts], gain };
-    if (depth >= opts.maxDepth || budget <= 0) return;
     if (!ours(from, player) || resolving(from)) return;
+    if (depth >= opts.maxDepth || budget <= 0) {
+      // Only a cut if there was in fact something left to look at.
+      if (stillCastable(from, player)) search.truncate();
+      return;
+    }
 
-    const lines = completeCasts(from, player, opts, spend, budgetLeft);
+    const lines = completeCasts(from, player, opts, search);
     if (lines.length === 0) return;
-    for (const line of worthExploring(lines, setups, opts)) {
+    const kept = worthExploring(lines, setups, opts);
+    if (kept.length < lines.length) search.truncate();
+    for (const line of kept) {
       walk(line.state, depth + 1, [...casts, line.cast]);
     }
   };
 
   walk(root, 0, []);
-  return best;
+  return { ...best, complete };
+}
+
+/** Whether this player has any cast left on offer, without spending a clone. */
+function stillCastable(state: GameState, player: PlayerId): boolean {
+  return legalActions(state, player).some(
+    (a) => a.type === "castSpell" || a.type === "finishChannel",
+  );
 }
 
 /**
