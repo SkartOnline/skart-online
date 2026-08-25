@@ -337,10 +337,16 @@ export class Planner {
     if (!this.params.secure) return Infinity;
     const foe = player === "p1" ? "p2" : "p1";
     const cap = currentLocation(state).cap;
-    const room = cap === null ? 0 : Math.max(0, cap - visibleCapSpent(state, foe));
-    // The board's score is a margin plus Θ, so the line it has to clear is
-    // what they can still place on top of it.
-    return room + 1;
+    if (cap === null) return 1; // uncapped: nobody is out of room, so it is even
+    const theirs = Math.max(0, cap - visibleCapSpent(state, foe));
+    const mine = Math.max(0, cap - state.players[player].capSpent);
+    // What they can still put down *beyond* what I can — not their whole
+    // remaining cap, which was the first version and a disaster. Early in the
+    // gathering both sides are still holding the entire cap, and demanding a
+    // board that beats all of theirs asks for a margin no board can reach: the
+    // optimiser then scored every board at zero, priced every placement above
+    // it, and folded all six battlefields.
+    return theirs - mine + 1;
   }
 }
 
