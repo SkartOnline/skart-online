@@ -22,7 +22,7 @@ import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
 import { chooseAction, DEFAULT_POLICY } from "../sim/policy";
 import { loadModel, wilson } from "./arena";
 import { Agent, DEFAULT_AGENT } from "./agent";
-import { FAST_THETA } from "./theta";
+import { FAST_THETA, margin as marginOf, theta } from "./theta";
 import type { ThetaOptions } from "./theta";
 import { DEFAULT_PLANNER, Planner } from "./planner";
 import { Progress } from "./progress";
@@ -61,8 +61,23 @@ interface Result {
   /** Casts by the planner, and how many left its own side more damaged. */
   casts: number;
   selfDamaging: number;
+  /**
+   * Casts spent on a battlefield whose outcome was already settled — safe by
+   * more than they could take back, or out of reach of anything this hand could
+   * still do. Every one of these is a card that should have gone to the next
+   * field (12.6 draws it straight back, so holding costs nothing).
+   *
+   * This is the number the play-quality complaints were about, and it is worth
+   * more than the win rate for reading them: the reference policies throw cards
+   * away too, so a win rate cannot see the difference.
+   */
+  wastedSafe: number;
+  wastedLost: number;
   planner: Planner;
 }
+
+/** Cheap enough to run at every cast without doubling the scan. */
+const AUDIT = { ...FAST_THETA, nodeBudget: 120 };
 
 function play(
   deckA: string,
@@ -94,6 +109,12 @@ function play(
       const after = applyAction(state, action);
       if (wasCast && action.type === "castSpell") {
         result.casts += 1;
+        // Judged on the board as it stood *before* the cast: what they could
+        // still take back, and what this hand could still reach.
+        const foe = player === "p1" ? "p2" : "p1";
+        const standing = marginOf(state, player);
+        if (standing > theta(state, foe, AUDIT)) result.wastedSafe += 1;
+        else if (standing + theta(state, player, AUDIT) <= 0) result.wastedLost += 1;
         // 8.2.4: nothing of theirs resolves between our actions, so any new
         // damage on our own units is ours. Some cards want that — Áldozás and
         // Lélekszipoly are built on it — so the target is "near zero", not zero.
@@ -132,16 +153,33 @@ function run(
   games: number,
   theta: Partial<ThetaOptions>,
   gather: boolean,
+  legacy = false,
 ): Result {
   const planner = new Planner({
     ...DEFAULT_PLANNER,
     theta,
     gather,
+    // `--legacy` puts back the settings this bot shipped with before the play
+    // quality review: cards free in both phases, Θ counted at face value, no
+    // exposure term, and a finalist list filled by rank alone. It exists so the
+    // waste numbers below have something honest to be compared against.
+    ...(legacy ? { secure: false, thetaWeight: 1 } : {}),
     // The optimiser calls Θ once per finalist, so a gathering turn costs
     // `finalists × Θ`. Trimmed here so a 120-game run finishes this century.
-    board: { beamWidth: 5, finalists: 3, theta },
+    board: legacy
+      ? { beamWidth: 5, finalists: 3, perDepth: 0, thetaWeight: 1, exposure: 0, theta }
+      : { beamWidth: 5, finalists: 3, theta },
   });
-  const result: Result = { wins: 0, losses: 0, draws: 0, casts: 0, selfDamaging: 0, planner };
+  const result: Result = {
+    wins: 0,
+    losses: 0,
+    draws: 0,
+    casts: 0,
+    selfDamaging: 0,
+    wastedSafe: 0,
+    wastedLost: 0,
+    planner,
+  };
   // Temperature 0: an evaluation measures the policy, not its exploration.
   const bot =
     opponent === "bot"
@@ -179,16 +217,30 @@ function report(label: string, r: Result, games: number): void {
 export function main(argv: string[] = process.argv.slice(2)): void {
   const games = numberArg(argv, "--games", 60);
   const gather = !argv.includes("--no-gather");
+  const legacy = argv.includes("--legacy");
+  const only = argv.indexOf("--only");
   console.log(
-    `\nPlanner — ${gather ? "gathering and battle" : "battle phase only (gathering delegated)"}\n`,
+    `\nPlanner${legacy ? " (legacy settings)" : ""} — ` +
+      `${gather ? "gathering and battle" : "battle phase only (gathering delegated)"}\n`,
   );
 
-  const opponents: Side[] = ["baseline", "greedy", "bot", "neverstop"];
-  const results = opponents.map((o) => run(o, games, FAST_THETA, gather));
+  const opponents: Side[] =
+    only === -1
+      ? ["baseline", "greedy", "bot", "neverstop"]
+      : [argv[only + 1] as Side];
+  const results = opponents.map((o) => run(o, games, FAST_THETA, gather, legacy));
   opponents.forEach((o, i) => report(o, results[i], games));
 
   const casts = results.reduce((sum, r) => sum + r.casts, 0);
   const self = results.reduce((sum, r) => sum + r.selfDamaging, 0);
+  const safe = results.reduce((sum, r) => sum + r.wastedSafe, 0);
+  const lost = results.reduce((sum, r) => sum + r.wastedLost, 0);
+  const share = (n: number): string => `${((n / Math.max(1, casts)) * 100).toFixed(1)}%`;
+  console.log(
+    `\n  wasted casts: ${safe + lost} of ${casts} (${share(safe + lost)}) — ` +
+      `${safe} on a field already safe (${share(safe)}), ` +
+      `${lost} on one out of reach (${share(lost)})`,
+  );
   console.log(
     `\n  self-damaging casts: ${self} of ${casts} ` +
       `(${((self / Math.max(1, casts)) * 100).toFixed(2)}%)`,

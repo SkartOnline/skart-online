@@ -41,12 +41,13 @@
  * afterwards on the board that won.
  */
 
-import { getUnit } from "../engine/cards";
+import { getSpell, getUnit } from "../engine/cards";
+import { remainingSpellpower } from "../engine/power";
 import { pendingPrompt } from "../engine/prompts";
 import { applyAction, legalActions } from "../engine/reducer";
 import { boardTotal } from "../engine/totaling";
 import type { Action, GameState, PlayerId, SlotId } from "../engine/types";
-import { DEFAULT_THETA, score, winChance } from "./theta";
+import { DEFAULT_THETA, DEFAULT_THETA_WEIGHT, score, theta, winChance } from "./theta";
 import type { ThetaOptions } from "./theta";
 
 export interface Placement {
@@ -88,6 +89,25 @@ export interface BoardOptions {
   maxPlacements: number;
   /** Candidate boards handed to the real (Θ-bearing) evaluator. */
   finalists: number;
+  /**
+   * Finalists reserved for each placement depth, before the rest are filled by
+   * rank. Without this the finalist list is chosen by the cheap guide, which
+   * ranks by power alone, so the deepest fattest boards take every slot and the
+   * expensive evaluator never sees the board that traded a body for a caster.
+   */
+  perDepth: number;
+  /** How much of my own Θ counts next to power already standing. */
+  thetaWeight: number;
+  /**
+   * How much of *their* Θ is subtracted — what the board I am building hands
+   * them to shoot at.
+   *
+   * Θ is one-sided by contract, which is what makes it a capacity rather than a
+   * prediction. Playing the two capacities against each other is this layer's
+   * job (bot-algorithm.md §5.3), and it is what makes a fat unit parked in
+   * range of their casters worth less than the same unit out of reach.
+   */
+  exposure: number;
   /** Passed through to Θ on the finalists. */
   theta: Partial<ThetaOptions>;
 }
@@ -96,9 +116,12 @@ export const DEFAULT_BOARD: BoardOptions = {
   secured: Infinity,
   unitCost: 0,
   doubt: 2.5,
-  beamWidth: 8,
+  beamWidth: 12,
   maxPlacements: 6,
-  finalists: 6,
+  finalists: 16,
+  perDepth: 2,
+  thetaWeight: DEFAULT_THETA_WEIGHT,
+  exposure: 0.5,
   theta: DEFAULT_THETA,
 };
 
@@ -155,11 +178,21 @@ export function project(state: GameState, player: PlayerId): GameState {
   return applyAction(copy, { type: "declareUnitsDone", player });
 }
 
-/** Score a candidate the expensive way: project it, then ask what it is worth. */
+/**
+ * Score a candidate the expensive way: project it, then ask what it is worth.
+ *
+ * Two-sided, unlike Θ itself. `w·Θ(mine) − e·Θ(theirs)` is what makes the
+ * difference between a board that can act and a board that can only be acted
+ * upon — and it is the only thing that prices *where* a unit stands once the
+ * printed numbers are equal. A body parked in range of their casters is worth
+ * less than the same body out of range, and nothing else in this file knows it.
+ */
 export function scoreBoard(
   state: GameState,
   player: PlayerId,
   options: Partial<ThetaOptions> = {},
+  weight = DEFAULT_THETA_WEIGHT,
+  exposure = 0,
 ): { score: number; margin: number } {
   const projected = project(state, player);
   const margin = realisedMargin(projected, player);
@@ -167,15 +200,57 @@ export function scoreBoard(
   // plan to price, so the realised margin is the whole story. With the engine
   // gating placement this should not arise from a board the optimiser built.
   if (projected.phase !== "battle") return { score: margin, margin };
-  return { score: score(projected, player, options), margin };
+  const mine = score(projected, player, options, weight);
+  if (exposure === 0) return { score: mine, margin };
+  return { score: mine - exposure * theta(projected, opponentOf(player), options), margin };
 }
 
 interface Node {
   state: GameState;
   placements: Placement[];
   actions: Action[];
-  /** Cheap tier: realised margin, no Θ. */
+  /** Cheap tier: realised margin plus a rough read on what can be cast. */
   guide: number;
+  /** Placements deep, so the finalist list can be spread across depths. */
+  depth: number;
+}
+
+/**
+ * A stand-in for Θ cheap enough to run inside the beam: the largest spell in
+ * hand each of my units could actually pay for, added up.
+ *
+ * Deliberately crude, and wrong in both directions — it ignores range, line of
+ * sight, targets and what the spell would achieve, so it over-rates a caster
+ * with nothing to shoot at and under-rates a two-card combo. What it gets right
+ * is the distinction the margin-only guide could not see at all: a caster with
+ * a castable spell behind it is not the same card as the same caster with a
+ * dead hand. That was the Omnifex placement — ten cap spent on a caster holding
+ * no spell of its school, chosen over eight power of bodies, because the guide
+ * ranked by printed power and the Θ tier only ever saw boards the guide liked.
+ *
+ * 8.3.4: one caster pays a spell's whole cost out of one pool, never a sum
+ * across units, so this maximises per unit rather than pooling.
+ */
+function castPotential(state: GameState, player: PlayerId): number {
+  const hand = state.players[player].spellHand;
+  if (hand.length === 0) return 0;
+  const units = Object.values(state.board).filter((u) => u && u.owner === player);
+  if (units.length === 0) return 0;
+
+  let total = 0;
+  for (const unit of units) {
+    if (!unit) continue;
+    let best = 0;
+    for (const card of hand) {
+      const spell = getSpell(card.cardId);
+      const affordable = spell.schools.some(
+        (school) => remainingSpellpower(unit, school, state) >= spell.cost,
+      );
+      if (affordable && spell.cost > best) best = spell.cost;
+    }
+    total += best;
+  }
+  return total;
 }
 
 type PlayUnit = Extract<Action, { type: "playUnit" }>;
@@ -214,8 +289,11 @@ export function bestBoard(
   // is a legal board and often the right one, since overspending is punished by
   // the opponent stopping underneath you.
   const candidates: Node[] = [];
+  const cheap = (s: GameState, placed: number): number =>
+    worth(realisedMargin(s, player) + 0.5 * castPotential(s, player), opts.secured, opts.doubt) -
+    opts.unitCost * placed;
   let frontier: Node[] = [
-    { state, placements: [], actions: [], guide: worth(realisedMargin(state, player), opts.secured, opts.doubt) },
+    { state, placements: [], actions: [], depth: 0, guide: cheap(state, 0) },
   ];
 
   for (let depth = 0; depth < opts.maxPlacements; depth += 1) {
@@ -233,9 +311,8 @@ export function bestBoard(
           state: after,
           placements: [...node.placements, { cardId, slot: move.slot }],
           actions: [...node.actions, move],
-          guide:
-            worth(realisedMargin(after, player), opts.secured, opts.doubt) -
-            opts.unitCost * (node.placements.length + 1),
+          depth: depth + 1,
+          guide: cheap(after, node.placements.length + 1),
         });
       }
     }
@@ -248,17 +325,35 @@ export function bestBoard(
 
   if (candidates.length === 0) return empty;
 
-  // The cheap tier ranked these by bodies alone. The expensive one is what
-  // notices that the second-biggest board holds a caster with a hand behind it.
+  // The cheap tier ranked these by bodies and a rough cast count. The expensive
+  // one is what notices that the second-biggest board holds a caster with a
+  // hand behind it — but it only ever sees what is handed to it, and ranking a
+  // pooled list by the cheap guide hands it the deepest, fattest boards and
+  // nothing else. So the list is filled by depth first and by rank second: a
+  // three-unit board and a six-unit board are different *kinds* of answer, and
+  // both deserve a real score.
   candidates.sort((a, b) => b.guide - a.guide);
-  if (candidates.length > opts.finalists) complete = false;
-  const finalists = candidates.slice(0, opts.finalists);
+  const chosen: Node[] = [];
+  const taken = new Set<Node>();
+  const byDepth = new Map<number, number>();
+  for (const node of candidates) {
+    const at = byDepth.get(node.depth) ?? 0;
+    if (at >= opts.perDepth || chosen.length >= opts.finalists) continue;
+    byDepth.set(node.depth, at + 1);
+    chosen.push(node);
+    taken.add(node);
+  }
+  for (const node of candidates) {
+    if (chosen.length >= opts.finalists) break;
+    if (!taken.has(node)) chosen.push(node);
+  }
+  if (candidates.length > chosen.length) complete = false;
 
-  const bare = scoreBoard(state, player, opts.theta);
+  const bare = scoreBoard(state, player, opts.theta, opts.thetaWeight, opts.exposure);
   let best: BoardPlan = { ...empty, ...bare };
   let bestWorth = worth(bare.score, opts.secured, opts.doubt);
-  for (const node of finalists) {
-    const valued = scoreBoard(node.state, player, opts.theta);
+  for (const node of chosen) {
+    const valued = scoreBoard(node.state, player, opts.theta, opts.thetaWeight, opts.exposure);
     const valueWorth =
       worth(valued.score, opts.secured, opts.doubt) - opts.unitCost * node.placements.length;
     if (valueWorth > bestWorth) {

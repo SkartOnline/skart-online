@@ -170,7 +170,10 @@ describe("the board optimiser against brute force", () => {
     // both.
     //
     //   Charon    — power 9, no spellpower: margin 9, Θ 0  →  score 9
-    //   Celebrant — power 7, Mágus 10:      margin 7, Θ 3  →  score 10
+    //   Celebrant — power 7, Mágus 10:      margin 7, Θ 3  →  score 9.4
+    //
+    // Score discounts Θ by 0.8, so the gap is 0.4 rather than a point — which
+    // is the whole reason this board was arranged so the two cannot both fit.
     //
     // Θ is 3 because Lánglándzsa's 5 damage kills the 3-power archer outright,
     // and killing is the only way damage moves a total (9.5.2). Realised margin
@@ -185,15 +188,18 @@ describe("the board optimiser against brute force", () => {
 
     const plan = bestBoard(state, "p1", { theta: CHEAP });
     expect(plan.score).toBe(bruteForce(state, "p1"));
-    expect(plan.score).toBe(10);
+    expect(plan.score).toBeCloseTo(7 + 0.8 * 3, 6);
     expect(plan.placements.map((p) => p.cardId)).toEqual(["celebrant"]);
 
-    // And the second tier is doing the work: told to trust the cheap guide
-    // alone, the same search takes the fatter board and scores a point less. If
-    // this ever stops failing, the two tiers have collapsed into one.
+    // The cheap tier used to get this exactly backwards — told to trust the
+    // guide alone it took the fatter body, because the guide read printed power
+    // and nothing else. It now carries a rough count of what each unit could
+    // pay for, so it ranks the caster first on its own and the Θ tier only has
+    // to confirm it. That is the point of the change: the expensive evaluator
+    // can only ever choose between boards the cheap one hands it, so a guide
+    // blind to casters is a guide that never offers one.
     const guided = bestBoard(state, "p1", { theta: CHEAP, finalists: 1 });
-    expect(guided.placements.map((p) => p.cardId)).toEqual(["charon"]);
-    expect(guided.score).toBe(9);
+    expect(guided.placements.map((p) => p.cardId)).toEqual(["celebrant"]);
   });
 
   it("finds it under a cap that will not fit everything", () => {
@@ -233,5 +239,56 @@ describe("what the optimiser will not do", () => {
     for (const action of plan.actions) cursor = applyAction(cursor, action);
     expect(plan.placements.length).toBeGreaterThan(0);
     expect(plan.placements.length).toBe(plan.actions.length);
+  });
+});
+
+describe("what the exposure term buys", () => {
+  /**
+   * Where a unit stands was, until this term existed, a coin flip. Score was
+   * `my margin + my Θ`, and neither half moves when a body of mine slides from
+   * one empty tile to another — so all six tiles tied and the placement fell to
+   * whichever the engine happened to list first. The same shape of bug as the
+   * tutor that always took the first card on offer.
+   *
+   * Subtracting a share of *their* Θ is what gives the tiles different answers:
+   * a body their spell can reach and kill is worth less than the same body out
+   * of range.
+   */
+  function underThreat(): GameState {
+    const state = gathering(); // Umbra: no cap, no modifiers
+    place(state, "magister", "p2.F2"); // a Mágus caster in their front row
+    // Lánglándzsa is range 1 (4.7.3), so it reaches my front row and not my back.
+    spellHand(state, "p2", "langlandzsa");
+    unitHand(state, "p1", "burastya"); // small enough that 5 damage kills it
+    return state;
+  }
+
+  it("tells the tiles apart, which nothing else in the score does", () => {
+    const state = underThreat();
+    const scores = placementsFor(state, "p1").map((move) => {
+      const after = applyAction(state, move);
+      return {
+        slot: move.slot,
+        on: scoreBoard(after, "p1", CHEAP, 0.8, 0.5).score,
+        off: scoreBoard(after, "p1", CHEAP, 0.8, 0).score,
+      };
+    });
+    expect(scores.length).toBe(6);
+
+    // With the term off every tile is the same number, which is the defect.
+    expect(new Set(scores.map((s) => s.off)).size).toBe(1);
+
+    // With it on, the row their spell cannot reach is worth more.
+    const front = scores.filter((s) => s.slot.includes(".F"));
+    const back = scores.filter((s) => s.slot.includes(".B"));
+    expect(Math.min(...back.map((s) => s.on))).toBeGreaterThan(
+      Math.max(...front.map((s) => s.on)),
+    );
+  });
+
+  it("puts the body where it cannot be shot", () => {
+    const plan = bestBoard(underThreat(), "p1", { theta: CHEAP });
+    expect(plan.placements).toHaveLength(1);
+    expect(plan.placements[0].slot).toMatch(/\.B[123]$/);
   });
 });

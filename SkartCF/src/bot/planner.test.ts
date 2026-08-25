@@ -103,20 +103,21 @@ describe("the planner in the battle phase", () => {
     expect(after.board["p2.F2"]).toBeNull();
   });
 
-  it("declines the same kill when the battlefield is already won, if asked to", () => {
-    // The behaviour the securing line exists for, and it has to ask for it:
-    // `secure` defaults off, because across four measurements it halved the
-    // overkill and never won a game for it (bot-algorithm.md §8).
-    //
+  it("declines the same kill when the battlefield is already won", () => {
     // 7 against 2 with the opponent closed: the bandit is two points of margin
-    // that change nothing, and the card keeps its value for a field in doubt.
+    // that change nothing (1.3.1 gives the field to the larger sum by any
+    // amount), and the card keeps its value for a field still in doubt.
+    //
+    // `secure` used to default off, so this needed asking for and the shipped
+    // bot did the opposite — three casts while leading against a dead hand was
+    // what the trace showed. It is on now.
     const state = battle();
     place(state, "celebrant", "p1.F2");
     place(state, "bandita", "p2.F2");
     spellHand(state, "p1", "langlandzsa");
     state.players.p2.flags.spellsClosed = true;
 
-    const planner = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP, secure: true });
+    const planner = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP });
     const action = planner.choose(state, "p1");
     expect(action?.type).toBe("declareSpellsDone");
     const after = playOut(state, planner, "p1");
@@ -210,5 +211,68 @@ describe("the planner outside the battle phase", () => {
     expect(action).not.toBeNull();
     expect(planner.stats.boards).toBe(0);
     expect(planner.stats.plans).toBe(0);
+  });
+});
+
+describe("answering an ability's question", () => {
+  /**
+   * The defect a trace found before any measurement did: every prompt went to
+   * the fallback, which ranks options by the board total straight after the
+   * pick. Taking a card into hand moves no total, so every option scored the
+   * same, the comparison never fired, and the first option in the list won —
+   * every tutor, every game. It looked like a preference and was list order.
+   */
+  it("tutors the card that changes the battlefield, not the first one offered", () => {
+    const state = battle();
+    state.phase = "units";
+    state.players.p1.flags.unitsClosed = false;
+    state.players.p2.flags.unitsClosed = false;
+    place(state, "celebrant", "p1.F2"); // Mágus 10, so it can pay for either
+    place(state, "bandita", "p2.F2"); // 2 power, in range and killable
+
+    // A prompt asking which of two spells to take. Teleport is first — it moves
+    // an ally and nothing else, and there is nothing here to set up with it.
+    // Lánglándzsa kills the bandit, which is the battlefield.
+    state.prompts = [
+      {
+        id: 1,
+        kind: "tutor",
+        player: "p1",
+        prompt: "Kikeresés",
+        picking: "card",
+        cards: [
+          { uid: "t1", cardId: "teleport" },
+          { uid: "t2", cardId: "langlandzsa" },
+        ],
+        min: 1,
+        max: 1,
+        chosen: [],
+        data: { cardKind: "spell", source: "deck" },
+      },
+    ];
+    // The tutor pulls from the spell deck, so that is where the two cards live.
+    state.players.p1.spellDeck = [
+      { uid: "t1", cardId: "teleport" },
+      { uid: "t2", cardId: "langlandzsa" },
+    ];
+
+    const legal = legalActions(state, "p1");
+    // Only run the assertion if the fixture really did produce a two-way
+    // question; otherwise this would pass by describing nothing.
+    expect(legal.length).toBeGreaterThan(1);
+
+    const planner = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP });
+    const chosen = planner.choose(state, "p1");
+    expect(chosen).not.toBeNull();
+
+    // Named, not merely "different from the first": it has to take the lance.
+    const after = applyAction(state, chosen!);
+    const took = after.players.p1.spellHand.map((c) => c.cardId);
+    expect(took).toEqual(["langlandzsa"]);
+
+    // And the first option really was the wrong one, so the test is about the
+    // choice and not about the list happening to be in a helpful order.
+    const first = applyAction(state, legal[0]);
+    expect(first.players.p1.spellHand.map((c) => c.cardId)).toEqual(["teleport"]);
   });
 });

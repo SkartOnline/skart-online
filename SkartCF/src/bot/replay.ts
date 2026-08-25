@@ -21,7 +21,7 @@ import { boardTotal } from "../engine/totaling";
 import type { Action, GameState, PlayerId, SlotId } from "../engine/types";
 import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
 import { DEFAULT_PLANNER, Planner } from "./planner";
-import { FAST_THETA, theta } from "./theta";
+import { DEFAULT_THETA, theta } from "./theta";
 
 const ROWS: ("F" | "B")[] = ["F", "B"];
 const COLS = [1, 2, 3];
@@ -132,11 +132,9 @@ export function main(argv: string[] = process.argv.slice(2)): void {
   const viewer = arg(argv, "--seat", "p1") as PlayerId;
   const foe = other(viewer);
 
-  const planner = new Planner({
-    ...DEFAULT_PLANNER,
-    theta: FAST_THETA,
-    board: { beamWidth: 6, finalists: 4, theta: FAST_THETA },
-  });
+  // The shipped settings, not a trimmed set. A trace is only worth reading if
+  // it is the bot somebody would actually play against.
+  const planner = new Planner(DEFAULT_PLANNER);
   let state = createGame({ seed, decks: { p1: deckA, p2: deckB } });
   const baseline = { params: DEFAULT_BASELINE };
 
@@ -147,6 +145,9 @@ export function main(argv: string[] = process.argv.slice(2)): void {
   let seenLocation = -1;
   let lastPhase = "";
   let actions = 0;
+  let slowest = 0;
+  let spent = 0;
+  let thought = 0;
 
   while (state.phase !== "gameOver" && actions < 4000) {
     const player = actorOf(state);
@@ -166,10 +167,17 @@ export function main(argv: string[] = process.argv.slice(2)): void {
 
     const settled = !state.resolution && !pendingPrompt(state);
     const mine = player === viewer;
+    const began = Date.now();
     const action = mine
       ? planner.choose(state, player)
       : chooseBaselineAction(state, player, baseline);
     if (!action) break;
+    const took = Date.now() - began;
+    if (mine) {
+      slowest = Math.max(slowest, took);
+      spent += took;
+      thought += 1;
+    }
 
     if (mine && settled && (state.phase === "units" || state.phase === "battle")) {
       const me = boardTotal(state, viewer);
@@ -177,7 +185,7 @@ export function main(argv: string[] = process.argv.slice(2)): void {
       const capLeft = remainingCap(state, viewer);
       const reach =
         state.phase === "battle"
-          ? `, Θ mine ${theta(state, viewer, FAST_THETA)} theirs ${theta(state, foe, FAST_THETA)}`
+          ? `, Θ mine ${theta(state, viewer, DEFAULT_THETA)} theirs ${theta(state, foe, DEFAULT_THETA)}`
           : "";
       console.log(`\n   me ${me} — them ${them}` +
         (Number.isFinite(capLeft) ? `, cap left ${capLeft}` : "") + reach);
@@ -185,7 +193,7 @@ export function main(argv: string[] = process.argv.slice(2)): void {
       console.log(boardLines(state, viewer, viewer).join("\n"));
       console.log(`   their side:`);
       console.log(boardLines(state, foe, viewer).join("\n"));
-      console.log(`   ME: ${describe(state, player, action)}`);
+      console.log(`   ME: ${describe(state, player, action)}  [${took}ms]`);
     } else if (mine && !settled) {
       console.log(`   ME: ${describe(state, player, action)}`);
     } else if (!mine && settled && (state.phase === "units" || state.phase === "battle")) {
@@ -212,6 +220,10 @@ export function main(argv: string[] = process.argv.slice(2)): void {
   }
 
   console.log(`\n${"=".repeat(78)}`);
+  console.log(
+    `Thinking: ${thought} decisions, ${(spent / 1000).toFixed(1)}s total, ` +
+      `${Math.round(spent / Math.max(1, thought))}ms average, ${slowest}ms slowest`,
+  );
   console.log(`FINAL ${state.scores[viewer]}–${state.scores[foe]} — ${
     state.scores[viewer] > state.scores[foe] ? "I win" : state.scores[viewer] < state.scores[foe] ? "I lose" : "drawn"
   }`);

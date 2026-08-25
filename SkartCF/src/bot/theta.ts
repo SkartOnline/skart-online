@@ -182,7 +182,17 @@ export const DEFAULT_THETA: ThetaOptions = {
 export function winChance(gain: number, secured: number, doubt = DEFAULT_DOUBT): number {
   if (!Number.isFinite(secured)) return gain; // uncapped: rank by margin
   const edge = gain - secured;
-  return 1 / (1 + Math.exp(-edge / Math.max(0.05, doubt)));
+  // Doubt is uncertainty about *their* remaining swing, and it is not always
+  // there. Against a player who has declared kész (8.7.3), or whose Θ is zero,
+  // the swing is known to be exactly nothing and the outcome is not in doubt at
+  // all — so the objective is the step function the rules actually describe,
+  // not a sigmoid that still pays a little for margin nobody can take away.
+  //
+  // Leaving it soft is what kept a bot with a one-point lead against a dead
+  // hand casting a third spell: at the line the sigmoid reads 0.5, so buying
+  // four more power looked like it bought half a battlefield.
+  if (doubt <= 0) return edge > 0 ? 1 : edge < 0 ? 0 : 0.5;
+  return 1 / (1 + Math.exp(-edge / doubt));
 }
 
 /** For the hot loop: a third of the time, and right nine times in ten. */
@@ -540,19 +550,38 @@ export function theta(
 }
 
 /**
- * `score = realised power + Θ`, from one seat.
+ * How much of Θ counts, next to power already on the board.
+ *
+ * Not 1, and the reason is not tuning. Θ is what the hand could still do *if
+ * the opponent stands still* — and they do not. Between now and the count they
+ * can kill the caster, silence it, block the line, or simply make a different
+ * board the one worth answering. Realised power has none of that risk: it is
+ * already in the sum.
+ *
+ * So a point in hand is worth less than a point on the board, and where the two
+ * are level the board wins. That tie is not hypothetical — it is the exact
+ * shape of the gathering decision that stopped with four cap unspent while
+ * holding a unit that would have taken the lead: placing it scored 7, stopping
+ * scored 7, and a strict `>` sent it to stopping.
+ */
+export const DEFAULT_THETA_WEIGHT = 0.8;
+
+/**
+ * `score = realised power + w·Θ`, from one seat.
  *
  * The realised half is the board as it stands, the other half is what the hand
- * could still do to it. A caster holding nothing castable adds only its body; a
- * board that spent its whole cap on casters and shows no power is not weak, it
- * is holding Θ.
+ * could still do to it, discounted by `DEFAULT_THETA_WEIGHT` because it has not
+ * happened yet. A caster holding nothing castable adds only its body; a board
+ * that spent its whole cap on casters and shows no power is not weak, it is
+ * holding Θ — just not quite as much as if it had already spent it.
  */
 export function score(
   state: GameState,
   player: PlayerId,
   options: Partial<ThetaOptions> = {},
+  weight = DEFAULT_THETA_WEIGHT,
 ): number {
-  return margin(state, player) + theta(state, player, options);
+  return margin(state, player) + weight * theta(state, player, options);
 }
 
 /**

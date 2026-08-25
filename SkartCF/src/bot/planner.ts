@@ -55,16 +55,24 @@
 
 import { getLocation } from "../engine/cards";
 import { currentLocation } from "../engine/power";
-import { legalActions } from "../engine/reducer";
+import { applyAction, legalActions } from "../engine/reducer";
 import { visibleCapSpent } from "../engine/totaling";
 import { pendingPrompt } from "../engine/prompts";
 import type { Action, GameState, PlayerId } from "../engine/types";
 import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
 import type { BaselineContext } from "../sim/baseline";
-import { bestBoard, DEFAULT_BOARD } from "./board";
+import { bestBoard, DEFAULT_BOARD, scoreBoard } from "./board";
 import type { BoardOptions } from "./board";
 import { cardPrice, fieldValue } from "./match";
-import { bestPlan, DEFAULT_DOUBT, DEFAULT_THETA, margin as marginOf, theta } from "./theta";
+import {
+  bestPlan,
+  DEFAULT_DOUBT,
+  DEFAULT_THETA,
+  DEFAULT_THETA_WEIGHT,
+  margin as marginOf,
+  score,
+  theta,
+} from "./theta";
 import type { ThetaOptions } from "./theta";
 
 export interface PlannerParams {
@@ -100,6 +108,12 @@ export interface PlannerParams {
   unitCost: number;
   /** Off, and every battlefield is priced as though it were an ordinary one. */
   weighByMatch: boolean;
+  /**
+   * How much of Θ counts next to power already on the board, wherever this
+   * layer scores something itself. Below 1 because a plan can still be taken
+   * away and a total on the board cannot.
+   */
+  thetaWeight: number;
 }
 
 export const DEFAULT_PLANNER: PlannerParams = {
@@ -107,16 +121,20 @@ export const DEFAULT_PLANNER: PlannerParams = {
   board: DEFAULT_BOARD,
   fallback: { params: DEFAULT_BASELINE },
   gather: true,
-  // Off, and deliberately. The machinery below works — it halves the overkill
-  // exactly as designed — and across four measurements it never once won more
-  // games. Best case was parity; scaling by the match layer was worse. See
-  // bot-algorithm.md §8, "And it did not work".
-  secure: false,
+  // On. It was off for four measurements that all said it changed no win rate,
+  // and the win rate was the wrong judge: the reference opponents throw cards
+  // away too, so nothing in the measurement could punish a card spent on a
+  // battlefield already won. Off, `securedGain` is `Infinity` and `priceOf` is
+  // zero, which makes the whole battle-phase objective "maximise margin, cards
+  // are free" — and that is exactly the bot that casts a third spell while
+  // leading by three against an opponent whose Θ is zero.
+  secure: true,
   // In win-probability, not power: a card is worth this much of a battlefield's
   // chances on an ordinary field. §8 scales it from there.
   cardCost: 0.04,
   unitCost: 0.04,
   weighByMatch: true,
+  thetaWeight: DEFAULT_THETA_WEIGHT,
 };
 
 export interface PlannerStats {
@@ -128,6 +146,8 @@ export interface PlannerStats {
   multiCast: number;
   /** Plans abandoned because a queued pick had stopped being legal. */
   abandoned: number;
+  /** Ability questions answered by score rather than by list order. */
+  answers: number;
   /** Gathering turns where a board was planned, and how many placed nothing. */
   boards: number;
   boardStops: number;
@@ -142,6 +162,7 @@ export class Planner {
     stops: 0,
     multiCast: 0,
     abandoned: 0,
+    answers: 0,
     boards: 0,
     boardStops: 0,
     placements: 0,
@@ -170,10 +191,11 @@ export class Planner {
 
     const settled = !state.resolution && !pendingPrompt(state);
 
-    if (this.params.gather && state.phase === "units" && settled) {
+    if (!settled) return this.answer(state, player, legal);
+    if (this.params.gather && state.phase === "units") {
       return this.gather(state, player, legal);
     }
-    if (state.phase !== "battle" || !settled) {
+    if (state.phase !== "battle") {
       return chooseBaselineAction(state, player, this.params.fallback);
     }
 
@@ -203,6 +225,47 @@ export class Planner {
       return chooseBaselineAction(state, player, this.params.fallback);
     }
     return first;
+  }
+
+  /**
+   * An ability's question, answered by what the board is worth afterwards.
+   *
+   * `prompts.ts` questions — which card to tutor, which to hand over, where to
+   * put the thing that just moved — used to go to the fallback, which ranks
+   * options by the board total *immediately* after the pick. For a tutor that
+   * number is identical for every card on offer, because taking a card into
+   * hand moves no total at all, so the comparison never fired and the first
+   * option in the list won every time. That is the whole reason a deck with no
+   * positional synergies kept tutoring Teleport: it was first, not chosen.
+   *
+   * Scoring the option instead of the instant is what fixes it, and the
+   * evaluator is already written: the card that adds the most to what this hand
+   * can still do is the card worth taking, which is what Θ measures.
+   *
+   * A pick that leaves another question behind is scored where it stands rather
+   * than projected — an unanswered prompt is not a board that can be run out.
+   */
+  private answer(state: GameState, player: PlayerId, legal: Action[]): Action | null {
+    if (legal.length === 1) return legal[0];
+    if (!this.params.gather) return chooseBaselineAction(state, player, this.params.fallback);
+
+    let best = legal[0];
+    let bestValue = -Infinity;
+    for (const option of legal) {
+      const after = applyAction(state, option);
+      const value =
+        after.phase === "units"
+          ? scoreBoard(after, player, this.params.theta, this.params.thetaWeight).score
+          : after.phase === "battle"
+            ? score(after, player, this.params.theta, this.params.thetaWeight)
+            : marginOf(after, player);
+      if (value > bestValue) {
+        bestValue = value;
+        best = option;
+      }
+    }
+    this.stats.answers += 1;
+    return best;
   }
 
   /**
@@ -243,7 +306,14 @@ export class Planner {
    */
   private doubtAbout(state: GameState, player: PlayerId): number {
     const foe = player === "p1" ? "p2" : "p1";
-    return state.players[foe].flags.spellsClosed ? 0.5 : DEFAULT_DOUBT;
+    if (state.players[foe].flags.spellsClosed) return 0;
+    // Declaring kész is not the only way to be unable to act. A hand with
+    // nothing castable, or nothing worth casting, has a Θ of zero and will move
+    // the total by exactly as much as a player who has already stopped — so the
+    // doubt band should be just as narrow. Leaving it wide here is what kept a
+    // one-point lead against a dead hand looking like it was worth padding.
+    if (theta(state, foe, this.params.theta) <= 0) return 0;
+    return DEFAULT_DOUBT;
   }
 
   /**
@@ -322,10 +392,16 @@ export class Planner {
     const foe = player === "p1" ? "p2" : "p1";
     const threat = theta(state, foe, this.params.theta);
     const now = marginOf(state, player);
-    // Gain needed so that (now + gain) clears their threat by one. Deliberately
-    // *not* clamped at zero: a negative line says the field is already safe by
-    // that much, which is exactly what stops the search buying more of it.
-    return threat - now + 1;
+    // The field is safe when `now + gain` ends up *above* their threat — 1.3.1
+    // gives it to the larger sum by any amount — so the line sits at
+    // `threat - now`, and the half point puts the sigmoid's centre between the
+    // last losing gain and the first winning one. It used to be a whole point,
+    // which put the centre on the first *winning* gain and read a position
+    // already safe by one as a coin flip.
+    //
+    // Deliberately not clamped at zero: a negative line says the field is
+    // already safe by that much, which is what stops the search buying more.
+    return threat - now + 0.5;
   }
 
   /**

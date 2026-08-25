@@ -237,8 +237,11 @@ describe("score = realised power + Θ", () => {
     place(state, "bandita", "p2.F2"); // 2
     expect(score(state, "p1")).toBe(5);
 
+    // Θ is 2 — the bandit dies — but score discounts it: a plan is not a total,
+    // and 0.8 is what a point in hand is worth next to a point on the board.
     hand(state, "p1", "langlandzsa"); // kills the bandit
-    expect(score(state, "p1")).toBe(7);
+    expect(score(state, "p1")).toBeCloseTo(5 + 0.8 * 2, 6);
+    expect(score(state, "p1", {}, 1)).toBe(7); // undiscounted, on request
   });
 
   it("is unmoved by a card no unit on the board can pay for", () => {
