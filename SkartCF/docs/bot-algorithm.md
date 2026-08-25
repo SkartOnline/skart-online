@@ -628,8 +628,11 @@ the rest of this plan gets built.
 - ~~**Cost of `Θ` in the hot loop.**~~ **Measured.** ~100 ms per call at the
   shipped budget, ~34 ms at `FAST_THETA`, against a 3-second move budget. Fine
   for play; still heavy for training, where a self-play game makes hundreds of
-  calls. The cached-cheap-Θ fallback has not been needed yet and may be once the
-  gathering search sits on top of it.
+  calls. The cached-cheap-Θ fallback was needed sooner than expected: the board
+  optimiser (§6.1) calls Θ once per finalist, so a gathering decision costs
+  `finalists × Θ` — about 600 ms at the defaults. That multiplication, not Θ
+  itself, is now what the 3-second budget is being spent on, and it is why the
+  budget stays at the measured knee rather than being raised.
 - ~~**Θ is verified against itself, not against exhaustive.**~~ **Closed.**
   `theta.oracle.test.ts` generates small boards — one or two casters, one to
   three bodies opposite, one to three cards in hand — and shrinks them until
@@ -657,11 +660,45 @@ the rest of this plan gets built.
   `theta.test.ts` — two Explars, and Senyvesztés into Káoszkolera — and by the
   `worthExploring` unit tests. An oracle that exercised it would need boards big
   enough to be unexhaustible, which is the thing that cannot be had.
-- **The beam is not the whole story on wide hands.** `maxLines` and `maxPicks`
-  cut by rank and by arbitrary engine order respectively. Ordering picks by what
-  the combo graph says the spell is *for* — a removal spell wants the biggest
-  legal target, a threshold setup wants the one nearest the cutoff — would spend
-  the budget better than truncating `legalActions`. Unmeasured.
+- ~~**The beam is not the whole story on wide hands.**~~ **Measured, and the
+  answer split in two.**
+
+  The proposed fix was to order picks by what the combo graph says the spell is
+  for, instead of truncating `legalActions` in arbitrary order. That fix is not
+  worth building: over 8 370 pick levels in real games, pick lists run mean 2.39,
+  p50 2, p90 5, p99 7, max 10, and **only 1.8% exceed `maxPicks: 6`**. A third of
+  levels offer a single forced option. Ordering would touch under one level in
+  fifty.
+
+  But the search *does* cut, and much more than expected. With `Plan.complete`
+  reporting it honestly, over 817 battle-phase decisions:
+
+  | | share |
+  |---|---|
+  | decisions where Θ cut something | 29.5% |
+  | **decisions where Θ found a plan and cut something** | **58.3%** |
+
+  So the cutting is not at the picks — it is the node budget and the `maxLines`
+  beam, on exactly the decisions that matter.
+
+  Two things stop that being alarming, and one thing stops it being fine.
+
+  `complete: false` says "I did not look at everything", not "I got it wrong",
+  and it is deliberately trigger-happy: a spell exhausting its own share of the
+  budget sets it, as does the beam dropping the 13th of 14 completed lines.
+  Against that, quadrupling the budget from 800 to 4000 changes the answer on
+  only 2.8% of decisions. Since a search that cut nothing cannot be improved by
+  more budget, those disagreements must all sit inside the truncated 29.5% —
+  which puts the disagreement rate *within* truncated decisions at roughly
+  **9.5%** (2.8 / 29.5; the two figures come from different samples, so treat
+  it as an estimate rather than a measurement).
+
+  What stops it being fine: that 2.8% is agreement between two *truncated*
+  searches. Budget 4000 cuts too. The only untruncated evidence is the
+  exhaustive oracle above, and that lives on boards far smaller than the ones
+  where cutting happens. The gap is real and this is the sharpest statement
+  available: **Θ is exactly right where it can be checked, and knowingly
+  approximate on most of the decisions where it has something to say.**
 - **How many determinizations.** `Θ(theirs)` is an expectation over the belief.
   Eight samples is a guess.
 - **Whether L1 needs to exist separately.** It may collapse into L0 plus score
