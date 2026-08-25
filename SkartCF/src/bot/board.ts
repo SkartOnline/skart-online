@@ -74,6 +74,12 @@ export interface BoardOptions {
    * optimiser stops paying for it.
    */
   secured: number;
+  /**
+   * What committing one unit costs, in power. Same reasoning as Θ's
+   * `cardCost`: without a price on spending, a saturating value changes no
+   * decision, because more margin is still weakly better.
+   */
+  unitCost: number;
   /** Sequences carried forward at each placement. */
   beamWidth: number;
   /** Units placed at most, on top of whatever already stands. */
@@ -86,6 +92,7 @@ export interface BoardOptions {
 
 export const DEFAULT_BOARD: BoardOptions = {
   secured: Infinity,
+  unitCost: 0,
   beamWidth: 8,
   maxPlacements: 6,
   finalists: 6,
@@ -223,7 +230,9 @@ export function bestBoard(
           state: after,
           placements: [...node.placements, { cardId, slot: move.slot }],
           actions: [...node.actions, move],
-          guide: worth(realisedMargin(after, player), opts.secured),
+          guide:
+            worth(realisedMargin(after, player), opts.secured) -
+            opts.unitCost * (node.placements.length + 1),
         });
       }
     }
@@ -247,7 +256,8 @@ export function bestBoard(
   let bestWorth = worth(bare.score, opts.secured);
   for (const node of finalists) {
     const valued = scoreBoard(node.state, player, opts.theta);
-    const valueWorth = worth(valued.score, opts.secured);
+    const valueWorth =
+      worth(valued.score, opts.secured) - opts.unitCost * node.placements.length;
     if (valueWorth > bestWorth) {
       bestWorth = valueWorth;
       best = {

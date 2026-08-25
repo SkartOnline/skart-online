@@ -272,6 +272,7 @@ describe("the pruning rule", () => {
       nodeBudget: 4000,
       classes: ["value"],
       secured: Infinity,
+      cardCost: 0,
     });
     const ids = kept.map((l) => l.cast.spellId);
     expect(ids).toEqual(["bigA", "bigB", "explar"]);
@@ -286,6 +287,7 @@ describe("the pruning rule", () => {
       nodeBudget: 4000,
       classes: ["value"],
       secured: Infinity,
+      cardCost: 0,
     });
     expect(kept.map((l) => l.cast.spellId)).toEqual(["bigA", "bigB"]);
   });

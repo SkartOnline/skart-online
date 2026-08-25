@@ -97,6 +97,21 @@ export interface ThetaOptions {
    * by an average of 6.65 and lost by an average of 4.65.
    */
   secured: number;
+  /**
+   * What one spell out of hand costs, in power.
+   *
+   * Without this `secured` does nothing at all, and it is worth being precise
+   * about why: saturating the value of a margin is a monotonically increasing
+   * transform of it, so it rescales every option by the same rule and leaves
+   * the argmax exactly where it was. Winning by eight still beats winning by
+   * two. The saturation only bites when the second card is *charged for*, so
+   * that once the extra margin has stopped counting, spending stops being free.
+   *
+   * §9 says the true price is the card's option value on the battlefields still
+   * to come, which is the match layer's job (§8) and unbuilt. This is a flat
+   * stand-in for it.
+   */
+  cardCost: number;
 }
 
 /**
@@ -129,6 +144,7 @@ export const DEFAULT_THETA: ThetaOptions = {
   nodeBudget: 800,
   classes: DEFAULT_CLASSES,
   secured: Infinity,
+  cardCost: 0,
 };
 
 /**
@@ -445,7 +461,7 @@ export function bestPlan(
     // nothing and the running best is the max over every prefix, not the leaf.
     // Ranked by what the gain is *worth* — see `secured`. The plan still
     // reports its true margin, because callers price resources against that.
-    const value = valueOfGain(gain, opts.secured);
+    const value = valueOfGain(gain, opts.secured) - opts.cardCost * casts.length;
     if (value > bestValue) {
       bestValue = value;
       best = { casts: [...casts], gain };

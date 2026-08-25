@@ -84,6 +84,14 @@ export interface PlannerParams {
    * outcome. Kept as a switch so the difference stays measurable.
    */
   secure: boolean;
+  /**
+   * The price of a card, in power. `secure` decides when extra margin stops
+   * counting; this decides what it costs to buy anyway. Both are needed —
+   * either alone changes nothing.
+   */
+  cardCost: number;
+  /** The same, for committing a unit to the board. */
+  unitCost: number;
 }
 
 export const DEFAULT_PLANNER: PlannerParams = {
@@ -92,6 +100,8 @@ export const DEFAULT_PLANNER: PlannerParams = {
   fallback: { params: DEFAULT_BASELINE },
   gather: true,
   secure: true,
+  cardCost: 1,
+  unitCost: 1,
 };
 
 export interface PlannerStats {
@@ -155,6 +165,7 @@ export class Planner {
     const plan = bestPlan(state, player, {
       ...this.params.theta,
       secured: this.securedGain(state, player),
+      cardCost: this.params.secure ? this.params.cardCost : 0,
     });
     this.stats.plans += 1;
 
@@ -187,6 +198,7 @@ export class Planner {
     const plan = bestBoard(state, player, {
       ...this.params.board,
       secured: this.securedBoard(state, player),
+      unitCost: this.params.secure ? this.params.unitCost : 0,
     });
     this.stats.boards += 1;
 
