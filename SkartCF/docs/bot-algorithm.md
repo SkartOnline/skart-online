@@ -632,8 +632,40 @@ know, and `cardPrice` scales the base rate by it: cards nearly free where the
 match hangs on this field, prohibitive where it cannot change the result.
 
 That is fold-awareness derived rather than tuned, and it is the thing
-`sim/baseline.ts` has had all along via `foldMargin` — which is the most likely
-explanation for why two whole layers bought nothing against it.
+`sim/baseline.ts` has had all along via `foldMargin`.
+
+### And it did not work
+
+Measured against the baseline, 40 games per arm:
+
+| | games won | won by | blowouts ≥6 | narrow losses |
+|---|---|---|---|---|
+| no pricing | 57% | +6.51 | 55 | 46 |
+| flat price | 50% | +4.12 | **27** | 47 |
+| priced by match | 50% | +4.20 | 28 | 47 |
+
+The overkill goes away exactly as designed — blowouts halve, the average win
+drops from +6.5 to +4.2. **And nothing else improves.** Narrow losses sit at
+46, 47, 47; the win rate does not rise; and pricing by the match layer is
+indistinguishable from a constant.
+
+So the argument this was all built on — that margin wasted on won battlefields
+would flip the ones lost by a point — is **not supported by the evidence**. The
+resources are successfully saved and then never spent. Nothing tells the planner
+that *this* field is the one to commit to, so it economises everywhere and the
+game ends with cards in hand.
+
+Why §8 failed to beat a constant is the more useful half. `fieldValue` assumes
+`p = 0.5` for every remaining battlefield, so it varies with the **scoreboard**
+and not with the board in front of it. It cannot tell a winnable field from a
+hopeless one, which is the only discrimination that would make a card cheap here
+and dear there. That is the `p_i(c)` cost curve this document specified as the
+L0↔L1 interface (§2, §8) and which is still unbuilt — and until it exists, the
+match layer has nothing to be right about.
+
+The 40-game samples put Wilson intervals around ±15 points, so "57 versus 50" is
+not established either. What *is* established is the blowout halving, which is a
+per-battlefield statistic over 200+ fields rather than a per-game one over 40.
 
 ---
 
