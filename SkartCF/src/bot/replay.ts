@@ -195,7 +195,7 @@ export function main(argv: string[] = process.argv.slice(2)): void {
       console.log(boardLines(state, foe, viewer).join("\n"));
       console.log(`   ME: ${describe(state, player, action)}  [${took}ms]`);
     } else if (mine && !settled) {
-      console.log(`   ME: ${describe(state, player, action)}`);
+      console.log(`   ME: ${describe(state, player, action)}  [${took}ms]`);
     } else if (!mine && settled && (state.phase === "units" || state.phase === "battle")) {
       console.log(`   THEM: ${describe(state, player, action)}`);
     }

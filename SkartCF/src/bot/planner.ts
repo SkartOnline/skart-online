@@ -114,6 +114,17 @@ export interface PlannerParams {
    * away and a total on the board cannot.
    */
   thetaWeight: number;
+  /**
+   * Wall-clock allowance for one decision, in milliseconds. 0 leaves the node
+   * budgets to do the limiting on their own.
+   *
+   * A decision is not one Θ call — the gathering path scores every finalist and
+   * the battle path adds three auxiliary calls for the securing line — so this
+   * is divided among them rather than handed to each. Whatever is left over
+   * from a call that finished early is not redistributed, which keeps the split
+   * even between finalists that deserve equal attention.
+   */
+  budgetMs: number;
 }
 
 export const DEFAULT_PLANNER: PlannerParams = {
@@ -135,6 +146,9 @@ export const DEFAULT_PLANNER: PlannerParams = {
   unitCost: 0.04,
   weighByMatch: true,
   thetaWeight: DEFAULT_THETA_WEIGHT,
+  // Comfortably inside the ten seconds a hotseat opponent is allowed, with room
+  // for the engine work around the search.
+  budgetMs: 8000,
 };
 
 export interface PlannerStats {
@@ -199,11 +213,16 @@ export class Planner {
       return chooseBaselineAction(state, player, this.params.fallback);
     }
 
+    // Four Θ calls make up a battle decision: the plan itself, and the three
+    // that build the line it is aimed at. The plan gets the lion's share.
+    const share = this.params.budgetMs > 0 ? Math.floor(this.params.budgetMs / 8) : 0;
+    const aux = { ...this.params.theta, deadlineMs: share };
     const plan = bestPlan(state, player, {
       ...this.params.theta,
-      secured: this.securedGain(state, player),
-      cardCost: this.priceOf(state, player, this.params.cardCost),
-      doubt: this.doubtAbout(state, player),
+      deadlineMs: share > 0 ? share * 5 : 0,
+      secured: this.securedGain(state, player, aux),
+      cardCost: this.priceOf(state, player, this.params.cardCost, aux),
+      doubt: this.doubtAbout(state, player, aux),
     });
     this.stats.plans += 1;
 
@@ -249,15 +268,25 @@ export class Planner {
     if (legal.length === 1) return legal[0];
     if (!this.params.gather) return chooseBaselineAction(state, player, this.params.fallback);
 
+    // A question can offer a whole deck to pick from, and each option costs a
+    // full Θ, so this needs a share of the allowance as much as the searches do.
+    const opts =
+      this.params.budgetMs > 0
+        ? {
+            ...this.params.theta,
+            deadlineMs: Math.max(20, Math.floor(this.params.budgetMs / legal.length)),
+          }
+        : this.params.theta;
+
     let best = legal[0];
     let bestValue = -Infinity;
     for (const option of legal) {
       const after = applyAction(state, option);
       const value =
         after.phase === "units"
-          ? scoreBoard(after, player, this.params.theta, this.params.thetaWeight).score
+          ? scoreBoard(after, player, opts, this.params.thetaWeight).score
           : after.phase === "battle"
-            ? score(after, player, this.params.theta, this.params.thetaWeight)
+            ? score(after, player, opts, this.params.thetaWeight)
             : marginOf(after, player);
       if (value > bestValue) {
         bestValue = value;
@@ -274,8 +303,19 @@ export class Planner {
    * they get to answer it.
    */
   private gather(state: GameState, player: PlayerId, legal: Action[]): Action | null {
+    // Every finalist costs a Θ call, plus one for the board as it stands — and
+    // *two* each once the exposure term is on, because their capacity has to be
+    // measured as well as mine. Dividing by the finalists alone was worth an
+    // eleven-second decision against an eight-second allowance.
+    const board = { ...DEFAULT_BOARD, ...this.params.board };
+    const perBoard = board.exposure === 0 ? 1 : 2;
+    const perScore =
+      this.params.budgetMs > 0
+        ? Math.max(20, Math.floor(this.params.budgetMs / (perBoard * (board.finalists + 2))))
+        : 0;
     const plan = bestBoard(state, player, {
       ...this.params.board,
+      theta: { ...board.theta, deadlineMs: perScore },
       secured: this.securedBoard(state, player),
       unitCost: this.priceOf(state, player, this.params.unitCost),
     });
@@ -304,7 +344,7 @@ export class Planner {
    * has declared done (8.7.3) will swing the total by exactly nothing, and a
    * field safe by five against that is simply safe.
    */
-  private doubtAbout(state: GameState, player: PlayerId): number {
+  private doubtAbout(state: GameState, player: PlayerId, opts = this.params.theta): number {
     const foe = player === "p1" ? "p2" : "p1";
     if (state.players[foe].flags.spellsClosed) return 0;
     // Declaring kész is not the only way to be unable to act. A hand with
@@ -312,7 +352,7 @@ export class Planner {
     // the total by exactly as much as a player who has already stopped — so the
     // doubt band should be just as narrow. Leaving it wide here is what kept a
     // one-point lead against a dead hand looking like it was worth padding.
-    if (theta(state, foe, this.params.theta) <= 0) return 0;
+    if (theta(state, foe, opts) <= 0) return 0;
     return DEFAULT_DOUBT;
   }
 
@@ -325,7 +365,12 @@ export class Planner {
    * it folds everything, tuned low it folds nothing — which is exactly what the
    * price sweep found before this was wired in.
    */
-  private priceOf(state: GameState, player: PlayerId, base: number): number {
+  private priceOf(
+    state: GameState,
+    player: PlayerId,
+    base: number,
+    opts = this.params.theta,
+  ): number {
     if (!this.params.secure) return 0;
     if (!this.params.weighByMatch) return base;
 
@@ -350,7 +395,7 @@ export class Planner {
     // Leaving this out was the defect: the price read the standings and never
     // the board, so a hopeless battlefield charged the same as a decisive one
     // and the search spent its hand climbing towards a line it could not reach.
-    const swing = this.contestable(state, player);
+    const swing = this.contestable(state, player, opts);
     return cardPrice(base, stake * swing);
   }
 
@@ -362,11 +407,11 @@ export class Planner {
    * Built out of the same two numbers the search uses: what they can still swing
    * (their Θ) and what stands now.
    */
-  private contestable(state: GameState, player: PlayerId): number {
+  private contestable(state: GameState, player: PlayerId, opts = this.params.theta): number {
     if (state.phase !== "battle") return 1;
     const foe = player === "p1" ? "p2" : "p1";
-    const line = theta(state, foe, this.params.theta) - marginOf(state, player);
-    const mine = theta(state, player, this.params.theta);
+    const line = theta(state, foe, opts) - marginOf(state, player);
+    const mine = theta(state, player, opts);
     // `line` is what I would have to gain to be safe; `mine` is what I can
     // gain. Both far apart in either direction means the outcome is settled.
     if (line < 0 && mine >= 0) {
@@ -387,10 +432,10 @@ export class Planner {
    * cannot be taken away and everything past that is overkill. One extra Θ call
    * per decision, from their seat.
    */
-  private securedGain(state: GameState, player: PlayerId): number {
+  private securedGain(state: GameState, player: PlayerId, opts = this.params.theta): number {
     if (!this.params.secure) return Infinity;
     const foe = player === "p1" ? "p2" : "p1";
-    const threat = theta(state, foe, this.params.theta);
+    const threat = theta(state, foe, opts);
     const now = marginOf(state, player);
     // The field is safe when `now + gain` ends up *above* their threat — 1.3.1
     // gives it to the larger sum by any amount — so the line sits at

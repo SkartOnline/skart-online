@@ -1068,6 +1068,25 @@ Either the remaining gap is somewhere nothing has looked yet, or the baseline is
 simply a strong policy on these decks and the reference needs replacing. Neither
 has been established.
 
+### What more search would have bought
+
+The obvious response to "the bot plays badly" is to let it think longer, and it
+is worth recording that this was measured and is not the answer. The Θ budget
+sweep already in `theta.ts` says the curve is flat: 800 nodes agrees with 4000
+on 97.2% of decisions, 1600 on 98.8%. Every defect above was a wrong objective,
+not a shallow search — more time would have found the same bad answer more
+thoroughly.
+
+What the larger allowance did buy is a `deadlineMs` on Θ and a `budgetMs` on the
+planner, so the wall clock rather than a node count is what bounds a move. That
+lets the node budget rise to 1600 without the worst board hanging a turn, and it
+closed a genuine hole: the prompt path scored every option with an unbounded Θ,
+which on a question offering a whole deck ran to eleven and a half seconds.
+
+The split has to count the calls a decision actually makes. A gathering decision
+scores `finalists + 1` boards, and the exposure term means *two* Θ calls per
+board rather than one — dividing by the finalists alone was the eleven seconds.
+
 ### What is still not built
 
 - **Leszerelés (§9).** The bot has never discarded a card. `cleanup` goes to the

@@ -98,6 +98,18 @@ export interface ThetaOptions {
   maxPicks: number;
   /** Hard ceiling on engine calls, so a pathological board cannot hang a turn. */
   nodeBudget: number;
+  /**
+   * Wall-clock ceiling in milliseconds, or 0 for none. Checked alongside the
+   * node budget and enforced the same way — the search stops and marks itself
+   * incomplete rather than returning something half-built.
+   *
+   * A node count is the wrong shape for a move budget on its own: a node on a
+   * crowded board with six casters costs several times what a node costs on an
+   * empty one, so a count tuned for the worst case starves the average and a
+   * count tuned for the average hangs on the worst. A deadline spends the time
+   * that is actually available.
+   */
+  deadlineMs: number;
   /** Which combo edges count as "this could matter to that". */
   classes: readonly EdgeClass[];
   /**
@@ -145,10 +157,20 @@ export interface ThetaOptions {
  * A smaller budget never once beat a larger one, on any of the 504 decisions,
  * which is what you want from a beam: more search only ever finds more.
  *
- * 800 is the default because it is comfortably inside the 3-second move budget
- * the app allows, and because the curve is flat past it — the last 2.8% of
- * answers cost four times the time. Training and the balance runner call Θ
- * hundreds of thousands of times and should take `FAST` instead.
+ * 1600 is the default. The move budget is now eight seconds rather than three,
+ * and `deadlineMs` puts a wall-clock ceiling underneath it, so the node count no
+ * longer has to be conservative enough to survive the worst board on its own.
+ *
+ * It is worth being clear about how little this buys, because the obvious
+ * response to "the bot plays badly" is "let it think longer" and that is not
+ * where the problem was. Going from 800 to 1600 changes the answer on 1.2% of
+ * decisions; going all the way to 4000 changes 2.8%. The curve is flat, it was
+ * measured to be flat, and every defect §13 records was a wrong objective
+ * rather than a shallow search. More time would have found the same bad answer
+ * slightly more thoroughly.
+ *
+ * Training and the balance runner call Θ hundreds of thousands of times and
+ * should take `FAST` instead.
  *
  * Times are from one container and will move; the agreement column will not.
  */
@@ -156,7 +178,8 @@ export const DEFAULT_THETA: ThetaOptions = {
   maxDepth: 4,
   maxLines: 12,
   maxPicks: 6,
-  nodeBudget: 800,
+  nodeBudget: 1600,
+  deadlineMs: 0,
   classes: DEFAULT_CLASSES,
   secured: Infinity,
   cardCost: 0,
@@ -469,8 +492,24 @@ export function bestPlan(
 
   let budget = opts.nodeBudget;
   let complete = true;
+  // Checking the clock on every node is a syscall per candidate, which is real
+  // money at this budget — so it is sampled, and the sample is small enough
+  // that an overrun is a few nodes rather than a few hundred.
+  const until = opts.deadlineMs > 0 ? Date.now() + opts.deadlineMs : 0;
+  let sinceCheck = 0;
+  const outOfTime = (): boolean => {
+    if (until === 0) return false;
+    if ((sinceCheck += 1) < 16) return false;
+    sinceCheck = 0;
+    if (Date.now() < until) return false;
+    budget = 0;
+    return true;
+  };
   const search: Search = {
-    spend: () => (budget > 0 ? (budget -= 1, true) : false),
+    spend: () => {
+      if (outOfTime()) return false;
+      return budget > 0 ? (budget -= 1, true) : false;
+    },
     left: () => budget,
     truncate: () => {
       complete = false;
