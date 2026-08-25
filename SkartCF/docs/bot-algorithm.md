@@ -379,6 +379,42 @@ over six slots — exact subset DP or a beam, and cheap either way.
 This is the one piece that should be plain code with a brute-force oracle test.
 It is fully determined, it is small, and learning it would be waste.
 
+**Built**: `src/bot/board.ts`. One thing the sketch above got wrong — it is not
+an *assignment* over six tiles. Belépő fires as each unit lands (6.3.6), so the
+same six cards in two orders are two different boards, and the search is over
+placement **sequences**. Candidates are therefore built out of real `playUnit`
+actions, which also gets the cap, the blocked tiles and the placement rules for
+free.
+
+Evaluating a candidate means projecting it into the battle it would become:
+declare both sides finished and let the engine run the Mustra — the reveal, the
+owed Belépő, the Mustra abilities, in 7.5's tile order — then call `score` on
+the result. Nothing reimplements the Mustra.
+
+Two tiers, because score is too slow to call at every node — this is §12's
+"cached cheap Θ for interior nodes, the full one at leaves", and it turned out
+to be needed at the first layer that sits on Θ rather than later:
+
+| tier | evaluator | where |
+|---|---|---|
+| beam | realised margin, no Θ | every node |
+| finalists | `score` = margin + Θ | top `finalists` candidates |
+
+The cheap tier cannot see that a caster is worth more than its body, so the
+finalist tier is what puts casters back. The test that pins this is the one
+where the two tiers disagree: a cap of 15 forcing a choice between Charon
+(power 9, no spellpower — margin 9, Θ 0) and Celebrant (power 7, Mágus 10 with
+a Lánglándzsa behind it — margin 7, Θ 3). Realised margin ranks them the wrong
+way round; score does not, and told to trust the beam alone the search takes
+Charon and scores a point less.
+
+**The cap on this**: the beam is guided by a number that is blind to the very
+thing the finalists are chosen for. A caster board that ranks below
+`beamWidth` on realised margin never reaches the finalists at all. On the
+hands measured so far that has not bitten, but it is the obvious place for
+this to be wrong, and the fix — guiding with a cheap Θ proxy such as castable
+spellpower — is unbuilt.
+
 ### 6.2 Stopping
 
 The hardest decision in the game and the current bot's worst failure
@@ -572,7 +608,7 @@ current monolith, where a wrong answer has no localisable cause.
 | 1 | ~~Combo graph from `schema.ts`~~ **done** — `src/bot/combo.ts` | `combo.test.ts`: `modifyPower`+`thresholdAoe(power)` connected; `modifyPower`+`massDestroy(basePower)` not; `setPower`+`massDestroy(basePower)` is; Infiltráció+Hátbaszúrás connected by `enable` and not by `value`; damage+Kegyelemdöfés connected |
 | 2 | ~~`Θ` — plan enumeration and valuation~~ **done** — `src/bot/theta.ts` | `theta.test.ts`: hand-computed values on toy boards, including the two combos above and the caster-pricing identity. Exhaustive search was tried as the oracle at scale and is not affordable — see below |
 | 3 | ~~`score` = realised + `Θ`~~ **done** — same file | monotonicity holds: adding a castable bomb never lowers score, an unpayable card never moves it |
-| 4 | Board optimiser | brute force over small hands and caps |
+| 4 | ~~Board optimiser~~ **done** — `src/bot/board.ts` | `board.test.ts`: beam equals exhaustive placement search on constrained boards, including under a cap; and `finalists: 1` demonstrably picks worse |
 | 5 | Belief model | calibration on self-play logs: predicted school payload vs actual |
 | 6 | Battle-phase plan/schedule/re-plan | beats the current bot head to head; self-damage rate near zero |
 | 7 | Gathering search over best responses | beats a **never-stops-early** reference opponent |

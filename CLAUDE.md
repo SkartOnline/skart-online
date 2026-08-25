@@ -45,7 +45,7 @@ public site.
 | In-app rulebook screen | `src/ui/Rulebook.tsx` renders `docs/szabaly-*.md` directly — edit the docs, never the screen |
 | Balance simulator | `src/sim/run.ts` (runner/report), `src/sim/baseline.ts` (default policy: deterministic, theoretical-max driven), `src/sim/policy.ts` (old randomised greedy, kept as the bot's sparring partner) |
 | Learning bot | `src/bot/` — `docs/bot.md` first; `agent.ts`, `features.ts`, `observe.ts`, `model.ts`, `learn.ts`, `selfplay.ts`, `train.ts` |
-| Bot redesign (score, plans, combo graph) | `docs/bot-algorithm.md` — the layered plan; built so far: `src/bot/combo.ts` (which cards can matter to each other) and `src/bot/theta.ts` (the best plan still available, and `score`). `npm run combos` and `npm run theta` measure them |
+| Bot redesign (score, plans, combo graph) | `docs/bot-algorithm.md` — the layered plan; built so far: `src/bot/combo.ts` (which cards can matter to each other), `src/bot/theta.ts` (the best plan still available, and `score`), `src/bot/board.ts` (the best board to put down, given theirs). `npm run combos` and `npm run theta` measure them |
 | Card art | drop `src/ui/art/<cardId>.webp` — nothing else to change |
 
 ## Invariants — do not break
