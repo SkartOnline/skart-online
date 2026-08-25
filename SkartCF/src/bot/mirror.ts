@@ -78,6 +78,16 @@ export interface Tally {
   casts: number;
   wasted: number;
   discards: number;
+  /**
+   * Fields won and cards spent, by position in the six.
+   *
+   * The question §8 kept failing to answer. The whole case for pricing cards is
+   * that margin saved on an early battlefield is spent on a later one — and
+   * nothing has ever checked whether the later ones actually improve. If the
+   * early fields get worse and the late fields do not get better, the cards are
+   * being saved and then never spent, and the premise is simply wrong.
+   */
+  byField: { won: number; lost: number; casts: number }[];
 }
 
 function blank(): Tally {
@@ -85,6 +95,7 @@ function blank(): Tally {
     wins: 0, losses: 0, draws: 0,
     fieldsWon: 0, fieldsLost: 0, fieldsVoid: 0,
     casts: 0, wasted: 0, discards: 0,
+    byField: Array.from({ length: 8 }, () => ({ won: 0, lost: 0, casts: 0 })),
   };
 }
 
@@ -117,6 +128,8 @@ function playGame(
         !pendingPrompt(state)
       ) {
         tally.casts += 1;
+        const at = tally.byField[state.locationIndex];
+        if (at) at.casts += 1;
         const foe = player === "p1" ? "p2" : "p1";
         const standing = marginOf(state, player);
         // Already safe by more than they can take back, or already out of reach
@@ -130,10 +143,15 @@ function playGame(
   }
 
   const foe: PlayerId = seat === "p1" ? "p2" : "p1";
-  for (const loc of state.locations) {
-    if (loc.winner === seat) tally.fieldsWon += 1;
-    else if (loc.winner === foe) tally.fieldsLost += 1;
-    else if (loc.winner) tally.fieldsVoid += 1;
+  for (const [at, loc] of state.locations.entries()) {
+    const slot = tally.byField[at];
+    if (loc.winner === seat) {
+      tally.fieldsWon += 1;
+      if (slot) slot.won += 1;
+    } else if (loc.winner === foe) {
+      tally.fieldsLost += 1;
+      if (slot) slot.lost += 1;
+    } else if (loc.winner) tally.fieldsVoid += 1;
   }
   if (state.scores[seat] > state.scores[foe]) tally.wins += 1;
   else if (state.scores[seat] < state.scores[foe]) tally.losses += 1;
@@ -174,7 +192,21 @@ export function main(argv: string[] = process.argv.slice(2)): void {
       `  decks: ${decks.join(", ")}\n`,
   );
 
-  const fresh = new Planner({ ...DEFAULT_PLANNER, theta, board: { beamWidth: 5, finalists: 3, theta } });
+  // Ablation switches, so "which of the changes did that" is one run rather
+  // than a rebuild. Each turns off one thing and leaves the rest alone.
+  const off = (flag: string): boolean => argv.includes(`--no-${flag}`);
+  const fresh = new Planner({
+    ...DEFAULT_PLANNER,
+    theta,
+    board: { beamWidth: 5, finalists: 3, theta },
+    ...(off("secure") ? { secure: false } : {}),
+    ...(off("believe") ? { believe: false } : {}),
+    ...(off("toss") ? { toss: false } : {}),
+    ...(off("exposure") ? { board: { beamWidth: 5, finalists: 3, theta, exposure: 0 } } : {}),
+    ...(off("weight") ? { thetaWeight: 1 } : {}),
+  });
+  const ablations = ["secure", "believe", "toss", "exposure", "weight"].filter(off);
+  if (ablations.length > 0) console.log(`  ablated: ${ablations.join(", ")}\n`);
   const old = new Planner({ ...LEGACY_PLANNER, theta, board: { ...LEGACY_PLANNER.board, beamWidth: 5, finalists: 3, theta } });
   const baseline = { params: DEFAULT_BASELINE };
 
@@ -204,12 +236,44 @@ export function main(argv: string[] = process.argv.slice(2)): void {
           `${((tally.wasted / Math.max(1, tally.casts)) * 100).toFixed(0)}% wasted`,
       );
     }
-    for (const key of Object.keys(overall) as (keyof Tally)[]) overall[key] += tally[key];
+      for (const key of Object.keys(overall) as (keyof Tally)[]) {
+      if (key === "byField") {
+        tally.byField.forEach((f, at) => {
+          overall.byField[at].won += f.won;
+          overall.byField[at].lost += f.lost;
+          overall.byField[at].casts += f.casts;
+        });
+      } else {
+        (overall[key] as number) += tally[key] as number;
+      }
+    }
     console.log(line(deck, tally, games));
   }
 
   console.log("");
   console.log(line("ALL", overall, games * decks.length));
+
+  // The premise, laid out so it can be read straight off: if pricing cards
+  // works, the early columns give something up and the late ones take it back.
+  console.log(`\n  by battlefield (won/lost, casts spent there):`);
+  const cols = overall.byField
+    .map((f, at) => ({ at, ...f }))
+    .filter((f) => f.won + f.lost > 0);
+  console.log(
+    `    field   ` + cols.map((f) => String(f.at + 1).padStart(9)).join(""),
+  );
+  console.log(
+    `    W/L     ` + cols.map((f) => `${f.won}/${f.lost}`.padStart(9)).join(""),
+  );
+  console.log(
+    `    win %   ` +
+      cols
+        .map((f) => `${((f.won / Math.max(1, f.won + f.lost)) * 100).toFixed(0)}%`.padStart(9))
+        .join(""),
+  );
+  console.log(
+    `    casts   ` + cols.map((f) => String(f.casts).padStart(9)).join(""),
+  );
   const decided = overall.wins + overall.losses;
   const rate = decided > 0 ? overall.wins / decided : 0;
   const [lo] = wilson(overall.wins, decided);
