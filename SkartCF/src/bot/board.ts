@@ -41,10 +41,12 @@
  * afterwards on the board that won.
  */
 
-import { getSpell, getUnit } from "../engine/cards";
-import { remainingSpellpower } from "../engine/power";
+import { getUnit } from "../engine/cards";
+import { slotsOf } from "../engine/grid";
 import { pendingPrompt } from "../engine/prompts";
-import { applyAction, legalActions } from "../engine/reducer";
+import { applyAction, legalActions, remainingCap } from "../engine/reducer";
+import { compositions, enables, reach } from "./compose";
+import type { Composition } from "./compose";
 import { boardTotal } from "../engine/totaling";
 import type { Action, GameState, PlayerId, SlotId } from "../engine/types";
 import { DEFAULT_THETA, DEFAULT_THETA_WEIGHT, score, theta, winChance } from "./theta";
@@ -83,8 +85,19 @@ export interface BoardOptions {
   unitCost: number;
   /** Width of the doubt band around `secured`. */
   doubt: number;
-  /** Sequences carried forward at each placement. */
+  /** Arrangements carried forward at each placement, *within* a composition. */
   beamWidth: number;
+  /** Compositions handed to the arranger, ranked by the cheap promise score. */
+  compositions: number;
+  /**
+   * Arrangements kept per composition and handed to the Θ tier.
+   *
+   * More than one, because the cheap guide cannot see everything a tile is
+   * worth — safety in particular, which is what the opponent can reach. One
+   * arrangement per composition means the expensive evaluator never gets to
+   * choose a tile at all.
+   */
+  arrangements: number;
   /** Units placed at most, on top of whatever already stands. */
   maxPlacements: number;
   /** Candidate boards handed to the real (Θ-bearing) evaluator. */
@@ -138,12 +151,19 @@ export const DEFAULT_BOARD: BoardOptions = {
   secured: Infinity,
   unitCost: 0,
   doubt: 2.5,
-  beamWidth: 12,
+  beamWidth: 4,
+  compositions: 24,
+  arrangements: 3,
   maxPlacements: 6,
   finalists: 16,
   perDepth: 2,
   thetaWeight: DEFAULT_THETA_WEIGHT,
-  exposure: 0.5,
+  // Zero. It was an invention of mine, not of the design, and the argument
+  // against it is decisive: a spell they spend on the body I just put down is a
+  // spell they did not spend elsewhere, so a fresh target is not a cost. Kept
+  // as a dial because "how likely is my unit to be hit" is a real question —
+  // it is just not answered by subtracting their whole capacity.
+  exposure: 0,
   castHint: 0.5,
   // Off until the beam stops pruning wide boards at depth 1 — a tie-break
   // towards placing is worth nothing while the board worth placing was never
@@ -201,10 +221,12 @@ export function project(state: GameState, player: PlayerId): GameState {
   if (state.phase !== "units") return state;
   // A Belépő can stop and ask (Griff going through a hand, a tutor listing a
   // deck). Declaring the gathering over on top of an unanswered question is not
-  // a legal move, so such a board is scored where it stands rather than pushed
-  // through a Mustra it is not ready for.
-  if (state.resolution || pendingPrompt(state)) return state;
-  const copy = structuredClone(state);
+  // a legal move — so the question is answered first rather than the board
+  // being scored where it stands, which used to make every composition holding
+  // a tutor score as the smaller board it had got stuck as.
+  const settled = settle(state, player);
+  if (settled.resolution || pendingPrompt(settled)) return settled;
+  const copy = structuredClone(settled);
   copy.players.p1.flags.unitsClosed = true;
   copy.players.p2.flags.unitsClosed = true;
   copy.log = [];
@@ -243,51 +265,73 @@ interface Node {
   state: GameState;
   placements: Placement[];
   actions: Action[];
-  /** Cheap tier: realised margin plus a rough read on what can be cast. */
+  /** Realised margin after this arrangement, used only to rank arrangements. */
   guide: number;
-  /** Placements deep, so the finalist list can be spread across depths. */
+  /** Placements deep. */
   depth: number;
 }
 
-/**
- * A stand-in for Θ cheap enough to run inside the beam: the largest spell in
- * hand each of my units could actually pay for, added up.
- *
- * Deliberately crude, and wrong in both directions — it ignores range, line of
- * sight, targets and what the spell would achieve, so it over-rates a caster
- * with nothing to shoot at and under-rates a two-card combo. What it gets right
- * is the distinction the margin-only guide could not see at all: a caster with
- * a castable spell behind it is not the same card as the same caster with a
- * dead hand. That was the Omnifex placement — ten cap spent on a caster holding
- * no spell of its school, chosen over eight power of bodies, because the guide
- * ranked by printed power and the Θ tier only ever saw boards the guide liked.
- *
- * 8.3.4: one caster pays a spell's whole cost out of one pool, never a sum
- * across units, so this maximises per unit rather than pooling.
- */
-function castPotential(state: GameState, player: PlayerId): number {
-  const hand = state.players[player].spellHand;
-  if (hand.length === 0) return 0;
-  const units = Object.values(state.board).filter((u) => u && u.owner === player);
-  if (units.length === 0) return 0;
+type PlayUnit = Extract<Action, { type: "playUnit" }>;
 
-  let total = 0;
-  for (const unit of units) {
-    if (!unit) continue;
-    let best = 0;
-    for (const card of hand) {
-      const spell = getSpell(card.cardId);
-      const affordable = spell.schools.some(
-        (school) => remainingSpellpower(unit, school, state) >= spell.cost,
-      );
-      if (affordable && spell.cost > best) best = spell.cost;
-    }
-    total += best;
-  }
-  return total;
+/**
+ * Hand the turn back, so the next unit of mine can be planned.
+ *
+ * 6.1.3 alternates placement, so `applyAction` passes the turn to the opponent
+ * the moment a unit lands and `legalActions(me)` immediately returns nothing.
+ * Any search that plans more than one of my own placements has to undo that —
+ * and until this existed, none of them did. The "beam over placement sequences"
+ * had a frontier that went empty at depth one, every candidate past the first
+ * card was unreachable, and `maxPlacements: 6` described a search that could
+ * only ever place one unit.
+ *
+ * The fiction is the same one `theta.ts`'s `probe` uses and it is the same
+ * fiction the layer above already commits to: plan my own board out, play only
+ * its first placement, then rebuild from whatever they put down in reply. What
+ * is planned is *my* board, so the opponent standing still inside the plan is
+ * the question being asked, not an error in asking it.
+ */
+export function myTurn(state: GameState, player: PlayerId): GameState {
+  if (state.turn === player && !state.turnActions.unitPlayed) return state;
+  const copy = structuredClone(state);
+  copy.turn = player;
+  copy.turnActions = { unitPlayed: false, spellPlayed: false };
+  return copy;
 }
 
-type PlayUnit = Extract<Action, { type: "playUnit" }>;
+/**
+ * Answer any question a Belépő has just asked, so the arrangement can carry on.
+ *
+ * 6.3.6 fires a Belépő the moment the unit lands, and some of them stop and ask
+ * — Artifex goes through the deck, Griff goes through a hand. Until the question
+ * is answered the board accepts no further placement and `project()` refuses to
+ * run the Mustra, so a composition holding one of those units used to truncate
+ * halfway and be scored as a board it was not.
+ *
+ * Answered by immediate board total, not by Θ: this runs inside the arrangement
+ * loop, once per candidate, and the pick is refined later by the planner's own
+ * prompt handling on the board that actually gets played.
+ */
+function settle(state: GameState, player: PlayerId, limit = 8): GameState {
+  let cursor = state;
+  for (let i = 0; i < limit; i += 1) {
+    if (!cursor.resolution && !pendingPrompt(cursor)) break;
+    const asking = pendingPrompt(cursor)?.player ?? cursor.resolution?.pending?.player ?? player;
+    const options = legalActions(cursor, asking);
+    if (options.length === 0) break;
+    let best = options[0];
+    let bestTotal = -Infinity;
+    for (const option of options) {
+      const after = applyAction(cursor, option);
+      const total = boardTotal(after, player) - boardTotal(after, opponentOf(player));
+      if (total > bestTotal) {
+        bestTotal = total;
+        best = option;
+      }
+    }
+    cursor = applyAction(cursor, best);
+  }
+  return cursor;
+}
 
 /** Face-up placements only — hiding is decided later, on the board that wins. */
 function placementActions(state: GameState, player: PlayerId): PlayUnit[] {
@@ -318,83 +362,52 @@ export function bestBoard(
   };
   if (state.phase !== "units") return empty;
 
-  let complete = true;
-  // Every prefix is a candidate, not just the full-depth leaves: stopping early
-  // is a legal board and often the right one, since overspending is punished by
-  // the opponent stopping underneath you.
-  const candidates: Node[] = [];
-  const cheap = (s: GameState, placed: number): number =>
-    worth(
-      realisedMargin(s, player) +
-        (opts.castHint > 0 ? opts.castHint * castPotential(s, player) : 0),
-      opts.secured,
-      opts.doubt,
-    ) - opts.unitCost * placed;
-  let frontier: Node[] = [
-    { state, placements: [], actions: [], depth: 0, guide: cheap(state, 0) },
-  ];
+  const capLeft = remainingCap(state, player);
+  const free = slotsOf(player).filter((slot) => !state.board[slot]);
+  const room = Math.min(free.length, opts.maxPlacements);
+  if (room <= 0) return empty;
 
-  for (let depth = 0; depth < opts.maxPlacements; depth += 1) {
-    const grown: Node[] = [];
-    for (const node of frontier) {
-      const moves = placementActions(node.state, player);
-      const hand = new Map(node.state.players[player].unitHand.map((c) => [c.uid, c.cardId]));
-      for (const move of moves) {
-        // The action names a hand card by uid; the plan wants to be readable, so
-        // resolve it to the card before the placement consumes it.
-        const cardId = hand.get(move.uid);
-        if (!cardId) continue;
-        const after = applyAction(node.state, move);
-        grown.push({
-          state: after,
-          placements: [...node.placements, { cardId, slot: move.slot }],
-          actions: [...node.actions, move],
-          depth: depth + 1,
-          guide: cheap(after, node.placements.length + 1),
-        });
-      }
-    }
-    if (grown.length === 0) break;
-    grown.sort((a, b) => b.guide - a.guide);
-    if (grown.length > opts.beamWidth) complete = false;
-    frontier = grown.slice(0, opts.beamWidth);
-    candidates.push(...frontier);
-  }
+  // 1. Every composition that fits. Enumerated, so no card can be pruned before
+  //    it has been seen in company — which is exactly what the old prefix beam
+  //    did to every cheap unit on a high-cap battlefield.
+  const all = compositions(state, player, Number.isFinite(capLeft) ? capLeft : 999, room);
+  const nonEmpty = all.filter((c) => c.uids.length > 0);
+  if (nonEmpty.length === 0) return empty;
 
-  if (candidates.length === 0) return empty;
+  // 2. Rank them without placing anything: printed power, plus the spell cost
+  //    this composition turns on. Tiles are not settled yet, so `enables` asks
+  //    about the free ones, which is enough to tell a caster with a live target
+  //    from one holding a dead hand.
+  for (const composition of nonEmpty) {
+    const printed = composition.cards.reduce((sum, card) => sum + card.power, 0);
+    composition.promise = printed + opts.castHint * enables(state, player, composition, free);
+  }
+  nonEmpty.sort((a, b) => b.promise - a.promise);
 
-  // The cheap tier ranked these by bodies and a rough cast count. The expensive
-  // one is what notices that the second-biggest board holds a caster with a
-  // hand behind it — but it only ever sees what is handed to it, and ranking a
-  // pooled list by the cheap guide hands it the deepest, fattest boards and
-  // nothing else. So the list is filled by depth first and by rank second: a
-  // three-unit board and a six-unit board are different *kinds* of answer, and
-  // both deserve a real score.
-  candidates.sort((a, b) => b.guide - a.guide);
-  const chosen: Node[] = [];
-  const taken = new Set<Node>();
-  const byDepth = new Map<number, number>();
-  for (const node of candidates) {
-    const at = byDepth.get(node.depth) ?? 0;
-    if (at >= opts.perDepth || chosen.length >= opts.finalists) continue;
-    byDepth.set(node.depth, at + 1);
-    chosen.push(node);
-    taken.add(node);
+  let complete = nonEmpty.length <= opts.compositions;
+  const shortlist = nonEmpty.slice(0, opts.compositions);
+
+  // 3. Arrange each one through the engine, because Belépő fires on placement
+  //    and in order (6.3.6) and only the engine knows what it does. A beam here
+  //    can drop an arrangement; it can no longer drop a card.
+  const built: Node[] = [];
+  for (const composition of shortlist) {
+    const nodes = arrange(state, player, composition, opts);
+    if (nodes.length === 0) complete = false;
+    built.push(...nodes);
   }
-  for (const node of candidates) {
-    if (chosen.length >= opts.finalists) break;
-    if (!taken.has(node)) chosen.push(node);
-  }
-  if (candidates.length > chosen.length) complete = false;
+  if (built.length === 0) return empty;
+
+  // 4. Score the survivors properly. Stopping is the thing to beat.
+  built.sort((a, b) => b.guide - a.guide);
+  if (built.length > opts.finalists) complete = false;
+  const finalists = built.slice(0, opts.finalists);
 
   const bare = scoreBoard(state, player, opts.theta, opts.thetaWeight, opts.exposure);
   let best: BoardPlan = { ...empty, ...bare };
-  // Stopping is the thing to beat, and `playToCap` decides only whether it has
-  // to be beaten strictly. Nudging the bar down by a hair is what turns a tie
-  // into a placement without letting a loss through.
   const stopping = worth(bare.score, opts.secured, opts.doubt);
   let bestWorth = opts.playToCap ? stopping - TIE : stopping;
-  for (const node of chosen) {
+  for (const node of finalists) {
     const valued = scoreBoard(node.state, player, opts.theta, opts.thetaWeight, opts.exposure);
     const valueWorth =
       worth(valued.score, opts.secured, opts.doubt) - opts.unitCost * node.placements.length;
@@ -410,6 +423,62 @@ export function bestBoard(
     }
   }
   return { ...best, complete };
+}
+
+/**
+ * Put one fixed set of units down, in the order and on the tiles that suit it.
+ *
+ * A small beam over arrangements. Guided by the realised total after each
+ * placement, which is honest here in a way it was not over compositions: every
+ * line in this beam spends the same cards, so the guide compares tiles rather
+ * than comparing a cheap card to an expensive one.
+ *
+ * Returns null when the composition cannot be built — a Belépő that stops to
+ * ask leaves the state unable to accept the next placement, and a half-built
+ * composition is a different composition.
+ */
+function arrange(
+  state: GameState,
+  player: PlayerId,
+  composition: Composition,
+  opts: BoardOptions,
+): Node[] {
+  const want = new Set(composition.uids);
+  const root = myTurn(state, player);
+  // Margin plus reach: within one composition the printed power is fixed, so
+  // what separates two arrangements is which casters can see something.
+  const guideOf = (s: GameState): number =>
+    realisedMargin(s, player) + opts.castHint * reach(s, player);
+  let frontier: Node[] = [
+    { state: root, placements: [], actions: [], depth: 0, guide: guideOf(root) },
+  ];
+
+  for (let i = 0; i < composition.uids.length; i += 1) {
+    const grown: Node[] = [];
+    for (const node of frontier) {
+      const used = new Set(node.actions.map((a) => (a as PlayUnit).uid));
+      const hand = new Map(node.state.players[player].unitHand.map((c) => [c.uid, c.cardId]));
+      for (const move of placementActions(node.state, player)) {
+        if (!want.has(move.uid) || used.has(move.uid)) continue;
+        const cardId = hand.get(move.uid);
+        if (!cardId) continue;
+        // A Belépő that asks has to be answered before the next unit can land,
+        // and the turn has to come back before the one after that can be planned.
+        const after = myTurn(settle(applyAction(node.state, move), player), player);
+        grown.push({
+          state: after,
+          placements: [...node.placements, { cardId, slot: move.slot }],
+          actions: [...node.actions, move],
+          depth: i + 1,
+          guide: guideOf(after),
+        });
+      }
+    }
+    if (grown.length === 0) return frontier.filter((n) => n.placements.length > 0);
+    grown.sort((a, b) => b.guide - a.guide);
+    frontier = grown.slice(0, opts.beamWidth);
+  }
+  return frontier.slice(0, opts.arrangements);
 }
 
 /**

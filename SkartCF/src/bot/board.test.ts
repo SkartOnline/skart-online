@@ -5,7 +5,7 @@ import { ALL_SLOTS } from "../engine/grid";
 import { applyAction, legalActions } from "../engine/reducer";
 import { DEFAULT_CONFIG } from "../engine/setup";
 import type { Action, GameState, PlayerId, SlotId } from "../engine/types";
-import { bestBoard, planCost, project, scoreBoard } from "./board";
+import { bestBoard, myTurn, planCost, project, scoreBoard } from "./board";
 
 /** Small enough that Θ is quick, large enough that it is not zero. */
 const CHEAP = { nodeBudget: 150 };
@@ -90,11 +90,16 @@ function bruteForce(state: GameState, player: PlayerId): number {
   let best = scoreBoard(state, player, CHEAP).score;
   const walk = (from: GameState, depth: number): void => {
     if (depth > 3) return;
-    const moves = legalActions(from, player).filter(
+    // 6.1.3 alternates placement, so the turn has to be handed back between my
+    // own placements or this recursion is one level deep and calls itself an
+    // exhaustive search. It was, for as long as it existed — and so was the
+    // optimiser it was checking, which is why the two agreed.
+    const mine = myTurn(from, player);
+    const moves = legalActions(mine, player).filter(
       (a): a is Extract<Action, { type: "playUnit" }> => a.type === "playUnit" && !a.faceDown,
     );
     for (const move of moves) {
-      const after = applyAction(from, move);
+      const after = applyAction(mine, move);
       const valued = scoreBoard(after, player, CHEAP).score;
       if (valued > best) best = valued;
       walk(after, depth + 1);
@@ -191,15 +196,15 @@ describe("the board optimiser against brute force", () => {
     expect(plan.score).toBeCloseTo(7 + 0.8 * 3, 6);
     expect(plan.placements.map((p) => p.cardId)).toEqual(["celebrant"]);
 
-    // The cheap tier used to get this exactly backwards — told to trust the
-    // guide alone it took the fatter body, because the guide read printed power
-    // and nothing else. It now carries a rough count of what each unit could
-    // pay for, so it ranks the caster first on its own and the Θ tier only has
-    // to confirm it. That is the point of the change: the expensive evaluator
-    // can only ever choose between boards the cheap one hands it, so a guide
-    // blind to casters is a guide that never offers one.
-    const guided = bestBoard(state, "p1", { theta: CHEAP, finalists: 1 });
-    expect(guided.placements.map((p) => p.cardId)).toEqual(["celebrant"]);
+    // The two boards are 0.4 apart once Θ is discounted, which is far below what
+    // any cheap guide can resolve — and it does not have to. Compositions are
+    // now *enumerated*, so both {celebrant} and {charon} reach the Θ tier
+    // whatever the cheap ranking thinks of them, and the expensive evaluator
+    // settles it. The old architecture could not make that promise: the guide
+    // chose which boards were ever scored, so a board it disliked was a board
+    // that did not exist.
+    const bothOffered = bestBoard(state, "p1", { theta: CHEAP, compositions: 64 });
+    expect(bothOffered.placements.map((p) => p.cardId)).toEqual(["celebrant"]);
   });
 
   it("finds it under a cap that will not fit everything", () => {
@@ -242,7 +247,7 @@ describe("what the optimiser will not do", () => {
   });
 });
 
-describe("what the exposure term buys", () => {
+describe("what the exposure term would buy, if it were on", () => {
   /**
    * Where a unit stands was, until this term existed, a coin flip. Score was
    * `my margin + my Θ`, and neither half moves when a body of mine slides from
@@ -286,8 +291,12 @@ describe("what the exposure term buys", () => {
     );
   });
 
-  it("puts the body where it cannot be shot", () => {
-    const plan = bestBoard(underThreat(), "p1", { theta: CHEAP });
+  it("puts the body where it cannot be shot, when asked to", () => {
+    // Off by default: subtracting their whole remaining capacity prices a fresh
+    // target as a cost, and a spell they spend on this body is a spell they did
+    // not spend on another. The tile preference it produces is still real, so
+    // the dial stays and the behaviour is pinned here rather than shipped.
+    const plan = bestBoard(underThreat(), "p1", { theta: CHEAP, exposure: 0.5, arrangements: 6 });
     expect(plan.placements).toHaveLength(1);
     expect(plan.placements[0].slot).toMatch(/\.B[123]$/);
   });
