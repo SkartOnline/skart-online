@@ -15,6 +15,7 @@
     "theta": "tsx src/bot/thetascan.ts",
     "belief": "tsx src/bot/beliefscan.ts",
     "planner": "tsx src/bot/planscan.ts",
+    "replay": "tsx src/bot/replay.ts",
     "train": "tsx src/bot/train.ts",
     "arena": "tsx src/bot/arena.ts",
     "balance": "tsx src/bot/balance.ts",
