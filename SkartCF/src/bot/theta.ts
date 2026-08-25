@@ -470,6 +470,21 @@ export function worthExploring(lines: Line[], setups: Set<string>, opts: ThetaOp
   return kept;
 }
 
+/**
+ * Would appending this cast merely reorder casts that do not affect each other?
+ *
+ * Only the *last* cast has to be compared: everything before it was admitted by
+ * the same test, so the prefix is already canonical. A pair the combo graph
+ * links is left alone — for those the order is the whole point (Infiltráció
+ * before Hátbaszúrás, damage before Kegyelemdöfés).
+ */
+function redundantOrder(casts: Cast[], next: Cast, opts: ThetaOptions): boolean {
+  if (casts.length === 0) return false;
+  const previous = casts[casts.length - 1];
+  if (previous.spellId <= next.spellId) return false;
+  return !interacts(spellTouches(getSpell(previous.spellId)), spellTouches(getSpell(next.spellId)), opts.classes);
+}
+
 /** Spells in hand that the graph links to at least one other spell in hand. */
 function setupSpells(
   state: GameState,
@@ -571,6 +586,12 @@ export function bestPlan(
     const kept = worthExploring(lines, setups, opts);
     if (kept.length < lines.length) search.truncate();
     for (const line of kept) {
+      // Two spells that do not interact commute: A-then-B and B-then-A reach
+      // the same board and the same total, so enumerating both doubles the tree
+      // and fills the trace with the same line printed twice. The graph already
+      // knows which pairs those are — that is what it is for — and a canonical
+      // order (spell ids ascending) keeps exactly one of each.
+      if (redundantOrder(casts, line.cast, opts)) continue;
       walk(line.state, depth + 1, [...casts, line.cast]);
     }
   };

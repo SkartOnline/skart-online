@@ -57,6 +57,15 @@ export interface Threat {
   theta: number;
   /** True when the answer is read off public information rather than sampled. */
   certain: boolean;
+  /**
+   * Why it came out the way it did, for a trace to quote.
+   *
+   * A zero has four different causes and they are not interchangeable: "they
+   * have declared kész" is a fact about the rules, "nothing of theirs can pay"
+   * is a fact about their board, and "the best hand they could hold still moves
+   * nothing" is a claim about a search that might simply not have found it.
+   */
+  because: "closed" | "no-payer" | "no-cards" | "searched";
 }
 
 /** mulberry32, so a decision is a function of the board and not of the clock. */
@@ -118,9 +127,9 @@ export function estimateThreat(
   const foe = player === "p1" ? "p2" : "p1";
 
   // 8.7.3: kész is final, so nothing more is coming. Public and exact.
-  if (state.players[foe].flags.spellsClosed) return { theta: 0, certain: true };
+  if (state.players[foe].flags.spellsClosed) return { theta: 0, certain: true, because: "closed" };
   // 8.3.3: nothing on the board can pay, so the hand cannot matter. Also public.
-  if (!canPayForAnything(state, foe)) return { theta: 0, certain: true };
+  if (!canPayForAnything(state, foe)) return { theta: 0, certain: true, because: "no-payer" };
 
   const belief = believe(observe(state, player));
   const next = rng(opts.seed + state.locationIndex * 97 + state.spellsCast.length);
@@ -134,7 +143,7 @@ export function estimateThreat(
     copy.reveals = [];
     total += theta(copy, foe, opts.theta);
   }
-  return { theta: total / Math.max(1, opts.samples), certain: false };
+  return { theta: total / Math.max(1, opts.samples), certain: false, because: "searched" };
 }
 
 
@@ -171,13 +180,15 @@ export function worstCaseThreat(
   const foe = player === "p1" ? "p2" : "p1";
 
   // 8.7.3: kész is final. Nothing is coming, and no bound is needed to say so.
-  if (state.players[foe].flags.spellsClosed) return { theta: 0, certain: true };
+  if (state.players[foe].flags.spellsClosed) {
+    return { theta: 0, certain: true, because: "closed" };
+  }
   // 8.3.3: nothing of theirs can pay, so the hand cannot matter.
-  if (!canPayForAnything(state, foe)) return { theta: 0, certain: true };
+  if (!canPayForAnything(state, foe)) return { theta: 0, certain: true, because: "no-payer" };
 
   const belief = believe(observe(state, player));
   const held = belief.handSize.spells;
-  if (held <= 0) return { theta: 0, certain: true };
+  if (held <= 0) return { theta: 0, certain: true, because: "no-cards" };
 
   // What their board could pay for, best spell first.
   const affordable: { cardId: string; cost: number }[] = [];
@@ -191,7 +202,11 @@ export function worstCaseThreat(
     if (!theyCouldPay(state, foe, spell)) continue;
     affordable.push({ cardId, cost: spell.cost });
   }
-  if (affordable.length === 0) return { theta: 0, certain: true };
+  if (affordable.length === 0) return { theta: 0, certain: true, because: "no-payer" };
+  // Cost descending is a proxy for impact and not a good one — a cheap spell
+  // with a lethal target beats an expensive one with none. It is what keeps the
+  // hypothetical hand the size of their real one (1.5.1) without a Θ call per
+  // candidate spell; when it picks wrong, the ceiling comes out low.
   affordable.sort((a, b) => b.cost - a.cost);
 
   const copy = structuredClone(state);
@@ -202,7 +217,7 @@ export function worstCaseThreat(
   copy.reveals = [];
   // An upper bound, so there is nothing left to be uncertain about: either the
   // margin clears it or it does not.
-  return { theta: theta(copy, foe, options), certain: true };
+  return { theta: theta(copy, foe, options), certain: true, because: "searched" };
 }
 
 /** Could any unit of theirs pay this spell's whole cost out of one pool? */

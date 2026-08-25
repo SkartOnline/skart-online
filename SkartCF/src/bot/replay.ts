@@ -126,11 +126,20 @@ function whyBattle(state: GameState, player: PlayerId): string[] {
   const plan = bestPlan(state, player, { ...DEFAULT_THETA, explain: true });
 
   const out: string[] = [];
+  const why = {
+    closed: "they have declared kész, so nothing is coming",
+    "no-payer": "nothing of theirs can pay for a spell",
+    "no-cards": "their spell hand is empty",
+    searched: "best hand they could still hold, run through Θ",
+  }[ceiling.because];
+  const mine = boardTotal(state, player);
+  const theirs = boardTotal(state, player === "p1" ? "p2" : "p1");
   out.push(
-    `      standing ${now >= 0 ? "+" : ""}${now}. Best they could possibly do: ` +
-      `${ceiling.theta}` +
-      (ceiling.theta === 0 ? " (nothing — closed, or nothing of theirs can pay)" : "") +
-      `, so I am ${now > ceiling.theta ? "SAFE" : `${ceiling.theta - now + 1} short of safe`}`,
+    `      board ${mine} vs ${theirs} (${now >= 0 ? "+" : ""}${now}). ` +
+      `Ceiling on what they can still swing: ${ceiling.theta} — ${why}`,
+  );
+  out.push(
+    `      → ${now > ceiling.theta ? "SAFE, nothing they hold takes this" : `${ceiling.theta - now + 1} short of safe`}`,
   );
   if (now > ceiling.theta) {
     out.push(`      → already won whatever they hold, so no card is worth spending`);
@@ -183,10 +192,20 @@ function whyBoard(state: GameState, player: PlayerId): string[] {
   }
   sets.sort((a, b) => b.promise - a.promise);
 
+  if (sets.length === 0) return [`      nothing in hand fits the ${capLeft} cap left`];
+
+  // What the board is already worth, so every row below can be read as what the
+  // composition *adds*. Printed as totals as well, because "power 8" meaning
+  // "eight ahead of them" and "power 8" meaning "eight on my tiles" are two
+  // different numbers and only one of them is what a person means by power.
   const bare = scoreBoard(state, player, DEFAULT_THETA, DEFAULT_BOARD.thetaWeight);
+  const baseTheta = (bare.score - bare.margin) / DEFAULT_BOARD.thetaWeight;
+  const mine = boardTotal(state, player);
+  const theirs = boardTotal(state, player === "p1" ? "p2" : "p1");
   const out: string[] = [
-    `      ${sets.length} compositions fit the cap (${capLeft} left); ` +
-      `stopping here scores ${bare.score.toFixed(1)}`,
+    `      board now: mine ${mine}, theirs ${theirs}. ` +
+      `${sets.length} compositions fit the ${capLeft} cap left. ` +
+      `Standing pat: Θ ${baseTheta.toFixed(1)}, score ${bare.score.toFixed(1)}`,
   ];
   const hand = state.players[player].unitHand;
   for (const composition of sets.slice(0, 5)) {
@@ -195,9 +214,15 @@ function whyBoard(state: GameState, player: PlayerId): string[] {
     const plan = bestBoard(only, player, { ...DEFAULT_BOARD, theta: DEFAULT_THETA });
     const names = composition.cards.map((c) => c.name).join(" + ");
     const theta = (plan.score - plan.margin) / DEFAULT_BOARD.thetaWeight;
+    // Marginal, not total: Θ 6 on a board that already had Θ 6 standing is a
+    // composition that added nothing, and printing the total made every
+    // composition on a board holding Erif mester look like it carried his Θ.
+    const added = theta - baseTheta;
+    const power = mine + (plan.margin - bare.margin);
     out.push(
-      `      ${names.slice(0, 46).padEnd(46)} cost ${String(composition.cost).padStart(2)}  ` +
-        `score ${plan.score.toFixed(1)} (power ${plan.margin}, Θ ${theta.toFixed(1)})`,
+      `      ${names.slice(0, 44).padEnd(44)} cost ${String(composition.cost).padStart(2)}  ` +
+        `power ${String(power).padStart(2)} (+${plan.margin - bare.margin})  ` +
+        `ΔΘ ${added >= 0 ? "+" : ""}${added.toFixed(1)}  score ${plan.score.toFixed(1)}`,
     );
   }
   return out;

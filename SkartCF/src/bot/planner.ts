@@ -694,7 +694,7 @@ export class Planner {
     if (!this.params.believe) {
       const foe = player === "p1" ? "p2" : "p1";
       // Read from the true hand, so a zero here really is a zero.
-      return { theta: theta(state, foe, opts), certain: true };
+      return { theta: theta(state, foe, opts), certain: true, because: "searched" };
     }
     // Defending wants the ceiling, not the average. `secure` is the securing
     // line, and a line built from an average is safe half the time.

@@ -71,9 +71,20 @@ export function compositions(
   const cards: UnitCard[] = [];
   let visited = 0;
 
+  // Two copies of the same card make the same board. The hand holds them under
+  // different uids, so the raw enumeration offers {Novícius A, Gréta} and
+  // {Novícius B, Gréta} as separate candidates — identical in every way that
+  // matters, each one costing a Θ evaluation, and each one taking a slot in the
+  // shortlist away from a board that is actually different.
+  const seen = new Set<string>();
+
   const walk = (at: number, cost: number): void => {
     if (visited++ > limit) return;
-    out.push({ uids: [...chosen], cards: [...cards], cost, promise: 0 });
+    const key = cards.map((c) => c.id).sort().join("|");
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push({ uids: [...chosen], cards: [...cards], cost, promise: 0 });
+    }
     if (chosen.length >= freeTiles) return;
     for (let i = at; i < hand.length; i += 1) {
       const card = getUnit(hand[i].cardId);
