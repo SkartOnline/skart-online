@@ -1,5 +1,5 @@
 /**
- * The battle-phase policy: play the plan, then throw it away.
+ * The policy: play the plan, then throw it away.
  *
  * `bot-algorithm.md` §5. Θ already answers "what is the best sequence of casts
  * from here"; this is the thin thing that turns that answer into a move. It is
@@ -28,12 +28,29 @@
  * an empty plan means there is nothing on the board worth a card, and holding
  * the card is the better play (§9).
  *
+ * ## Gathering is the same shape (§6)
+ *
+ * `bestBoard` answers "what is the best board I could still build", and the
+ * discipline is identical: take its **first placement**, then rebuild from
+ * whatever they put down in reply. Unlike the battle phase this one genuinely
+ * needs re-planning — gathering alternates one unit at a time (6.1.3), so a
+ * board planned six deep is a board planned against an opponent who has not
+ * moved yet.
+ *
+ * Stopping falls out the same way it does in the battle phase. `bestBoard`
+ * always considers placing nothing, so an empty plan means no unit in hand
+ * improves the board, and 6.6.2 will force the declaration anyway once nothing
+ * fits.
+ *
+ * What this does *not* yet do is §6.2's real stopping rule — weighing the
+ * declaration against what they can cheaply put on top of it, knowing kész is
+ * final (6.6.3). It stops when no placement helps, not when placing would
+ * invite a cheaper answer.
+ *
  * ## Everything else is somebody else's problem
  *
- * Gathering, leszerelés and the asking prompts are not this layer's job — the
- * board optimiser is §6 and the discard is §9, neither wired in yet. Outside the
- * battle phase this delegates, which keeps the head-to-head honest: two seats
- * differing only in how they fight, so the measurement is of the fighting.
+ * Leszerelés (§9) and the asking prompts still delegate. A prompt in particular
+ * has to: an ability mid-question is not a board this layer can plan around.
  */
 
 import { legalActions } from "../engine/reducer";
@@ -41,19 +58,27 @@ import { pendingPrompt } from "../engine/prompts";
 import type { Action, GameState, PlayerId } from "../engine/types";
 import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
 import type { BaselineContext } from "../sim/baseline";
+import { bestBoard, DEFAULT_BOARD } from "./board";
+import type { BoardOptions } from "./board";
 import { bestPlan, DEFAULT_THETA } from "./theta";
 import type { ThetaOptions } from "./theta";
 
 export interface PlannerParams {
   /** Passed to Θ at every battle-phase decision. */
   theta: Partial<ThetaOptions>;
+  /** Passed to the board optimiser at every gathering decision. */
+  board: Partial<BoardOptions>;
   /** Plays the phases this layer does not speak for. */
   fallback: BaselineContext;
+  /** Off, and the gathering phase goes to the fallback instead. */
+  gather: boolean;
 }
 
 export const DEFAULT_PLANNER: PlannerParams = {
   theta: DEFAULT_THETA,
+  board: DEFAULT_BOARD,
   fallback: { params: DEFAULT_BASELINE },
+  gather: true,
 };
 
 export interface PlannerStats {
@@ -65,12 +90,24 @@ export interface PlannerStats {
   multiCast: number;
   /** Plans abandoned because a queued pick had stopped being legal. */
   abandoned: number;
+  /** Gathering turns where a board was planned, and how many placed nothing. */
+  boards: number;
+  boardStops: number;
+  placements: number;
 }
 
 export class Planner {
   /** The remaining actions of the cast currently being played. */
   private queued: Action[] = [];
-  readonly stats: PlannerStats = { plans: 0, stops: 0, multiCast: 0, abandoned: 0 };
+  readonly stats: PlannerStats = {
+    plans: 0,
+    stops: 0,
+    multiCast: 0,
+    abandoned: 0,
+    boards: 0,
+    boardStops: 0,
+    placements: 0,
+  };
 
   constructor(readonly params: PlannerParams = DEFAULT_PLANNER) {}
 
@@ -93,8 +130,14 @@ export class Planner {
       this.queued = [];
     }
 
-    const mine = state.phase === "battle" && !state.resolution && !pendingPrompt(state);
-    if (!mine) return chooseBaselineAction(state, player, this.params.fallback);
+    const settled = !state.resolution && !pendingPrompt(state);
+
+    if (this.params.gather && state.phase === "units" && settled) {
+      return this.gather(state, player, legal);
+    }
+    if (state.phase !== "battle" || !settled) {
+      return chooseBaselineAction(state, player, this.params.fallback);
+    }
 
     const plan = bestPlan(state, player, this.params.theta);
     this.stats.plans += 1;
@@ -106,8 +149,7 @@ export class Planner {
     }
     if (plan.casts.length > 1) this.stats.multiCast += 1;
 
-    const [first, ...rest] = plan.casts[0].actions;
-    void rest;
+    const [first] = plan.casts[0].actions;
     this.queued = plan.casts[0].actions.slice(1);
     if (!isLegal(legal, first)) {
       // Θ built this on a probe of the same board, so an illegal opener means
@@ -117,6 +159,30 @@ export class Planner {
       this.queued = [];
       return chooseBaselineAction(state, player, this.params.fallback);
     }
+    return first;
+  }
+
+  /**
+   * One placement, chosen as the opening move of the best board still
+   * available. Everything after the first placement is thrown away, because
+   * they get to answer it.
+   */
+  private gather(state: GameState, player: PlayerId, legal: Action[]): Action | null {
+    const plan = bestBoard(state, player, this.params.board);
+    this.stats.boards += 1;
+
+    if (plan.actions.length === 0) {
+      this.stats.boardStops += 1;
+      const done = legal.find((a) => a.type === "declareUnitsDone");
+      return done ?? chooseBaselineAction(state, player, this.params.fallback);
+    }
+
+    const first = plan.actions[0];
+    if (!isLegal(legal, first)) {
+      this.stats.abandoned += 1;
+      return chooseBaselineAction(state, player, this.params.fallback);
+    }
+    this.stats.placements += 1;
     return first;
   }
 }

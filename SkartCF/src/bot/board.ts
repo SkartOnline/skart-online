@@ -42,6 +42,7 @@
  */
 
 import { getUnit } from "../engine/cards";
+import { pendingPrompt } from "../engine/prompts";
 import { applyAction, legalActions } from "../engine/reducer";
 import { boardTotal } from "../engine/totaling";
 import type { Action, GameState, PlayerId, SlotId } from "../engine/types";
@@ -112,6 +113,11 @@ function realisedMargin(state: GameState, player: PlayerId): number {
  */
 export function project(state: GameState, player: PlayerId): GameState {
   if (state.phase !== "units") return state;
+  // A Belépő can stop and ask (Griff going through a hand, a tutor listing a
+  // deck). Declaring the gathering over on top of an unanswered question is not
+  // a legal move, so such a board is scored where it stands rather than pushed
+  // through a Mustra it is not ready for.
+  if (state.resolution || pendingPrompt(state)) return state;
   const copy = structuredClone(state);
   copy.players.p1.flags.unitsClosed = true;
   copy.players.p2.flags.unitsClosed = true;

@@ -26,11 +26,12 @@ import { FAST_THETA } from "./theta";
 import type { ThetaOptions } from "./theta";
 import { DEFAULT_PLANNER, Planner } from "./planner";
 import { Progress } from "./progress";
+import { chooseNeverStopAction } from "./reference";
 
 const DECKS = ["felindori", "csempesz", "magus", "bestia", "elettelen"];
 const MAX_ACTIONS = 4000;
 
-type Side = "baseline" | "greedy" | "bot";
+type Side = "baseline" | "greedy" | "bot" | "neverstop";
 
 function actorOf(state: GameState): PlayerId | null {
   const asking = pendingPrompt(state);
@@ -105,6 +106,7 @@ function play(
 
     if (opponent === "bot" && bot) action = bot.choose(state, player);
     else if (opponent === "greedy") action = chooseAction(state, player, greedy);
+    else if (opponent === "neverstop") action = chooseNeverStopAction(state, player, baseline);
     else action = chooseBaselineAction(state, player, baseline);
     if (!action) break;
     state = applyAction(state, action);
@@ -125,8 +127,20 @@ function numberArg(argv: string[], flag: string, fallback: number): number {
   return Number(argv[at + 1]) || fallback;
 }
 
-function run(opponent: Side, games: number, theta: Partial<ThetaOptions>): Result {
-  const planner = new Planner({ ...DEFAULT_PLANNER, theta });
+function run(
+  opponent: Side,
+  games: number,
+  theta: Partial<ThetaOptions>,
+  gather: boolean,
+): Result {
+  const planner = new Planner({
+    ...DEFAULT_PLANNER,
+    theta,
+    gather,
+    // The optimiser calls Θ once per finalist, so a gathering turn costs
+    // `finalists × Θ`. Trimmed here so a 120-game run finishes this century.
+    board: { beamWidth: 5, finalists: 3, theta },
+  });
   const result: Result = { wins: 0, losses: 0, draws: 0, casts: 0, selfDamaging: 0, planner };
   // Temperature 0: an evaluation measures the policy, not its exploration.
   const bot =
@@ -164,29 +178,29 @@ function report(label: string, r: Result, games: number): void {
 
 export function main(argv: string[] = process.argv.slice(2)): void {
   const games = numberArg(argv, "--games", 60);
-  console.log(`\nPlanner, battle phase only (gathering delegated to baseline)\n`);
+  const gather = !argv.includes("--no-gather");
+  console.log(
+    `\nPlanner — ${gather ? "gathering and battle" : "battle phase only (gathering delegated)"}\n`,
+  );
 
-  const vsBaseline = run("baseline", games, FAST_THETA);
-  report("baseline", vsBaseline, games);
-  const vsGreedy = run("greedy", games, FAST_THETA);
-  report("greedy", vsGreedy, games);
-  const vsBot = run("bot", games, FAST_THETA);
-  report("bot", vsBot, games);
+  const opponents: Side[] = ["baseline", "greedy", "bot", "neverstop"];
+  const results = opponents.map((o) => run(o, games, FAST_THETA, gather));
+  opponents.forEach((o, i) => report(o, results[i], games));
 
-  const casts = vsBaseline.casts + vsGreedy.casts + vsBot.casts;
-  const self = vsBaseline.selfDamaging + vsGreedy.selfDamaging + vsBot.selfDamaging;
+  const casts = results.reduce((sum, r) => sum + r.casts, 0);
+  const self = results.reduce((sum, r) => sum + r.selfDamaging, 0);
   console.log(
     `\n  self-damaging casts: ${self} of ${casts} ` +
       `(${((self / Math.max(1, casts)) * 100).toFixed(2)}%)`,
   );
-  for (const [label, r] of [["baseline", vsBaseline], ["greedy", vsGreedy], ["bot", vsBot]] as const) {
-    const s = r.planner.stats;
+  opponents.forEach((label, i) => {
+    const s = results[i].planner.stats;
     console.log(
-      `  vs ${label}: ${s.plans} plans, ${s.stops} stops ` +
-        `(${((s.stops / Math.max(1, s.plans)) * 100).toFixed(1)}%), ` +
-        `${s.multiCast} multi-cast, ${s.abandoned} abandoned`,
+      `  vs ${label.padEnd(9)} ${s.plans} plans (${s.stops} stops), ` +
+        `${s.boards} boards (${s.placements} placed, ${s.boardStops} stops), ` +
+        `${s.abandoned} abandoned`,
     );
-  }
+  });
 }
 
 main();
