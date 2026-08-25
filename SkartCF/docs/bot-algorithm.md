@@ -594,12 +594,33 @@ the rest of this plan gets built.
   for play; still heavy for training, where a self-play game makes hundreds of
   calls. The cached-cheap-Θ fallback has not been needed yet and may be once the
   gathering search sits on top of it.
-- **Θ is verified against itself, not against exhaustive.** The budget sweep
-  compares small budgets to budget 4000, and 4000 is not proven optimal — mean Θ
-  was still creeping (1.78 → 1.80) at the top of the curve. Exhaustive search
-  over a real board is not affordable, so the honest statement is: correct on
-  the toy boards where the answer was worked out by hand, self-consistent above
-  that. A bounded exhaustive oracle over generated small boards would close it.
+- ~~**Θ is verified against itself, not against exhaustive.**~~ **Closed.**
+  `theta.oracle.test.ts` generates small boards — one or two casters, one to
+  three bodies opposite, one to three cards in hand — and shrinks them until
+  exhaustive search is affordable. Over 600 generated boards the exhaustive run
+  completed on **every one** (no board hit the lifted caps), 345 had a non-zero
+  answer, and Θ at shipped settings disagreed on **none**.
+
+  The mechanism that makes this a real check rather than a restatement is
+  `Plan.complete`: a trial only counts when the exhaustive run reports it saw
+  everything, so a truncated search can never quietly become the reference.
+
+  And the test has teeth — weakened deliberately, it fails:
+
+  | Θ run as | disagreed with exhaustive | mean shortfall |
+  |---|---|---|
+  | shipped defaults | 0 / 600 | — |
+  | `maxLines: 1` | 14 / 600 | 2.43 (worst 5) |
+  | `nodeBudget: 60` | 3 / 600 | 3.00 (worst 4) |
+  | `classes: []` | 0 / 600 | — |
+
+  The last row is the honest limit of this oracle. Turning the combo graph off
+  changes nothing *on boards this small*, because with one to three cards in
+  hand the beam never has to cut and so the setup-preservation rule never has to
+  save anything. The rule is covered instead by the hand-built cases in
+  `theta.test.ts` — two Explars, and Senyvesztés into Káoszkolera — and by the
+  `worthExploring` unit tests. An oracle that exercised it would need boards big
+  enough to be unexhaustible, which is the thing that cannot be had.
 - **The beam is not the whole story on wide hands.** `maxLines` and `maxPicks`
   cut by rank and by arbitrary engine order respectively. Ordering picks by what
   the combo graph says the spell is *for* — a removal spell wants the biggest
