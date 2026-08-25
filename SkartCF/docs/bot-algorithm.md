@@ -593,6 +593,50 @@ special case for it anywhere.
 
 ---
 
+### What it is actually for
+
+Not risk posture in the abstract — a price. §5.3 says the battlefield payoff is a
+threshold, so a plan should maximise `P(margin > 0)` rather than the margin, and
+the first implementation of both layers maximised the margin anyway. The result
+was a bot winning by an average of **+6.65** and losing by **−4.65**, with
+"won by eight or more" the single largest bar in the distribution. Every point
+of that is worth nothing (1.3.1) and was paid for with cards that would have
+flipped the sixteen battlefields it lost by one.
+
+Fixing it took two pieces, and **either one alone changes nothing**:
+
+- a **securing line** past which extra margin stops counting, and
+- a **price on spending**, so that buying margin beyond it costs something.
+
+The line alone is a monotonically increasing transform of the margin. It
+rescales every option by the same rule and leaves the argmax exactly where it
+was — which is not a subtle failure: shipping it produced a re-measurement
+byte-for-byte identical to the one before. That is what a no-op looks like when
+you were expecting a fix.
+
+The price alone is worse than nothing, because a *flat* price is wrong at both
+ends at once. Swept against the baseline over 24 games each:
+
+| price of a card | games won | blowouts ≥6 | narrow losses |
+|---|---|---|---|
+| none | 46% | 26 | 24 |
+| 0.5 | 54% | 14 | 19 |
+| 1.0 | 33% | 12 | 25 |
+| 2.0 | 21% | 8 | 33 |
+| 3.0 | 13% | 5 | 39 |
+
+Blowouts fall monotonically, so the mechanism works — and the win rate falls
+with them, because a constant cannot know that a fourth battlefield is worth
+everything and a fifth is worth nothing. `fieldValue` is the number that does
+know, and `cardPrice` scales the base rate by it: cards nearly free where the
+match hangs on this field, prohibitive where it cannot change the result.
+
+That is fold-awareness derived rather than tuned, and it is the thing
+`sim/baseline.ts` has had all along via `foldMargin` — which is the most likely
+explanation for why two whole layers bought nothing against it.
+
+---
+
 ## 9. Leszerelés and the attrition curve
 
 12.5 lets both players discard any number of cards from either hand, secretly
@@ -659,7 +703,7 @@ current monolith, where a wrong answer has no localisable cause.
 | 5 | ~~Belief model~~ **done** — `src/bot/belief.ts` | `npm run belief`: Brier 0.050 against 0.243 for guessing the base rate, deck pinned on 100% of observations. `belief.test.ts` pins the mask invariant — moving what the viewer cannot see must not move the belief |
 | 6 | ~~Battle-phase plan/schedule/re-plan~~ **done** — `src/bot/planner.ts` | `npm run planner`, 120 games each, battle phase only: **78.2%** vs greedy [69.9, 84.6], **62.5%** vs the trained bot [53.6, 70.6], **57.5%** vs baseline [48.6, 66.0] — that last interval crosses 50%. Self-damage **0 of 1 766 casts** |
 | 7 | ~~Gathering search over best responses~~ **done** — `src/bot/planner.ts` gathers, `src/bot/reference.ts` is the yardstick | `npm run planner`, 100 games each: **62.0%** vs never-stops-early [52.2, 70.9] — lower bound above 50, so the oracle passes. Also 83.0% vs greedy, 73.0% vs the trained bot, **57.0%** vs baseline [47.2, 66.3], which still crosses 50 |
-| 8 | Match DP | Monte Carlo over the same `p_i` |
+| 8 | ~~Match DP~~ **done** — `src/bot/match.ts` | `match.test.ts`: the exact DP agrees with 200 000-trial Monte Carlo on six scorelines, including ones with voided fields. Plus the boundary cases — a field is worth nothing once the match cannot be lost *or* won |
 | 9 | Learned leaf, then CFR on the abstraction | arena, multiple training seeds |
 
 Step 7's reference opponent matters independently of everything else here. Both
