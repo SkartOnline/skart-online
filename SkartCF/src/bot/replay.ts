@@ -110,10 +110,12 @@ function header(state: GameState, viewer: PlayerId): string {
   const loc = state.locations[state.locationIndex];
   const card = getLocation(loc.cardId);
   const cap = card.cap === null ? "no cap" : `cap ${card.cap}`;
-  const brought = loc.broughtBy === viewer ? "mine" : "theirs";
+  // 6.1.1: whoever brought the battlefield starts on it.
+  const brought =
+    loc.broughtBy === viewer ? "I brought it, so I move first" : "they brought it, so they move first";
   return (
     `\n${"=".repeat(78)}\n` +
-    `BATTLEFIELD ${state.locationIndex + 1}: ${card.name} (${cap}, ${brought} — so they move first here)\n` +
+    `BATTLEFIELD ${state.locationIndex + 1}: ${card.name} (${cap}, ${brought})\n` +
     `   ${card.text ?? ""}\n` +
     `${"=".repeat(78)}`
   );
