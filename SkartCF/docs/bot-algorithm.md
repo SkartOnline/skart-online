@@ -658,7 +658,7 @@ current monolith, where a wrong answer has no localisable cause.
 | 4 | ~~Board optimiser~~ **done** — `src/bot/board.ts` | `board.test.ts`: beam equals exhaustive placement search on constrained boards, including under a cap; and `finalists: 1` demonstrably picks worse |
 | 5 | ~~Belief model~~ **done** — `src/bot/belief.ts` | `npm run belief`: Brier 0.050 against 0.243 for guessing the base rate, deck pinned on 100% of observations. `belief.test.ts` pins the mask invariant — moving what the viewer cannot see must not move the belief |
 | 6 | ~~Battle-phase plan/schedule/re-plan~~ **done** — `src/bot/planner.ts` | `npm run planner`, 120 games each, battle phase only: **78.2%** vs greedy [69.9, 84.6], **62.5%** vs the trained bot [53.6, 70.6], **57.5%** vs baseline [48.6, 66.0] — that last interval crosses 50%. Self-damage **0 of 1 766 casts** |
-| 7 | Gathering search over best responses | beats a **never-stops-early** reference opponent |
+| 7 | ~~Gathering search over best responses~~ **done** — `src/bot/planner.ts` gathers, `src/bot/reference.ts` is the yardstick | `npm run planner`, 100 games each: **62.0%** vs never-stops-early [52.2, 70.9] — lower bound above 50, so the oracle passes. Also 83.0% vs greedy, 73.0% vs the trained bot, **57.0%** vs baseline [47.2, 66.3], which still crosses 50 |
 | 8 | Match DP | Monte Carlo over the same `p_i` |
 | 9 | Learned leaf, then CFR on the abstraction | arena, multiple training seeds |
 
@@ -666,7 +666,37 @@ Step 7's reference opponent matters independently of everything else here. Both
 of the current bot's training opponents stop early by construction, so nothing
 in training punishes a modest board — that is the direct cause of the recorded
 4:0 loss with margins of 2, 3, 2 and 3, and it is worth fixing whether or not
-the rest of this plan gets built.
+the rest of this plan gets built. It exists now, as `src/bot/reference.ts`.
+
+### What steps 6 and 7 actually bought
+
+| opponent | battle phase only | with gathering |
+|---|---|---|
+| greedy | 78.2% [69.9, 84.6] | **83.0%** [74.5, 89.1] |
+| trained bot | 62.5% [53.6, 70.6] | **73.0%** [63.6, 80.7] |
+| never-stops-early | — | **62.0%** [52.2, 70.9] |
+| **baseline** | 57.5% [48.6, 66.0] | **57.0%** [47.2, 66.3] |
+
+Self-damage across all of it: **0 of 2 204 casts**, and 0 abandoned plans out of
+roughly 4 500.
+
+Two things to read off that table honestly.
+
+**Gathering by score is worth about ten points against the trained bot and five
+against greedy, and nothing at all against the baseline.** The planner is stuck
+at 57% there in both configurations, and the interval crosses 50 in both. So
+whatever separates it from the strongest opponent is not in either layer built
+so far.
+
+**And it did not arrive the way it was predicted to.** The reasoning was: the
+baseline gathers for power, so it fields boards that can barely cast, so a
+perfect battle phase arbitrates coin flips with about one spell — measured at
+**0.95 casts per battlefield**. Gathering by score prices a caster at what it
+enables, so casters should get fielded, casts should rise, and the layers should
+compound. They did not: **1.03 casts per battlefield**, which is inside the
+noise. The win rate moved without the mechanism moving, so the gain is coming
+from somewhere else — better boards, not busier ones — and the compounding
+story was wrong.
 
 ---
 
