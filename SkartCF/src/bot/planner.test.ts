@@ -103,17 +103,20 @@ describe("the planner in the battle phase", () => {
     expect(after.board["p2.F2"]).toBeNull();
   });
 
-  it("declines the same kill when the battlefield is already won", () => {
-    // The behaviour the securing line exists for. 7 against 2 with the
-    // opponent closed: the bandit is worth two points of margin that change
-    // nothing, and the card is worth more on a battlefield still in doubt (§9).
+  it("declines the same kill when the battlefield is already won, if asked to", () => {
+    // The behaviour the securing line exists for, and it has to ask for it:
+    // `secure` defaults off, because across four measurements it halved the
+    // overkill and never won a game for it (bot-algorithm.md §8).
+    //
+    // 7 against 2 with the opponent closed: the bandit is two points of margin
+    // that change nothing, and the card keeps its value for a field in doubt.
     const state = battle();
     place(state, "celebrant", "p1.F2");
     place(state, "bandita", "p2.F2");
     spellHand(state, "p1", "langlandzsa");
     state.players.p2.flags.spellsClosed = true;
 
-    const planner = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP });
+    const planner = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP, secure: true });
     const action = planner.choose(state, "p1");
     expect(action?.type).toBe("declareSpellsDone");
     const after = playOut(state, planner, "p1");

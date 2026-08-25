@@ -667,6 +667,48 @@ The 40-game samples put Wilson intervals around ±15 points, so "57 versus 50" i
 not established either. What *is* established is the blowout halving, which is a
 per-battlefield statistic over 200+ fields rather than a per-game one over 40.
 
+### Two defects later, it still did not work
+
+The measurement above was taken with two real bugs in it, both found afterwards
+and both worth recording because they were invisible to reasoning and obvious to
+the numbers:
+
+1. **The value rewarded climbing, not winning.** Below the securing line every
+   point of margin scored in full, so a battlefield needing twelve with three
+   available still bought the three — full credit for progress towards a line it
+   would never cross. Ranking by `winChance` fixed it.
+2. **The gathering line asked for the impossible.** It was the opponent's whole
+   remaining cap, which early in the gathering is the whole cap, so it demanded
+   a board nineteen ahead. Every board scored ~0.0005, every placement cost more
+   than that, and the optimiser folded all six battlefields: **3W-37L**. The
+   line is the *difference* — what they can still place beyond what I can.
+
+With both fixed, over 40 games each against the baseline:
+
+| | games | fields W/L | won by | blowouts ≥6 | narrow losses |
+|---|---|---|---|---|---|
+| no pricing | **57%** | 119 / 96 | +6.51 | 55 | 46 |
+| flat price | **57%** | 119 / 109 | +5.10 | 44 | 50 |
+| priced by match | 40% | 112 / 116 | +4.74 | 40 | 51 |
+
+Parity at best, and worse when scaled by the match layer. The field columns say
+why: fields *won* barely moves while fields *lost* climbs, so the effect is not
+"same wins, cards banked" but "under-commits, loses fields it was winning".
+
+**So `secure` defaults off.** The apparatus is kept behind the flag because it
+does what it claims — the overkill halves every time — but it has now been
+measured four ways and has never converted that into a game. Narrow losses did
+not fall in any configuration: 46 → 47 → 47, then 46 → 50 → 51.
+
+The premise this was built on — *margin wasted on won battlefields is starving
+the ones lost by a point* — should be treated as **refuted** rather than
+unproven. Anything built on it later needs new evidence first.
+
+What that leaves open is the original question, which is still unanswered: the
+planner beats the trained bot and greedy comfortably and cannot separate from
+`sim/baseline.ts`. Overkill was a real flaw and fixing it changed nothing, so
+the gap is somewhere else and has not been found yet.
+
 ---
 
 ## 9. Leszerelés and the attrition curve

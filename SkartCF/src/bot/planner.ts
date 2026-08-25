@@ -107,7 +107,11 @@ export const DEFAULT_PLANNER: PlannerParams = {
   board: DEFAULT_BOARD,
   fallback: { params: DEFAULT_BASELINE },
   gather: true,
-  secure: true,
+  // Off, and deliberately. The machinery below works — it halves the overkill
+  // exactly as designed — and across four measurements it never once won more
+  // games. Best case was parity; scaling by the match layer was worse. See
+  // bot-algorithm.md §8, "And it did not work".
+  secure: false,
   // In win-probability, not power: a card is worth this much of a battlefield's
   // chances on an ordinary field. §8 scales it from there.
   cardCost: 0.04,
