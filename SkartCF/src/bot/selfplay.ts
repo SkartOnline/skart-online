@@ -4,6 +4,7 @@ import { Agent } from "./agent";
 import { chooseAction, DEFAULT_POLICY } from "../sim/policy";
 import type { PolicyContext } from "../sim/policy";
 import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
+import { Planner } from "./planner";
 import type { BaselineContext } from "../sim/baseline";
 
 /**
@@ -56,7 +57,8 @@ export const DEFAULT_REWARDS: RewardParams = {
 export type Seat =
   | { kind: "agent"; agent: Agent; learn: boolean }
   | { kind: "greedy"; ctx: PolicyContext }
-  | { kind: "baseline"; ctx: BaselineContext };
+  | { kind: "baseline"; ctx: BaselineContext }
+  | { kind: "planner"; planner: Planner };
 
 const MAX_ACTIONS = 4000;
 
@@ -106,6 +108,8 @@ export function playGame(
       if (seat.learn) step = { features: decision.features, reward: 0, value: decision.value };
     } else if (seat.kind === "baseline") {
       action = chooseBaselineAction(state, player, seat.ctx);
+    } else if (seat.kind === "planner") {
+      action = seat.planner.choose(state, player);
     } else {
       action = chooseAction(state, player, seat.ctx);
     }
