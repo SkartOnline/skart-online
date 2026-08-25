@@ -77,7 +77,7 @@ function actuallyHolds(state: GameState, them: PlayerId, school: School, ceiling
   });
 }
 
-function scan(deckA: string, deckB: string, seed: string, tally: Tally): void {
+function scan(deckA: string, deckB: string, seed: string, tally: Tally, known: boolean): void {
   let state = createGame({ seed, decks: { p1: deckA, p2: deckB } });
   const ctx = {
     p1: { params: DEFAULT_BASELINE },
@@ -92,7 +92,8 @@ function scan(deckA: string, deckB: string, seed: string, tally: Tally): void {
     if (state.phase === "battle" && !state.resolution && !pendingPrompt(state)) {
       for (const viewer of ["p1", "p2"] as PlayerId[]) {
         const view = observe(state, viewer);
-        const belief = believe(view);
+        const theirDeck = viewer === "p1" ? deckB : deckA;
+        const belief = believe(view, known ? { knownDeck: theirDeck } : {});
         tally.archetypeCounts.push(belief.archetypes.length);
         if (belief.archetypes.length === 1) tally.pinned += 1;
         if (belief.unrecognised) tally.unrecognised += 1;
@@ -141,9 +142,11 @@ export function main(argv: string[] = process.argv.slice(2)): void {
     archetypeCounts: [],
   };
 
+  const known = !argv.includes("--infer");
   for (let i = 0; i < games; i += 1) {
-    scan(DECKS[i % DECKS.length], DECKS[(i * 3 + 1) % DECKS.length], `belief-${i}`, tally);
+    scan(DECKS[i % DECKS.length], DECKS[(i * 3 + 1) % DECKS.length], `belief-${i}`, tally, known);
   }
+  console.log(known ? "\n(deck list known, the bot's normal mode)" : "\n(deck list inferred)");
 
   console.log(`\nBelief calibration: ${games} games, ${tally.samples} school-predictions\n`);
   console.log("  bucket   said    happened   n");

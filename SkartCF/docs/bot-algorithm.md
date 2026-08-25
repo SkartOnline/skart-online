@@ -489,25 +489,29 @@ revealed at Mustra (7.2) and nothing casts before then (5.3).
 Against a known deck this is cheap and strong, and the current bot has none of
 it.
 
-**Base.** ~~Their hand is a draw from `deck − graveyard − revealed`.
-Hypergeometric, exactly.~~ **Wrong, and the rulebook says so:** *3.1 — a két
-pakli összetétele a játék elején rejtett.* The deck list is not an input. Only
-its **size** is public (1.5.1), along with the graveyard (1.5.4, 2.4.4), the
-revealed board, and everything already cast.
+**Base.** Their hand is a draw from `deck − graveyard − revealed`.
+Hypergeometric, exactly — and the deck list is an input the bot is **given**.
 
-So the draw is hypergeometric over a pool that has to be guessed first, and
-`src/bot/belief.ts` guesses it in two stages. **Which deck are they playing** —
-every card shown is a card their deck contains, and 14.2 caps the copies, which
-collapses the field fast. **What is left in it** — archetype counts minus what
-has been seen. When no archetype explains them it falls back to a flat pool
-prior rather than asserting a deck it has never met.
+3.1 hides deck composition at a normal table, but that is a rule about two
+humans, not about this. A bot that has to discover the deck plays a duller game
+than one that knows it, and competitive play knows it anyway: lists are public
+and rounds repeat. So `knownDeck` is the intended mode, and it is exact from the
+first turn.
 
-Matching by hard elimination was the first attempt and it was too brittle:
+`src/bot/belief.ts` keeps an inference path for when the list is not supplied,
+because that is what a human across the table is doing and what runs against an
+unregistered deck. Two stages: **which deck are they playing** — every card
+shown is a card their deck contains, and 14.2 caps the copies, which collapses
+the field fast — then **what is left in it**. Failing that, a flat pool prior
+rather than a deck it has never met.
+
+Hard elimination was the first attempt at the inference and it was too brittle:
 cards genuinely change hands (`stealCard`, `handSwap`, and 12.2 sending a unit
 to *its owner's* graveyard), so one stolen card ruled out every archetype at
 once. Calibration caught it — 14.7% of observations falling back to the pool
-prior for no reason. Counting *misfits* and keeping the best-fitting archetypes
-fixed it: the posterior now pins the deck on 100% of observations.
+prior for no reason. Counting *misfits* fixed it, and the inference now pins the
+deck on 100% of observations, which is why supplying the list scores identically
+here: the two modes only come apart early, before anything has been revealed.
 
 **Resolution: school payload, not cards.** The quantity that matters is
 `P(they can cast school S at level ≥ n, in range, with line of sight)`. Model

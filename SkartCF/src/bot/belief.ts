@@ -1,15 +1,15 @@
 /**
  * What the other side is holding, inferred from what a seat is allowed to see.
  *
- * `bot-algorithm.md` §7 opens with "against a known deck this is cheap and
- * strong… their hand is a draw from `deck − graveyard − revealed`.
- * Hypergeometric, exactly." That is wrong about this game, and the rulebook says
- * so plainly: **3.1 — a két pakli összetétele a játék elején rejtett.** The deck
- * list is not an input. Only its *size* is public (1.5.1), along with the
- * graveyard (1.5.4), the revealed board, and everything already cast.
+ * Their hand is a draw from `deck − graveyard − revealed`, and the deck list is
+ * an input the bot is *given*. 3.1 hides deck composition at a normal table, but
+ * a bot that has to discover the deck plays a duller game than one that knows
+ * it, and competitive play knows it anyway — lists are public and rounds repeat.
+ * So `knownDeck` is the intended mode and the sharp one.
  *
- * So the draw is hypergeometric over a pool that first has to be guessed. This
- * module guesses it in two stages:
+ * The inference below is the fallback for when it is not supplied, and it is
+ * worth keeping: it is what a human across the table is doing, and it is what
+ * runs against a deck nobody has registered.
  *
  *   1. **Which deck are they playing?** Every card they have shown is a card
  *      their deck contains, and 14.2 caps the copies. That eliminates
@@ -18,9 +18,8 @@
  *   2. **What is left in it?** Archetype counts minus what has been seen,
  *      weighted across the surviving archetypes.
  *
- * When nothing survives — a deck nobody in `decks.json` built — it falls back to
- * a prior over the whole card pool rather than claiming certainty about a deck
- * it has never met.
+ * When nothing survives it falls back again, to a prior over the whole card
+ * pool, rather than claiming certainty about a deck it has never met.
  *
  * ## The quantity that actually gets asked for
  *
@@ -168,11 +167,28 @@ function poolPrior(): { units: Map<string, number>; spells: Map<string, number> 
   return { units, spells };
 }
 
-export function believe(view: Observation): Belief {
+export interface BeliefOptions {
+  /**
+   * The deck they are playing, when it is known. This is the normal case for
+   * the bot: it is handed the list, the same way a competitive player has read
+   * it. Skips the inference entirely and is exact from the first turn.
+   */
+  knownDeck?: string;
+}
+
+export function believe(view: Observation, options: BeliefOptions = {}): Belief {
   const seen = seenCards(view);
-  const scored = DECKS.map((deck) => ({ deck, misfits: misfitCount(deck, seen) }));
-  const best = Math.min(...scored.map((s) => s.misfits));
-  const fitting = best <= MISFIT_LIMIT ? scored.filter((s) => s.misfits === best).map((s) => s.deck) : [];
+  const named = options.knownDeck
+    ? DECKS.filter((deck) => deck.id === options.knownDeck)
+    : [];
+  let fitting: DeckList[];
+  if (named.length > 0) {
+    fitting = named;
+  } else {
+    const scored = DECKS.map((deck) => ({ deck, misfits: misfitCount(deck, seen) }));
+    const best = Math.min(...scored.map((s) => s.misfits));
+    fitting = best <= MISFIT_LIMIT ? scored.filter((s) => s.misfits === best).map((s) => s.deck) : [];
+  }
   const unrecognised = fitting.length === 0;
 
   const unseenUnits = new Map<string, number>();
