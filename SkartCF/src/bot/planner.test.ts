@@ -6,6 +6,7 @@ import { applyAction, legalActions } from "../engine/reducer";
 import { DEFAULT_CONFIG } from "../engine/setup";
 import type { GameState, PlayerId, SlotId } from "../engine/types";
 import { DEFAULT_PLANNER, Planner } from "./planner";
+import { theta } from "./theta";
 
 const CHEAP = { nodeBudget: 200 };
 
@@ -274,5 +275,48 @@ describe("answering an ability's question", () => {
     // choice and not about the list happening to be in a helpful order.
     const first = applyAction(state, legal[0]);
     expect(first.players.p1.spellHand.map((c) => c.cardId)).toEqual(["teleport"]);
+  });
+});
+
+describe("not looking at their hand", () => {
+  /**
+   * The invariant `observe.ts` has and the planner never did. Their spell hand
+   * is hidden (1.5.1 publishes the count, not the cards), so swapping it for a
+   * different hand must not change what this seat does — and for the whole life
+   * of this bot it did, because the securing line called `theta(state, foe)`
+   * straight on the real state.
+   *
+   * The test has to be able to fail, so the two hands are chosen to be as
+   * different as a hand can be: one that would swing the battlefield and one
+   * that could not affect it at all.
+   */
+  function facing(theirSpells: string[]): GameState {
+    const state = battle();
+    state.players.p1.flags.spellsClosed = false;
+    state.players.p2.flags.spellsClosed = false;
+    place(state, "celebrant", "p1.F2"); // 7, and a Mágus caster
+    place(state, "magister", "p2.F2"); // a caster of theirs, so they can pay
+    place(state, "bandita", "p2.F1"); // 2
+    spellHand(state, "p1", "langlandzsa");
+    spellHand(state, "p2", ...theirSpells);
+    return state;
+  }
+
+  it("takes the same decision whatever they are actually holding", () => {
+    const planner = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP });
+    const armed = planner.choose(facing(["langlandzsa", "jeghegy"]), "p1");
+    planner.reset();
+    const empty = planner.choose(facing([]), "p1");
+    expect(armed).toEqual(empty);
+  });
+
+  it("does change its decision when told to peek, which is what proves the test bites", () => {
+    // Same two boards, `believe` off. If this ever stops differing, the fixture
+    // has gone inert and the test above is proving nothing.
+    const peeking = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP, believe: false });
+    const armedTheta = theta(facing(["langlandzsa", "jeghegy"]), "p2", CHEAP);
+    const emptyTheta = theta(facing([]), "p2", CHEAP);
+    expect(armedTheta).not.toBe(emptyTheta);
+    expect(peeking.params.believe).toBe(false);
   });
 });

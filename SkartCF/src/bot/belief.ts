@@ -323,3 +323,45 @@ export function payloadProfile(view: Observation, belief: Belief): Partial<Recor
   }
   return out;
 }
+
+/**
+ * One plausible hand for them, drawn from the unseen pool.
+ *
+ * The belief is a distribution and `bestPlan` needs cards, so somewhere the two
+ * have to meet. Determinization is the usual answer and it is the honest one
+ * here: sample a hand consistent with everything the seat has legitimately
+ * seen, evaluate it exactly, and average over samples.
+ *
+ * Drawn without replacement and weighted by how many copies are still unseen,
+ * which is what makes a three-of more likely to turn up than a one-of. 14.2
+ * caps copies by rarity, so the weights are small integers and this is a plain
+ * weighted draw rather than anything cleverer.
+ */
+export function sampleHand(
+  belief: Belief,
+  kind: "unit" | "spell",
+  next: () => number,
+): string[] {
+  const unseen = kind === "spell" ? belief.unseenSpells : belief.unseenUnits;
+  const want = kind === "spell" ? belief.handSize.spells : belief.handSize.units;
+  if (want <= 0) return [];
+
+  const pool: { id: string; left: number }[] = [];
+  for (const [id, count] of unseen) if (count > 0) pool.push({ id, left: count });
+  let total = pool.reduce((sum, entry) => sum + entry.left, 0);
+
+  const drawn: string[] = [];
+  for (let i = 0; i < want && total > 0; i += 1) {
+    let roll = next() * total;
+    for (const entry of pool) {
+      roll -= entry.left;
+      if (roll <= 0) {
+        drawn.push(entry.id);
+        entry.left -= 1;
+        total -= 1;
+        break;
+      }
+    }
+  }
+  return drawn;
+}

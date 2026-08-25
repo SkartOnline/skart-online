@@ -364,8 +364,12 @@ function pushRead(out: Touch[], quantities: Quantity[], sides: Side[], edge: Edg
  * combo family:
  *
  *   1. castability — the caster's tile decides range (4.7.3) and their units
- *      decide line of sight (4.8.3), which is why a movement spell can be a
- *      setup move with no power on it. This is Infiltráció → Hátbaszúrás.
+ *      decide line of sight (4.8.3). Every targeted spell reads all of it
+ *      against every board, so it is all `reach` and none of it is in the
+ *      default classes: an edge that connects everything to everything is not
+ *      an edge. The positional combos that matter (Infiltráció → Hátbaszúrás)
+ *      come through the `value` reads in 2 and 3, where a filter or an effect
+ *      genuinely pays off for standing somewhere.
  *   2. target legality — the filter (8.4.2.7). Kegyelemdöfés wants a *damaged*
  *      enemy, so a damage spell is its setup, and the reason it has been legal
  *      on almost no turn ever measured is that nobody was setting it up.
@@ -383,17 +387,6 @@ export function spellTouches(card: SpellCard): CardTouches {
         : BOTH
     : BOTH;
 
-  // 1. Castability, split by how much the edge is worth knowing about.
-  //    Where the caster *stands* decides the range (4.7.3), and moving it is a
-  //    setup with no power on its face — the Infiltráció edge, worth having.
-  //    That the caster exists at all and that the line is clear (4.8.3, 4.8.4)
-  //    are true of every spell against every board, so they connect everything
-  //    to everything and are kept separate.
-  if (target) pushRead(reads, ["slot"], ["mine"], "enable");
-  pushRead(reads, ["spellpower", "alive"], ["mine"], "reach");
-  if (target && !target.ignoreSight) pushRead(reads, ["alive", "slot"], ["theirs"], "reach");
-  if (target) pushRead(reads, ["alive"], targetSides, "reach");
-
   // 2. Target legality (8.4.2.7). The filter is a declared read set, and every
   //    entry in it is somebody's setup.
   pushRead(reads, filterReads(target?.filter), targetSides, "enable");
@@ -408,6 +401,34 @@ export function spellTouches(card: SpellCard): CardTouches {
     const dynamicReads = paramReads(effect);
     pushRead(reads, [...staticReads, ...dynamicReads], sides, "value");
   }
+
+  // 1. Castability, last, because how much of it is worth knowing depends on
+  //    what 2 and 3 turned up.
+  //
+  //    All of it is nearly universal — every targeted spell reads where its
+  //    caster stands (4.7.3), that the caster is alive, that it still has the
+  //    spellpower, and that the line is clear (4.8.3, 4.8.4). An edge that
+  //    connects everything to everything is not an edge, so it is `reach` and
+  //    `DEFAULT_CLASSES` leaves it out.
+  //
+  //    The caster's own tile is the exception, and only for spells that have a
+  //    reason to care where they are cast from. `slot` on `mine` was `enable`
+  //    unconditionally, on the strength of Infiltráció → Hátbaszúrás — and that
+  //    made one move spell a partner of every spell in the deck. Teleport came
+  //    out with 15 partners of a possible 16 in the Varázslótanács, which is
+  //    not a combo graph, it is a complete graph with a card in the middle.
+  //
+  //    What distinguishes Hátbaszúrás from Lánglándzsa is not that a caster can
+  //    be moved — both can — but that Hátbaszúrás *pays off* for position:
+  //    `altIf: "backRow"` reads a tile. A spell that reads `slot` for value
+  //    anywhere in its filter or its effects is a spell a move can genuinely
+  //    set up; a spell that reads it only for range is one that any placement
+  //    satisfies. So the class is taken from that, and no card id is named.
+  const positional = reads.some((r) => r.quantity === "slot" && r.edge === "value");
+  if (target) pushRead(reads, ["slot"], ["mine"], positional ? "enable" : "reach");
+  pushRead(reads, ["spellpower", "alive"], ["mine"], "reach");
+  if (target && !target.ignoreSight) pushRead(reads, ["alive", "slot"], ["theirs"], "reach");
+  if (target) pushRead(reads, ["alive"], targetSides, "reach");
 
   return { writes, reads };
 }

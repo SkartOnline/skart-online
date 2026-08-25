@@ -1,0 +1,138 @@
+/**
+ * What they can still do to the total, estimated without looking at their hand.
+ *
+ * The planner's securing line is built from the opponent's Θ, and Θ needs a
+ * hand to plan with — so for the whole life of this bot it read
+ * `state.players[foe].spellHand` directly. That is the true hand. The bot was
+ * playing with perfect information about a hand 3.1 and 1.5.1 keep hidden, and
+ * every measurement of it was a measurement of a cheat.
+ *
+ * `belief.ts` was built and calibrated for exactly this and nothing called it.
+ * This is the join: observe the board through the mask, form the belief, sample
+ * hands consistent with it, and evaluate each one exactly.
+ *
+ * ## Certainty is not uniform, and that matters more than the estimate
+ *
+ * Two things about their threat are *public*, and where they hold, no sampling
+ * is needed or wanted:
+ *
+ *   - **They have declared kész** (8.7.3). Their remaining swing is zero, and
+ *     it is zero as a fact rather than as an estimate.
+ *   - **No unit of theirs has free spellpower.** 8.3.3: a spell is paid for by
+ *     one caster out of one pool, so a board with nothing to pay with cannot
+ *     cast whatever the hand holds. Spellpower on a face-up unit is printed on
+ *     the card, so this is read off the board.
+ *
+ * Anywhere else, the answer is an average over samples and the planner should
+ * keep its doubt band open. Reporting `certain` alongside the number is what
+ * lets it tell the difference — and getting that wrong in the other direction
+ * is what the old code did: it treated a Θ of zero computed from their real
+ * hand as a hard fact, which it was, because it was cheating.
+ */
+
+import { allSpells } from "../engine/cards";
+import { freeCastsLeft, isDead, remainingSpellpower } from "../engine/power";
+import type { GameState, PlayerId, School } from "../engine/types";
+import { believe, sampleHand } from "./belief";
+import { observe } from "./observe";
+import { theta } from "./theta";
+import type { ThetaOptions } from "./theta";
+
+export interface ThreatOptions {
+  /** Hands sampled from the belief. One is a guess; the cost is linear. */
+  samples: number;
+  /** Seed, so a decision is reproducible. */
+  seed: number;
+  /** Passed to each Θ call. */
+  theta: Partial<ThetaOptions>;
+}
+
+export const DEFAULT_THREAT: Omit<ThreatOptions, "theta"> = {
+  samples: 3,
+  seed: 0x51ee,
+};
+
+export interface Threat {
+  /** Expected swing they can still make, in power. */
+  theta: number;
+  /** True when the answer is read off public information rather than sampled. */
+  certain: boolean;
+}
+
+/** mulberry32, so a decision is a function of the board and not of the clock. */
+function rng(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Every school any spell in the loaded set belongs to.
+ *
+ * Read off the registry rather than listed, because `School` is a plain string
+ * and a card set is free to add one — a hardcoded list would silently stop
+ * seeing a threat the day somebody invented a seventh school.
+ */
+function schoolsInPlay(): School[] {
+  const out = new Set<School>();
+  for (const spell of allSpells()) for (const school of spell.schools) out.add(school);
+  return [...out];
+}
+
+/**
+ * Any way at all for their standing board to pay for a spell (8.3.3).
+ *
+ * `remainingSpellpower` already accounts for what has been spent this battle
+ * and for anything that has banned casting, so this is the real ceiling rather
+ * than the printed one. A Moirák's free casts are a separate route to the same
+ * place and have to be counted, or a board holding it would read as harmless.
+ */
+function canPayForAnything(state: GameState, foe: PlayerId): boolean {
+  for (const unit of Object.values(state.board)) {
+    if (!unit || unit.owner !== foe || isDead(unit, state)) continue;
+    if (freeCastsLeft(unit, state) > 0) return true;
+    for (const school of schoolsInPlay()) {
+      if (remainingSpellpower(unit, school, state) > 0) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Their remaining swing, from one seat, without reading their hand.
+ *
+ * The two public shortcuts are checked first because they are both common and
+ * exact — a closed opponent and a board with no caster on it between them cover
+ * a large share of the decisions where the securing line actually bites.
+ */
+export function estimateThreat(
+  state: GameState,
+  player: PlayerId,
+  options: Partial<ThreatOptions> = {},
+): Threat {
+  const opts = { ...DEFAULT_THREAT, theta: {}, ...options };
+  const foe = player === "p1" ? "p2" : "p1";
+
+  // 8.7.3: kész is final, so nothing more is coming. Public and exact.
+  if (state.players[foe].flags.spellsClosed) return { theta: 0, certain: true };
+  // 8.3.3: nothing on the board can pay, so the hand cannot matter. Also public.
+  if (!canPayForAnything(state, foe)) return { theta: 0, certain: true };
+
+  const belief = believe(observe(state, player));
+  const next = rng(opts.seed + state.locationIndex * 97 + state.spellsCast.length);
+
+  let total = 0;
+  for (let i = 0; i < opts.samples; i += 1) {
+    const hand = sampleHand(belief, "spell", next);
+    const copy = structuredClone(state);
+    copy.players[foe].spellHand = hand.map((cardId, at) => ({ uid: `guess${i}-${at}`, cardId }));
+    copy.log = [];
+    copy.reveals = [];
+    total += theta(copy, foe, opts.theta);
+  }
+  return { theta: total / Math.max(1, opts.samples), certain: false };
+}

@@ -57,8 +57,24 @@ export interface Cast {
   swing: number;
 }
 
+/** One line the search looked at, kept so a trace can say why it lost. */
+export interface Considered {
+  /** The spells, in order, for reading back. */
+  spellIds: string[];
+  /** Margin swing of the whole line. */
+  gain: number;
+  /** What that gain was worth once the securing line and the card price applied. */
+  value: number;
+}
+
 export interface Plan {
   casts: Cast[];
+  /**
+   * Every complete line the search evaluated, best first, when `explain` is on.
+   * Empty otherwise — keeping it costs an array push per node and a trace is
+   * the only caller that wants it.
+   */
+  considered: Considered[];
   /** Margin after the plan, minus margin now. Never negative: stopping is free. */
   gain: number;
   /**
@@ -112,6 +128,8 @@ export interface ThetaOptions {
   deadlineMs: number;
   /** Which combo edges count as "this could matter to that". */
   classes: readonly EdgeClass[];
+  /** Record every line evaluated, so a trace can print the runners-up. */
+  explain: boolean;
   /**
    * The gain that would make this battlefield safe: their maximum remaining
    * swing, less the margin already standing. Negative when it is safe already.
@@ -181,6 +199,7 @@ export const DEFAULT_THETA: ThetaOptions = {
   nodeBudget: 1600,
   deadlineMs: 0,
   classes: DEFAULT_CLASSES,
+  explain: false,
   secured: Infinity,
   cardCost: 0,
   doubt: DEFAULT_DOUBT,
@@ -224,7 +243,7 @@ export const FAST_THETA: ThetaOptions = { ...DEFAULT_THETA, nodeBudget: 200 };
 /** For measurement and for anything that only runs once. */
 export const DEEP_THETA: ThetaOptions = { ...DEFAULT_THETA, nodeBudget: 4000, maxDepth: 6 };
 
-export const EMPTY_PLAN: Plan = { casts: [], gain: 0, complete: true };
+export const EMPTY_PLAN: Plan = { casts: [], gain: 0, considered: [], complete: true };
 
 function opponentOf(player: PlayerId): PlayerId {
   return player === "p1" ? "p2" : "p1";
@@ -520,6 +539,7 @@ export function bestPlan(
   const base = margin(root, player);
   const setups = setupSpells(root, player, opts);
 
+  const considered: Considered[] = [];
   let best = { casts: [] as Cast[], gain: 0 };
   // The empty plan is the thing to beat, and it is not worth zero: standing
   // still already has a chance of taking the field.
@@ -532,6 +552,9 @@ export function bestPlan(
     // Ranked by what the gain is *worth* — see `secured`. The plan still
     // reports its true margin, because callers price resources against that.
     const value = winChance(gain, opts.secured, opts.doubt) - opts.cardCost * casts.length;
+    if (opts.explain) {
+      considered.push({ spellIds: casts.map((c) => c.spellId), gain, value });
+    }
     if (value > bestValue) {
       bestValue = value;
       best = { casts: [...casts], gain };
@@ -553,7 +576,8 @@ export function bestPlan(
   };
 
   walk(root, 0, []);
-  return { ...best, complete };
+  considered.sort((a, b) => b.value - a.value);
+  return { ...best, considered, complete };
 }
 
 /** Whether this player has any cast left on offer, without spending a clone. */

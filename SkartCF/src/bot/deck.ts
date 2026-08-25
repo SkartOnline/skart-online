@@ -31,7 +31,7 @@
  */
 
 import { getSpell, getUnit } from "../engine/cards";
-import type { School, SpellCard, UnitCard } from "../engine/types";
+import type { GameState, PlayerId, School, SpellCard, UnitCard } from "../engine/types";
 
 export interface DeckList {
   /** Card id → copies, the shape `decks.json` stores. */
@@ -123,4 +123,44 @@ export function readDeck(list: DeckList): DeckReading {
  */
 export function isMute(reading: DeckReading, cardId: string): boolean {
   return reading.mute.some((m) => m.cardId === cardId);
+}
+
+/**
+ * A player's own decklist, counted out of the zones that player owns.
+ *
+ * The `GameState` does not record which deck was chosen — `setup.ts` takes the
+ * name, expands it and throws it away — but it does not need to. Every card is
+ * still somewhere the owner can see: the deck itself, their hand, their
+ * graveyard, and whatever is standing on the board. Adding those up reproduces
+ * the list, and does it from information 3.1 never hid from its owner.
+ *
+ * Only the seat's own cards. Reading the other player's zones this way would be
+ * exactly the peeking `belief.ts` exists to stop.
+ */
+export function ownDeck(state: GameState, player: PlayerId): DeckList {
+  const units: Record<string, number> = {};
+  const spells: Record<string, number> = {};
+  const bump = (into: Record<string, number>, id: string): void => {
+    into[id] = (into[id] ?? 0) + 1;
+  };
+
+  const me = state.players[player];
+  for (const card of me.unitDeck) bump(units, card.cardId);
+  for (const card of me.unitHand) bump(units, card.cardId);
+  for (const card of me.spellDeck) bump(spells, card.cardId);
+  for (const card of me.spellHand) bump(spells, card.cardId);
+  // The graveyard holds both kinds, so each is sorted by whether the registry
+  // knows it as a unit.
+  for (const card of me.discard) {
+    try {
+      getUnit(card.cardId);
+      bump(units, card.cardId);
+    } catch {
+      bump(spells, card.cardId);
+    }
+  }
+  for (const unit of Object.values(state.board)) {
+    if (unit && unit.owner === player) bump(units, unit.cardId);
+  }
+  return { units, spells };
 }

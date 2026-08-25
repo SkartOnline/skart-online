@@ -63,6 +63,11 @@ import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
 import type { BaselineContext } from "../sim/baseline";
 import { bestBoard, DEFAULT_BOARD, scoreBoard } from "./board";
 import type { BoardOptions } from "./board";
+import { ownDeck } from "./deck";
+import { DEFAULT_THREAT, estimateThreat } from "./threat";
+import type { ThreatOptions } from "./threat";
+import { DEFAULT_KEEP, tossPlan } from "./keep";
+import type { KeepOptions } from "./keep";
 import { cardPrice, fieldValue } from "./match";
 import {
   bestPlan,
@@ -74,6 +79,7 @@ import {
   theta,
 } from "./theta";
 import type { ThetaOptions } from "./theta";
+import type { Threat } from "./threat";
 
 export interface PlannerParams {
   /** Passed to Θ at every battle-phase decision. */
@@ -125,6 +131,25 @@ export interface PlannerParams {
    * even between finalists that deserve equal attention.
    */
   budgetMs: number;
+  /**
+   * Off, and leszerelés goes back to the fallback — which declares done
+   * immediately and has therefore never discarded a card in the bot's life.
+   */
+  toss: boolean;
+  /** Passed to the leszerelés decision. */
+  keep: Partial<KeepOptions>;
+  /**
+   * Estimate their remaining swing from the belief instead of reading their
+   * hand.
+   *
+   * Off, and `theta(state, foe)` plans with their *actual* spell hand — which
+   * is a hand 1.5.1 and 3.1 keep hidden, and which the bot has been reading for
+   * its whole existence. Every securing decision it has ever taken was taken
+   * with perfect information.
+   */
+  believe: boolean;
+  /** Passed to the threat estimate. */
+  threat: Partial<ThreatOptions>;
 }
 
 export const DEFAULT_PLANNER: PlannerParams = {
@@ -149,6 +174,10 @@ export const DEFAULT_PLANNER: PlannerParams = {
   // Comfortably inside the ten seconds a hotseat opponent is allowed, with room
   // for the engine work around the search.
   budgetMs: 8000,
+  toss: true,
+  keep: DEFAULT_KEEP,
+  believe: true,
+  threat: DEFAULT_THREAT,
 };
 
 export interface PlannerStats {
@@ -162,6 +191,8 @@ export interface PlannerStats {
   abandoned: number;
   /** Ability questions answered by score rather than by list order. */
   answers: number;
+  /** Cards thrown away at leszerelés (12.5). */
+  tossed: number;
   /** Gathering turns where a board was planned, and how many placed nothing. */
   boards: number;
   boardStops: number;
@@ -171,12 +202,15 @@ export interface PlannerStats {
 export class Planner {
   /** The remaining actions of the cast currently being played. */
   private queued: Action[] = [];
+  /** The remaining discards of this cleanup, or null when none is in flight. */
+  private tossing: string[] | null = null;
   readonly stats: PlannerStats = {
     plans: 0,
     stops: 0,
     multiCast: 0,
     abandoned: 0,
     answers: 0,
+    tossed: 0,
     boards: 0,
     boardStops: 0,
     placements: 0,
@@ -186,6 +220,7 @@ export class Planner {
 
   reset(): void {
     this.queued = [];
+    this.tossing = null;
   }
 
   choose(state: GameState, player: PlayerId): Action | null {
@@ -209,20 +244,30 @@ export class Planner {
     if (this.params.gather && state.phase === "units") {
       return this.gather(state, player, legal);
     }
+    if (state.phase === "cleanup" && this.params.toss) {
+      return this.leszereles(state, player, legal);
+    }
     if (state.phase !== "battle") {
       return chooseBaselineAction(state, player, this.params.fallback);
     }
 
-    // Four Θ calls make up a battle decision: the plan itself, and the three
-    // that build the line it is aimed at. The plan gets the lion's share.
-    const share = this.params.budgetMs > 0 ? Math.floor(this.params.budgetMs / 8) : 0;
+    // The plan itself, plus the threat estimate the line is aimed at — which is
+    // several Θ calls when it samples. The plan gets the lion's share.
+    const samples = this.params.believe ? (this.params.threat.samples ?? 3) : 1;
+    const share = this.params.budgetMs > 0
+      ? Math.floor(this.params.budgetMs / (5 + samples + 1))
+      : 0;
     const aux = { ...this.params.theta, deadlineMs: share };
+    // Once per decision, not three times: the securing line, the price and the
+    // doubt band are three readings of the same number, and it is the expensive
+    // one. Computing it separately for each was Θ run three times over.
+    const threat = this.threatOf(state, player, aux);
     const plan = bestPlan(state, player, {
       ...this.params.theta,
       deadlineMs: share > 0 ? share * 5 : 0,
-      secured: this.securedGain(state, player, aux),
-      cardCost: this.priceOf(state, player, this.params.cardCost, aux),
-      doubt: this.doubtAbout(state, player, aux),
+      secured: this.securedGain(state, player, threat),
+      cardCost: this.priceOf(state, player, this.params.cardCost, aux, threat),
+      doubt: this.doubtAbout(threat),
     });
     this.stats.plans += 1;
 
@@ -244,6 +289,33 @@ export class Planner {
       return chooseBaselineAction(state, player, this.params.fallback);
     }
     return first;
+  }
+
+  /**
+   * 12.5, which had never once been used.
+   *
+   * The plan is worked out on the first cleanup action of the battle and then
+   * played out one `toss` at a time, because that is the shape of the action
+   * list — the same discipline as a multi-action cast. Re-deciding after every
+   * throw would let a hand that is being emptied look progressively better and
+   * stop halfway.
+   */
+  private leszereles(state: GameState, player: PlayerId, legal: Action[]): Action | null {
+    if (this.tossing === null) {
+      const plan = tossPlan(state, player, ownDeck(state, player), this.params.keep);
+      this.tossing = plan.uids;
+    }
+    while (this.tossing.length > 0) {
+      const uid = this.tossing.shift()!;
+      const move = legal.find((a) => a.type === "toss" && a.uid === uid);
+      if (move) {
+        this.stats.tossed += 1;
+        return move;
+      }
+    }
+    this.tossing = null;
+    const done = legal.find((a) => a.type === "declareTossDone");
+    return done ?? chooseBaselineAction(state, player, this.params.fallback);
   }
 
   /**
@@ -344,15 +416,36 @@ export class Planner {
    * has declared done (8.7.3) will swing the total by exactly nothing, and a
    * field safe by five against that is simply safe.
    */
-  private doubtAbout(state: GameState, player: PlayerId, opts = this.params.theta): number {
-    const foe = player === "p1" ? "p2" : "p1";
-    if (state.players[foe].flags.spellsClosed) return 0;
-    // Declaring kész is not the only way to be unable to act. A hand with
-    // nothing castable, or nothing worth casting, has a Θ of zero and will move
-    // the total by exactly as much as a player who has already stopped — so the
-    // doubt band should be just as narrow. Leaving it wide here is what kept a
-    // one-point lead against a dead hand looking like it was worth padding.
-    if (theta(state, foe, opts) <= 0) return 0;
+  /**
+   * Their remaining swing, and how much it is worth trusting.
+   *
+   * `believe` off is the old behaviour and it is a cheat: `theta(state, foe)`
+   * plans with the hand they are actually holding.
+   */
+  private threatOf(state: GameState, player: PlayerId, opts: Partial<ThetaOptions>): Threat {
+    if (!this.params.believe) {
+      const foe = player === "p1" ? "p2" : "p1";
+      // Read from the true hand, so a zero here really is a zero.
+      return { theta: theta(state, foe, opts), certain: true };
+    }
+    return estimateThreat(state, player, { ...this.params.threat, theta: opts });
+  }
+
+  /**
+   * How wide the doubt band around the securing line is.
+   *
+   * Zero — a step, not a sigmoid — only where the threat is a fact rather than
+   * an estimate: they have declared kész (8.7.3), or nothing on their board can
+   * pay for a spell at all (8.3.3). Both are public.
+   *
+   * A *sampled* threat of zero is not the same thing and must not collapse the
+   * band. That distinction is new: the old code treated a zero as certain
+   * because it was reading their real hand, and a zero computed from the real
+   * hand genuinely is certain. Take the cheat away and it stops being one.
+   */
+  private doubtAbout(threat: Threat): number {
+    if (threat.certain) return 0;
+    if (threat.theta <= 0) return DEFAULT_DOUBT / 2;
     return DEFAULT_DOUBT;
   }
 
@@ -370,6 +463,7 @@ export class Planner {
     player: PlayerId,
     base: number,
     opts = this.params.theta,
+    threat?: Threat,
   ): number {
     if (!this.params.secure) return 0;
     if (!this.params.weighByMatch) return base;
@@ -395,7 +489,7 @@ export class Planner {
     // Leaving this out was the defect: the price read the standings and never
     // the board, so a hopeless battlefield charged the same as a decisive one
     // and the search spent its hand climbing towards a line it could not reach.
-    const swing = this.contestable(state, player, opts);
+    const swing = this.contestable(state, player, opts, threat);
     return cardPrice(base, stake * swing);
   }
 
@@ -407,10 +501,15 @@ export class Planner {
    * Built out of the same two numbers the search uses: what they can still swing
    * (their Θ) and what stands now.
    */
-  private contestable(state: GameState, player: PlayerId, opts = this.params.theta): number {
+  private contestable(
+    state: GameState,
+    player: PlayerId,
+    opts = this.params.theta,
+    threat?: Threat,
+  ): number {
     if (state.phase !== "battle") return 1;
-    const foe = player === "p1" ? "p2" : "p1";
-    const line = theta(state, foe, opts) - marginOf(state, player);
+    const their = threat ?? this.threatOf(state, player, opts);
+    const line = their.theta - marginOf(state, player);
     const mine = theta(state, player, opts);
     // `line` is what I would have to gain to be safe; `mine` is what I can
     // gain. Both far apart in either direction means the outcome is settled.
@@ -432,10 +531,9 @@ export class Planner {
    * cannot be taken away and everything past that is overkill. One extra Θ call
    * per decision, from their seat.
    */
-  private securedGain(state: GameState, player: PlayerId, opts = this.params.theta): number {
+  private securedGain(state: GameState, player: PlayerId, estimate: Threat): number {
     if (!this.params.secure) return Infinity;
-    const foe = player === "p1" ? "p2" : "p1";
-    const threat = theta(state, foe, opts);
+    const threat = estimate.theta;
     const now = marginOf(state, player);
     // The field is safe when `now + gain` ends up *above* their threat — 1.3.1
     // gives it to the larger sum by any amount — so the line sits at

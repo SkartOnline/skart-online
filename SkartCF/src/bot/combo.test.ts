@@ -116,3 +116,44 @@ describe("the combo graph, on real cards", () => {
     }
   });
 });
+
+describe("the caster's own tile is not a combo on its own", () => {
+  /**
+   * Every targeted spell reads where its caster stands, because that is what
+   * decides range (4.7.3). Classing that read as `enable` made one move spell a
+   * partner of every spell in the deck: Teleport came out with 15 partners of a
+   * possible 16 in the Varázslótanács, and the graph stopped being sparse.
+   *
+   * The distinction that survives is whether the spell *pays off* for position,
+   * not whether a caster could be moved — every caster can be moved.
+   */
+  it("does not link a move spell to a spell that only needs range", () => {
+    expect(
+      interaction(spellTouches(getSpell("teleport")), spellTouches(getSpell("langlandzsa"))),
+    ).toBeNull();
+    expect(
+      interaction(spellTouches(getSpell("teleport")), spellTouches(getSpell("nemitas"))),
+    ).toBeNull();
+  });
+
+  it("still links the move that sets up a positional payoff", () => {
+    // Infiltráció → Hátbaszúrás is the combo this whole graph was built for:
+    // Hátbaszúrás reads a tile for value (`altIf: "backRow"`), so a move that
+    // changes what the caster can reach is a real setup for it.
+    expect(
+      interaction(spellTouches(getSpell("infiltracio")), spellTouches(getSpell("hatbaszuras"))),
+    ).not.toBeNull();
+  });
+
+  it("keeps the graph sparse enough to be worth having", () => {
+    // A card that partners everything carries no information. The worst case in
+    // any shipped deck should stay well under the deck's spell count.
+    const magus = ["explar", "szellokes", "tuzkopeny", "fagypancel", "alomfogo", "vaskarom",
+      "langlandzsa", "nemitas", "elfeledes", "teleport", "jeghegy", "idezes"];
+    const touches = magus.map((id) => spellTouches(getSpell(id)));
+    const worst = Math.max(
+      ...touches.map((a, i) => touches.filter((b, j) => i !== j && interacts(a, b)).length),
+    );
+    expect(worst).toBeLessThan(magus.length / 2);
+  });
+});

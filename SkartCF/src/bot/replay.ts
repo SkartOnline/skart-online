@@ -20,8 +20,10 @@ import { createGame } from "../engine/setup";
 import { boardTotal } from "../engine/totaling";
 import type { Action, GameState, PlayerId, SlotId } from "../engine/types";
 import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
+import { DEFAULT_BOARD, scoreBoard } from "./board";
 import { DEFAULT_PLANNER, Planner } from "./planner";
-import { DEFAULT_THETA, theta } from "./theta";
+import { bestPlan, DEFAULT_THETA, margin as marginOf, theta } from "./theta";
+import { estimateThreat } from "./threat";
 
 const ROWS: ("F" | "B")[] = ["F", "B"];
 const COLS = [1, 2, 3];
@@ -106,6 +108,88 @@ function describe(state: GameState, player: PlayerId, action: Action): string {
   }
 }
 
+/**
+ * Why this move and not the others.
+ *
+ * The trace's job is to be disagreed with, and "cast Lánglándzsa" is not
+ * something a person can disagree with — "cast Lánglándzsa, because it kills
+ * the archer and takes the field, where the next best line gains two and leaves
+ * me a point short" is. So the search is re-run with `explain` on and the
+ * runners-up are printed with what they were worth.
+ *
+ * Lines that gain nothing are left out. A plan worth zero is not a rejected
+ * alternative, it is the search noticing there was nothing there.
+ */
+function whyBattle(state: GameState, player: PlayerId): string[] {
+  const threat = estimateThreat(state, player, { theta: DEFAULT_THETA });
+  const now = marginOf(state, player);
+  const plan = bestPlan(state, player, { ...DEFAULT_THETA, explain: true });
+
+  const out: string[] = [];
+  out.push(
+    `      standing ${now >= 0 ? "+" : ""}${now}; they can still swing ` +
+      `${threat.theta.toFixed(1)}` +
+      (threat.certain ? " (certain — closed, or nothing of theirs can pay)" : " (estimated)") +
+      `; so I need ${(threat.theta - now + 0.5).toFixed(1)} more to be safe`,
+  );
+
+  const lines = plan.considered.filter((c) => c.gain > 0).slice(0, 4);
+  if (lines.length === 0) {
+    out.push(`      nothing in hand moves the total from here, so kész`);
+    return out;
+  }
+  for (const [at, line] of lines.entries()) {
+    const names = line.spellIds.map((id) => getSpell(id).name).join(" → ") || "(stand still)";
+    const ends = now + line.gain;
+    const verdict =
+      ends > threat.theta
+        ? "takes the field"
+        : `${(threat.theta - ends).toFixed(1)} short`;
+    out.push(
+      `      ${at === 0 ? "chosen:  " : "rejected:"} ${names} — gains ${line.gain}, ` +
+        `ends ${ends >= 0 ? "+" : ""}${ends}, ${verdict}`,
+    );
+  }
+  return out;
+}
+
+/** The same for a placement: what the other boards were worth. */
+function whyBoard(state: GameState, player: PlayerId): string[] {
+  const moves = legalActions(state, player).filter(
+    (a): a is Extract<Action, { type: "playUnit" }> => a.type === "playUnit" && !a.faceDown,
+  );
+  const bare = scoreBoard(state, player, DEFAULT_THETA, DEFAULT_BOARD.thetaWeight, DEFAULT_BOARD.exposure);
+  const rows = moves.map((move) => {
+    const card = state.players[player].unitHand.find((c) => c.uid === move.uid);
+    const after = applyAction(state, move);
+    const valued = scoreBoard(after, player, DEFAULT_THETA, DEFAULT_BOARD.thetaWeight, DEFAULT_BOARD.exposure);
+    return {
+      label: `${card ? getUnit(card.cardId).name : move.uid} on ${move.slot}`,
+      score: valued.score,
+      margin: valued.margin,
+    };
+  });
+  rows.sort((a, b) => b.score - a.score);
+
+  const out: string[] = [
+    `      stopping here scores ${bare.score.toFixed(1)} (margin ${bare.margin})`,
+  ];
+  // One row per distinct card: six tiles of the same unit is not six options a
+  // person wants to read, and the tiles only differ where exposure bites.
+  const seen = new Set<string>();
+  for (const row of rows) {
+    const name = row.label.split(" on ")[0];
+    if (seen.has(name)) continue;
+    seen.add(name);
+    if (seen.size > 4) break;
+    out.push(
+      `      ${row.label} — scores ${row.score.toFixed(1)} (margin ${row.margin}, ` +
+        `Θ ${((row.score - row.margin) / DEFAULT_BOARD.thetaWeight).toFixed(1)})`,
+    );
+  }
+  return out;
+}
+
 function header(state: GameState, viewer: PlayerId): string {
   const loc = state.locations[state.locationIndex];
   const card = getLocation(loc.cardId);
@@ -130,6 +214,7 @@ export function main(argv: string[] = process.argv.slice(2)): void {
   const seed = arg(argv, "--seed", "1");
   const [deckA, deckB] = arg(argv, "--decks", "magus,felindori").split(",");
   const viewer = arg(argv, "--seat", "p1") as PlayerId;
+  const explain = !argv.includes("--no-why");
   const foe = other(viewer);
 
   // The shipped settings, not a trimmed set. A trace is only worth reading if
@@ -194,8 +279,22 @@ export function main(argv: string[] = process.argv.slice(2)): void {
       console.log(`   their side:`);
       console.log(boardLines(state, foe, viewer).join("\n"));
       console.log(`   ME: ${describe(state, player, action)}  [${took}ms]`);
+      if (explain) {
+        const lines =
+          state.phase === "battle"
+            ? whyBattle(state, player)
+            : whyBoard(state, player);
+        for (const l of lines) console.log(l);
+      }
     } else if (mine && !settled) {
       console.log(`   ME: ${describe(state, player, action)}  [${took}ms]`);
+      if (explain) {
+        const lines =
+          state.phase === "battle"
+            ? whyBattle(state, player)
+            : whyBoard(state, player);
+        for (const l of lines) console.log(l);
+      }
     } else if (!mine && settled && (state.phase === "units" || state.phase === "battle")) {
       console.log(`   THEM: ${describe(state, player, action)}`);
     }
