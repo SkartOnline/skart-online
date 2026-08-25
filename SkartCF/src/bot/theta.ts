@@ -85,6 +85,18 @@ export interface ThetaOptions {
   nodeBudget: number;
   /** Which combo edges count as "this could matter to that". */
   classes: readonly EdgeClass[];
+  /**
+   * The margin at which winning is already secured, measured in the same units
+   * as `gain`. Points beyond it are worth almost nothing.
+   *
+   * 1.3.1 gives the battlefield to the larger sum *by any amount*, so a plan
+   * that wins by eight is worth exactly what a plan that wins by one is worth,
+   * and the difference is resources that could have taken a different
+   * battlefield. Leaving this at `Infinity` maximises the margin instead, which
+   * is what the first version of this file did — and it produced a bot that won
+   * by an average of 6.65 and lost by an average of 4.65.
+   */
+  secured: number;
 }
 
 /**
@@ -116,7 +128,27 @@ export const DEFAULT_THETA: ThetaOptions = {
   maxPicks: 6,
   nodeBudget: 800,
   classes: DEFAULT_CLASSES,
+  secured: Infinity,
 };
+
+/**
+ * What one more point of margin is worth once the battlefield is already won.
+ * Not zero: the search still needs a gradient to break ties, and overkill is
+ * genuinely worth a little — 1.3.6 makes total power the knockout tiebreak.
+ */
+const OVERKILL_WORTH = 0.02;
+
+/**
+ * The value of reaching a margin, as opposed to the margin itself.
+ *
+ * Below the securing line every point is a point. Above it they are rounding
+ * error, which is what stops the planner spending a third card to turn a win
+ * by six into a win by nine.
+ */
+export function valueOfGain(gain: number, secured: number): number {
+  if (!Number.isFinite(secured) || gain <= secured) return gain;
+  return secured + (gain - secured) * OVERKILL_WORTH;
+}
 
 /** For the hot loop: a third of the time, and right nine times in ten. */
 export const FAST_THETA: ThetaOptions = { ...DEFAULT_THETA, nodeBudget: 200 };
@@ -405,12 +437,19 @@ export function bestPlan(
   const setups = setupSpells(root, player, opts);
 
   let best = { casts: [] as Cast[], gain: 0 };
+  let bestValue = 0;
 
   const walk = (from: GameState, depth: number, casts: Cast[]): void => {
     const gain = margin(from, player) - base;
     // Stopping is always available (8.7.1), so no plan is ever worth less than
     // nothing and the running best is the max over every prefix, not the leaf.
-    if (gain > best.gain) best = { casts: [...casts], gain };
+    // Ranked by what the gain is *worth* — see `secured`. The plan still
+    // reports its true margin, because callers price resources against that.
+    const value = valueOfGain(gain, opts.secured);
+    if (value > bestValue) {
+      bestValue = value;
+      best = { casts: [...casts], gain };
+    }
     if (!ours(from, player) || resolving(from)) return;
     if (depth >= opts.maxDepth || budget <= 0) {
       // Only a cut if there was in fact something left to look at.

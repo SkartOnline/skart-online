@@ -53,14 +53,16 @@
  * has to: an ability mid-question is not a board this layer can plan around.
  */
 
+import { currentLocation } from "../engine/power";
 import { legalActions } from "../engine/reducer";
+import { visibleCapSpent } from "../engine/totaling";
 import { pendingPrompt } from "../engine/prompts";
 import type { Action, GameState, PlayerId } from "../engine/types";
 import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
 import type { BaselineContext } from "../sim/baseline";
 import { bestBoard, DEFAULT_BOARD } from "./board";
 import type { BoardOptions } from "./board";
-import { bestPlan, DEFAULT_THETA } from "./theta";
+import { bestPlan, DEFAULT_THETA, margin as marginOf, theta } from "./theta";
 import type { ThetaOptions } from "./theta";
 
 export interface PlannerParams {
@@ -72,6 +74,16 @@ export interface PlannerParams {
   fallback: BaselineContext;
   /** Off, and the gathering phase goes to the fallback instead. */
   gather: boolean;
+  /**
+   * Aim to win rather than to win big.
+   *
+   * Off, both layers maximise the margin, which is what they did first and
+   * what produced a bot winning by an average of 6.65 and losing by 4.65. On,
+   * they stop paying for margin past the point where the battlefield is
+   * already safe, and the resources go somewhere they can still change an
+   * outcome. Kept as a switch so the difference stays measurable.
+   */
+  secure: boolean;
 }
 
 export const DEFAULT_PLANNER: PlannerParams = {
@@ -79,6 +91,7 @@ export const DEFAULT_PLANNER: PlannerParams = {
   board: DEFAULT_BOARD,
   fallback: { params: DEFAULT_BASELINE },
   gather: true,
+  secure: true,
 };
 
 export interface PlannerStats {
@@ -139,7 +152,10 @@ export class Planner {
       return chooseBaselineAction(state, player, this.params.fallback);
     }
 
-    const plan = bestPlan(state, player, this.params.theta);
+    const plan = bestPlan(state, player, {
+      ...this.params.theta,
+      secured: this.securedGain(state, player),
+    });
     this.stats.plans += 1;
 
     if (plan.casts.length === 0) {
@@ -168,7 +184,10 @@ export class Planner {
    * they get to answer it.
    */
   private gather(state: GameState, player: PlayerId, legal: Action[]): Action | null {
-    const plan = bestBoard(state, player, this.params.board);
+    const plan = bestBoard(state, player, {
+      ...this.params.board,
+      secured: this.securedBoard(state, player),
+    });
     this.stats.boards += 1;
 
     if (plan.actions.length === 0) {
@@ -184,6 +203,39 @@ export class Planner {
     }
     this.stats.placements += 1;
     return first;
+  }
+
+  /**
+   * How much more margin this turn needs to be safe, in the battle phase.
+   *
+   * Their Θ is what they can still do to the total, so a final margin above it
+   * cannot be taken away and everything past that is overkill. One extra Θ call
+   * per decision, from their seat.
+   */
+  private securedGain(state: GameState, player: PlayerId): number {
+    if (!this.params.secure) return Infinity;
+    const foe = player === "p1" ? "p2" : "p1";
+    const threat = theta(state, foe, this.params.theta);
+    const now = marginOf(state, player);
+    // Gain needed so that (now + gain) clears their threat by one.
+    return Math.max(0, threat - now + 1);
+  }
+
+  /**
+   * The same line for a board, which has two sources of threat rather than
+   * one: what they can still *place* and what they can still *cast*.
+   *
+   * The placement half is a proxy — cap left, read as power, because at the
+   * cheap end of the cost curve a point of cost buys about a point of power.
+   * It also has to be the *visible* cap: 1.5.3 keeps the real tally private,
+   * because hidden units spend from it too.
+   */
+  private securedBoard(state: GameState, player: PlayerId): number {
+    if (!this.params.secure) return Infinity;
+    const foe = player === "p1" ? "p2" : "p1";
+    const cap = currentLocation(state).cap;
+    const room = cap === null ? 0 : Math.max(0, cap - visibleCapSpent(state, foe));
+    return room + 1;
   }
 }
 
