@@ -1099,3 +1099,86 @@ board rather than one — dividing by the finalists alone was the eleven seconds
 - **The A Zóna tiebreaker in `match.ts`** encodes 1.3.4/1.3.5 as they currently
   stand in the rulebook. It is isolated in `matchOdds` and nowhere else, so a
   rules change costs one function.
+
+---
+
+## 14. The boolean
+
+§13 ended with the securing line switched **on**, on the argument that a bot
+casting a third spell while leading against a dead hand is indefensible whatever
+the win rate says. That was right about the behaviour and wrong about the
+change, and it took mirror matches to see it.
+
+### Mirror matches, because a cross-deck win rate measures the card set
+
+Deck against deck says as much about the matchup as about the policy, and the
+matchups are not balanced. `mirror.ts` puts the same deck on both seats, so the
+matchup cancels and what is left is the play. It also reports **fields won by
+position in the six**, which is the column that broke this open.
+
+### One boolean, eighteen points
+
+Same seeds, same everything, against `sim/baseline.ts`, 80 games:
+
+| | win rate | field 1 → 6 |
+|---|---|---|
+| `secure: true` | 51.7% | 57 · 53 · 55 · 54 · **42 · 35 · 31** |
+| `secure: false` | **69.6%** [59, 79] | 68 · 58 · 66 · 55 · 50 · 50 · 57 |
+
+The by-field row is the diagnosis. With securing on the bot holds up on the
+early battlefields and falls apart on the late ones, and casts fall off a cliff
+with it. It stops on fields it could still win, banks the cards, and never
+spends them.
+
+Which is exactly what §8 suspected — *"the resources are successfully saved and
+then never spent"* — and could not prove, because it was measuring whole games
+against a reference that wastes cards too. Counting fields by position is what
+made it visible. Whole-game win rates against a weak opponent hid it four times.
+
+### Why the line is wrong, and what would make it right
+
+The line is `finalMargin > Θ(them)`, and that needs Θ(them) to be an **upper
+bound** on their capacity. It is structurally a **lower bound**:
+
+1. **The search is truncated, and truncation only loses plans.** `theta.ts`'s
+   own budget sweep: at `nodeBudget 200` Θ agrees with the 4000-node answer on
+   90.5% of decisions and is short by a mean of 2.31 power when it differs — and
+   *"a smaller budget never once beat a larger one"*. One-signed error.
+2. **Sampling made it worse.** `estimateThreat` averages Θ over sampled hands.
+   Aiming at the mean threat is safe against the average hand they might hold,
+   which is a coin flip by construction. It wants a high quantile.
+3. **It is measured before my own move.** Θ(them) assumes I stand still, but I
+   am about to spend a caster's spellpower and put new targets on the board.
+
+Stop at a lower bound of the threat and you stop too early, every time. So
+`secure` is off, the apparatus stays, and turning it back on needs a pessimistic
+bound rather than a point estimate.
+
+### A wrong turn worth recording
+
+Between the two, a Mustra-time measurement — board totals at the reveal, before
+a single spell — said the gathering search was building boards *worse* than the
+greedy power-maximiser: 69 boards ahead against 78 behind across three decks.
+The conclusion drawn was that the gathering optimiser was dead weight.
+
+It was measured with `secure: true`. With the boolean off and the same seeds,
+the gathering search is worth **+7.6 points** over handing the phase to the
+greedy policy (69.6% vs 62.0%). A measurement taken with a broken component
+switched on says nothing about any other component.
+
+### Where it stands
+
+Against `sim/baseline.ts`, 16 games × 5 decks, mirrors:
+
+| deck | felindori | csempesz | magus | bestia | elettelen | **all** |
+|---|---|---|---|---|---|---|
+| win % | 80 | 50 | 75 | 81 | 63 | **69.6** [59, 79] |
+
+Against the previous bot, 30 games × 5 decks, mirrors: **56.4%** [48, 64], and
+bestia is 43%. That gap is small because the previous bot never had securing on
+either — the eighteen-point fix is not a differentiator against it. What
+separates them there is the combo-graph fix, the Θ discount, the exposure term,
+leszerelés, scored prompts, and the belief; together they are worth about six
+points and the interval still crosses 50.
+
+The target is 85% and this is not it.
