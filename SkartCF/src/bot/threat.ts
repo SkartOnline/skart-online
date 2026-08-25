@@ -30,9 +30,9 @@
  * hand as a hard fact, which it was, because it was cheating.
  */
 
-import { allSpells } from "../engine/cards";
+import { allSpells, getSpell } from "../engine/cards";
 import { freeCastsLeft, isDead, remainingSpellpower } from "../engine/power";
-import type { GameState, PlayerId, School } from "../engine/types";
+import type { GameState, PlayerId, School, SpellCard } from "../engine/types";
 import { believe, sampleHand } from "./belief";
 import { observe } from "./observe";
 import { theta } from "./theta";
@@ -135,4 +135,84 @@ export function estimateThreat(
     total += theta(copy, foe, opts.theta);
   }
   return { theta: total / Math.max(1, opts.samples), certain: false };
+}
+
+
+/**
+ * The most they could possibly do to the total — not the average, the ceiling.
+ *
+ * This is the number a *defensive* decision needs, and averaging sampled hands
+ * was the wrong shape for it. "Safe against the hand they are most likely to
+ * hold" is a coin flip by construction; "safe against the best hand they could
+ * hold" is a fact. And the asymmetry is the point: erring towards playing one
+ * spell too many costs a card, erring towards stopping costs the battlefield.
+ *
+ * Built by handing them the best hand the belief still allows:
+ *
+ *   1. Every spell they might still be holding — `belief.ts`'s unseen counts,
+ *      which come from the archetype posterior and the cards this seat has
+ *      legitimately watched go past.
+ *   2. Narrowed to what their standing board can actually pay for. 8.3.3 and
+ *      8.3.4: one caster covers a spell's whole cost out of one pool, so a
+ *      spell nothing of theirs can afford is not a threat however good it is.
+ *   3. Cut to the size of their real hand, which 1.5.1 publishes, taking the
+ *      expensive ones first.
+ *
+ * Then Θ is run on *that* hand. Θ's truncation still bites, but it bites far
+ * less on a hand chosen to be castable and impactful than on a random draw —
+ * and what is left errs high rather than low, which is the direction a
+ * defensive bound is allowed to err in.
+ */
+export function worstCaseThreat(
+  state: GameState,
+  player: PlayerId,
+  options: Partial<ThetaOptions> = {},
+): Threat {
+  const foe = player === "p1" ? "p2" : "p1";
+
+  // 8.7.3: kész is final. Nothing is coming, and no bound is needed to say so.
+  if (state.players[foe].flags.spellsClosed) return { theta: 0, certain: true };
+  // 8.3.3: nothing of theirs can pay, so the hand cannot matter.
+  if (!canPayForAnything(state, foe)) return { theta: 0, certain: true };
+
+  const belief = believe(observe(state, player));
+  const held = belief.handSize.spells;
+  if (held <= 0) return { theta: 0, certain: true };
+
+  // What their board could pay for, best spell first.
+  const affordable: { cardId: string; cost: number }[] = [];
+  for (const [cardId] of belief.unseenSpells) {
+    let spell;
+    try {
+      spell = getSpell(cardId);
+    } catch {
+      continue;
+    }
+    if (!theyCouldPay(state, foe, spell)) continue;
+    affordable.push({ cardId, cost: spell.cost });
+  }
+  if (affordable.length === 0) return { theta: 0, certain: true };
+  affordable.sort((a, b) => b.cost - a.cost);
+
+  const copy = structuredClone(state);
+  copy.players[foe].spellHand = affordable
+    .slice(0, held)
+    .map((entry, at) => ({ uid: `worst${at}`, cardId: entry.cardId }));
+  copy.log = [];
+  copy.reveals = [];
+  // An upper bound, so there is nothing left to be uncertain about: either the
+  // margin clears it or it does not.
+  return { theta: theta(copy, foe, options), certain: true };
+}
+
+/** Could any unit of theirs pay this spell's whole cost out of one pool? */
+function theyCouldPay(state: GameState, foe: PlayerId, spell: SpellCard): boolean {
+  for (const unit of Object.values(state.board)) {
+    if (!unit || unit.owner !== foe || isDead(unit, state)) continue;
+    if (freeCastsLeft(unit, state) > 0) return true;
+    for (const school of spell.schools) {
+      if (remainingSpellpower(unit, school, state) >= spell.cost) return true;
+    }
+  }
+  return false;
 }

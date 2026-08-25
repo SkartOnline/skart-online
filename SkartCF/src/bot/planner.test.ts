@@ -309,11 +309,15 @@ describe("not looking at their hand", () => {
   }
 
   it("takes the same decision whatever they are actually holding", () => {
+    // Same *number* of cards in both, because 1.5.1 publishes the count and a
+    // seat is entitled to react to it. What must not leak is which cards they
+    // are — so one hand can take the battlefield and the other cannot, and the
+    // decision has to come out the same.
     const planner = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP });
     const armed = planner.choose(facing(["langlandzsa", "jeghegy"]), "p1");
     planner.reset();
-    const empty = planner.choose(facing([]), "p1");
-    expect(armed).toEqual(empty);
+    const harmless = planner.choose(facing(["fagypancel", "alomfogo"]), "p1");
+    expect(armed).toEqual(harmless);
   });
 
   it("does change its decision when told to peek, which is what proves the test bites", () => {
@@ -321,8 +325,8 @@ describe("not looking at their hand", () => {
     // has gone inert and the test above is proving nothing.
     const peeking = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP, believe: false });
     const armedTheta = theta(facing(["langlandzsa", "jeghegy"]), "p2", CHEAP);
-    const emptyTheta = theta(facing([]), "p2", CHEAP);
-    expect(armedTheta).not.toBe(emptyTheta);
+    const harmlessTheta = theta(facing(["fagypancel", "alomfogo"]), "p2", CHEAP);
+    expect(armedTheta).not.toBe(harmlessTheta);
     expect(peeking.params.believe).toBe(false);
   });
 });

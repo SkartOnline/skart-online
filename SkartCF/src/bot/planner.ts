@@ -64,14 +64,14 @@ import type { BaselineContext } from "../sim/baseline";
 import { bestBoard, DEFAULT_BOARD, project, scoreBoard } from "./board";
 import type { BoardOptions } from "./board";
 import { ownDeck } from "./deck";
-import { DEFAULT_THREAT, estimateThreat } from "./threat";
+import { DEFAULT_THREAT, estimateThreat, worstCaseThreat } from "./threat";
 import type { ThreatOptions } from "./threat";
 import { DEFAULT_KEEP, tossPlan } from "./keep";
 import type { KeepOptions } from "./keep";
 import { cardPrice, fieldValue } from "./match";
 import {
   bestPlan,
-  DEFAULT_DOUBT,
+  DEEP_THETA,
   DEFAULT_THETA,
   DEFAULT_THETA_WEIGHT,
   margin as marginOf,
@@ -168,6 +168,15 @@ export interface PlannerParams {
    * Off, only a board that cannot be improved closes it.
    */
   stopRule: boolean;
+  /** Stop once the margin clears the ceiling of what they could still do. */
+  stopSafe: boolean;
+  /** Stop once even an unopposed run of my own hand cannot get in front. */
+  stopHopeless: boolean;
+  /**
+   * How far out of reach a battlefield has to look before it is given up, in
+   * power. Covers the amount Θ is known to under-report by.
+   */
+  foldSlack: number;
   /**
    * Estimate their remaining swing from the belief instead of reading their
    * hand.
@@ -221,7 +230,11 @@ export const DEFAULT_PLANNER: PlannerParams = {
   // remaining swing is known exactly (they have declared kész, or nothing of
   // theirs can pay), and where the lower-bound problem of §14 therefore does
   // not apply.
-  secure: false,
+  // On, and the line is now an upper bound rather than a truncated lower one:
+  // `worstCaseThreat` hands them the best hand the belief still allows and asks
+  // Θ what it does. That is what §14 said was missing — a bot that stops at a
+  // *lower* bound of the threat stops too early, every time.
+  secure: true,
   // In win-probability, not power: a card is worth this much of a battlefield's
   // chances on an ordinary field. §8 scales it from there.
   cardCost: 0.04,
@@ -239,6 +252,24 @@ export const DEFAULT_PLANNER: PlannerParams = {
   // bounds in the direction that makes the bot stop early. Same defect as
   // `secure`, third time it has been measured.
   stopRule: false,
+  stopSafe: true,
+  // Off. Measured on the magus mirror against baseline, 30 games a side:
+  //
+  //   neither rule        76.7%  [59,88]   56% of casts wasted
+  //   safe only           72.4%  [54,85]   35% wasted
+  //   hopeless only       48.3%  [31,66]   53% wasted
+  //   both, no slack      58.6%  [41,74]   17% wasted
+  //   both, slack 3       65.5%  [47,80]   32% wasted
+  //
+  // Giving up on a battlefield costs points at every setting tried, and the
+  // slack only buys some of them back. The rule reads right — a line that could
+  // not be finished even unopposed was never a line — and the thing it is built
+  // on is not sound enough to act on: Θ is a truncated search, so `Θ(mine)` is
+  // a lower bound on my own capacity, and folding on a lower bound folds fields
+  // that a deeper search takes. Kept, off, with the numbers, until Θ is exact
+  // enough to fold on.
+  stopHopeless: false,
+  foldSlack: 3,
   believe: true,
   threat: DEFAULT_THREAT,
 };
@@ -319,23 +350,35 @@ export class Planner {
       return chooseBaselineAction(state, player, this.params.fallback);
     }
 
-    // The plan itself, plus the threat estimate the line is aimed at — which is
-    // several Θ calls when it samples. The plan gets the lion's share.
     const samples = this.params.believe ? (this.params.threat.samples ?? 3) : 1;
     const share = this.params.budgetMs > 0
       ? Math.floor(this.params.budgetMs / (5 + samples + 1))
       : 0;
     const aux = { ...this.params.theta, deadlineMs: share };
-    // Once per decision, not three times: the securing line, the price and the
-    // doubt band are three readings of the same number, and it is the expensive
-    // one. Computing it separately for each was Θ run three times over.
-    const threat = this.threatOf(state, player, aux);
+
+    // Two reasons to stop, and neither of them is a way of ranking plans.
+    //
+    // That distinction cost a measurement. Folding the safety line into the
+    // objective made it a step — safe scores one, everything else scores zero —
+    // so on a contested battlefield, where nothing clears the line, every plan
+    // scored the same as doing nothing and the bot declared kész. 13.8% against
+    // 76.7%. The line decides *whether* to play, never *what* to play.
+    if (this.params.secure !== false) {
+      const done = legal.find((a) => a.type === "declareSpellsDone");
+      if (done && this.settledField(state, player, aux)) {
+        this.stats.stops += 1;
+        return done;
+      }
+    }
+
+    // Contested, so play for the largest swing there is. 1.3.1 gives the field
+    // to the larger sum by any amount, and a plan they answer is the game
+    // rather than a mistake.
     const plan = bestPlan(state, player, {
       ...this.params.theta,
       deadlineMs: share > 0 ? share * 5 : 0,
-      secured: this.securedGain(state, player, threat),
-      cardCost: this.priceOf(state, player, this.params.cardCost, aux, threat),
-      doubt: this.doubtAbout(threat),
+      secured: Infinity,
+      cardCost: 0,
     });
     this.stats.plans += 1;
 
@@ -433,15 +476,25 @@ export class Planner {
     if (mine > theirCeiling) return "safe";
 
     // 1.3.7 in miniature: only fold when the cards have somewhere better to go.
-    const ordinary = state.locations.filter((l) => !getLocation(l.cardId).tiebreaker);
-    const more = ordinary.filter((l) => l.winner === null).length > 1;
-    if (!more) return "play";
+    if (!this.moreFieldsLeft(state)) return "play";
 
     const myCap = cap === null ? 0 : Math.max(0, cap - state.players[player].capSpent);
     const myCeiling = mine + myCap * this.bestRate(state, player) + theta(settled, player, opts);
     // Their board *now* is a floor on their final total: they can only add.
     if (myCeiling <= theirs) return "hopeless";
     return "play";
+  }
+
+  /**
+   * Is there another battlefield for a saved card to be spent on?
+   *
+   * Folding is only ever worth something if the cards go somewhere. On the last
+   * field a card held back is a card wasted, so the fold rule switches itself
+   * off — which is 1.3.7 read from the other end.
+   */
+  private moreFieldsLeft(state: GameState): boolean {
+    const ordinary = state.locations.filter((l) => !getLocation(l.cardId).tiebreaker);
+    return ordinary.filter((l) => l.winner === null).length > 1;
   }
 
   /** The best power a point of cap can buy out of the units actually in hand. */
@@ -567,6 +620,58 @@ export class Planner {
    * field safe by five against that is simply safe.
    */
   /**
+   * Is this battlefield already decided, either way?
+   *
+   * The pair of rules, and each uses the assumption that makes it safe to act
+   * on — which is the opposite assumption in each case:
+   *
+   *   - **Already won.** Compare what stands against the *ceiling* of what they
+   *     could still do: the best hand the belief still allows them, run through
+   *     Θ. If the margin clears that, nothing they hold can take the field
+   *     (1.3.1), and another spell buys nothing.
+   *   - **Cannot be won.** Compare what stands *plus everything my own hand
+   *     could do unopposed* against nothing at all. Θ(mine) is computed with
+   *     them standing still (8.1.3), so it is the most generous reading of my
+   *     own chances there is. If even that does not get in front, the line was
+   *     never there to start, and the cards belong on the next battlefield.
+   *
+   * Erring towards playing costs a card. Erring towards stopping costs the
+   * battlefield. So both tests are strict, and the second one also refuses to
+   * fire on the last field, where a saved card has nowhere to go.
+   */
+  private settledField(
+    state: GameState,
+    player: PlayerId,
+    opts: Partial<ThetaOptions>,
+  ): boolean {
+    const now = marginOf(state, player);
+    if (this.params.stopSafe) {
+      const ceiling = this.threatOf(state, player, opts).theta;
+      if (now > ceiling) {
+        this.stats.stoppedSafe += 1;
+        return true;
+      }
+    }
+
+    if (!this.params.stopHopeless || !this.moreFieldsLeft(state)) return false;
+    // Θ under-reports: the search is truncated, and a truncated search can only
+    // ever find *fewer* plans than exist. `theta.ts`'s own budget sweep puts the
+    // shortfall at a mean of 2.31 power when it differs from a deep run — which
+    // is exactly the width between "cannot be won" and "wins by one".
+    //
+    // So this one call gets a deep budget, and then a slack on top of it. The
+    // asymmetry is deliberate and it is the right way round: playing a spell
+    // into a field that turns out to be lost costs a card, and folding a field
+    // that could have been taken costs the field.
+    const reach = theta(state, player, { ...opts, ...DEEP_THETA, deadlineMs: opts.deadlineMs });
+    if (now + reach + this.params.foldSlack <= 0) {
+      this.stats.stoppedHopeless += 1;
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Is the securing line worth aiming at from here?
    *
    * In `"certain"` mode, only when the threat was read off public information —
@@ -591,26 +696,12 @@ export class Planner {
       // Read from the true hand, so a zero here really is a zero.
       return { theta: theta(state, foe, opts), certain: true };
     }
+    // Defending wants the ceiling, not the average. `secure` is the securing
+    // line, and a line built from an average is safe half the time.
+    if (this.params.secure !== false) return worstCaseThreat(state, player, opts);
     return estimateThreat(state, player, { ...this.params.threat, theta: opts });
   }
 
-  /**
-   * How wide the doubt band around the securing line is.
-   *
-   * Zero — a step, not a sigmoid — only where the threat is a fact rather than
-   * an estimate: they have declared kész (8.7.3), or nothing on their board can
-   * pay for a spell at all (8.3.3). Both are public.
-   *
-   * A *sampled* threat of zero is not the same thing and must not collapse the
-   * band. That distinction is new: the old code treated a zero as certain
-   * because it was reading their real hand, and a zero computed from the real
-   * hand genuinely is certain. Take the cheat away and it stops being one.
-   */
-  private doubtAbout(threat: Threat): number {
-    if (threat.certain) return 0;
-    if (threat.theta <= 0) return DEFAULT_DOUBT / 2;
-    return DEFAULT_DOUBT;
-  }
 
   /**
    * What a card costs here, which is not what a card costs.
@@ -687,28 +778,6 @@ export class Planner {
     return 1;
   }
 
-  /**
-   * How much more margin this turn needs to be safe, in the battle phase.
-   *
-   * Their Θ is what they can still do to the total, so a final margin above it
-   * cannot be taken away and everything past that is overkill. One extra Θ call
-   * per decision, from their seat.
-   */
-  private securedGain(state: GameState, player: PlayerId, estimate: Threat): number {
-    if (!this.securing(estimate)) return Infinity;
-    const threat = estimate.theta;
-    const now = marginOf(state, player);
-    // The field is safe when `now + gain` ends up *above* their threat — 1.3.1
-    // gives it to the larger sum by any amount — so the line sits at
-    // `threat - now`, and the half point puts the sigmoid's centre between the
-    // last losing gain and the first winning one. It used to be a whole point,
-    // which put the centre on the first *winning* gain and read a position
-    // already safe by one as a coin flip.
-    //
-    // Deliberately not clamped at zero: a negative line says the field is
-    // already safe by that much, which is what stops the search buying more.
-    return threat - now + 0.5;
-  }
 
   /**
    * The same line for a board, which has two sources of threat rather than
