@@ -157,14 +157,32 @@ export const DEFAULT_PLANNER: PlannerParams = {
   board: DEFAULT_BOARD,
   fallback: { params: DEFAULT_BASELINE },
   gather: true,
-  // On. It was off for four measurements that all said it changed no win rate,
-  // and the win rate was the wrong judge: the reference opponents throw cards
-  // away too, so nothing in the measurement could punish a card spent on a
-  // battlefield already won. Off, `securedGain` is `Infinity` and `priceOf` is
-  // zero, which makes the whole battle-phase objective "maximise margin, cards
-  // are free" — and that is exactly the bot that casts a third spell while
-  // leading by three against an opponent whose Θ is zero.
-  secure: true,
+  // Off, for the fifth time and now for a measured reason rather than a null
+  // result. Mirror-matched against the same bot with it on, over 80 games a
+  // side: **69.6% vs 51.7%** against `sim/baseline.ts`. One boolean, eighteen
+  // points.
+  //
+  // The field-by-field breakdown says what it does. With securing on the bot
+  // wins 57/53/55/54/42/35/31 across the six battlefields — it holds up early
+  // and falls apart late. With it off: 68/58/66/55/50/50/57. It was stopping on
+  // fields it could still win, banking the cards, and never spending them.
+  // §8 suspected exactly this ("the resources are successfully saved and then
+  // never spent") and could not prove it, because it was measuring whole games
+  // against a reference that wastes cards too. Counting fields by position is
+  // what made it visible.
+  //
+  // The apparatus stays, because the behaviour it produces is not wrong in
+  // itself — a third spell cast while leading by three against a dead hand is
+  // still a wasted card. It is that the securing line is built from Θ(them),
+  // and Θ is a *truncated* search: it can only ever find fewer plans than exist
+  // (theta.ts's own budget sweep says a smaller budget never once beat a larger
+  // one). So it is a lower bound being used as an upper bound, and a bot that
+  // stops at a lower bound of the threat stops too early, every time.
+  //
+  // Turning it on again needs a threat line that is a pessimistic bound: a high
+  // quantile over sampled hands, and a search budget for the threat call large
+  // enough that truncation is not handing back free power.
+  secure: false,
   // In win-probability, not power: a card is worth this much of a battlefield's
   // chances on an ordinary field. §8 scales it from there.
   cardCost: 0.04,

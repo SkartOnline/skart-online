@@ -30,9 +30,8 @@ import { createGame } from "../engine/setup";
 import type { Action, GameState, PlayerId } from "../engine/types";
 import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
 import { wilson } from "./arena";
-import { DEFAULT_BOARD } from "./board";
+import { LEGACY_PLANNER } from "./legacy";
 import { DEFAULT_PLANNER, Planner } from "./planner";
-import type { PlannerParams } from "./planner";
 import { Progress } from "./progress";
 import { FAST_THETA, margin as marginOf, theta } from "./theta";
 
@@ -41,20 +40,6 @@ const MAX_ACTIONS = 4000;
 
 /** Cheap enough to run at every cast without doubling the scan. */
 const AUDIT = { ...FAST_THETA, nodeBudget: 120 };
-
-/**
- * The bot as it shipped before the play-quality review: cards free in both
- * phases, Θ at face value, no exposure term, finalists by rank alone.
- *
- * This is the opponent, and it needs to stay exactly this even as the defaults
- * move — otherwise "beats the old bot" quietly becomes "beats itself".
- */
-export const LEGACY_PLANNER: PlannerParams = {
-  ...DEFAULT_PLANNER,
-  secure: false,
-  thetaWeight: 1,
-  board: { ...DEFAULT_BOARD, perDepth: 0, thetaWeight: 1, exposure: 0 },
-};
 
 function actorOf(state: GameState): PlayerId | null {
   const asking = pendingPrompt(state);
@@ -204,8 +189,12 @@ export function main(argv: string[] = process.argv.slice(2)): void {
     ...(off("toss") ? { toss: false } : {}),
     ...(off("exposure") ? { board: { beamWidth: 5, finalists: 3, theta, exposure: 0 } } : {}),
     ...(off("weight") ? { thetaWeight: 1 } : {}),
+    // The big one: hand the gathering back to the greedy policy and keep only
+    // the battle phase. Measured at 69 boards ahead against 78 behind, the
+    // search is not winning the board-building contest it exists to win.
+    ...(off("gather") ? { gather: false } : {}),
   });
-  const ablations = ["secure", "believe", "toss", "exposure", "weight"].filter(off);
+  const ablations = ["secure", "believe", "toss", "exposure", "weight", "gather"].filter(off);
   if (ablations.length > 0) console.log(`  ablated: ${ablations.join(", ")}\n`);
   const old = new Planner({ ...LEGACY_PLANNER, theta, board: { ...LEGACY_PLANNER.board, beamWidth: 5, finalists: 3, theta } });
   const baseline = { params: DEFAULT_BASELINE };
@@ -283,4 +272,7 @@ export function main(argv: string[] = process.argv.slice(2)): void {
   );
 }
 
-main();
+// Only when run as a script. Everything above is importable — the planners in
+// particular — and a module that starts a sixty-game sweep the moment somebody
+// reads a constant out of it is a trap. It already sprang once.
+if (process.argv[1]?.endsWith("mirror.ts")) main();

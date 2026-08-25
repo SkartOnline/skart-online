@@ -104,21 +104,27 @@ describe("the planner in the battle phase", () => {
     expect(after.board["p2.F2"]).toBeNull();
   });
 
-  it("declines the same kill when the battlefield is already won", () => {
+  it("declines the same kill when the battlefield is already won, if asked to", () => {
     // 7 against 2 with the opponent closed: the bandit is two points of margin
     // that change nothing (1.3.1 gives the field to the larger sum by any
     // amount), and the card keeps its value for a field still in doubt.
     //
-    // `secure` used to default off, so this needed asking for and the shipped
-    // bot did the opposite — three casts while leading against a dead hand was
-    // what the trace showed. It is on now.
+    // It has to be asked for, and the reason is uncomfortable: this is the
+    // right play and the bot that makes it loses. `secure` on costs eighteen
+    // points against the baseline (69.6% → 51.7%) and collapses the late
+    // battlefields, because the line it stops at is built from Θ(them) — a
+    // truncated search, so a lower bound on their threat being used as an upper
+    // bound. Stop at a lower bound and you stop too early, every time.
+    //
+    // So the behaviour is kept and the default is off until the line is a
+    // pessimistic bound rather than a point estimate.
     const state = battle();
     place(state, "celebrant", "p1.F2");
     place(state, "bandita", "p2.F2");
     spellHand(state, "p1", "langlandzsa");
     state.players.p2.flags.spellsClosed = true;
 
-    const planner = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP });
+    const planner = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP, secure: true });
     const action = planner.choose(state, "p1");
     expect(action?.type).toBe("declareSpellsDone");
     const after = playOut(state, planner, "p1");
@@ -152,7 +158,7 @@ describe("the planner in the battle phase", () => {
     place(state, "ogre", "p2.B3"); // power 7, and far away
     spellHand(state, "p1", "explar"); // 1 damage: cannot matter
 
-    const planner = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP });
+    const planner = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP, secure: true });
     const action = planner.choose(state, "p1");
     expect(action?.type).toBe("declareSpellsDone");
     expect(planner.stats.stops).toBe(1);
