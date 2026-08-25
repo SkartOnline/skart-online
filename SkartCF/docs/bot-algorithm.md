@@ -379,6 +379,42 @@ over six slots — exact subset DP or a beam, and cheap either way.
 This is the one piece that should be plain code with a brute-force oracle test.
 It is fully determined, it is small, and learning it would be waste.
 
+**Built**: `src/bot/board.ts`. One thing the sketch above got wrong — it is not
+an *assignment* over six tiles. Belépő fires as each unit lands (6.3.6), so the
+same six cards in two orders are two different boards, and the search is over
+placement **sequences**. Candidates are therefore built out of real `playUnit`
+actions, which also gets the cap, the blocked tiles and the placement rules for
+free.
+
+Evaluating a candidate means projecting it into the battle it would become:
+declare both sides finished and let the engine run the Mustra — the reveal, the
+owed Belépő, the Mustra abilities, in 7.5's tile order — then call `score` on
+the result. Nothing reimplements the Mustra.
+
+Two tiers, because score is too slow to call at every node — this is §12's
+"cached cheap Θ for interior nodes, the full one at leaves", and it turned out
+to be needed at the first layer that sits on Θ rather than later:
+
+| tier | evaluator | where |
+|---|---|---|
+| beam | realised margin, no Θ | every node |
+| finalists | `score` = margin + Θ | top `finalists` candidates |
+
+The cheap tier cannot see that a caster is worth more than its body, so the
+finalist tier is what puts casters back. The test that pins this is the one
+where the two tiers disagree: a cap of 15 forcing a choice between Charon
+(power 9, no spellpower — margin 9, Θ 0) and Celebrant (power 7, Mágus 10 with
+a Lánglándzsa behind it — margin 7, Θ 3). Realised margin ranks them the wrong
+way round; score does not, and told to trust the beam alone the search takes
+Charon and scores a point less.
+
+**The cap on this**: the beam is guided by a number that is blind to the very
+thing the finalists are chosen for. A caster board that ranks below
+`beamWidth` on realised margin never reaches the finalists at all. On the
+hands measured so far that has not bitten, but it is the obvious place for
+this to be wrong, and the fix — guiding with a cheap Θ proxy such as castable
+spellpower — is unbuilt.
+
 ### 6.2 Stopping
 
 The hardest decision in the game and the current bot's worst failure
@@ -453,15 +489,62 @@ revealed at Mustra (7.2) and nothing casts before then (5.3).
 Against a known deck this is cheap and strong, and the current bot has none of
 it.
 
-**Base.** Their hand is a draw from `deck − graveyard − revealed`. The graveyard
-is public and inspectable at any time (1.5.4, 2.4.4), the deck counts are public
-(1.5.1). Hypergeometric, exactly.
+**Base.** Their hand is a draw from `deck − graveyard − revealed`.
+Hypergeometric, exactly — and the deck list is an input the bot is **given**.
+
+3.1 hides deck composition at a normal table, but that is a rule about two
+humans, not about this. A bot that has to discover the deck plays a duller game
+than one that knows it, and competitive play knows it anyway: lists are public
+and rounds repeat. So `knownDeck` is the intended mode, and it is exact from the
+first turn.
+
+`src/bot/belief.ts` keeps an inference path for when the list is not supplied,
+because that is what a human across the table is doing and what runs against an
+unregistered deck. Two stages: **which deck are they playing** — every card
+shown is a card their deck contains, and 14.2 caps the copies, which collapses
+the field fast — then **what is left in it**. Failing that, a flat pool prior
+rather than a deck it has never met.
+
+Hard elimination was the first attempt at the inference and it was too brittle:
+cards genuinely change hands (`stealCard`, `handSwap`, and 12.2 sending a unit
+to *its owner's* graveyard), so one stolen card ruled out every archetype at
+once. Calibration caught it — 14.7% of observations falling back to the pool
+prior for no reason. Counting *misfits* fixed it, and the inference now pins the
+deck on 100% of observations, which is why supplying the list scores identically
+here: the two modes only come apart early, before anything has been revealed.
 
 **Resolution: school payload, not cards.** The quantity that matters is
 `P(they can cast school S at level ≥ n, in range, with line of sight)`. Model
 that, not individual card identities. Decks are built so casters and spells
 match, so a Druida on their board raises the probability that they hold Druida
 spells well above the marginal rate — from deck composition *and* from the play.
+
+Built as `payloadOdds`, and it answers **"can they still cast"** rather than
+"do they hold one" — the two come apart the moment a player closes the battle
+phase (8.7.3), and every caller wants the threat. Range and sight are left to
+the caller, because they depend on which unit of mine is asking; this is the
+ceiling.
+
+**Measured.** `npm run belief` predicts from one seat's observation and checks
+against the hand that seat cannot see. Over 20 games and 1 328 predictions:
+
+| | Brier |
+|---|---|
+| always guessing the base rate (0.58) | 0.243 |
+| hard elimination, ignoring `spellsClosed` | 0.079 |
+| misfit matching, ignoring `spellsClosed` | 0.064 |
+| **shipped** | **0.050** |
+
+Calibration tracks the diagonal at the ends — it says 0.99 and is right 97% of
+the time, says 0.00 and is right every time — and is **systematically
+over-confident in the 0.6–0.9 band** (says 0.85, happens 0.78).
+
+That bias has a cause worth naming, because it is the next piece of §7 rather
+than a tuning problem: the hypergeometric assumes the hand is a uniform draw
+from the unseen pool, and it is not. Players *cast* the spells they can cast,
+so castable spells leave the hand faster than uniform and what remains is
+biased towards the uncastable. Fixing it needs the negative inference below —
+what they did not cast is evidence — which is unbuilt.
 
 **Their board is a message, not a state.** This is the thing a value function
 over afterstates structurally cannot represent, and it is where most of the
@@ -507,6 +590,124 @@ preparation (3.3); only the order is hidden (3.4).
 probability as a function of committed resources. L0 then allocates across the
 remaining fields. Conceding is just `c ≈ 0` on that curve, so there is no
 special case for it anywhere.
+
+---
+
+### What it is actually for
+
+Not risk posture in the abstract — a price. §5.3 says the battlefield payoff is a
+threshold, so a plan should maximise `P(margin > 0)` rather than the margin, and
+the first implementation of both layers maximised the margin anyway. The result
+was a bot winning by an average of **+6.65** and losing by **−4.65**, with
+"won by eight or more" the single largest bar in the distribution. Every point
+of that is worth nothing (1.3.1) and was paid for with cards that would have
+flipped the sixteen battlefields it lost by one.
+
+Fixing it took two pieces, and **either one alone changes nothing**:
+
+- a **securing line** past which extra margin stops counting, and
+- a **price on spending**, so that buying margin beyond it costs something.
+
+The line alone is a monotonically increasing transform of the margin. It
+rescales every option by the same rule and leaves the argmax exactly where it
+was — which is not a subtle failure: shipping it produced a re-measurement
+byte-for-byte identical to the one before. That is what a no-op looks like when
+you were expecting a fix.
+
+The price alone is worse than nothing, because a *flat* price is wrong at both
+ends at once. Swept against the baseline over 24 games each:
+
+| price of a card | games won | blowouts ≥6 | narrow losses |
+|---|---|---|---|
+| none | 46% | 26 | 24 |
+| 0.5 | 54% | 14 | 19 |
+| 1.0 | 33% | 12 | 25 |
+| 2.0 | 21% | 8 | 33 |
+| 3.0 | 13% | 5 | 39 |
+
+Blowouts fall monotonically, so the mechanism works — and the win rate falls
+with them, because a constant cannot know that a fourth battlefield is worth
+everything and a fifth is worth nothing. `fieldValue` is the number that does
+know, and `cardPrice` scales the base rate by it: cards nearly free where the
+match hangs on this field, prohibitive where it cannot change the result.
+
+That is fold-awareness derived rather than tuned, and it is the thing
+`sim/baseline.ts` has had all along via `foldMargin`.
+
+### And it did not work
+
+Measured against the baseline, 40 games per arm:
+
+| | games won | won by | blowouts ≥6 | narrow losses |
+|---|---|---|---|---|
+| no pricing | 57% | +6.51 | 55 | 46 |
+| flat price | 50% | +4.12 | **27** | 47 |
+| priced by match | 50% | +4.20 | 28 | 47 |
+
+The overkill goes away exactly as designed — blowouts halve, the average win
+drops from +6.5 to +4.2. **And nothing else improves.** Narrow losses sit at
+46, 47, 47; the win rate does not rise; and pricing by the match layer is
+indistinguishable from a constant.
+
+So the argument this was all built on — that margin wasted on won battlefields
+would flip the ones lost by a point — is **not supported by the evidence**. The
+resources are successfully saved and then never spent. Nothing tells the planner
+that *this* field is the one to commit to, so it economises everywhere and the
+game ends with cards in hand.
+
+Why §8 failed to beat a constant is the more useful half. `fieldValue` assumes
+`p = 0.5` for every remaining battlefield, so it varies with the **scoreboard**
+and not with the board in front of it. It cannot tell a winnable field from a
+hopeless one, which is the only discrimination that would make a card cheap here
+and dear there. That is the `p_i(c)` cost curve this document specified as the
+L0↔L1 interface (§2, §8) and which is still unbuilt — and until it exists, the
+match layer has nothing to be right about.
+
+The 40-game samples put Wilson intervals around ±15 points, so "57 versus 50" is
+not established either. What *is* established is the blowout halving, which is a
+per-battlefield statistic over 200+ fields rather than a per-game one over 40.
+
+### Two defects later, it still did not work
+
+The measurement above was taken with two real bugs in it, both found afterwards
+and both worth recording because they were invisible to reasoning and obvious to
+the numbers:
+
+1. **The value rewarded climbing, not winning.** Below the securing line every
+   point of margin scored in full, so a battlefield needing twelve with three
+   available still bought the three — full credit for progress towards a line it
+   would never cross. Ranking by `winChance` fixed it.
+2. **The gathering line asked for the impossible.** It was the opponent's whole
+   remaining cap, which early in the gathering is the whole cap, so it demanded
+   a board nineteen ahead. Every board scored ~0.0005, every placement cost more
+   than that, and the optimiser folded all six battlefields: **3W-37L**. The
+   line is the *difference* — what they can still place beyond what I can.
+
+With both fixed, over 40 games each against the baseline:
+
+| | games | fields W/L | won by | blowouts ≥6 | narrow losses |
+|---|---|---|---|---|---|
+| no pricing | **57%** | 119 / 96 | +6.51 | 55 | 46 |
+| flat price | **57%** | 119 / 109 | +5.10 | 44 | 50 |
+| priced by match | 40% | 112 / 116 | +4.74 | 40 | 51 |
+
+Parity at best, and worse when scaled by the match layer. The field columns say
+why: fields *won* barely moves while fields *lost* climbs, so the effect is not
+"same wins, cards banked" but "under-commits, loses fields it was winning".
+
+**So `secure` defaults off.** The apparatus is kept behind the flag because it
+does what it claims — the overkill halves every time — but it has now been
+measured four ways and has never converted that into a game. Narrow losses did
+not fall in any configuration: 46 → 47 → 47, then 46 → 50 → 51.
+
+The premise this was built on — *margin wasted on won battlefields is starving
+the ones lost by a point* — should be treated as **refuted** rather than
+unproven. Anything built on it later needs new evidence first.
+
+What that leaves open is the original question, which is still unanswered: the
+planner beats the trained bot and greedy comfortably and cannot separate from
+`sim/baseline.ts`. Overkill was a real flaw and fixing it changed nothing, so
+the gap is somewhere else and has not been found yet.
 
 ---
 
@@ -572,18 +773,48 @@ current monolith, where a wrong answer has no localisable cause.
 | 1 | ~~Combo graph from `schema.ts`~~ **done** — `src/bot/combo.ts` | `combo.test.ts`: `modifyPower`+`thresholdAoe(power)` connected; `modifyPower`+`massDestroy(basePower)` not; `setPower`+`massDestroy(basePower)` is; Infiltráció+Hátbaszúrás connected by `enable` and not by `value`; damage+Kegyelemdöfés connected |
 | 2 | ~~`Θ` — plan enumeration and valuation~~ **done** — `src/bot/theta.ts` | `theta.test.ts`: hand-computed values on toy boards, including the two combos above and the caster-pricing identity. Exhaustive search was tried as the oracle at scale and is not affordable — see below |
 | 3 | ~~`score` = realised + `Θ`~~ **done** — same file | monotonicity holds: adding a castable bomb never lowers score, an unpayable card never moves it |
-| 4 | Board optimiser | brute force over small hands and caps |
-| 5 | Belief model | calibration on self-play logs: predicted school payload vs actual |
-| 6 | Battle-phase plan/schedule/re-plan | beats the current bot head to head; self-damage rate near zero |
-| 7 | Gathering search over best responses | beats a **never-stops-early** reference opponent |
-| 8 | Match DP | Monte Carlo over the same `p_i` |
+| 4 | ~~Board optimiser~~ **done** — `src/bot/board.ts` | `board.test.ts`: beam equals exhaustive placement search on constrained boards, including under a cap; and `finalists: 1` demonstrably picks worse |
+| 5 | ~~Belief model~~ **done** — `src/bot/belief.ts` | `npm run belief`: Brier 0.050 against 0.243 for guessing the base rate, deck pinned on 100% of observations. `belief.test.ts` pins the mask invariant — moving what the viewer cannot see must not move the belief |
+| 6 | ~~Battle-phase plan/schedule/re-plan~~ **done** — `src/bot/planner.ts` | `npm run planner`, 120 games each, battle phase only: **78.2%** vs greedy [69.9, 84.6], **62.5%** vs the trained bot [53.6, 70.6], **57.5%** vs baseline [48.6, 66.0] — that last interval crosses 50%. Self-damage **0 of 1 766 casts** |
+| 7 | ~~Gathering search over best responses~~ **done** — `src/bot/planner.ts` gathers, `src/bot/reference.ts` is the yardstick | `npm run planner`, 100 games each: **62.0%** vs never-stops-early [52.2, 70.9] — lower bound above 50, so the oracle passes. Also 83.0% vs greedy, 73.0% vs the trained bot, **57.0%** vs baseline [47.2, 66.3], which still crosses 50 |
+| 8 | ~~Match DP~~ **done** — `src/bot/match.ts` | `match.test.ts`: the exact DP agrees with 200 000-trial Monte Carlo on six scorelines, including ones with voided fields. Plus the boundary cases — a field is worth nothing once the match cannot be lost *or* won |
 | 9 | Learned leaf, then CFR on the abstraction | arena, multiple training seeds |
 
 Step 7's reference opponent matters independently of everything else here. Both
 of the current bot's training opponents stop early by construction, so nothing
 in training punishes a modest board — that is the direct cause of the recorded
 4:0 loss with margins of 2, 3, 2 and 3, and it is worth fixing whether or not
-the rest of this plan gets built.
+the rest of this plan gets built. It exists now, as `src/bot/reference.ts`.
+
+### What steps 6 and 7 actually bought
+
+| opponent | battle phase only | with gathering |
+|---|---|---|
+| greedy | 78.2% [69.9, 84.6] | **83.0%** [74.5, 89.1] |
+| trained bot | 62.5% [53.6, 70.6] | **73.0%** [63.6, 80.7] |
+| never-stops-early | — | **62.0%** [52.2, 70.9] |
+| **baseline** | 57.5% [48.6, 66.0] | **57.0%** [47.2, 66.3] |
+
+Self-damage across all of it: **0 of 2 204 casts**, and 0 abandoned plans out of
+roughly 4 500.
+
+Two things to read off that table honestly.
+
+**Gathering by score is worth about ten points against the trained bot and five
+against greedy, and nothing at all against the baseline.** The planner is stuck
+at 57% there in both configurations, and the interval crosses 50 in both. So
+whatever separates it from the strongest opponent is not in either layer built
+so far.
+
+**And it did not arrive the way it was predicted to.** The reasoning was: the
+baseline gathers for power, so it fields boards that can barely cast, so a
+perfect battle phase arbitrates coin flips with about one spell — measured at
+**0.95 casts per battlefield**. Gathering by score prices a caster at what it
+enables, so casters should get fielded, casts should rise, and the layers should
+compound. They did not: **1.03 casts per battlefield**, which is inside the
+noise. The win rate moved without the mechanism moving, so the gain is coming
+from somewhere else — better boards, not busier ones — and the compounding
+story was wrong.
 
 ---
 
@@ -592,19 +823,77 @@ the rest of this plan gets built.
 - ~~**Cost of `Θ` in the hot loop.**~~ **Measured.** ~100 ms per call at the
   shipped budget, ~34 ms at `FAST_THETA`, against a 3-second move budget. Fine
   for play; still heavy for training, where a self-play game makes hundreds of
-  calls. The cached-cheap-Θ fallback has not been needed yet and may be once the
-  gathering search sits on top of it.
-- **Θ is verified against itself, not against exhaustive.** The budget sweep
-  compares small budgets to budget 4000, and 4000 is not proven optimal — mean Θ
-  was still creeping (1.78 → 1.80) at the top of the curve. Exhaustive search
-  over a real board is not affordable, so the honest statement is: correct on
-  the toy boards where the answer was worked out by hand, self-consistent above
-  that. A bounded exhaustive oracle over generated small boards would close it.
-- **The beam is not the whole story on wide hands.** `maxLines` and `maxPicks`
-  cut by rank and by arbitrary engine order respectively. Ordering picks by what
-  the combo graph says the spell is *for* — a removal spell wants the biggest
-  legal target, a threshold setup wants the one nearest the cutoff — would spend
-  the budget better than truncating `legalActions`. Unmeasured.
+  calls. The cached-cheap-Θ fallback was needed sooner than expected: the board
+  optimiser (§6.1) calls Θ once per finalist, so a gathering decision costs
+  `finalists × Θ` — about 600 ms at the defaults. That multiplication, not Θ
+  itself, is now what the 3-second budget is being spent on, and it is why the
+  budget stays at the measured knee rather than being raised.
+- ~~**Θ is verified against itself, not against exhaustive.**~~ **Closed.**
+  `theta.oracle.test.ts` generates small boards — one or two casters, one to
+  three bodies opposite, one to three cards in hand — and shrinks them until
+  exhaustive search is affordable. Over 600 generated boards the exhaustive run
+  completed on **every one** (no board hit the lifted caps), 345 had a non-zero
+  answer, and Θ at shipped settings disagreed on **none**.
+
+  The mechanism that makes this a real check rather than a restatement is
+  `Plan.complete`: a trial only counts when the exhaustive run reports it saw
+  everything, so a truncated search can never quietly become the reference.
+
+  And the test has teeth — weakened deliberately, it fails:
+
+  | Θ run as | disagreed with exhaustive | mean shortfall |
+  |---|---|---|
+  | shipped defaults | 0 / 600 | — |
+  | `maxLines: 1` | 14 / 600 | 2.43 (worst 5) |
+  | `nodeBudget: 60` | 3 / 600 | 3.00 (worst 4) |
+  | `classes: []` | 0 / 600 | — |
+
+  The last row is the honest limit of this oracle. Turning the combo graph off
+  changes nothing *on boards this small*, because with one to three cards in
+  hand the beam never has to cut and so the setup-preservation rule never has to
+  save anything. The rule is covered instead by the hand-built cases in
+  `theta.test.ts` — two Explars, and Senyvesztés into Káoszkolera — and by the
+  `worthExploring` unit tests. An oracle that exercised it would need boards big
+  enough to be unexhaustible, which is the thing that cannot be had.
+- ~~**The beam is not the whole story on wide hands.**~~ **Measured, and the
+  answer split in two.**
+
+  The proposed fix was to order picks by what the combo graph says the spell is
+  for, instead of truncating `legalActions` in arbitrary order. That fix is not
+  worth building: over 8 370 pick levels in real games, pick lists run mean 2.39,
+  p50 2, p90 5, p99 7, max 10, and **only 1.8% exceed `maxPicks: 6`**. A third of
+  levels offer a single forced option. Ordering would touch under one level in
+  fifty.
+
+  But the search *does* cut, and much more than expected. With `Plan.complete`
+  reporting it honestly, over 817 battle-phase decisions:
+
+  | | share |
+  |---|---|
+  | decisions where Θ cut something | 29.5% |
+  | **decisions where Θ found a plan and cut something** | **58.3%** |
+
+  So the cutting is not at the picks — it is the node budget and the `maxLines`
+  beam, on exactly the decisions that matter.
+
+  Two things stop that being alarming, and one thing stops it being fine.
+
+  `complete: false` says "I did not look at everything", not "I got it wrong",
+  and it is deliberately trigger-happy: a spell exhausting its own share of the
+  budget sets it, as does the beam dropping the 13th of 14 completed lines.
+  Against that, quadrupling the budget from 800 to 4000 changes the answer on
+  only 2.8% of decisions. Since a search that cut nothing cannot be improved by
+  more budget, those disagreements must all sit inside the truncated 29.5% —
+  which puts the disagreement rate *within* truncated decisions at roughly
+  **9.5%** (2.8 / 29.5; the two figures come from different samples, so treat
+  it as an estimate rather than a measurement).
+
+  What stops it being fine: that 2.8% is agreement between two *truncated*
+  searches. Budget 4000 cuts too. The only untruncated evidence is the
+  exhaustive oracle above, and that lives on boards far smaller than the ones
+  where cutting happens. The gap is real and this is the sharpest statement
+  available: **Θ is exactly right where it can be checked, and knowingly
+  approximate on most of the decisions where it has something to say.**
 - **How many determinizations.** `Θ(theirs)` is an expectation over the belief.
   Eight samples is a guess.
 - **Whether L1 needs to exist separately.** It may collapse into L0 plus score

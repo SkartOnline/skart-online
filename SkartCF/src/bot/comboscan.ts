@@ -27,6 +27,7 @@ import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
 import type { BaselineContext } from "../sim/baseline";
 import { components, interaction, spellTouches } from "./combo";
 import type { EdgeClass } from "./combo";
+import { Progress } from "./progress";
 
 const DECKS = ["felindori", "csempesz", "magus", "bestia", "elettelen"];
 const MAX_ACTIONS = 4000;
@@ -199,11 +200,16 @@ export function main(argv: string[] = process.argv.slice(2)): void {
   };
 
   let played = 0;
+  const progress = new Progress({ total: games, label: "games" });
   for (let i = 0; i < games; i += 1) {
     const deckA = DECKS[i % DECKS.length];
     const deckB = DECKS[(i * 3 + 1) % DECKS.length];
     playAndScan(deckA, deckB, `combo-${i}`, tally);
     played += 1;
+    progress.tick(
+      i + 1,
+      `${tally.decisions} decisions, worst candidate set ${Math.max(0, ...tally.candidates)}`,
+    );
   }
 
   console.log(`\nCombo scan: ${played} games, ${tally.decisions} battle-phase decisions`);

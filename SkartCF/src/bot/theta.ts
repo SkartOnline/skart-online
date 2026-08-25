@@ -61,7 +61,33 @@ export interface Plan {
   casts: Cast[];
   /** Margin after the plan, minus margin now. Never negative: stopping is free. */
   gain: number;
+  /**
+   * False when the search cut something: the node budget ran out, the depth cap
+   * bit while casts were still on offer, the beam dropped a line, or a pick list
+   * was longer than `maxPicks`.
+   *
+   * It is the difference between "this is the best plan" and "this is the best
+   * plan I looked at", and without it there is no way to tell an exhaustive run
+   * from a truncated one — which makes it impossible to use one as an oracle for
+   * the other.
+   */
+  complete: boolean;
 }
+
+/**
+ * How wide the doubt is around the securing line, in power, when nothing is
+ * known about how the opponent will use what they hold.
+ *
+ * `secured` is built from their Θ, which is their *maximum* swing and therefore
+ * pessimistic — they may not find it, may not hold the range, may spend it
+ * elsewhere. So the line is soft rather than a step, and this is how soft.
+ *
+ * It is a parameter rather than a constant because the doubt is not always
+ * there: once they have closed the battle phase (8.7.3) their swing is exactly
+ * zero and nothing about the outcome is uncertain any more. Leaving the band
+ * wide in that case makes a field already safe by five look worth padding.
+ */
+export const DEFAULT_DOUBT = 2.5;
 
 export interface ThetaOptions {
   /** Casts deep. Spellpower depletion bounds this on its own; the cap is a guard. */
@@ -74,6 +100,33 @@ export interface ThetaOptions {
   nodeBudget: number;
   /** Which combo edges count as "this could matter to that". */
   classes: readonly EdgeClass[];
+  /**
+   * The gain that would make this battlefield safe: their maximum remaining
+   * swing, less the margin already standing. Negative when it is safe already.
+   *
+   * Plans are ranked by `winChance(gain, secured)`, so this is the point the
+   * search is actually aiming at. `Infinity` disables it and ranks by raw
+   * margin instead, which is what the first version of this file did — and it
+   * produced a bot winning by an average of 6.65 and losing by 4.65.
+   */
+  secured: number;
+  /**
+   * What one spell out of hand costs, as a share of this battlefield.
+   *
+   * Without this `secured` does nothing at all, and it is worth being precise
+   * about why: saturating the value of a margin is a monotonically increasing
+   * transform of it, so it rescales every option by the same rule and leaves
+   * the argmax exactly where it was. Winning by eight still beats winning by
+   * two. The saturation only bites when the second card is *charged for*, so
+   * that once the extra margin has stopped counting, spending stops being free.
+   *
+   * The units are win probability, because that is what `winChance` returns:
+   * `0.05` means a card is worth five points of this field's chances. §8 scales
+   * it by what the field is worth to the match.
+   */
+  cardCost: number;
+  /** Width of the doubt band around `secured`; see `DEFAULT_DOUBT`. */
+  doubt: number;
 }
 
 /**
@@ -105,7 +158,32 @@ export const DEFAULT_THETA: ThetaOptions = {
   maxPicks: 6,
   nodeBudget: 800,
   classes: DEFAULT_CLASSES,
+  secured: Infinity,
+  cardCost: 0,
+  doubt: DEFAULT_DOUBT,
 };
+
+
+/**
+ * The chance of taking the battlefield, given a plan that gains this much.
+ *
+ * **This is the objective**, and getting it wrong is what two rewrites of this
+ * file were about. The battlefield goes to the larger sum by any amount
+ * (1.3.1), so what a plan is worth is the probability it *wins the field* — not
+ * the margin it accumulates.
+ *
+ * Valuing the margin instead fails at both ends and in opposite directions. On
+ * a field already won it keeps buying margin nobody is paid for. On a field
+ * that cannot be reached it gives full credit for progress towards a line it
+ * will never cross, and spends the hand climbing towards a loss. The second one
+ * is the expensive mistake: those cards were the ones that could have taken a
+ * field still in doubt.
+ */
+export function winChance(gain: number, secured: number, doubt = DEFAULT_DOUBT): number {
+  if (!Number.isFinite(secured)) return gain; // uncapped: rank by margin
+  const edge = gain - secured;
+  return 1 / (1 + Math.exp(-edge / Math.max(0.05, doubt)));
+}
 
 /** For the hot loop: a third of the time, and right nine times in ten. */
 export const FAST_THETA: ThetaOptions = { ...DEFAULT_THETA, nodeBudget: 200 };
@@ -113,7 +191,7 @@ export const FAST_THETA: ThetaOptions = { ...DEFAULT_THETA, nodeBudget: 200 };
 /** For measurement and for anything that only runs once. */
 export const DEEP_THETA: ThetaOptions = { ...DEFAULT_THETA, nodeBudget: 4000, maxDepth: 6 };
 
-export const EMPTY_PLAN: Plan = { casts: [], gain: 0 };
+export const EMPTY_PLAN: Plan = { casts: [], gain: 0, complete: true };
 
 function opponentOf(player: PlayerId): PlayerId {
   return player === "p1" ? "p2" : "p1";
@@ -217,12 +295,19 @@ export interface Line {
 /** Enough for one spell to reach at least a caster, a target and a destination. */
 const MIN_OPENER_SHARE = 12;
 
+/** The search's shared budget, and its record of having cut something. */
+interface Search {
+  spend(): boolean;
+  left(): number;
+  /** Called wherever the search knowingly stops short of looking at everything. */
+  truncate(): void;
+}
+
 function completeCasts(
   state: GameState,
   player: PlayerId,
   opts: ThetaOptions,
-  spend: () => boolean,
-  budgetLeft: () => number,
+  search: Search,
 ): Line[] {
   const before = margin(state, player);
   const out: Line[] = [];
@@ -238,11 +323,18 @@ function completeCasts(
   // in it can eat the whole budget before the second card is looked at. Which
   // card that is depends on draw order, so the search would be quietly
   // sensitive to something that means nothing.
-  const share = Math.max(MIN_OPENER_SHARE, Math.floor(budgetLeft() / Math.max(1, openers.length)));
+  const share = Math.max(MIN_OPENER_SHARE, Math.floor(search.left() / Math.max(1, openers.length)));
 
   for (const opener of openers) {
     let mine = share;
-    const spendMine = (): boolean => (mine > 0 && spend() ? (mine -= 1, true) : false);
+    const spendMine = (): boolean => {
+      if (mine <= 0 || !search.spend()) {
+        search.truncate();
+        return false;
+      }
+      mine -= 1;
+      return true;
+    };
     if (!spendMine()) break;
     const spellId =
       opener.type === "castSpell"
@@ -267,7 +359,9 @@ function completeCasts(
           continue;
         }
         if (!ours(node.state, player)) continue; // their pick, not ours to plan
-        const picks = legalActions(node.state, player).slice(0, opts.maxPicks);
+        const all = legalActions(node.state, player);
+        if (all.length > opts.maxPicks) search.truncate();
+        const picks = all.slice(0, opts.maxPicks);
         for (const pick of picks) {
           if (!spendMine()) break;
           const after = applyAction(node.state, pick);
@@ -364,32 +458,60 @@ export function bestPlan(
   if (state.phase !== "battle") return EMPTY_PLAN;
 
   let budget = opts.nodeBudget;
-  const spend = (): boolean => (budget > 0 ? (budget -= 1, true) : false);
-  const budgetLeft = (): number => budget;
+  let complete = true;
+  const search: Search = {
+    spend: () => (budget > 0 ? (budget -= 1, true) : false),
+    left: () => budget,
+    truncate: () => {
+      complete = false;
+    },
+  };
 
   const root = probe(state, player);
   const base = margin(root, player);
   const setups = setupSpells(root, player, opts);
 
-  let best: Plan = EMPTY_PLAN;
+  let best = { casts: [] as Cast[], gain: 0 };
+  // The empty plan is the thing to beat, and it is not worth zero: standing
+  // still already has a chance of taking the field.
+  let bestValue = winChance(0, opts.secured, opts.doubt);
 
   const walk = (from: GameState, depth: number, casts: Cast[]): void => {
     const gain = margin(from, player) - base;
     // Stopping is always available (8.7.1), so no plan is ever worth less than
     // nothing and the running best is the max over every prefix, not the leaf.
-    if (gain > best.gain) best = { casts: [...casts], gain };
-    if (depth >= opts.maxDepth || budget <= 0) return;
+    // Ranked by what the gain is *worth* — see `secured`. The plan still
+    // reports its true margin, because callers price resources against that.
+    const value = winChance(gain, opts.secured, opts.doubt) - opts.cardCost * casts.length;
+    if (value > bestValue) {
+      bestValue = value;
+      best = { casts: [...casts], gain };
+    }
     if (!ours(from, player) || resolving(from)) return;
+    if (depth >= opts.maxDepth || budget <= 0) {
+      // Only a cut if there was in fact something left to look at.
+      if (stillCastable(from, player)) search.truncate();
+      return;
+    }
 
-    const lines = completeCasts(from, player, opts, spend, budgetLeft);
+    const lines = completeCasts(from, player, opts, search);
     if (lines.length === 0) return;
-    for (const line of worthExploring(lines, setups, opts)) {
+    const kept = worthExploring(lines, setups, opts);
+    if (kept.length < lines.length) search.truncate();
+    for (const line of kept) {
       walk(line.state, depth + 1, [...casts, line.cast]);
     }
   };
 
   walk(root, 0, []);
-  return best;
+  return { ...best, complete };
+}
+
+/** Whether this player has any cast left on offer, without spending a clone. */
+function stillCastable(state: GameState, player: PlayerId): boolean {
+  return legalActions(state, player).some(
+    (a) => a.type === "castSpell" || a.type === "finishChannel",
+  );
 }
 
 /**
