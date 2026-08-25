@@ -695,10 +695,18 @@ Parity at best, and worse when scaled by the match layer. The field columns say
 why: fields *won* barely moves while fields *lost* climbs, so the effect is not
 "same wins, cards banked" but "under-commits, loses fields it was winning".
 
-**So `secure` defaults off.** The apparatus is kept behind the flag because it
-does what it claims — the overkill halves every time — but it has now been
-measured four ways and has never converted that into a game. Narrow losses did
-not fall in any configuration: 46 → 47 → 47, then 46 → 50 → 51.
+**So `secure` defaulted off.** The apparatus was kept behind the flag because it
+does what it claims — the overkill halves every time — but it had been measured
+four ways and had never converted that into a game. Narrow losses did not fall
+in any configuration: 46 → 47 → 47, then 46 → 50 → 51.
+
+> **It is on now, and the reasoning above is what §13 corrects.** Every one of
+> those four measurements asked "does this win more games against
+> `sim/baseline.ts`", and that turned out to be a question the reference could
+> not answer: it wastes cards too, so it cannot punish a bot that does. Off, the
+> objective is literally *maximise margin, cards are free* — which is a bot that
+> casts into fields it has already won and fields it cannot win, 61.5% of its
+> casts wasted. That is indefensible whatever the win rate says.
 
 The premise this was built on — *margin wasted on won battlefields is starving
 the ones lost by a point* — should be treated as **refuted** rather than
@@ -917,3 +925,158 @@ story was wrong.
   exists and is unused: a Belépő that damages is a setup for Kegyelemdöfés
   exactly as a spell would be, and an aura source is half of most indirect
   edges. Adding them widens the components and has not been measured.
+
+---
+
+## 13. What a trace found that no measurement had
+
+Every number in this document up to here came from a scan. §8's conclusion —
+that pricing cards changed no win rate, four ways — was measured carefully and
+is still, as far as it goes, true.
+
+Then somebody read a single game move by move (`npm run replay`) and found six
+defects in twenty minutes, four of them structural. None of them had ever moved
+a win rate, and the reason is the same in every case: **the reference opponents
+throw cards away too.** `sim/baseline.ts` casts into fields it has already won
+and fields it cannot win, so a bot that does the same is not punished for it,
+and a metric built out of games against it cannot see the difference.
+
+The lesson is not that the scans were wrong. It is that *a win rate against a
+weak opponent is not a measure of play quality*, and the two had been treated as
+the same thing for the whole of §8.
+
+### The defects
+
+**1. Cards were free in both phases.** `secure` defaulted off, which sets
+`securedGain` to `Infinity` and `priceOf` to zero. `winChance` returns the raw
+gain when `secured` is infinite, so the whole battle-phase objective reduced to
+*maximise margin, cards cost nothing*. That is the bot casting a third spell
+while leading by three with the opponent's Θ at zero, and casting twice more
+into a field it was losing 2–6 with a Θ of 2. It was doing exactly what it was
+told.
+
+§8 refuted the claim that pricing wins more games. It did not refute the claim
+that spending a card on a decided battlefield is a mistake, and those are
+different claims. The price is back on.
+
+**2. The objective was centred half a point wrong, and soft where it should have
+been hard.** `securedGain` returned `threat - now + 1`, so a position already
+safe by exactly one read as `edge = 0` — a coin flip — and buying four more
+power looked like it bought half a battlefield. The line belongs between the
+last losing gain and the first winning one, which is `+ 0.5`.
+
+Worse, the sigmoid never saturates, so *some* margin was always worth buying.
+But doubt is uncertainty about their remaining swing, and it is not always
+there: against a player who has declared kész (8.7.3), or whose Θ is zero, the
+swing is known to be nothing. `winChance` now takes `doubt <= 0` as the step
+function the rules actually describe, and `doubtAbout` returns 0 in both cases —
+not only when they have declared, which was the old test and missed every dead
+hand that had not got round to declaring yet.
+
+**3. The board optimiser's two tiers had collapsed into one.** The design says a
+cheap guide runs inside the beam and the expensive Θ-bearing evaluator scores
+the finalists. But the finalists were *selected by the cheap guide*, which
+ranked by realised power alone — so the deepest, fattest boards took every
+finalist slot and the Θ tier never saw a board that had traded a body for a
+caster. The tier that was supposed to put casters back could only re-rank boards
+chosen for not having any.
+
+That is what put a ten-cost Omnifex on the board holding nothing it could cast,
+over eight power of cheap bodies on a battlefield that rings every unit it takes.
+Two fixes: the guide now carries `castPotential`, a crude per-unit count of the
+largest spell in hand that unit could pay for, and the finalist list is filled by
+placement depth first and rank second so a three-unit board and a six-unit board
+both get a real score.
+
+**4. Where a unit stood was a coin flip.** Score was `my margin + my Θ`, and
+neither half moves when a body of mine slides from one empty tile to another.
+All six tiles tied, and the placement fell to whichever the engine listed first.
+`scoreBoard` now subtracts a share of *their* Θ, which is the §5.3 two-sided
+combination this document always specified and never had: a body their spell can
+reach and kill is worth less than the same body out of range. Θ itself stays
+one-sided, because that is what makes it a capacity rather than a prediction.
+
+**5. Every ability's question was answered by list order.** Prompts went to the
+fallback, which ranks options by the board total immediately after the pick.
+Taking a card into hand moves no total, so every option scored identically, the
+strict comparison never fired, and `options[0]` won — every tutor, in every
+game, for the whole life of the bot. It looked like a preference for Teleport;
+it was the alphabet. `Planner.answer` scores the option instead of the instant,
+which is a thing Θ was already able to do.
+
+**6. Θ counted at face value against power already on the board.** A plan is not
+a total: between now and the count they can kill the caster, silence it, block
+the line. `score` discounts Θ by `DEFAULT_THETA_WEIGHT`, so where the two are
+level the board wins. That tie was not hypothetical — a gathering decision
+stopped with four cap unspent while holding a unit that would have taken the
+lead, because placing it scored 7.00, stopping scored 7.00, and a strict `>`
+sent it to stopping.
+
+### The deck audit
+
+Defect 3 had a cause underneath it that no amount of search fixes. Omnifex
+carries Feketemágus 8; the Varázslótanács deck contains no Feketemágus spell.
+Ten cost buys a seven-power body and a Belépő, in every game that deck is ever
+played, and no board-level search can discover that from a hand.
+
+`src/bot/deck.ts` and `npm run decks` read the lists for the facts that hold all
+game. What they report is a card-data question rather than a bot one:
+
+| deck | never casts | nothing can pay for |
+|---|---|---|
+| felindori | — | — |
+| csempesz | Októ-abnormitás (8) | — |
+| magus | **Omnifex (10)**, Mágusinkvizítor (4) ×2, Felindori kardforgató (4) ×2 | — |
+| bestia | Vadász (3) | — |
+| elettelen | **Húsgólem (8)**, Lidérc (5) ×3, Makacs élőhalott (3) ×3, Burastya (2) ×3 | **Explar, Álomfogó, Acélpenge** |
+
+Spellpower on a one-cost body is flavour. Spellpower on a ten-cost body is a
+tenth of the cap paying for nothing. And the last column is the sharper finding:
+three of the Élettelen menet's twelve spells cannot be cast by anything in its
+own deck, in any game. Printed spellpower only — `modifySpellpower` exists, but
+Mágiacenzor is the only card with it and it is in neither deck.
+
+### What this changes about how the bot is judged
+
+`npm run planner` now reports **wasted casts**: casts made on a battlefield that
+was already safe by more than the opponent could take back, or already out of
+reach of anything the hand could do. It is opponent-independent — it reads the
+board, not the result — which makes it the first play-quality number here that a
+weak reference cannot flatter.
+
+Over 120 games against `sim/baseline.ts`, before and after:
+
+| | win rate | casts | wasted | already safe | out of reach |
+|---|---|---|---|---|---|
+| before | 49.6% [40.8, 58.4] | 719 | **442 (61.5%)** | 312 (43.4%) | 130 (18.1%) |
+| after | 53.8% [44.8, 62.5] | **314** | **46 (14.6%)** | 26 (8.3%) | 20 (6.4%) |
+
+Waste falls by a factor of four and the number of casts more than halves: the
+same games are now fought with 314 spells instead of 719. The win rate moves
+from 49.6% to 53.8% and **the intervals overlap almost entirely**, so that is
+not a result and should not be read as one.
+
+Which is precisely what §8 predicted, and it is worth being blunt about the
+shape of it. Playing better did not win more games against this opponent,
+because this opponent cannot punish the difference. The bot that spent 719 cards
+and the bot that spends 314 beat `sim/baseline.ts` about equally often. What has
+changed is that only one of them is worth putting in front of a person.
+
+The open question from §8 is therefore unchanged and now sharper: the planner
+cannot separate from `sim/baseline.ts`, four rounds of real improvements later.
+Either the remaining gap is somewhere nothing has looked yet, or the baseline is
+simply a strong policy on these decks and the reference needs replacing. Neither
+has been established.
+
+### What is still not built
+
+- **Leszerelés (§9).** The bot has never discarded a card. `cleanup` goes to the
+  fallback, which declares done immediately, so 12.5 is unused and every dead
+  card stays in hand for the whole game — while 12.6 would have drawn a
+  replacement for free. `src/bot/deck.ts` is the half of this that exists.
+- **Belief is not wired in.** `theta(state, foe)` reads the true state, so the
+  bot's estimate of what they can still do is taken from cards it should not be
+  able to see. `belief.ts` was built and measured for this and nothing calls it.
+- **The A Zóna tiebreaker in `match.ts`** encodes 1.3.4/1.3.5 as they currently
+  stand in the rulebook. It is isolated in `matchOdds` and nowhere else, so a
+  rules change costs one function.

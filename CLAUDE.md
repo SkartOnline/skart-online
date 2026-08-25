@@ -45,7 +45,8 @@ public site.
 | In-app rulebook screen | `src/ui/Rulebook.tsx` renders `docs/szabaly-*.md` directly — edit the docs, never the screen |
 | Balance simulator | `src/sim/run.ts` (runner/report), `src/sim/baseline.ts` (default policy: deterministic, theoretical-max driven), `src/sim/policy.ts` (old randomised greedy, kept as the bot's sparring partner) |
 | Learning bot | `src/bot/` — `docs/bot.md` first; `agent.ts`, `features.ts`, `observe.ts`, `model.ts`, `learn.ts`, `selfplay.ts`, `train.ts` |
-| Bot redesign (score, plans, combo graph) | `docs/bot-algorithm.md` — the layered plan; built so far: `src/bot/combo.ts` (which cards can matter to each other), `src/bot/theta.ts` (the best plan still available, and `score`), `src/bot/board.ts` (the best board to put down, given theirs), `src/bot/belief.ts` (what they are holding, from the mask only). `npm run combos`, `npm run theta` and `npm run belief` measure them |
+| Bot redesign (score, plans, combo graph) | `docs/bot-algorithm.md` — the layered plan; built so far: `src/bot/combo.ts` (which cards can matter to each other), `src/bot/theta.ts` (the best plan still available, and `score`), `src/bot/board.ts` (the best board to put down, given theirs), `src/bot/belief.ts` (what they are holding, from the mask only), `src/bot/deck.ts` (what a decklist can never do). `npm run combos`, `npm run theta`, `npm run belief` and `npm run decks` measure them |
+| Reading the bot's play | `npm run replay -- --seed 7 --decks magus,felindori --seat p1` prints one game from one seat, every decision with the board and hand it was taken from. `npm run planner` reports **wasted casts** — the play-quality number a weak opponent cannot flatter. §13 of `docs/bot-algorithm.md` is what reading a trace found that six scans had not |
 | Card art | drop `src/ui/art/<cardId>.webp` — nothing else to change |
 
 ## Invariants — do not break
