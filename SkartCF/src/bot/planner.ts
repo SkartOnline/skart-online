@@ -53,15 +53,15 @@
  * has to: an ability mid-question is not a board this layer can plan around.
  */
 
-import { getLocation } from "../engine/cards";
+import { getLocation, getUnit } from "../engine/cards";
 import { currentLocation } from "../engine/power";
 import { applyAction, legalActions } from "../engine/reducer";
-import { visibleCapSpent } from "../engine/totaling";
+import { boardTotal, visibleCapSpent } from "../engine/totaling";
 import { pendingPrompt } from "../engine/prompts";
 import type { Action, GameState, PlayerId } from "../engine/types";
 import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
 import type { BaselineContext } from "../sim/baseline";
-import { bestBoard, DEFAULT_BOARD, scoreBoard } from "./board";
+import { bestBoard, DEFAULT_BOARD, project, scoreBoard } from "./board";
 import type { BoardOptions } from "./board";
 import { ownDeck } from "./deck";
 import { DEFAULT_THREAT, estimateThreat } from "./threat";
@@ -81,6 +81,23 @@ import {
 import type { ThetaOptions } from "./theta";
 import type { Threat } from "./threat";
 
+/**
+ * When to stop buying margin. See `PlannerParams.secure`.
+ *
+ * `"certain"`: only where the opponent's remaining swing is known exactly.
+ */
+export type SecureMode = boolean | "certain";
+
+/**
+ * The most power one point of cost buys, taken across the shipped decks — the
+ * best single ratio any of them offers is 1.25, and the means sit near 0.85.
+ *
+ * Used for the *opponent's* ceiling, where the pessimistic end is the right
+ * one: 3.1 hides what is in their deck, so the safe assumption is that their
+ * remaining cap converts at the best rate the card set allows.
+ */
+const CAP_CEILING = 1.25;
+
 export interface PlannerParams {
   /** Passed to Θ at every battle-phase decision. */
   theta: Partial<ThetaOptions>;
@@ -91,15 +108,23 @@ export interface PlannerParams {
   /** Off, and the gathering phase goes to the fallback instead. */
   gather: boolean;
   /**
-   * Aim to win rather than to win big.
+   * Aim to win rather than to win big — and when.
    *
-   * Off, both layers maximise the margin, which is what they did first and
-   * what produced a bot winning by an average of 6.65 and losing by 4.65. On,
-   * they stop paying for margin past the point where the battlefield is
-   * already safe, and the resources go somewhere they can still change an
-   * outcome. Kept as a switch so the difference stays measurable.
+   * `false` maximises margin and treats cards as free, which is the bot that
+   * casts a third spell while leading against a dead hand. `true` always aims
+   * at the securing line, which costs eighteen points, because that line is
+   * built from Θ(them) and Θ is a *truncated* search: a lower bound being used
+   * as an upper bound, so it stops too early (§14).
+   *
+   * `"certain"` is the resolution, and it is not a compromise. It secures
+   * exactly where the threat is a fact rather than an estimate — they have
+   * declared kész (8.7.3), or nothing on their board can pay for a spell
+   * (8.3.3). There the lower bound *is* the true bound: their remaining swing
+   * is known to be zero, the information is complete, and the only question
+   * left is arithmetic. Everywhere else the doubt is real and the search plays
+   * for the margin.
    */
-  secure: boolean;
+  secure: SecureMode;
   /**
    * The price of a card on an *ordinary* battlefield, in power. `secure`
    * decides when extra margin stops counting; this decides what it costs to buy
@@ -139,6 +164,11 @@ export interface PlannerParams {
   /** Passed to the leszerelés decision. */
   keep: Partial<KeepOptions>;
   /**
+   * Close the gathering early when the field is already safe or already gone.
+   * Off, only a board that cannot be improved closes it.
+   */
+  stopRule: boolean;
+  /**
    * Estimate their remaining swing from the belief instead of reading their
    * hand.
    *
@@ -157,10 +187,12 @@ export const DEFAULT_PLANNER: PlannerParams = {
   board: DEFAULT_BOARD,
   fallback: { params: DEFAULT_BASELINE },
   gather: true,
-  // Off, for the fifth time and now for a measured reason rather than a null
-  // result. Mirror-matched against the same bot with it on, over 80 games a
-  // side: **69.6% vs 51.7%** against `sim/baseline.ts`. One boolean, eighteen
-  // points.
+  // Secure only where the information is complete. Always-on was measured at
+  // 51.7% against baseline where always-off was 69.6% — eighteen points — and
+  // §14 explains why: the line is built from a truncated Θ, so it is a lower
+  // bound on their threat used as an upper bound, and a bot that stops at a
+  // lower bound stops too early. None of that applies once their swing is known
+  // to be exactly zero, which is where this mode still stops.
   //
   // The field-by-field breakdown says what it does. With securing on the bot
   // wins 57/53/55/54/42/35/31 across the six battlefields — it holds up early
@@ -182,6 +214,13 @@ export const DEFAULT_PLANNER: PlannerParams = {
   // Turning it on again needs a threat line that is a pessimistic bound: a high
   // quantile over sampled hands, and a search budget for the threat call large
   // enough that truncation is not handing back free power.
+  // Measured at 62.6% against 66.7% with it off, over 100 games a side — the
+  // intervals overlap heavily [53,72] vs [57,75], so this is "no better" rather
+  // than "worse", but nothing here gets kept on the strength of an argument any
+  // more. Available as `"certain"`, which secures only where the opponent's
+  // remaining swing is known exactly (they have declared kész, or nothing of
+  // theirs can pay), and where the lower-bound problem of §14 therefore does
+  // not apply.
   secure: false,
   // In win-probability, not power: a card is worth this much of a battlefield's
   // chances on an ordinary field. §8 scales it from there.
@@ -194,6 +233,12 @@ export const DEFAULT_PLANNER: PlannerParams = {
   budgetMs: 8000,
   toss: true,
   keep: DEFAULT_KEEP,
+  // Off. Measured at 50.0% against 66.7% with it off, 100 games a side. Both
+  // halves of it are built on Θ — "safe" needs Θ(theirs), "hopeless" needs
+  // Θ(mine) — and Θ is a truncated search, so both are lower bounds used as
+  // bounds in the direction that makes the bot stop early. Same defect as
+  // `secure`, third time it has been measured.
+  stopRule: false,
   believe: true,
   threat: DEFAULT_THREAT,
 };
@@ -211,6 +256,9 @@ export interface PlannerStats {
   answers: number;
   /** Cards thrown away at leszerelés (12.5). */
   tossed: number;
+  /** Gatherings closed early because the field was already decided, each way. */
+  stoppedSafe: number;
+  stoppedHopeless: number;
   /** Gathering turns where a board was planned, and how many placed nothing. */
   boards: number;
   boardStops: number;
@@ -229,6 +277,8 @@ export class Planner {
     abandoned: 0,
     answers: 0,
     tossed: 0,
+    stoppedSafe: 0,
+    stoppedHopeless: 0,
     boards: 0,
     boardStops: 0,
     placements: 0,
@@ -337,6 +387,75 @@ export class Planner {
   }
 
   /**
+   * Whether to declare the gathering over, on the only two grounds that justify
+   * it.
+   *
+   * The default is to play out the cost cap. A unit left in hand is a unit that
+   * did not add to the sum this battlefield is decided by (11.1), and 12.6
+   * draws a replacement at the end of the battle either way — so holding one
+   * back has to be paid for by a reason, and there are exactly two:
+   *
+   *   - **safe** — what stands already beats everything they could still
+   *     reach: their board, plus what their unspent cap could buy at the best
+   *     rate any deck offers, plus what their hand could swing. 1.3.1 gives the
+   *     field to the larger sum by any amount, so more is worth nothing.
+   *   - **hopeless** — the reverse, and deliberately much stricter: even
+   *     spending my whole cap at my own best rate *and* landing every spell in
+   *     hand does not reach what they have *already* got on the board. Not
+   *     "probably losing" — arithmetically out of reach. Then the cards are
+   *     worth more on the next battlefield, and only if there is one.
+   *
+   * Everything between those two is a battlefield still in play, and the answer
+   * there is to build the best board the cap allows.
+   */
+  private gatheringVerdict(
+    state: GameState,
+    player: PlayerId,
+    opts: Partial<ThetaOptions>,
+  ): "safe" | "hopeless" | "play" {
+    const foe = player === "p1" ? "p2" : "p1";
+    const cap = currentLocation(state).cap;
+
+    // Score the position as it would stand if nobody placed another unit. This
+    // runs the Mustra, so Belépő and every static are already in the totals.
+    const settled = project(state, player);
+    if (settled.phase !== "battle") return "play";
+    const mine = boardTotal(settled, player);
+    const theirs = boardTotal(settled, foe);
+
+    // What they can still add. 1.5.3 keeps the real tally private, so the cap
+    // they have left is read from what is visible.
+    const theirCap =
+      cap === null || state.players[foe].flags.unitsClosed
+        ? 0
+        : Math.max(0, cap - visibleCapSpent(state, foe));
+    const theirCeiling = theirs + theirCap * CAP_CEILING + theta(settled, foe, opts);
+    if (mine > theirCeiling) return "safe";
+
+    // 1.3.7 in miniature: only fold when the cards have somewhere better to go.
+    const ordinary = state.locations.filter((l) => !getLocation(l.cardId).tiebreaker);
+    const more = ordinary.filter((l) => l.winner === null).length > 1;
+    if (!more) return "play";
+
+    const myCap = cap === null ? 0 : Math.max(0, cap - state.players[player].capSpent);
+    const myCeiling = mine + myCap * this.bestRate(state, player) + theta(settled, player, opts);
+    // Their board *now* is a floor on their final total: they can only add.
+    if (myCeiling <= theirs) return "hopeless";
+    return "play";
+  }
+
+  /** The best power a point of cap can buy out of the units actually in hand. */
+  private bestRate(state: GameState, player: PlayerId): number {
+    let best = 0;
+    for (const card of state.players[player].unitHand) {
+      const unit = getUnit(card.cardId);
+      if (unit.cost > 0) best = Math.max(best, unit.power / unit.cost);
+      else best = Math.max(best, unit.power);
+    }
+    return best === 0 ? CAP_CEILING : best;
+  }
+
+  /**
    * An ability's question, answered by what the board is worth afterwards.
    *
    * `prompts.ts` questions — which card to tutor, which to hand over, where to
@@ -403,6 +522,19 @@ export class Planner {
       this.params.budgetMs > 0
         ? Math.max(20, Math.floor(this.params.budgetMs / (perBoard * (board.finalists + 2))))
         : 0;
+    // Two reasons to stop that the optimiser cannot see, because it scores every
+    // board as though both players had already finished.
+    const verdict = this.params.stopRule
+      ? this.gatheringVerdict(state, player, { ...board.theta, deadlineMs: perScore })
+      : "play";
+    if (verdict !== "play") {
+      this.stats.boardStops += 1;
+      if (verdict === "safe") this.stats.stoppedSafe += 1;
+      else this.stats.stoppedHopeless += 1;
+      const done = legal.find((a) => a.type === "declareUnitsDone");
+      if (done) return done;
+    }
+
     const plan = bestBoard(state, player, {
       ...this.params.board,
       theta: { ...board.theta, deadlineMs: perScore },
@@ -434,6 +566,19 @@ export class Planner {
    * has declared done (8.7.3) will swing the total by exactly nothing, and a
    * field safe by five against that is simply safe.
    */
+  /**
+   * Is the securing line worth aiming at from here?
+   *
+   * In `"certain"` mode, only when the threat was read off public information —
+   * a player who has declared kész, or a board with nothing that can pay. Then
+   * `Θ(them)` is not an estimate at all and the arithmetic is exact.
+   */
+  private securing(threat: Threat | undefined): boolean {
+    if (this.params.secure === true) return true;
+    if (this.params.secure === false) return false;
+    return threat?.certain === true;
+  }
+
   /**
    * Their remaining swing, and how much it is worth trusting.
    *
@@ -483,7 +628,7 @@ export class Planner {
     opts = this.params.theta,
     threat?: Threat,
   ): number {
-    if (!this.params.secure) return 0;
+    if (!this.securing(threat)) return 0;
     if (!this.params.weighByMatch) return base;
 
     const foe = player === "p1" ? "p2" : "p1";
@@ -550,7 +695,7 @@ export class Planner {
    * per decision, from their seat.
    */
   private securedGain(state: GameState, player: PlayerId, estimate: Threat): number {
-    if (!this.params.secure) return Infinity;
+    if (!this.securing(estimate)) return Infinity;
     const threat = estimate.theta;
     const now = marginOf(state, player);
     // The field is safe when `now + gain` ends up *above* their threat — 1.3.1

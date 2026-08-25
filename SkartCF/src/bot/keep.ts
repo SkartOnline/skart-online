@@ -41,11 +41,10 @@
  * is exactly why `deck.ts` exists.
  */
 
-import { getSpell, getUnit } from "../engine/cards";
-import { getLocation } from "../engine/cards";
+import { getLocation, getSpell, getUnit } from "../engine/cards";
 import type { GameState, PlayerId, SpellCard, UnitCard } from "../engine/types";
-import { canEverCast, readDeck } from "./deck";
-import type { DeckReading } from "./deck";
+import { budget as readBudget, payable } from "./budget";
+import type { Budget } from "./budget";
 
 export interface KeepOptions {
   /**
@@ -120,10 +119,11 @@ function unitScore(card: UnitCard, ahead: { caps: number[]; uncapped: boolean })
   return efficiency * (0.5 + 0.5 * fits);
 }
 
-function spellScore(card: SpellCard, reading: DeckReading, units: UnitCard[]): number {
-  // 8.3.4: one caster, one pool. Nothing in the deck can pay for it → dead.
-  if (!units.some((unit) => canEverCast(unit, card))) return 0;
-  void reading;
+function spellScore(card: SpellCard, budget: Budget): number {
+  // 8.3.4: one caster, one pool. Asked of what is still *available* rather than
+  // of the printed decklist, so a spell goes dead the moment its last payer
+  // does — the list cannot know the Gouraldir is in the graveyard.
+  if (!payable(card, budget)) return 0;
   // Beyond castable, cheaper is better for the same reason it is in a hand of
   // units: a Mágus 1 can be cast by a Novícius on turn one, a Mágus 10 needs
   // the one caster in the deck that carries ten and needs it to still be alive.
@@ -153,8 +153,8 @@ export function tossPlan(
 ): TossPlan {
   const opts = { ...DEFAULT_KEEP, ...options };
   const me = state.players[player];
-  const reading = readDeck(deckList);
-  const deckUnits = Object.keys(deckList.units).map(getUnit);
+  void deckList;
+  const budget = readBudget(state, player, false);
   const ahead = capsAhead(state);
 
   const uids: string[] = [];
@@ -204,8 +204,8 @@ export function tossPlan(
     me.spellHand,
     me.spellDeck.length,
     getSpell,
-    (card) => spellScore(card, reading, deckUnits),
-    `no unit in this deck can pay for it`,
+    (card) => spellScore(card, budget),
+    `nothing left alive or undrawn can pay for it`,
   );
 
   return { uids, reasons };

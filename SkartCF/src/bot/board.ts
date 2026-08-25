@@ -114,6 +114,22 @@ export interface BoardOptions {
    * Θ apparatus earning anything over picking the biggest board".
    */
   castHint: number;
+  /**
+   * Break a tie towards putting the unit down.
+   *
+   * A unit left in hand adds nothing to the sum the battlefield is decided by
+   * (11.1), and 12.6 draws a replacement at the end of the battle — so where
+   * placing and stopping score the same, placing is the one that can still be
+   * right, and the strict `>` that used to decide it always chose to stop.
+   *
+   * It is only the tie. Ignoring the comparison altogether and playing the cap
+   * out regardless was measured at **52.6%** against 66.7%: with no floor the
+   * optimiser puts down units that *lower* the score — a fresh body for their
+   * removal to eat, or the empty tile an Idézés wanted — and a placement that
+   * lowers the score does not change the chances of winning the round, which is
+   * the only thing that justifies spending the card.
+   */
+  playToCap: boolean;
   /** Passed through to Θ on the finalists. */
   theta: Partial<ThetaOptions>;
 }
@@ -129,8 +145,19 @@ export const DEFAULT_BOARD: BoardOptions = {
   thetaWeight: DEFAULT_THETA_WEIGHT,
   exposure: 0.5,
   castHint: 0.5,
+  // Off until the beam stops pruning wide boards at depth 1 — a tie-break
+  // towards placing is worth nothing while the board worth placing was never
+  // generated. Measured at 50.0% against 66.7% alongside the stop rule.
+  playToCap: false,
   theta: DEFAULT_THETA,
 };
+
+/**
+ * Smaller than any real difference in score, so it only ever resolves an exact
+ * tie. Score is a sum of integer powers and a weighted Θ, so the smallest
+ * genuine gap is a fraction of a point; this is far below that.
+ */
+const TIE = 1e-9;
 
 function opponentOf(player: PlayerId): PlayerId {
   return player === "p1" ? "p2" : "p1";
@@ -362,7 +389,11 @@ export function bestBoard(
 
   const bare = scoreBoard(state, player, opts.theta, opts.thetaWeight, opts.exposure);
   let best: BoardPlan = { ...empty, ...bare };
-  let bestWorth = worth(bare.score, opts.secured, opts.doubt);
+  // Stopping is the thing to beat, and `playToCap` decides only whether it has
+  // to be beaten strictly. Nudging the bar down by a hair is what turns a tie
+  // into a placement without letting a loss through.
+  const stopping = worth(bare.score, opts.secured, opts.doubt);
+  let bestWorth = opts.playToCap ? stopping - TIE : stopping;
   for (const node of chosen) {
     const valued = scoreBoard(node.state, player, opts.theta, opts.thetaWeight, opts.exposure);
     const valueWorth =
