@@ -53,6 +53,7 @@
  * has to: an ability mid-question is not a board this layer can plan around.
  */
 
+import { getLocation } from "../engine/cards";
 import { currentLocation } from "../engine/power";
 import { legalActions } from "../engine/reducer";
 import { visibleCapSpent } from "../engine/totaling";
@@ -62,6 +63,7 @@ import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
 import type { BaselineContext } from "../sim/baseline";
 import { bestBoard, DEFAULT_BOARD } from "./board";
 import type { BoardOptions } from "./board";
+import { cardPrice, fieldValue } from "./match";
 import { bestPlan, DEFAULT_THETA, margin as marginOf, theta } from "./theta";
 import type { ThetaOptions } from "./theta";
 
@@ -85,13 +87,19 @@ export interface PlannerParams {
    */
   secure: boolean;
   /**
-   * The price of a card, in power. `secure` decides when extra margin stops
-   * counting; this decides what it costs to buy anyway. Both are needed —
-   * either alone changes nothing.
+   * The price of a card on an *ordinary* battlefield, in power. `secure`
+   * decides when extra margin stops counting; this decides what it costs to buy
+   * anyway. Both are needed — either alone changes nothing.
+   *
+   * It is a base rate, not the price paid: §8 scales it by what the battlefield
+   * is worth to the match, so the same card is nearly free in a decider and
+   * prohibitive in a field that cannot change the result.
    */
   cardCost: number;
   /** The same, for committing a unit to the board. */
   unitCost: number;
+  /** Off, and every battlefield is priced as though it were an ordinary one. */
+  weighByMatch: boolean;
 }
 
 export const DEFAULT_PLANNER: PlannerParams = {
@@ -100,8 +108,9 @@ export const DEFAULT_PLANNER: PlannerParams = {
   fallback: { params: DEFAULT_BASELINE },
   gather: true,
   secure: true,
-  cardCost: 1,
-  unitCost: 1,
+  cardCost: 0.5,
+  unitCost: 0.5,
+  weighByMatch: true,
 };
 
 export interface PlannerStats {
@@ -165,7 +174,7 @@ export class Planner {
     const plan = bestPlan(state, player, {
       ...this.params.theta,
       secured: this.securedGain(state, player),
-      cardCost: this.params.secure ? this.params.cardCost : 0,
+      cardCost: this.priceOf(state, player, this.params.cardCost),
     });
     this.stats.plans += 1;
 
@@ -198,7 +207,7 @@ export class Planner {
     const plan = bestBoard(state, player, {
       ...this.params.board,
       secured: this.securedBoard(state, player),
-      unitCost: this.params.secure ? this.params.unitCost : 0,
+      unitCost: this.priceOf(state, player, this.params.unitCost),
     });
     this.stats.boards += 1;
 
@@ -215,6 +224,31 @@ export class Planner {
     }
     this.stats.placements += 1;
     return first;
+  }
+
+  /**
+   * What a card costs here, which is not what a card costs.
+   *
+   * §8: the same card is nearly free on the battlefield that decides the match
+   * and close to worthless on one that cannot change it, and the scoreboard
+   * says which is which. A flat rate gets both ends wrong at once — tuned high
+   * it folds everything, tuned low it folds nothing — which is exactly what the
+   * price sweep found before this was wired in.
+   */
+  private priceOf(state: GameState, player: PlayerId, base: number): number {
+    if (!this.params.secure) return 0;
+    if (!this.params.weighByMatch) return base;
+
+    const foe = player === "p1" ? "p2" : "p1";
+    // A Zóna is not one of the six (3.5); it only exists to break a tie, so it
+    // is not counted among the battlefields still to be decided.
+    const ordinary = state.locations.filter((l) => !getLocation(l.cardId).tiebreaker);
+    const left = ordinary.filter((l) => l.winner === null).length;
+    const value = fieldValue(state.scores[player], state.scores[foe], left, {
+      win: 0.5,
+      loss: 0.5,
+    });
+    return cardPrice(base, value);
   }
 
   /**

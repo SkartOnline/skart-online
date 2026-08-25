@@ -87,24 +87,49 @@ beforeEach(() => {
 });
 
 describe("the planner in the battle phase", () => {
-  it("casts the kill it can see", () => {
+  it("casts the kill when the kill decides the battlefield", () => {
     const state = battle();
-    place(state, "celebrant", "p1.F2");
-    place(state, "bandita", "p2.F2"); // power 2
+    place(state, "patkany", "p1.F1"); // 1
+    place(state, "celebrant", "p1.F2"); // 7  — mine total 8
+    place(state, "ogre", "p2.F1"); // 7
+    place(state, "bandita", "p2.F2"); // 2  — theirs total 9, so I am one behind
     spellHand(state, "p1", "langlandzsa"); // 5 damage at range 1
     state.players.p2.flags.spellsClosed = true;
 
     const planner = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP });
     const after = playOut(state, planner, "p1");
+    // Killing the bandit turns a one-point loss into a one-point win, which is
+    // the whole battlefield (1.3.1) and worth the card.
     expect(after.board["p2.F2"]).toBeNull();
+  });
+
+  it("declines the same kill when the battlefield is already won", () => {
+    // The behaviour the securing line exists for. 7 against 2 with the
+    // opponent closed: the bandit is worth two points of margin that change
+    // nothing, and the card is worth more on a battlefield still in doubt (§9).
+    const state = battle();
+    place(state, "celebrant", "p1.F2");
+    place(state, "bandita", "p2.F2");
+    spellHand(state, "p1", "langlandzsa");
+    state.players.p2.flags.spellsClosed = true;
+
+    const planner = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP });
+    const action = planner.choose(state, "p1");
+    expect(action?.type).toBe("declareSpellsDone");
+    const after = playOut(state, planner, "p1");
+    expect(after.board["p2.F2"]).not.toBeNull();
+    expect(after.players.p1.spellHand).toHaveLength(1); // still in hand
   });
 
   it("plays the combo, one cast at a time", () => {
     // Two Explars: neither moves the total alone, both together kill. The
-    // planner has to commit to the first with nothing to show for it.
+    // planner has to commit to the first with nothing to show for it — and the
+    // board has to be one where the kill matters, or declining is correct.
     const state = battle();
-    place(state, "celebrant", "p1.F2");
-    place(state, "bandita", "p2.F2");
+    place(state, "patkany", "p1.F1"); // 1
+    place(state, "celebrant", "p1.F2"); // 7 — mine 8
+    place(state, "ogre", "p2.F1"); // 7
+    place(state, "bandita", "p2.F2"); // 2 — theirs 9
     spellHand(state, "p1", "explar", "explar");
     state.players.p2.flags.spellsClosed = true;
 
@@ -130,7 +155,9 @@ describe("the planner in the battle phase", () => {
 
   it("never leaves a cast half-finished", () => {
     const state = battle();
+    place(state, "patkany", "p1.F1");
     place(state, "celebrant", "p1.F2");
+    place(state, "ogre", "p2.F1");
     place(state, "bandita", "p2.F2");
     spellHand(state, "p1", "langlandzsa");
     state.players.p2.flags.spellsClosed = true;
@@ -150,17 +177,35 @@ describe("the planner in the battle phase", () => {
 });
 
 describe("the planner outside the battle phase", () => {
-  it("hands gathering to the fallback rather than guessing", () => {
+  function gathering(): GameState {
     const state = battle();
     state.phase = "units";
     state.players.p1.flags.unitsClosed = false;
     state.players.p2.flags.unitsClosed = false;
     state.players.p1.unitHand = [{ uid: "u0", cardId: "ogre" }];
+    return state;
+  }
 
-    const planner = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP });
+  it("plans the gathering itself when it is asked to", () => {
+    const state = gathering();
+    const planner = new Planner({
+      ...DEFAULT_PLANNER,
+      theta: CHEAP,
+      board: { beamWidth: 4, finalists: 2, theta: CHEAP },
+    });
     const action = planner.choose(state, "p1");
     expect(action).not.toBeNull();
-    // Whatever it is, it is a gathering move and Θ was never consulted.
+    expect(planner.stats.boards).toBe(1);
+    // Gathering is not the battle phase: Θ was never asked for a cast plan.
+    expect(planner.stats.plans).toBe(0);
+  });
+
+  it("hands it to the fallback when it is not", () => {
+    const state = gathering();
+    const planner = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP, gather: false });
+    const action = planner.choose(state, "p1");
+    expect(action).not.toBeNull();
+    expect(planner.stats.boards).toBe(0);
     expect(planner.stats.plans).toBe(0);
   });
 });
