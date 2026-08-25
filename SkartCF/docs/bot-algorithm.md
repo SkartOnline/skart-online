@@ -489,15 +489,58 @@ revealed at Mustra (7.2) and nothing casts before then (5.3).
 Against a known deck this is cheap and strong, and the current bot has none of
 it.
 
-**Base.** Their hand is a draw from `deck − graveyard − revealed`. The graveyard
-is public and inspectable at any time (1.5.4, 2.4.4), the deck counts are public
-(1.5.1). Hypergeometric, exactly.
+**Base.** ~~Their hand is a draw from `deck − graveyard − revealed`.
+Hypergeometric, exactly.~~ **Wrong, and the rulebook says so:** *3.1 — a két
+pakli összetétele a játék elején rejtett.* The deck list is not an input. Only
+its **size** is public (1.5.1), along with the graveyard (1.5.4, 2.4.4), the
+revealed board, and everything already cast.
+
+So the draw is hypergeometric over a pool that has to be guessed first, and
+`src/bot/belief.ts` guesses it in two stages. **Which deck are they playing** —
+every card shown is a card their deck contains, and 14.2 caps the copies, which
+collapses the field fast. **What is left in it** — archetype counts minus what
+has been seen. When no archetype explains them it falls back to a flat pool
+prior rather than asserting a deck it has never met.
+
+Matching by hard elimination was the first attempt and it was too brittle:
+cards genuinely change hands (`stealCard`, `handSwap`, and 12.2 sending a unit
+to *its owner's* graveyard), so one stolen card ruled out every archetype at
+once. Calibration caught it — 14.7% of observations falling back to the pool
+prior for no reason. Counting *misfits* and keeping the best-fitting archetypes
+fixed it: the posterior now pins the deck on 100% of observations.
 
 **Resolution: school payload, not cards.** The quantity that matters is
 `P(they can cast school S at level ≥ n, in range, with line of sight)`. Model
 that, not individual card identities. Decks are built so casters and spells
 match, so a Druida on their board raises the probability that they hold Druida
 spells well above the marginal rate — from deck composition *and* from the play.
+
+Built as `payloadOdds`, and it answers **"can they still cast"** rather than
+"do they hold one" — the two come apart the moment a player closes the battle
+phase (8.7.3), and every caller wants the threat. Range and sight are left to
+the caller, because they depend on which unit of mine is asking; this is the
+ceiling.
+
+**Measured.** `npm run belief` predicts from one seat's observation and checks
+against the hand that seat cannot see. Over 20 games and 1 328 predictions:
+
+| | Brier |
+|---|---|
+| always guessing the base rate (0.58) | 0.243 |
+| hard elimination, ignoring `spellsClosed` | 0.079 |
+| misfit matching, ignoring `spellsClosed` | 0.064 |
+| **shipped** | **0.050** |
+
+Calibration tracks the diagonal at the ends — it says 0.99 and is right 97% of
+the time, says 0.00 and is right every time — and is **systematically
+over-confident in the 0.6–0.9 band** (says 0.85, happens 0.78).
+
+That bias has a cause worth naming, because it is the next piece of §7 rather
+than a tuning problem: the hypergeometric assumes the hand is a uniform draw
+from the unseen pool, and it is not. Players *cast* the spells they can cast,
+so castable spells leave the hand faster than uniform and what remains is
+biased towards the uncastable. Fixing it needs the negative inference below —
+what they did not cast is evidence — which is unbuilt.
 
 **Their board is a message, not a state.** This is the thing a value function
 over afterstates structurally cannot represent, and it is where most of the
@@ -609,7 +652,7 @@ current monolith, where a wrong answer has no localisable cause.
 | 2 | ~~`Θ` — plan enumeration and valuation~~ **done** — `src/bot/theta.ts` | `theta.test.ts`: hand-computed values on toy boards, including the two combos above and the caster-pricing identity. Exhaustive search was tried as the oracle at scale and is not affordable — see below |
 | 3 | ~~`score` = realised + `Θ`~~ **done** — same file | monotonicity holds: adding a castable bomb never lowers score, an unpayable card never moves it |
 | 4 | ~~Board optimiser~~ **done** — `src/bot/board.ts` | `board.test.ts`: beam equals exhaustive placement search on constrained boards, including under a cap; and `finalists: 1` demonstrably picks worse |
-| 5 | Belief model | calibration on self-play logs: predicted school payload vs actual |
+| 5 | ~~Belief model~~ **done** — `src/bot/belief.ts` | `npm run belief`: Brier 0.050 against 0.243 for guessing the base rate, deck pinned on 100% of observations. `belief.test.ts` pins the mask invariant — moving what the viewer cannot see must not move the belief |
 | 6 | Battle-phase plan/schedule/re-plan | beats the current bot head to head; self-damage rate near zero |
 | 7 | Gathering search over best responses | beats a **never-stops-early** reference opponent |
 | 8 | Match DP | Monte Carlo over the same `p_i` |

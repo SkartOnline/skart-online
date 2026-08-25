@@ -13,6 +13,7 @@
     "sim": "tsx src/sim/run.ts",
     "combos": "tsx src/bot/comboscan.ts",
     "theta": "tsx src/bot/thetascan.ts",
+    "belief": "tsx src/bot/beliefscan.ts",
     "train": "tsx src/bot/train.ts",
     "arena": "tsx src/bot/arena.ts",
     "balance": "tsx src/bot/balance.ts",
