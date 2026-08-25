@@ -19,7 +19,8 @@
     "train": "tsx src/bot/train.ts",
     "arena": "tsx src/bot/arena.ts",
     "balance": "tsx src/bot/balance.ts",
-    "cardstats": "tsx src/bot/cardstats.ts"
+    "cardstats": "tsx src/bot/cardstats.ts",
+    "decks": "tsx src/bot/deckscan.ts"
   },
   "dependencies": {
     "@fontsource/spectral": "^5.3.0",
