@@ -46,6 +46,7 @@ import { slotsOf } from "../engine/grid";
 import { pendingPrompt } from "../engine/prompts";
 import { applyAction, legalActions, remainingCap } from "../engine/reducer";
 import { compositions, enables, reach } from "./compose";
+import { fillExpected } from "./expect";
 import type { Composition } from "./compose";
 import { boardTotal } from "../engine/totaling";
 import type { Action, GameState, PlayerId, SlotId } from "../engine/types";
@@ -143,6 +144,15 @@ export interface BoardOptions {
    * the only thing that justifies spending the card.
    */
   playToCap: boolean;
+  /**
+   * Sketch in the rest of the opponent's board before scoring.
+   *
+   * Off, Θ is asked about the board they have built *so far* — one or two units
+   * a placement into the gathering — so a removal spell has nothing lethal to
+   * aim at and Θ comes out zero for every composition. The trace shows it:
+   * `ΔΘ +0.0` down the whole list, and the choice made on printed power.
+   */
+  expectOpponent: boolean;
   /** Passed through to Θ on the finalists. */
   theta: Partial<ThetaOptions>;
 }
@@ -169,6 +179,7 @@ export const DEFAULT_BOARD: BoardOptions = {
   // towards placing is worth nothing while the board worth placing was never
   // generated. Measured at 50.0% against 66.7% alongside the stop rule.
   playToCap: false,
+  expectOpponent: true,
   theta: DEFAULT_THETA,
 };
 
@@ -249,8 +260,9 @@ export function scoreBoard(
   options: Partial<ThetaOptions> = {},
   weight = DEFAULT_THETA_WEIGHT,
   exposure = 0,
+  expectOpponent = false,
 ): { score: number; margin: number } {
-  const projected = project(state, player);
+  const projected = project(expectOpponent ? fillExpected(state, player) : state, player);
   const margin = realisedMargin(projected, player);
   // Defensive: if the projection did not reach the battle phase there is no
   // plan to price, so the realised margin is the whole story. With the engine
@@ -403,12 +415,12 @@ export function bestBoard(
   if (built.length > opts.finalists) complete = false;
   const finalists = built.slice(0, opts.finalists);
 
-  const bare = scoreBoard(state, player, opts.theta, opts.thetaWeight, opts.exposure);
+  const bare = scoreBoard(state, player, opts.theta, opts.thetaWeight, opts.exposure, opts.expectOpponent);
   let best: BoardPlan = { ...empty, ...bare };
   const stopping = worth(bare.score, opts.secured, opts.doubt);
   let bestWorth = opts.playToCap ? stopping - TIE : stopping;
   for (const node of finalists) {
-    const valued = scoreBoard(node.state, player, opts.theta, opts.thetaWeight, opts.exposure);
+    const valued = scoreBoard(node.state, player, opts.theta, opts.thetaWeight, opts.exposure, opts.expectOpponent);
     const valueWorth =
       worth(valued.score, opts.secured, opts.doubt) - opts.unitCost * node.placements.length;
     if (valueWorth > bestWorth) {
