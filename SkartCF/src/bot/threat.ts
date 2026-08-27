@@ -277,6 +277,9 @@ export function pessimisticBoard(state: GameState, player: PlayerId): GameState 
  * and the hand handed to that call is then the dangerous one rather than the
  * expensive one.
  */
+/** Spells given a real threat measurement before the cheap ordering takes over. */
+const RANKED = 10;
+
 function rankByThreat(
   state: GameState,
   player: PlayerId,
@@ -284,9 +287,21 @@ function rankByThreat(
   options: Partial<ThetaOptions>,
 ): void {
   const foe = player === "p1" ? "p2" : "p1";
-  const alone = { ...options, secured: Infinity, cardCost: 0, gammaWeight: 0, gammaAgainst: null };
+  // A one-card hand is a tiny search, but a dozen of them still add up, and
+  // this runs inside a move budget. Ranked by cost first so the cheap cut keeps
+  // the expensive spells, then the real question is asked of the survivors.
+  affordable.sort((a, b) => b.cost - a.cost);
+  const alone = {
+    ...options,
+    secured: Infinity,
+    cardCost: 0,
+    gammaWeight: 0,
+    gammaAgainst: null,
+    nodeBudget: 60,
+    deadlineMs: 40,
+  };
   const swing = new Map<string, number>();
-  for (const entry of affordable) {
+  for (const entry of affordable.slice(0, RANKED)) {
     const one = worstCaseBoard(state, player, [entry.cardId]);
     swing.set(entry.cardId, theta(one, foe, alone));
   }

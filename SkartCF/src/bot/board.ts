@@ -166,6 +166,16 @@ export interface BoardOptions {
   drawSamples: number;
   /** Seeds the deck shuffle, so a decision is reproducible. */
   deckSeed: number;
+  /**
+   * Absolute wall-clock moment this decision must be over, or 0 for none.
+   *
+   * A per-call `deadlineMs` divided among an expected number of Θ calls is not
+   * a budget, it is an estimate — and the estimate broke the moment averaging
+   * over shuffles multiplied the calls. A move took 27 seconds against an
+   * 8-second allowance. This is the number that cannot be wrong: the loops stop
+   * when the clock says so, whatever they were in the middle of.
+   */
+  until: number;
   /** Passed through to Θ on the finalists. */
   theta: Partial<ThetaOptions>;
 }
@@ -195,6 +205,7 @@ export const DEFAULT_BOARD: BoardOptions = {
   expectOpponent: true,
   drawSamples: 3,
   deckSeed: 0x5eed,
+  until: 0,
   theta: DEFAULT_THETA,
 };
 
@@ -430,8 +441,14 @@ export function bestBoard(
   // 3. Arrange each one through the engine, because Belépő fires on placement
   //    and in order (6.3.6) and only the engine knows what it does. A beam here
   //    can drop an arrangement; it can no longer drop a card.
+  const outOfTime = (): boolean => opts.until > 0 && Date.now() >= opts.until;
+
   const built: Node[] = [];
   for (const composition of shortlist) {
+    if (outOfTime() && built.length > 0) {
+      complete = false;
+      break;
+    }
     // A composition that never touches a deck plays out the same however the
     // deck is ordered, so it is arranged once. One that draws is arranged on
     // several shuffles and averaged — the Monte Carlo is small because the
@@ -462,6 +479,12 @@ export function bestBoard(
   // so they are averaged, and only then compared.
   const groups = new Map<string, { nodes: Node[]; total: number }>();
   for (const node of finalists) {
+    // Whatever has been scored by now is what gets compared. Stopping with a
+    // partial list is a worse answer; stopping the game is not an answer.
+    if (outOfTime() && groups.size > 0) {
+      complete = false;
+      break;
+    }
     const key = node.placements.map((p) => p.cardId).sort().join("|");
     const valued = scoreBoard(node.state, player, opts.theta, opts.thetaWeight, opts.exposure, opts.expectOpponent);
     const at = groups.get(key) ?? { nodes: [], total: 0 };

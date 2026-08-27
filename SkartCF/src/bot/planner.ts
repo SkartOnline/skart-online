@@ -319,6 +319,8 @@ export class Planner {
   private queued: Action[] = [];
   /** The remaining discards of this cleanup, or null when none is in flight. */
   private tossing: string[] | null = null;
+  /** When the decision now being taken started, for the wall-clock budget. */
+  private began = 0;
   readonly stats: PlannerStats = {
     plans: 0,
     stops: 0,
@@ -341,6 +343,7 @@ export class Planner {
   }
 
   choose(state: GameState, player: PlayerId): Action | null {
+    this.began = Date.now();
     const legal = legalActions(state, player);
     if (legal.length === 0) return null;
 
@@ -594,10 +597,12 @@ export class Planner {
     // eleven-second decision against an eight-second allowance.
     const board = { ...DEFAULT_BOARD, ...this.params.board };
     const perBoard = board.exposure === 0 ? 1 : 2;
+    // Averaging a draw over shuffles multiplies the evaluations, and the
+    // divisor has to know that or the share is fiction — it was worth a
+    // 27-second move against an 8-second allowance.
+    const calls = perBoard * (board.finalists + 2) * Math.max(1, board.drawSamples);
     const perScore =
-      this.params.budgetMs > 0
-        ? Math.max(20, Math.floor(this.params.budgetMs / (perBoard * (board.finalists + 2))))
-        : 0;
+      this.params.budgetMs > 0 ? Math.max(20, Math.floor(this.params.budgetMs / calls)) : 0;
     // Two reasons to stop that the optimiser cannot see, because it scores every
     // board as though both players had already finished.
     const verdict = this.params.stopRule
@@ -614,6 +619,9 @@ export class Planner {
     const plan = bestBoard(state, player, {
       ...this.params.board,
       theta: { ...board.theta, deadlineMs: perScore },
+      // The clock that cannot be wrong: the share above is an estimate of how
+      // the budget divides, this is when the decision is over regardless.
+      until: this.params.budgetMs > 0 ? this.began + this.params.budgetMs : 0,
       secured: this.securedBoard(state, player),
       unitCost: this.priceOf(state, player, this.params.unitCost),
     });
