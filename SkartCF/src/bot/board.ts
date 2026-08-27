@@ -47,6 +47,7 @@ import { pendingPrompt } from "../engine/prompts";
 import { applyAction, legalActions, remainingCap } from "../engine/reducer";
 import { compositions, enables, reach } from "./compose";
 import { fillExpected } from "./expect";
+import { hideOwnDeck, touchesDeck } from "./hidden";
 import type { Composition } from "./compose";
 import { boardTotal } from "../engine/totaling";
 import type { Action, GameState, PlayerId, SlotId } from "../engine/types";
@@ -153,6 +154,18 @@ export interface BoardOptions {
    * `ΔΘ +0.0` down the whole list, and the choice made on printed power.
    */
   expectOpponent: boolean;
+  /**
+   * Shuffles of this player's own deck to average a composition over.
+   *
+   * `draw` takes cards off the front of the real deck, so a Belépő that draws
+   * hands the search the actual next cards — information the deck order keeps
+   * hidden. One shuffle removes the leak; several average over it, which is
+   * what a decision about a draw effect needs. Only compositions that reach
+   * into a deck pay for the extra passes.
+   */
+  drawSamples: number;
+  /** Seeds the deck shuffle, so a decision is reproducible. */
+  deckSeed: number;
   /** Passed through to Θ on the finalists. */
   theta: Partial<ThetaOptions>;
 }
@@ -180,6 +193,8 @@ export const DEFAULT_BOARD: BoardOptions = {
   // generated. Measured at 50.0% against 66.7% alongside the stop rule.
   playToCap: false,
   expectOpponent: true,
+  drawSamples: 3,
+  deckSeed: 0x5eed,
   theta: DEFAULT_THETA,
 };
 
@@ -292,6 +307,8 @@ interface Node {
   guide: number;
   /** Placements deep. */
   depth: number;
+  /** How many shuffles this composition was arranged on. */
+  samples?: number;
 }
 
 type PlayUnit = Extract<Action, { type: "playUnit" }>;
@@ -415,9 +432,19 @@ export function bestBoard(
   //    can drop an arrangement; it can no longer drop a card.
   const built: Node[] = [];
   for (const composition of shortlist) {
-    const nodes = arrange(state, player, composition, opts);
-    if (nodes.length === 0) complete = false;
-    built.push(...nodes);
+    // A composition that never touches a deck plays out the same however the
+    // deck is ordered, so it is arranged once. One that draws is arranged on
+    // several shuffles and averaged — the Monte Carlo is small because the
+    // engine already does the drawing, it was only being handed a deck it
+    // should not have been able to read.
+    const digs = touchesDeck(composition.cards.map((c) => c.id), (id) => getUnit(id).belepo);
+    const passes = digs ? Math.max(1, opts.drawSamples) : 1;
+    for (let pass = 0; pass < passes; pass += 1) {
+      const hidden = hideOwnDeck(state, player, opts.deckSeed + pass * 7919);
+      const nodes = arrange(hidden, player, composition, opts);
+      if (nodes.length === 0) complete = false;
+      built.push(...nodes.map((n) => ({ ...n, samples: passes })));
+    }
   }
   if (built.length === 0) return empty;
 
@@ -427,23 +454,42 @@ export function bestBoard(
   const finalists = built.slice(0, opts.finalists);
 
   const bare = scoreBoard(state, player, opts.theta, opts.thetaWeight, opts.exposure, opts.expectOpponent);
-  let best: BoardPlan = { ...empty, ...bare };
   const stopping = worth(bare.score, opts.secured, opts.doubt);
-  let bestWorth = opts.playToCap ? stopping - TIE : stopping;
+
+  // Several shuffles of the same composition are several samples of one answer,
+  // not several answers. Taking the best of them would pick the luckiest deck
+  // order, which is the leak this was meant to close wearing a different hat —
+  // so they are averaged, and only then compared.
+  const groups = new Map<string, { nodes: Node[]; total: number }>();
   for (const node of finalists) {
+    const key = node.placements.map((p) => p.cardId).sort().join("|");
     const valued = scoreBoard(node.state, player, opts.theta, opts.thetaWeight, opts.exposure, opts.expectOpponent);
-    const valueWorth =
-      worth(valued.score, opts.secured, opts.doubt) - opts.unitCost * node.placements.length;
-    if (valueWorth > bestWorth) {
-      bestWorth = valueWorth;
-      best = {
-        placements: node.placements,
-        actions: node.actions,
-        score: valued.score,
-        margin: valued.margin,
-        complete: true,
-      };
-    }
+    const at = groups.get(key) ?? { nodes: [], total: 0 };
+    at.nodes.push(node);
+    at.total += worth(valued.score, opts.secured, opts.doubt);
+    groups.set(key, at);
+    node.guide = valued.score; // keep the real score for the representative pick
+  }
+
+  let best: BoardPlan = { ...empty, ...bare };
+  let bestWorth = opts.playToCap ? stopping - TIE : stopping;
+  for (const group of groups.values()) {
+    const mean = group.total / group.nodes.length;
+    const valueWorth = mean - opts.unitCost * group.nodes[0].placements.length;
+    if (valueWorth <= bestWorth) continue;
+    bestWorth = valueWorth;
+    // The arrangement to actually play is the best one, even though the
+    // composition was judged on the average — the shuffle is a fiction, the
+    // tiles are not.
+    const pick = group.nodes.reduce((a, b) => (b.guide > a.guide ? b : a));
+    const valued = scoreBoard(pick.state, player, opts.theta, opts.thetaWeight, opts.exposure, opts.expectOpponent);
+    best = {
+      placements: pick.placements,
+      actions: pick.actions,
+      score: valued.score,
+      margin: valued.margin,
+      complete: true,
+    };
   }
   return { ...best, complete };
 }

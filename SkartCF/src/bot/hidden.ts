@@ -67,13 +67,15 @@ export function hideOwnDeck(state: GameState, player: PlayerId, seed: number): G
 export function touchesDeck(cardIds: string[], look: (id: string) => unknown): boolean {
   const REACHES = ["draw", "searchDeck", "bounceToDeckBottom", "revive"];
   for (const id of cardIds) {
-    let text: string;
+    let text: string | undefined;
     try {
-      text = JSON.stringify(look(id));
+      // `JSON.stringify(undefined)` is `undefined`, not a string — and a unit
+      // with no Belépő at all is the common case.
+      text = JSON.stringify(look(id) ?? null) ?? undefined;
     } catch {
       continue;
     }
-    if (REACHES.some((kind) => text.includes(`"${kind}"`))) return true;
+    if (text && REACHES.some((kind) => text.includes(`"${kind}"`))) return true;
   }
   return false;
 }
