@@ -64,7 +64,7 @@ import type { BaselineContext } from "../sim/baseline";
 import { bestBoard, DEFAULT_BOARD, project, scoreBoard } from "./board";
 import type { BoardOptions } from "./board";
 import { ownDeck } from "./deck";
-import { DEFAULT_THREAT, estimateThreat, worstCaseThreat } from "./threat";
+import { DEFAULT_THREAT, estimateThreat, pessimisticBoard, worstCaseThreat } from "./threat";
 import type { ThreatOptions } from "./threat";
 import { DEFAULT_KEEP, tossPlan } from "./keep";
 import type { KeepOptions } from "./keep";
@@ -168,6 +168,12 @@ export interface PlannerParams {
    * Off, only a board that cannot be improved closes it.
    */
   stopRule: boolean;
+  /**
+   * How much a line's Γ counts next to its Θ — what it denies them, against
+   * what it gains me. Zero and a shield is worth nothing, which is what the bot
+   * thought until Γ existed.
+   */
+  gammaWeight: number;
   /** Stop once the margin clears the ceiling of what they could still do. */
   stopSafe: boolean;
   /** Stop once even an unopposed run of my own hand cannot get in front. */
@@ -252,6 +258,9 @@ export const DEFAULT_PLANNER: PlannerParams = {
   // bounds in the direction that makes the bot stop early. Same defect as
   // `secure`, third time it has been measured.
   stopRule: false,
+  // Off until measured. Γ costs a second Θ per node, and nothing that changes
+  // what the bot casts gets switched on here without a number beside it.
+  gammaWeight: 0,
   stopSafe: true,
   // Off. Measured on the magus mirror against baseline, 30 games a side:
   //
@@ -379,6 +388,11 @@ export class Planner {
       deadlineMs: share > 0 ? share * 5 : 0,
       secured: Infinity,
       cardCost: 0,
+      gammaWeight: this.params.gammaWeight,
+      // Γ is measured against the worst hand they could still hold. Against an
+      // empty one it is zero for every card, always.
+      gammaAgainst:
+        this.params.gammaWeight > 0 ? pessimisticBoard(state, player) : null,
     });
     this.stats.plans += 1;
 

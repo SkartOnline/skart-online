@@ -198,6 +198,8 @@ export function main(argv: string[] = process.argv.slice(2)): void {
       : {}),
     ...(off("stoprule") ? { stopRule: false } : {}),
     ...(off("safe") ? { stopSafe: false } : {}),
+    ...(argv.includes("--gamma") ? { gammaWeight: 1 } : {}),
+    ...(off("expect") ? { board: { beamWidth: 5, finalists: 3, theta, expectOpponent: false } } : {}),
     ...(off("hopeless") ? { stopHopeless: false } : {}),
     // The arm the whole design rests on: pick the board by printed power alone,
     // with the same battle phase behind it. If `margin + Θ` cannot beat this,
@@ -206,7 +208,8 @@ export function main(argv: string[] = process.argv.slice(2)): void {
       ? { board: { beamWidth: 5, finalists: 3, theta, thetaWeight: 0, exposure: 0, castHint: 0 } }
       : {}),
   });
-  const ablations = ["secure", "believe", "toss", "exposure", "weight", "gather", "playtocap", "stoprule", "safe", "hopeless"].filter(off);
+  const ablations = ["secure", "believe", "toss", "exposure", "weight", "gather", "playtocap", "stoprule", "safe", "hopeless", "expect"].filter(off);
+  if (argv.includes("--gamma")) ablations.push("gamma on");
   if (argv.includes("--board-power")) ablations.push("board scored by power alone");
   if (ablations.length > 0) console.log(`  ablated: ${ablations.join(", ")}\n`);
   const old = new Planner({ ...LEGACY_PLANNER, theta, board: { ...LEGACY_PLANNER.board, beamWidth: 5, finalists: 3, theta } });

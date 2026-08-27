@@ -209,15 +209,62 @@ export function worstCaseThreat(
   // candidate spell; when it picks wrong, the ceiling comes out low.
   affordable.sort((a, b) => b.cost - a.cost);
 
-  const copy = structuredClone(state);
-  copy.players[foe].spellHand = affordable
-    .slice(0, held)
-    .map((entry, at) => ({ uid: `worst${at}`, cardId: entry.cardId }));
-  copy.log = [];
-  copy.reveals = [];
+  const copy = worstCaseBoard(state, player, affordable.slice(0, held).map((a) => a.cardId));
   // An upper bound, so there is nothing left to be uncertain about: either the
   // margin clears it or it does not.
   return { theta: theta(copy, foe, options), certain: true, because: "searched" };
+}
+
+/**
+ * The same board with the worst hand they could be holding put into it.
+ *
+ * Returned as a board rather than a number because Γ needs one: "how much did
+ * this cast take out of their reach" is a question about a specific hand, and
+ * measured against an empty one every shield in the game is worth zero. That is
+ * the same trap Θ fell into during the gathering, and it has the same fix —
+ * ask about a board where they can actually do something.
+ */
+export function worstCaseBoard(
+  state: GameState,
+  player: PlayerId,
+  cardIds: string[],
+): GameState {
+  const foe = player === "p1" ? "p2" : "p1";
+  const copy = structuredClone(state);
+  copy.players[foe].spellHand = cardIds.map((cardId, at) => ({ uid: `worst${at}`, cardId }));
+  copy.log = [];
+  copy.reveals = [];
+  return copy;
+}
+
+/**
+ * The board Γ should be measured against: theirs, holding the best hand the
+ * belief still allows. Null when there is nothing to defend against, which is
+ * a real answer — a shield against a player who cannot cast is worth nothing.
+ */
+export function pessimisticBoard(state: GameState, player: PlayerId): GameState | null {
+  const foe = player === "p1" ? "p2" : "p1";
+  if (state.players[foe].flags.spellsClosed) return null;
+  if (!canPayForAnything(state, foe)) return null;
+
+  const belief = believe(observe(state, player));
+  const held = belief.handSize.spells;
+  if (held <= 0) return null;
+
+  const affordable: { cardId: string; cost: number }[] = [];
+  for (const [cardId] of belief.unseenSpells) {
+    let spell;
+    try {
+      spell = getSpell(cardId);
+    } catch {
+      continue;
+    }
+    if (!theyCouldPay(state, foe, spell)) continue;
+    affordable.push({ cardId, cost: spell.cost });
+  }
+  if (affordable.length === 0) return null;
+  affordable.sort((a, b) => b.cost - a.cost);
+  return worstCaseBoard(state, player, affordable.slice(0, held).map((a) => a.cardId));
 }
 
 /** Could any unit of theirs pay this spell's whole cost out of one pool? */
