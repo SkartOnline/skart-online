@@ -50,7 +50,7 @@ import { fillExpected } from "./expect";
 import type { Composition } from "./compose";
 import { boardTotal } from "../engine/totaling";
 import type { Action, GameState, PlayerId, SlotId } from "../engine/types";
-import { DEFAULT_THETA, DEFAULT_THETA_WEIGHT, score, theta, winChance } from "./theta";
+import { DEFAULT_THETA, DEFAULT_THETA_WEIGHT, theta, winChance } from "./theta";
 import type { ThetaOptions } from "./theta";
 
 export interface Placement {
@@ -262,15 +262,26 @@ export function scoreBoard(
   exposure = 0,
   expectOpponent = false,
 ): { score: number; margin: number } {
-  const projected = project(expectOpponent ? fillExpected(state, player) : state, player);
+  // The margin is what is *actually* on the tiles. Sketched-in enemy units are a
+  // fiction for Θ to aim at, not power they have scored, and letting them into
+  // the total would have every composition read as losing by however much was
+  // imagined.
+  const projected = project(state, player);
   const margin = realisedMargin(projected, player);
   // Defensive: if the projection did not reach the battle phase there is no
   // plan to price, so the realised margin is the whole story. With the engine
   // gating placement this should not arise from a board the optimiser built.
   if (projected.phase !== "battle") return { score: margin, margin };
-  const mine = score(projected, player, options, weight);
+
+  // Θ is the other half, and it is about a board that does not exist yet: the
+  // spells in hand are cast after the Mustra, against whatever they finish
+  // building. So it is asked about the sketched board, where a removal spell
+  // has something to kill and a caster's line of sight means something.
+  const facing = expectOpponent ? project(fillExpected(state, player), player) : projected;
+  const outlook = facing.phase === "battle" ? facing : projected;
+  const mine = margin + weight * theta(outlook, player, options);
   if (exposure === 0) return { score: mine, margin };
-  return { score: mine - exposure * theta(projected, opponentOf(player), options), margin };
+  return { score: mine - exposure * theta(outlook, opponentOf(player), options), margin };
 }
 
 interface Node {

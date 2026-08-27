@@ -5,7 +5,7 @@ import { ALL_SLOTS } from "../engine/grid";
 import { applyAction, legalActions } from "../engine/reducer";
 import { DEFAULT_CONFIG } from "../engine/setup";
 import type { Action, GameState, PlayerId, SlotId } from "../engine/types";
-import { bestBoard, myTurn, planCost, project, scoreBoard } from "./board";
+import { bestBoard, DEFAULT_BOARD, myTurn, planCost, project, scoreBoard } from "./board";
 
 /** Small enough that Θ is quick, large enough that it is not zero. */
 const CHEAP = { nodeBudget: 150 };
@@ -87,7 +87,12 @@ function placementsFor(state: GameState, player: PlayerId) {
  * finalists. This is the oracle: the beam has to find this maximum.
  */
 function bruteForce(state: GameState, player: PlayerId): number {
-  let best = scoreBoard(state, player, CHEAP).score;
+  // Same settings as the optimiser under test, or the two are answering
+  // different questions and the "oracle" is just a second opinion.
+  const valueOf = (s: GameState): number =>
+    scoreBoard(s, player, CHEAP, DEFAULT_BOARD.thetaWeight, DEFAULT_BOARD.exposure,
+      DEFAULT_BOARD.expectOpponent).score;
+  let best = valueOf(state);
   const walk = (from: GameState, depth: number): void => {
     if (depth > 3) return;
     // 6.1.3 alternates placement, so the turn has to be handed back between my
@@ -100,7 +105,7 @@ function bruteForce(state: GameState, player: PlayerId): number {
     );
     for (const move of moves) {
       const after = applyAction(mine, move);
-      const valued = scoreBoard(after, player, CHEAP).score;
+      const valued = valueOf(after);
       if (valued > best) best = valued;
       walk(after, depth + 1);
     }
