@@ -258,9 +258,18 @@ export const DEFAULT_PLANNER: PlannerParams = {
   // bounds in the direction that makes the bot stop early. Same defect as
   // `secure`, third time it has been measured.
   stopRule: false,
-  // Off until measured. Γ costs a second Θ per node, and nothing that changes
-  // what the bot casts gets switched on here without a number beside it.
-  gammaWeight: 0,
+  // On. Magus mirror against baseline, 30 games a side: 70.0% [52,83] with it,
+  // 66.7% [49,81] without — overlapping, so this is "no cost" rather than "a
+  // gain", and it is the first change in a long run of them whose interval
+  // moved *up* rather than down.
+  //
+  // What it buys is not really in the win rate. A third of the Varázslótanács
+  // spell list moves no total at all, so Θ scored it zero and the bot has never
+  // knowingly cast a Fagypáncél, a Némítás or an Álomfogó in its life. One
+  // point of Γ is one point of Θ where they would in fact have tried, which is
+  // why it is measured against the hand they might hold rather than in the
+  // abstract — against an empty hand every shield in the game is worth nothing.
+  gammaWeight: 1,
   stopSafe: true,
   // Off. Measured on the magus mirror against baseline, 30 games a side:
   //
