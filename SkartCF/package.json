@@ -11,10 +11,17 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "sim": "tsx src/sim/run.ts",
+    "combos": "tsx src/bot/comboscan.ts",
+    "theta": "tsx src/bot/thetascan.ts",
+    "belief": "tsx src/bot/beliefscan.ts",
+    "planner": "tsx src/bot/planscan.ts",
+    "replay": "tsx src/bot/replay.ts",
     "train": "tsx src/bot/train.ts",
     "arena": "tsx src/bot/arena.ts",
     "balance": "tsx src/bot/balance.ts",
-    "cardstats": "tsx src/bot/cardstats.ts"
+    "cardstats": "tsx src/bot/cardstats.ts",
+    "decks": "tsx src/bot/deckscan.ts",
+    "mirror": "tsx src/bot/mirror.ts"
   },
   "dependencies": {
     "@fontsource/spectral": "^5.3.0",

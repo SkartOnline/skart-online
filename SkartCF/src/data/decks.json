@@ -6,7 +6,7 @@
     "battlefields": [
       "sikator",
       "a_pek_hidja",
-      "holdfenyes_tisztas"
+      "oppidium"
     ],
     "units": {
       "felindori_polgar": 3,
@@ -86,7 +86,7 @@
     "battlefields": [
       "maguskor",
       "lingadori_konyvtar",
-      "bosegkert"
+      "faloda"
     ],
     "units": {
       "caecus": 3,
@@ -133,7 +133,7 @@
     "battlefields": [
       "akaczos",
       "kodret",
-      "elatkozott_rengeteg"
+      "kesergo"
     ],
     "units": {
       "patkany": 3,
@@ -177,7 +177,7 @@
     "battlefields": [
       "umbra",
       "malom",
-      "elatkozott_rengeteg"
+      "kesergo"
     ],
     "units": {
       "burastya": 3,

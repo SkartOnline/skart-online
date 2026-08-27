@@ -3046,7 +3046,7 @@ body.dragging-card {
   --bf-metal: #83a8a4;
 }
 /* A moonlit clearing: silver-green, the brightest ground in the set. */
-.field[data-bf="holdfenyes_tisztas"] {
+.field[data-bf="oppidium"] {
   --bf-deep: #151d1b;
   --bf-mid: #27352f;
   --bf-glow: rgba(190, 215, 200, 0.17);
@@ -3060,14 +3060,14 @@ body.dragging-card {
   --bf-metal: #ab9a79;
 }
 /* The garden of plenty: soft green going to gold. */
-.field[data-bf="bosegkert"] {
+.field[data-bf="faloda"] {
   --bf-deep: #161d13;
   --bf-mid: #283420;
   --bf-glow: rgba(195, 205, 130, 0.13);
   --bf-metal: #a6b47b;
 }
 /* The cursed forest: sick green, almost no light. */
-.field[data-bf="elatkozott_rengeteg"] {
+.field[data-bf="kesergo"] {
   --bf-deep: #0e120e;
   --bf-mid: #1b241a;
   --bf-glow: rgba(120, 160, 115, 0.1);
@@ -3095,7 +3095,7 @@ body.dragging-card {
   --bf-metal: #8b8f95;
 }
 /* The endless waste: bleached sand under a white sky. */
-.field[data-bf="vegtelen_puszta"] {
+.field[data-bf="a_zona"] {
   --bf-deep: #1a1714;
   --bf-mid: #302a22;
   --bf-glow: rgba(225, 205, 165, 0.13);

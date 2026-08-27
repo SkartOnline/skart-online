@@ -18,7 +18,7 @@ A 3. fejezet kivételével a szabályok nem időrendben állnak, hanem tárgykö
 
 1.2.1 A játék csatákból áll. Egyszerre mindig egy csatáról van szó, és minden csata egy csatatérlapon zajlik.
 
-1.2.2 A csaták száma hat. Ha ezek után az állás egyenlő, sorra kerül a Végtelen puszta is.
+1.2.2 A csaták száma hat. Ha ezek után az állás egyenlő, sorra kerül A Zóna is.
 
 1.2.3 A csatatérlapok sorrendje az előkészületkor dől el, és ettől kezdve rögzített. Lapszöveg megváltoztathatja.
 
@@ -30,11 +30,11 @@ A 3. fejezet kivételével a szabályok nem időrendben állnak, hanem tárgykö
 
 1.3.3 A hat csata után az nyer, aki több csatateret szerzett meg.
 
-1.3.4 Ha a hat csata után mindkét játékos ugyanannyi csatateret szerzett meg, a Végtelen puszta dönti el a játékot. Ez a csatatér csak ebben az esetben kerül elő.
+1.3.4 Ha a hat csata után mindkét játékos ugyanannyi csatateret szerzett meg, A Zóna dönti el a játékot. Ez a csatatér csak ebben az esetben kerül elő.
 
-1.3.5 Ha a Végtelen pusztát sem szerzi meg senki, a játék döntetlen.
+1.3.5 Ha A Zónát sem szerzi meg senki, a játék döntetlen.
 
-1.3.6 Kieséses versenyen a játék nem maradhat döntetlen. Ilyenkor az a játékos jut tovább, aki a lejátszott csatákban összesen több erőt állított ki, vagyis akinél az összesítéskor mért értékek összege nagyobb. Ha ez az összeg is egyenlő, a Végtelen pusztát újra le kell játszani, és ezt addig kell ismételni, amíg valamelyik játékos meg nem szerzi.
+1.3.6 Kieséses versenyen a játék nem maradhat döntetlen. Ilyenkor az a játékos jut tovább, aki a lejátszott csatákban összesen több erőt állított ki, vagyis akinél az összesítéskor mért értékek összege nagyobb. Ha ez az összeg is egyenlő, A Zónát újra le kell játszani, és ezt addig kell ismételni, amíg valamelyik játékos meg nem szerzi.
 
 1.3.7 A játék abban a pillanatban véget ér, amikor az állás a hátralévő csatákkal már nem fordítható meg.
 
@@ -94,7 +94,7 @@ A 3. fejezet kivételével a szabályok nem időrendben állnak, hanem tárgykö
 
 2.3.1 A jobb alsó sarokban a költségkeret áll. Ennyi lehet legfeljebb a csatatérre állított egységek költségének összege játékosonként.
 
-2.3.2 A Végtelen puszta ugyanezen a helyen végtelenjelet visel, vagyis ott a költség nincs korlátozva.
+2.3.2 A Zóna ugyanezen a helyen végtelenjelet visel, vagyis ott a költség nincs korlátozva.
 
 2.3.3 A csatatérlap hatása a felfordításától a csata végéig él, és mindkét játékosra vonatkozik, hacsak a szöveg mást nem mond.
 
@@ -124,13 +124,13 @@ A 3. fejezet kivételével a szabályok nem időrendben állnak, hanem tárgykö
 
 3.4 A hat lapot ezután lefordítva összekeverik, és egy sorba rakják. Csak a sorrend marad rejtett.
 
-3.5 A Végtelen puszta a sor végére kerül. Ha a hat csata után nincs egyenlőség, sosem fordul fel.
+3.5 A Zóna a sor végére kerül. Ha a hat csata után nincs egyenlőség, sosem fordul fel.
 
 3.6 Mindkét játékos megkeveri mindkét paklijat, majd hét egységlapot és hét varázslatlapot húz. Kezdőkéz-csere nincs.
 
 3.7 Ezután fordul fel az első csatatérlap, és megkezdődik az első csata.
 
-3.8 Minden csatában az a játékos kezd, aki az adott csatatérlapot hozta. A Végtelen pusztát nem hozza senki, ott a kezdő játékos sorsolással dől el.
+3.8 Minden csatában az a játékos kezd, aki az adott csatatérlapot hozta. A Zónát nem hozza senki, ott a kezdő játékos sorsolással dől el.
 
 ---
 
@@ -328,7 +328,7 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 6.1.1 A gyülekezést az a játékos kezdi, aki a felfordított csatatérlapot hozta.
 
-6.1.2 A Végtelen pusztán a kezdő játékost sorsolással kell eldönteni.
+6.1.2 A Zónán a kezdő játékost sorsolással kell eldönteni.
 
 6.1.3 A játékosok ezután felváltva következnek.
 
@@ -368,7 +368,7 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 6.4.5 A csatafázisban a csatatérre kerülő egység költsége már nem terheli a keretet, mert az ellenőrzés a Mustrán megtörtént.
 
-6.4.6 A Végtelen pusztán a költség nincs korlátozva. Minden más szabály ott is ugyanúgy érvényes.
+6.4.6 A Zónán a költség nincs korlátozva. Minden más szabály ott is ugyanúgy érvényes.
 
 ### 6.5 Rejtett egység
 
@@ -418,13 +418,19 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 7.4 Ha az egyik játékos túllépte a keretet, a csata azonnal véget ér, és a csatateret az ellenfele szerzi meg. Ha mindketten túllépték, a csatateret egyik játékos sem szerzi meg. Mindkét esetben elmarad a csatafázis és az összesítés, egyetlen képesség sem sül el, és a leszerelés következik.
 
-7.5 Ha a keret rendben van, a most felfedett egységek Belépői és minden Mustra képesség egyszerre sül el.
+7.5 Ha a keret rendben van, a most felfedett egységek Belépői és minden Mustra képesség egyenként sül el, sorban. A sorrendet a mezők adják: E1, E2, E3, H1, H2, H3. Minden mezőnél előbb a csatatérlapot hozó játékos következik, azután a másik.
 
-7.6 Az egyszerre elsülő képességek ugyanazt az állást olvassák: azt, amelyik a felfedés után, még az első hatás előtt fennállt. A hatásaik együtt lépnek életbe, ezért a sorrendjük nem számít.
+7.5.1 A sor tehát így fut: a kezdő játékos E1-e, az ellenfél E1-e, a kezdő játékos E2-e, az ellenfél E2-e, és így tovább a H3-ig.
 
-7.7 Ha egy így elsülő hatás olyan egységet céloz, amely ugyanebben a pillanatban esik el, a hatás lefut, de az elesett egységen már nincs következménye.
+7.5.2 Csak a felfedés egyidejű. A sorban állás nem az: mire az első képesség elsül, minden egység fel van fordítva, tehát mindenki ugyanazt a kész csatateret látja, de nem ugyanabban a pillanatban cselekszik.
 
-7.8 A halálokat a képességek lefutása után, egyszerre kell elszámolni.
+7.6 Minden képesség akkor választja ki a célpontját, amikor sorra kerül, a csatatér akkori állása szerint. Nincs előre rögzített pillanatkép.
+
+7.7 A képesség teljesen lefut, és a halálokat a 9.6 szerint el kell számolni, mielőtt a sorban a következő elsülne.
+
+7.8 Egy egység egyszer sül el. Ha a mezőjén már nem ő áll, amikor a sor odaér, a képessége nem sül el. Ha egy hatás olyan mezőre viszi, amely a sorban még hátrébb van, ott már nem következik újra.
+
+7.8.1 Ha egy egységnek Belépője és Mustra képessége is van, előbb a Belépő sül el, azután a Mustra képesség.
 
 7.9 A Mustra után a csatatér mindkét oldala teljes egészében nyilvános.
 
@@ -648,13 +654,13 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 10.1.5 Ha a Belépőnek nincs szabályos célpontja, nem történik semmi.
 
-10.1.6 A gyülekezés alatt elsülő Belépő azonnal és teljesen lefut, mielőtt a köröd átszállna. A Mustrán elsülő Belépőkre a 7.6 vonatkozik.
+10.1.6 A gyülekezés alatt elsülő Belépő azonnal és teljesen lefut, mielőtt a köröd átszállna. A Mustrán elsülő Belépőkre a 7.5–7.8 vonatkozik.
 
 ### 10.2 Mustra képesség
 
-10.2.1 A Mustra képesség a Mustrán sül el, egyszerre a rejtett egységek Belépőivel.
+10.2.1 A Mustra képesség a Mustrán sül el, a rejtett egységek Belépőivel közös sorban.
 
-10.2.2 A Mustra képességre ugyanúgy a 7.6 szerinti egyidejűség vonatkozik, tehát a képesség azt az állást olvassa, amelyik a felfedés után fennállt.
+10.2.2 A Mustra képességre ugyanaz a 7.5 szerinti sorrend vonatkozik, tehát a képesség azt az állást olvassa, amelyik akkor áll fenn, amikor sorra kerül.
 
 ### 10.3 Diadal és Vigasz
 
@@ -684,7 +690,7 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 10.5.2 Az esemény bekövetkeztekor minden olyan képesség elsül, amely arra az eseményre hivatkozik, függetlenül attól, kinek a lapján áll.
 
-10.5.3 Az egyszerre elsülő ilyen képességekre a 7.6 szerinti egyidejűség vonatkozik.
+10.5.3 Az egyszerre elsülő ilyen képességekre a 15.1 szerinti egyidejűség vonatkozik. A Mustra nem ilyen: ott a 7.5 sorrendje dönt.
 
 10.5.4 Ha egy képesség olyan láncot indítana, amely önmagát indítaná újra, a lánc egyetlen lefutás után megáll.
 

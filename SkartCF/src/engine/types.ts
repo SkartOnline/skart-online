@@ -316,10 +316,10 @@ export interface DeckList {
 export interface LocationCard {
   id: string;
   name: string;
-  /** Total unit cost a player may commit here. `null` = uncapped (Végtelen puszta). */
+  /** Total unit cost a player may commit here. `null` = uncapped (A Zóna). */
   cap: number | null;
   effects: LocationEffect[];
-  /** Only Végtelen puszta. Played solely to break a tie. */
+  /** Only A Zóna. Played solely to break a tie. */
   tiebreaker?: boolean;
   text?: string;
 }

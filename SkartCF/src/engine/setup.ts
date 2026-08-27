@@ -25,7 +25,7 @@ export interface GameOptions {
   seed?: string | number;
   config?: Partial<RuleConfig>;
   decks: Record<PlayerId, string | DeckList>;
-  /** Defaults to Végtelen puszta. */
+  /** Defaults to A Zóna. */
   tiebreaker?: string;
 }
 
@@ -100,8 +100,8 @@ export function createGame(options: GameOptions): GameState {
   const [ordered, s3] = shuffle(locationPool, seed);
   seed = s3;
 
-  // Végtelen puszta closes the list and is only reached on a tie.
-  const tiebreakerId = options.tiebreaker ?? "vegtelen_puszta";
+  // A Zóna closes the list and is only reached on a tie.
+  const tiebreakerId = options.tiebreaker ?? "a_zona";
   const [tiebreakerOwner, s4] = shuffle(PLAYERS as unknown as PlayerId[], seed);
   seed = s4;
   ordered.push({ cardId: tiebreakerId, broughtBy: tiebreakerOwner[0], winner: null });

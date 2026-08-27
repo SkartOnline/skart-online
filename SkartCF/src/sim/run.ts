@@ -141,7 +141,7 @@ function reportPair(deckA: string, deckB: string, tally: Tally): boolean {
       `${deckB} ${pct(tally.wins[deckB], tally.games)}   ` +
       `draw ${pct(tally.draws, tally.games)}`,
   );
-  console.log(`  reached Végtelen puszta: ${pct(tally.tiebreakerGames, tally.games)}`);
+  console.log(`  reached A Zóna: ${pct(tally.tiebreakerGames, tally.games)}`);
   console.log("  battlefield            deck        played   won    void");
   const rows = [...tally.byLocation.entries()].sort();
   for (const [key, entry] of rows) {

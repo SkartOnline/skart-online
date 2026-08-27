@@ -21,7 +21,7 @@ import type { GameState, PlayerId, SlotId } from "./types";
  * the cards whose printed text changed.
  */
 
-function blankState(locationId = "holdfenyes_tisztas"): GameState {
+function blankState(locationId = "oppidium"): GameState {
   const board = Object.fromEntries(ALL_SLOTS.map((s) => [s, null]));
   return {
     config: { ...DEFAULT_CONFIG },
@@ -71,7 +71,7 @@ function emptyPlayer(id: PlayerId) {
 let counter = 0;
 function place(state: GameState, cardId: string, slot: SlotId): void {
   const owner = slot.slice(0, 2) as PlayerId;
-  state.board[slot] = makeUnitInstance(`r${counter++}`, cardId, owner, slot, {
+  state.board[slot] = makeUnitInstance(state, `r${counter++}`, cardId, owner, slot, {
     order: counter,
     paidCost: 0,
   });
@@ -426,10 +426,10 @@ describe("Októ-abnormitás", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 7.6 to 7.8, the Mustra fires as one moment
+// 7.2 and 7.5, one reveal and then a queue
 // ---------------------------------------------------------------------------
 
-describe("Mustra egyidejűség", () => {
+describe("Mustra sorrend", () => {
   /** Reveals whatever is face down, exactly as `runMustra` does. */
   function runMustra(state: GameState): GameState {
     state.players.p1.flags.unitsClosed = true;
@@ -437,7 +437,7 @@ describe("Mustra egyidejűség", () => {
     return applyAction(state, { type: "declareUnitsDone", player: "p1" });
   }
 
-  it("lets two revealed Bérgyilkosok both read the board they arrived on", () => {
+  it("turns everything over before anybody acts (7.2)", () => {
     const state = blankState("umbra"); // no cap and no power modifiers
     state.players.p1.spellHand = [];
     state.players.p2.spellHand = [];
@@ -448,33 +448,102 @@ describe("Mustra egyidejűség", () => {
       place(state, "patkany", `p2.F${col}`);
     }
     const after = runMustra(state);
-    // Each killed its own column's rat. Neither is stopped by the other having
-    // gone first, because there is no "first" in this step.
+    // Each killed its own column's rat. The second one going later does not
+    // make it weaker: the reveal already happened for both.
     expect(after.board["p2.F1"]).toBeNull();
     expect(after.board["p2.F2"]).toBeNull();
     expect(after.board["p1.F1"]).not.toBeNull();
     expect(after.board["p1.F2"]).not.toBeNull();
   });
 
-  it("still fires the ability of a unit that dies in the same moment (7.7)", () => {
+  it("runs the abilities one at a time, in tile order (7.5)", () => {
+    const state = blankState("umbra");
+    state.locations[0].broughtBy = "p2";
+    state.players.p1.spellHand = [];
+    state.players.p2.spellHand = [];
+
+    place(state, "bergyilkos", "p1.F1"); // kills the weakest weaker enemy
+    state.board["p1.F1"]!.faceDown = true; // so its Belépő waits for the Mustra
+    place(state, "szarvas", "p2.B1"); // would advance at the Mustra
+    state.board["p2.B1"]!.setPower = 2; // weak enough for the assassin to pick
+
+    const after = runMustra(state);
+    // The queue is p2.E1, p1.E1, … p2.H1, p1.H1. The assassin stands on p1.E1
+    // and the stag on p2.H1, so the assassin shoots first and the stag never
+    // gets its turn: dead on the tile it was standing on, not one that dodged.
+    expect(after.board["p2.B1"]).toBeNull();
+    expect(after.board["p2.F1"]).toBeNull();
+    expect(after.board["p1.F1"]).not.toBeNull();
+  });
+
+  it("lets the earlier tile act first, so a dead unit never fires (7.6)", () => {
     const state = blankState("umbra");
     state.players.p1.spellHand = [];
     state.players.p2.spellHand = [];
-    // A hidden Bérgyilkos facing a hidden Bérgyilkos: each is the weaker unit in
-    // the other's column only if the other is stronger, so instead pit one
-    // against a rat while a stronger enemy assassin takes it out.
-    place(state, "bergyilkos", "p1.F1"); // power 4
-    state.board["p1.F1"]!.faceDown = true;
-    place(state, "patkany", "p2.B1"); // in the column, weaker, so it dies
-    place(state, "azman", "p2.F1"); // power 9, hidden, eats its own weakest ally
+    // Azman eats his own weakest ally on arrival and keeps rings for it.
+    place(state, "azman", "p2.F1");
     state.board["p2.F1"]!.faceDown = true;
+    place(state, "szarvas", "p2.B1"); // the weakest thing he owns
+    state.board["p2.B1"]!.setPower = 1;
+    state.locations[0].broughtBy = "p2"; // Azman's tile comes up first
 
     const after = runMustra(state);
-    // Azman's Belépő killed the rat for rings, and the Bérgyilkos' Belépő fired
-    // against the same board even though its own target was already doomed.
+    // Azman went first and ate the stag. The stag's own Mustra never runs,
+    // because by the time p2.H1 comes up there is nobody standing on it.
     expect(after.board["p2.B1"]).toBeNull();
-    expect(after.board["p2.F1"]!.rings).toBe(4);
-    expect(after.log.some((l) => l.text.includes("Mustra"))).toBe(true);
+    expect(after.board["p2.F1"]!.rings).toBeGreaterThan(0);
+    expect(after.board["p1.F1"]).toBeNull();
+    expect(after.board["p1.B1"]).toBeNull();
+  });
+
+  it("gives the first turn to whoever brought the battlefield (7.5)", () => {
+    // Two stags with one empty column between them. Each advances until the way
+    // is blocked, and the way is blocked by the other one — so whoever goes
+    // first crosses the line and whoever goes second cannot move at all. Both
+    // stand on H2, so the tile order cannot separate them and 3.8 does: the
+    // battlefield's owner is first in the queue.
+    const contested = (broughtBy: PlayerId): GameState => {
+      const state = blankState("umbra");
+      state.locations[0].broughtBy = broughtBy;
+      state.players.p1.spellHand = [];
+      state.players.p2.spellHand = [];
+      place(state, "szarvas", "p1.B2");
+      place(state, "szarvas", "p2.B2");
+      return runMustra(state);
+    };
+
+    const first = contested("p1");
+    expect(first.board["p2.F2"]?.owner).toBe("p1"); // p1 crossed the line
+    expect(first.board["p2.B2"]?.owner).toBe("p2"); // p2 never got to move
+    expect(first.board["p1.B2"]).toBeNull();
+
+    const second = contested("p2");
+    expect(second.board["p1.F2"]?.owner).toBe("p2");
+    expect(second.board["p1.B2"]?.owner).toBe("p1");
+    expect(second.board["p2.B2"]).toBeNull();
+  });
+
+  it("picks its target when its turn comes, not from a snapshot (7.6)", () => {
+    const state = blankState("umbra");
+    state.locations[0].broughtBy = "p1"; // so the assassin's tile leads the queue
+    state.players.p1.spellHand = [];
+    state.players.p2.spellHand = [];
+
+    place(state, "bergyilkos", "p1.F1"); // kills the weakest weaker enemy in its column
+    state.board["p1.F1"]!.faceDown = true;
+    place(state, "azman", "p2.F2"); // eats his own weakest ally, wherever it stands
+    state.board["p2.F2"]!.faceDown = true;
+    place(state, "patkany", "p2.F1"); // power 1: the assassin's mark, and Azman's
+    place(state, "felindori_ijasz", "p2.B3"); // power 3: next weakest thing p2 owns
+
+    const after = runMustra(state);
+    // p1.E1 goes first and shoots the rat. By the time p2.E2 comes up the rat is
+    // gone, so Azman looks at the board in front of him and eats the archer
+    // instead. Reading a snapshot taken before the reveal would have aimed him
+    // at the rat and wasted the meal on a corpse.
+    expect(after.board["p2.F1"]).toBeNull();
+    expect(after.board["p2.B3"]).toBeNull();
+    expect(after.board["p2.F2"]!.rings).toBe(4);
   });
 });
 
@@ -564,35 +633,15 @@ describe("rejtett egység képességei", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 7.6 to 7.8, what "at the same time" means when two abilities disagree
+// 7.4 and 10.4, what the reveal settles before the queue starts
 // ---------------------------------------------------------------------------
 
-describe("egyidejű Mustra képességek", () => {
+describe("Mustra: statikusok a sorban állás előtt", () => {
   function runMustra(state: GameState): GameState {
     state.players.p1.flags.unitsClosed = true;
     state.players.p2.flags.unitsClosed = true;
     return applyAction(state, { type: "declareUnitsDone", player: "p1" });
   }
-
-  it("follows the unit it picked, even when that unit moves in the same instant", () => {
-    const state = blankState("umbra");
-    state.locations[0].broughtBy = "p2"; // so the stag resolves first and moves
-    state.players.p1.spellHand = [];
-    state.players.p2.spellHand = [];
-
-    place(state, "bergyilkos", "p1.F1"); // power 4, kills the weakest weaker enemy
-    state.board["p1.F1"]!.faceDown = true; // so its Belépő waits for the Mustra
-    place(state, "szarvas", "p2.B1"); // advances at the Mustra
-    state.board["p2.B1"]!.setPower = 2; // weak enough for the assassin to pick
-
-    const after = runMustra(state);
-    // The stag walked out of the tile it was standing on before the assassin's
-    // Belépő landed. The shot was already in the air and aimed at the stag, not
-    // at the tile, so it follows: dead where it ended up, not alive because it
-    // dodged.
-    expect(after.board["p2.B1"]).toBeNull();
-    expect(after.board["p2.F1"]).toBeNull();
-  });
 
   it("leaves alone whoever it did not pick", () => {
     const state = blankState("umbra");
@@ -606,9 +655,8 @@ describe("egyidejű Mustra képességek", () => {
     place(state, "szarvas", "p2.B2"); // another column, free to run
 
     const after = runMustra(state);
-    // The rat was named and dies. The stag was never named, so following the
-    // pick does not turn into hitting whoever happens to be nearby: it advances
-    // the length of its empty column and lives.
+    // The rat was named and dies. The stag was never named, and its own turn
+    // comes later in the queue, so it advances the length of its empty column.
     expect(after.board["p2.B1"]).toBeNull();
     expect(after.board["p1.B2"]?.cardId).toBe("szarvas");
   });
@@ -622,45 +670,17 @@ describe("egyidejű Mustra képességek", () => {
     place(state, "bergyilkos", "p1.F1");
     state.board["p1.F1"]!.faceDown = true;
     // Bol'Jin makes the unit in front of him Sérthetetlen. He is hidden too, so
-    // he turns over in the same Mustra — but the reveal happens before any
-    // ability fires, and what he grants is a static rather than something that
+    // he turns over in the same Mustra — but 7.2 puts the whole reveal before
+    // anybody's turn, and what he grants is a static rather than something that
     // goes off. It is simply true of the board by the time anybody picks.
     place(state, "boljin", "p2.B1");
     state.board["p2.B1"]!.faceDown = true;
     place(state, "patkany", "p2.F1"); // in his column front, and the weakest
 
     const after = runMustra(state);
-    // Untargetable when the shot was aimed means it was never aimed here. There
-    // is no race to settle: nothing was in the air.
+    // Untargetable when the shot was aimed means it was never aimed here.
     expect(after.board["p2.F1"]).not.toBeNull();
     expect(after.board["p2.B1"]).not.toBeNull();
-  });
-
-  it("gives a genuine clash to the player who brought the battlefield", () => {
-    // Two stags with one empty column between them. Each advances until the way
-    // is blocked, and the way is blocked by the other one — so whoever goes
-    // first crosses the line and whoever goes second cannot move at all. They
-    // fire at the same instant and there is no answer in simultaneity, so 3.8
-    // supplies one: the battlefield's owner starts here, and starting wins it.
-    const contested = (broughtBy: PlayerId): GameState => {
-      const state = blankState("umbra");
-      state.locations[0].broughtBy = broughtBy;
-      state.players.p1.spellHand = [];
-      state.players.p2.spellHand = [];
-      place(state, "szarvas", "p1.B2");
-      place(state, "szarvas", "p2.B2");
-      return runMustra(state);
-    };
-
-    const first = contested("p1");
-    expect(first.board["p2.F2"]?.owner).toBe("p1"); // p1 crossed the line
-    expect(first.board["p2.B2"]?.owner).toBe("p2"); // p2 never got to move
-    expect(first.board["p1.B2"]).toBeNull();
-
-    const second = contested("p2");
-    expect(second.board["p1.F2"]?.owner).toBe("p2");
-    expect(second.board["p1.B2"]?.owner).toBe("p1");
-    expect(second.board["p2.B2"]).toBeNull();
   });
 });
 
