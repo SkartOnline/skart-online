@@ -203,11 +203,7 @@ export function worstCaseThreat(
     affordable.push({ cardId, cost: spell.cost });
   }
   if (affordable.length === 0) return { theta: 0, certain: true, because: "no-payer" };
-  // Cost descending is a proxy for impact and not a good one — a cheap spell
-  // with a lethal target beats an expensive one with none. It is what keeps the
-  // hypothetical hand the size of their real one (1.5.1) without a Θ call per
-  // candidate spell; when it picks wrong, the ceiling comes out low.
-  affordable.sort((a, b) => b.cost - a.cost);
+  rankByThreat(state, player, affordable, options);
 
   const copy = worstCaseBoard(state, player, affordable.slice(0, held).map((a) => a.cardId));
   // An upper bound, so there is nothing left to be uncertain about: either the
@@ -265,6 +261,40 @@ export function pessimisticBoard(state: GameState, player: PlayerId): GameState 
   if (affordable.length === 0) return null;
   affordable.sort((a, b) => b.cost - a.cost);
   return worstCaseBoard(state, player, affordable.slice(0, held).map((a) => a.cardId));
+}
+
+/**
+ * Order the spells they might hold by what each would actually do — Θ from
+ * their seat, one card at a time.
+ *
+ * Cost descending was the first version and it is a poor proxy: a Mágus 1 with
+ * a lethal target beats a Mágus 8 with none, and the ceiling then comes out
+ * low, which is the one direction a *defensive* bound must not err in.
+ *
+ * This is Θ run in reverse, which is what it should have been from the start.
+ * One card in hand makes the search trivial — a single cast, a handful of
+ * targets — so a dozen of these cost less than the one full Θ that follows,
+ * and the hand handed to that call is then the dangerous one rather than the
+ * expensive one.
+ */
+function rankByThreat(
+  state: GameState,
+  player: PlayerId,
+  affordable: { cardId: string; cost: number }[],
+  options: Partial<ThetaOptions>,
+): void {
+  const foe = player === "p1" ? "p2" : "p1";
+  const alone = { ...options, secured: Infinity, cardCost: 0, gammaWeight: 0, gammaAgainst: null };
+  const swing = new Map<string, number>();
+  for (const entry of affordable) {
+    const one = worstCaseBoard(state, player, [entry.cardId]);
+    swing.set(entry.cardId, theta(one, foe, alone));
+  }
+  // Cost breaks ties downward: two spells that swing the same are equally bad
+  // news, and the cheaper one is likelier to be castable alongside another.
+  affordable.sort(
+    (a, b) => (swing.get(b.cardId) ?? 0) - (swing.get(a.cardId) ?? 0) || a.cost - b.cost,
+  );
 }
 
 /** Could any unit of theirs pay this spell's whole cost out of one pool? */
