@@ -268,12 +268,33 @@ function defended(
   after: GameState,
   player: PlayerId,
   opts: ThetaOptions,
+  before: number,
 ): number {
   const foe = opponentOf(player);
-  const plain = { ...opts, gammaWeight: 0, gammaAgainst: null, secured: Infinity, cardCost: 0 };
   const now = structuredClone(after);
   now.players[foe].spellHand = against.players[foe].spellHand.map((c) => ({ ...c }));
-  return Math.max(0, theta(against, foe, plain) - theta(now, foe, plain));
+  return Math.max(0, before - theta(now, foe, gammaBudget(opts)));
+}
+
+/**
+ * What one Γ measurement is allowed to cost.
+ *
+ * It runs at every node, so it cannot have the search's own budget — and it did:
+ * the inner calls inherited `deadlineMs` from the plan and each took it as a
+ * full allowance of its own, which is how a single cast reached 27 seconds
+ * against an 8-second move. Their own hand is one or two cards deep here, so a
+ * small budget is not a compromise, it is the right size for the question.
+ */
+function gammaBudget(opts: ThetaOptions): ThetaOptions {
+  return {
+    ...opts,
+    gammaWeight: 0,
+    gammaAgainst: null,
+    secured: Infinity,
+    cardCost: 0,
+    nodeBudget: 80,
+    deadlineMs: 30,
+  };
 }
 
 /** For the hot loop: a third of the time, and right nine times in ten. */
@@ -593,6 +614,14 @@ export function bestPlan(
   const base = margin(root, player);
   const setups = setupSpells(root, player, opts);
 
+  // Their capacity *before* anything of mine happens. Constant for the whole
+  // search, so it is measured once here rather than at every node — which is
+  // what it was doing, at the search's own budget, per node.
+  const gammaBase =
+    opts.gammaWeight > 0 && opts.gammaAgainst
+      ? theta(opts.gammaAgainst, opponentOf(player), gammaBudget(opts))
+      : 0;
+
   const considered: Considered[] = [];
   let best = { casts: [] as Cast[], gain: 0 };
   // The empty plan is the thing to beat, and it is not worth zero: standing
@@ -609,7 +638,7 @@ export function bestPlan(
     // computed when asked for, because it is a second Θ per node.
     const denied =
       opts.gammaWeight > 0 && opts.gammaAgainst && casts.length > 0
-        ? opts.gammaWeight * defended(opts.gammaAgainst, from, player, opts)
+        ? opts.gammaWeight * defended(opts.gammaAgainst, from, player, opts, gammaBase)
         : 0;
     const value =
       winChance(gain + denied, opts.secured, opts.doubt) - opts.cardCost * casts.length;
