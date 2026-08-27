@@ -65,6 +65,8 @@ export interface Considered {
   gain: number;
   /** What that gain was worth once the securing line and the card price applied. */
   value: number;
+  /** Γ: power this line took out of their reach, weighted. */
+  kept: number;
 }
 
 export interface Plan {
@@ -130,6 +132,21 @@ export interface ThetaOptions {
   classes: readonly EdgeClass[];
   /** Record every line evaluated, so a trace can print the runners-up. */
   explain: boolean;
+  /**
+   * How much Γ counts next to Θ, and against whose board it is measured.
+   *
+   * Γ is the drop in *their* capacity that a cast causes, in power — a shield
+   * on a unit their only lethal spell was aimed at is worth that unit. It has
+   * to be measured against a board where they can actually do something, so
+   * `gammaAgainst` carries the pessimistic hand `worstCaseThreat` builds. With
+   * no such board there is nothing to protect against and Γ is zero, which is
+   * exactly the trap that made Θ useless during the gathering.
+   *
+   * Weight 0 disables it and is the default: nothing that changes what the bot
+   * casts is turned on here without a measurement beside it.
+   */
+  gammaWeight: number;
+  gammaAgainst: GameState | null;
   /**
    * The gain that would make this battlefield safe: their maximum remaining
    * swing, less the margin already standing. Negative when it is safe already.
@@ -200,6 +217,8 @@ export const DEFAULT_THETA: ThetaOptions = {
   deadlineMs: 0,
   classes: DEFAULT_CLASSES,
   explain: false,
+  gammaWeight: 0,
+  gammaAgainst: null,
   secured: Infinity,
   cardCost: 0,
   doubt: DEFAULT_DOUBT,
@@ -235,6 +254,26 @@ export function winChance(gain: number, secured: number, doubt = DEFAULT_DOUBT):
   // four more power looked like it bought half a battlefield.
   if (doubt <= 0) return edge > 0 ? 1 : edge < 0 ? 0 : 0.5;
   return 1 / (1 + Math.exp(-edge / doubt));
+}
+
+/**
+ * How much of their capacity this line removed.
+ *
+ * Their Θ on the pessimistic board before the line, less their Θ on the board
+ * the line produced — with their hand carried across, because it is their
+ * *hand* that is being priced and the line only changed the board.
+ */
+function defended(
+  against: GameState,
+  after: GameState,
+  player: PlayerId,
+  opts: ThetaOptions,
+): number {
+  const foe = opponentOf(player);
+  const plain = { ...opts, gammaWeight: 0, gammaAgainst: null, secured: Infinity, cardCost: 0 };
+  const now = structuredClone(after);
+  now.players[foe].spellHand = against.players[foe].spellHand.map((c) => ({ ...c }));
+  return Math.max(0, theta(against, foe, plain) - theta(now, foe, plain));
 }
 
 /** For the hot loop: a third of the time, and right nine times in ten. */
@@ -566,9 +605,16 @@ export function bestPlan(
     // nothing and the running best is the max over every prefix, not the leaf.
     // Ranked by what the gain is *worth* — see `secured`. The plan still
     // reports its true margin, because callers price resources against that.
-    const value = winChance(gain, opts.secured, opts.doubt) - opts.cardCost * casts.length;
+    // What this line took away from them, on top of what it added for me. Only
+    // computed when asked for, because it is a second Θ per node.
+    const denied =
+      opts.gammaWeight > 0 && opts.gammaAgainst && casts.length > 0
+        ? opts.gammaWeight * defended(opts.gammaAgainst, from, player, opts)
+        : 0;
+    const value =
+      winChance(gain + denied, opts.secured, opts.doubt) - opts.cardCost * casts.length;
     if (opts.explain) {
-      considered.push({ spellIds: casts.map((c) => c.spellId), gain, value });
+      considered.push({ spellIds: casts.map((c) => c.spellId), gain, value, kept: denied });
     }
     if (value > bestValue) {
       bestValue = value;
