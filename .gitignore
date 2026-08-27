@@ -2,3 +2,5 @@
 # paths from whichever machine created them. `launch.json` next to it is
 # committed on purpose — it is the dev-server config and it travels fine.
 .claude/settings.local.json
+node_modules/
+dist/
