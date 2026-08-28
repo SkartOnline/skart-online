@@ -54,9 +54,11 @@
  */
 
 import { getLocation, getUnit } from "../engine/cards";
-import { currentLocation } from "../engine/power";
+import { canCast, currentLocation, printedSpellpower } from "../engine/power";
 import { applyAction, legalActions } from "../engine/reducer";
 import { boardTotal, visibleCapSpent } from "../engine/totaling";
+import { slotsOf } from "../engine/grid";
+import { SCHOOLS } from "../engine/schema";
 import { pendingPrompt } from "../engine/prompts";
 import type { Action, GameState, PlayerId } from "../engine/types";
 import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
@@ -623,6 +625,11 @@ export class Planner {
       // the budget divides, this is when the decision is over regardless.
       until: this.params.budgetMs > 0 ? this.began + this.params.budgetMs : 0,
       secured: this.securedBoard(state, player),
+      // Where their swing is known to be nothing, the securing line is a step
+      // rather than a slope — see `winChance`. Leaving the band open is what
+      // had the bot answering a closed, casterless opponent by placing five
+      // more units into a lead of six.
+      doubt: this.certainlyDone(state, player) ? 0 : board.doubt,
       unitCost: this.priceOf(state, player, this.params.unitCost),
     });
     this.stats.boards += 1;
@@ -716,6 +723,38 @@ export class Planner {
   }
 
   /**
+   * Is their remaining swing known to be exactly zero?
+   *
+   * Facts only. Θ is a truncated search, so a Θ of zero means "found nothing
+   * inside the budget" and never "nothing exists" — treating it as proof is the
+   * lower-bound-as-an-upper-bound mistake that cost eighteen points the last
+   * time `secure` was left on everywhere. Everything below is public and exact.
+   *
+   * In the gathering that takes two things, because closing the gathering does
+   * not close the battle that follows it. They must have declared kész (8.7.3),
+   * *and* their board must be unable to pay for a spell at all (8.3.3) — no
+   * spellpower on any unit, in any school, and nothing face down, since Mustra
+   * turns those over before a single spell is cast and an unknown unit is an
+   * unknown caster.
+   */
+  private certainlyDone(state: GameState, player: PlayerId): boolean {
+    const foe = player === "p1" ? "p2" : "p1";
+    if (state.phase === "battle") return state.players[foe].flags.spellsClosed;
+    if (state.phase !== "units") return false;
+    if (!state.players[foe].flags.unitsClosed) return false;
+    for (const slot of slotsOf(foe)) {
+      const unit = state.board[slot];
+      if (!unit) continue;
+      if (unit.faceDown) return false;
+      if (!canCast(unit, state)) continue;
+      for (const school of SCHOOLS) {
+        if (printedSpellpower(unit, school, state) > 0) return false;
+      }
+    }
+    return true;
+  }
+
+  /**
    * Their remaining swing, and how much it is worth trusting.
    *
    * `believe` off is the old behaviour and it is a cheat: `theta(state, foe)`
@@ -761,10 +800,24 @@ export class Planner {
 
     // What this battlefield is worth to the match, from the scoreboard: a
     // fourth is worth everything, a fifth nothing.
-    const stake = fieldValue(state.scores[player], state.scores[foe], left, {
-      win: 0.5,
-      loss: 0.5,
-    });
+    //
+    // Standing *on* the tiebreaker is the exception, and leaving it out was a
+    // bot that folded A Zóna without playing a card. The count above is of
+    // ordinary fields, and A Zóna is only ever reached once all six of them are
+    // decided — so `left` is zero, `fieldValue` reads zero, and `cardPrice`
+    // charged the maximum eight times rate on the one battlefield that settles
+    // the whole match. Measured: 0.32 a unit here against 0.0125 on a field
+    // with one ordinary left, twenty-six times the price, on the decider.
+    //
+    // There is no arithmetic to do. 3.5: win this and the match is won, lose it
+    // and it is lost. That is the entire stake, which is what a stake of 1 says.
+    const here = currentLocation(state);
+    const stake = here.tiebreaker
+      ? 1
+      : fieldValue(state.scores[player], state.scores[foe], left, {
+          win: 0.5,
+          loss: 0.5,
+        });
 
     // And how much of that is still on the table *here*, which the scoreboard
     // cannot know and the board can. A field already safe, or already gone, is
@@ -824,6 +877,17 @@ export class Planner {
     const foe = player === "p1" ? "p2" : "p1";
     const cap = currentLocation(state).cap;
     if (cap === null) return 1; // uncapped: nobody is out of room, so it is even
+    // 8.7.3 is final: once they have declared kész they can place nothing more,
+    // whatever cap they are still holding, and building against a threat that
+    // has already given up its turn is how a six-point lead attracted five more
+    // units. The line is the even one — be ahead — because this measure is
+    // about *placing* and says nothing about what they can still cast; that is
+    // `doubt`'s job, and it is the term that knows whether they have a caster.
+    //
+    // Not `0 - mine + 1`, which is what falls out of the formula below and is
+    // not a securing line at all: my own unspent cap is not their threat, so
+    // subtracting it says a one-point lead is safe against anything.
+    if (state.players[foe].flags.unitsClosed) return 1;
     const theirs = Math.max(0, cap - visibleCapSpent(state, foe));
     const mine = Math.max(0, cap - state.players[player].capSpent);
     // What they can still put down *beyond* what I can — not their whole

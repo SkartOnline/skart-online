@@ -3,7 +3,7 @@ import { BASE_CARD_SET, loadCardSet } from "../engine/cards";
 import { makeUnitInstance } from "../engine/effects";
 import { ALL_SLOTS } from "../engine/grid";
 import { applyAction, legalActions } from "../engine/reducer";
-import { DEFAULT_CONFIG } from "../engine/setup";
+import { createGame, DEFAULT_CONFIG } from "../engine/setup";
 import type { GameState, PlayerId, SlotId } from "../engine/types";
 import { DEFAULT_PLANNER, Planner } from "./planner";
 import { theta } from "./theta";
@@ -328,5 +328,80 @@ describe("not looking at their hand", () => {
     const harmlessTheta = theta(facing(["fagypancel", "alomfogo"]), "p2", CHEAP);
     expect(armedTheta).not.toBe(harmlessTheta);
     expect(peeking.params.believe).toBe(false);
+  });
+});
+
+/**
+ * Two reports from the table. Both are the planner declining to play cards it
+ * had, and both were reproduced before they were fixed — the states below are
+ * the reproductions, trimmed.
+ */
+describe("the planner in the gathering phase", () => {
+  const SIX = ["sikator", "feketepiac", "akaczos", "a_pek_hidja", "maguskor", "kikoto"];
+
+  /** A real game, moved to the position under test. */
+  function gathering(): GameState {
+    const state = createGame({ seed: "zona", decks: { p1: "felindori", p2: "bestia" } });
+    state.phase = "units";
+    state.turn = "p1";
+    return state;
+  }
+
+  it("plays A Zóna, where the whole match is riding on it", () => {
+    // Every ordinary field decided, three all, tiebreaker on the table — and
+    // the bot walked away from it without playing a card.
+    //
+    // The cause was the price, not the board. `priceOf` counts the *ordinary*
+    // fields still undecided, and A Zóna is only ever reached when that count
+    // is zero, so `fieldValue` read the decider as worthless and `cardPrice`
+    // charged the maximum eight times rate on it. Same board, same hand, same
+    // 295 legal moves: with one ordinary field left it played a unit, with none
+    // left it declared kész.
+    const state = gathering();
+    state.locations = SIX.map((cardId, i) => ({
+      cardId,
+      broughtBy: (i % 2 === 0 ? "p1" : "p2") as PlayerId,
+      winner: (i % 2 === 0 ? "p1" : "p2") as PlayerId,
+    }));
+    state.locations.push({ cardId: "a_zona", broughtBy: "p1", winner: null });
+    state.locationIndex = 6;
+    state.scores = { p1: 3, p2: 3 };
+
+    const planner = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP, budgetMs: 2000 });
+    const action = planner.choose(state, "p1");
+    expect(action?.type, "the match was on the line and it held seven units").toBe("playUnit");
+  });
+
+  it("stops placing once they have closed and cannot answer", () => {
+    // They have declared kész (8.7.3) and their only unit is a Vízköpő, which
+    // has no spellpower in any school and so can never pay for a spell (8.3.3).
+    // Their remaining swing is not estimated at zero, it is zero. Every further
+    // unit buys margin nobody is paid for (1.3.1) and spends a card the next
+    // battlefield could have used — and the bot placed five of them, taking a
+    // 7-5 lead to 28-5.
+    const state = gathering();
+    place(state, "ogre", "p1.F1"); // 7
+    place(state, "vizkopo", "p2.F1"); // 2, and no spellpower at all
+    state.players.p2.flags.unitsClosed = true;
+    state.players.p2.spellHand = [];
+
+    const planner = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP, budgetMs: 2000 });
+    expect(planner.choose(state, "p1")?.type).toBe("declareUnitsDone");
+  });
+
+  it("keeps building while a face-down unit could still be a caster", () => {
+    // The other half of the same rule, and the reason the test above is about
+    // spellpower rather than about the declaration alone: closing the gathering
+    // does not close the battle. Mustra turns their hidden unit face up before
+    // a spell is cast, so an unknown unit is an unknown caster and the swing is
+    // not known to be zero.
+    const state = gathering();
+    place(state, "patkany", "p1.F1"); // 1 — barely ahead of nothing
+    place(state, "celebrant", "p2.F1"); // a real caster, and hidden
+    state.board["p2.F1"]!.faceDown = true;
+    state.players.p2.flags.unitsClosed = true;
+
+    const planner = new Planner({ ...DEFAULT_PLANNER, theta: CHEAP, budgetMs: 2000 });
+    expect(planner.choose(state, "p1")?.type).toBe("playUnit");
   });
 });
