@@ -82,6 +82,11 @@
   border: 1px solid var(--oak-pitch);
 }
 
+/* Chrome is metal here too — see the `--panel` block in `theme.css` for why the
+   interface stopped being made of wood. Oak is kept for what oak is good at:
+   card stock, and the planked table underneath. Ember still means *chosen*;
+   hover is metal, the way it is on every button in the game. */
+
 .sieve {
   display: flex;
   align-items: center;
@@ -142,7 +147,7 @@
   overflow-y: auto;
   min-height: 0;
   scrollbar-width: thin;
-  scrollbar-color: var(--iron) transparent;
+  scrollbar-color: var(--metal-dim) transparent;
 }
 .deck-index {
   list-style: none;
@@ -152,8 +157,8 @@
 .deck-index li button {
   width: 100%;
   text-align: left;
-  background: rgba(23, 15, 8, 0.5);
-  border: 1px solid var(--iron);
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
   border-left-width: 3px;
   padding: 8px 11px;
   margin-bottom: 5px;
@@ -165,8 +170,8 @@
   font-size: 16px;
 }
 .deck-index li button:hover {
-  border-color: var(--ember);
-  border-left-color: var(--ember);
+  border-color: var(--metal);
+  border-left-color: var(--metal);
   color: var(--tallow);
 }
 .deck-index .count {
@@ -188,7 +193,7 @@
   font-variant-caps: small-caps;
   letter-spacing: 0.04em;
   color: var(--ember);
-  border-bottom: 1px solid var(--iron);
+  border-bottom: 1px solid var(--panel-edge);
 }
 .deck-line {
   display: flex;
@@ -198,14 +203,14 @@
   text-align: left;
   padding: 3px 6px 3px 0;
   margin: 0;
-  background: rgba(23, 15, 8, 0.42);
+  background: var(--panel);
   border: 1px solid transparent;
-  border-bottom: 1px solid rgba(116, 82, 44, 0.35);
+  border-bottom: 1px solid var(--panel-edge);
   font-weight: 400;
 }
 .deck-line:hover {
-  background: rgba(74, 47, 24, 0.7);
-  border-color: var(--ember);
+  background: var(--panel-lit);
+  border-color: var(--metal);
 }
 .deck-line .cost {
   flex: none;
