@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { allDecks, deckCost, getLocation } from "../../engine";
 import type { PlayerId } from "../../engine";
-import { botAvailable } from "./bot";
 import type { Difficulty } from "./bot";
 
 export interface Sides {
@@ -24,7 +23,6 @@ export default function NewGame({
   onLeave: () => void;
 }) {
   const decks = allDecks();
-  const hasBot = botAvailable();
   const [sides, setSides] = useState<Sides>({
     p1: decks[0]?.id ?? "",
     p2: decks[1]?.id ?? decks[0]?.id ?? "",
@@ -82,30 +80,28 @@ export default function NewGame({
           ))}
         </div>
 
-        {hasBot && (
-          <div className="tail" style={{ marginTop: 14, paddingTop: 12 }}>
-            <span className="label">Második játékos:</span>
-            <button
-              className={sides.bot === null ? "tiny ember" : "tiny"}
-              onClick={() => setSides((s) => ({ ...s, bot: null }))}
-            >
-              Ember
-            </button>
-            <button
-              className={sides.bot === "p2" && sides.difficulty === "easy" ? "tiny ember" : "tiny"}
-              onClick={() => setSides((s) => ({ ...s, bot: "p2", difficulty: "easy" }))}
-            >
-              Gép, könnyű
-            </button>
-            <button
-              className={sides.bot === "p2" && sides.difficulty === "hard" ? "tiny ember" : "tiny"}
-              onClick={() => setSides((s) => ({ ...s, bot: "p2", difficulty: "hard" }))}
-            >
-              Gép, erős
-            </button>
-            <span className="grow" />
-          </div>
-        )}
+        <div className="tail" style={{ marginTop: 14, paddingTop: 12 }}>
+          <span className="label">Második játékos:</span>
+          <button
+            className={sides.bot === null ? "tiny ember" : "tiny"}
+            onClick={() => setSides((s) => ({ ...s, bot: null }))}
+          >
+            Ember
+          </button>
+          <button
+            className={sides.bot === "p2" && sides.difficulty === "easy" ? "tiny ember" : "tiny"}
+            onClick={() => setSides((s) => ({ ...s, bot: "p2", difficulty: "easy" }))}
+          >
+            Gép, könnyű
+          </button>
+          <button
+            className={sides.bot === "p2" && sides.difficulty === "hard" ? "tiny ember" : "tiny"}
+            onClick={() => setSides((s) => ({ ...s, bot: "p2", difficulty: "hard" }))}
+          >
+            Gép, erős
+          </button>
+          <span className="grow" />
+        </div>
 
         <div className="tail">
           <label className="f">

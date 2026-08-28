@@ -479,13 +479,37 @@ total that had been settled before Mustra. Neither of those intervals clears 50%
 and neither should have been expected to.
 
 The second column is `board.ts` landing. Both intervals clear 50%, and the
-second one is the first honest claim in this document that the planner is
-better than the thing currently shipped as the opponent.
+second one is what the swap below was made on: it is the first honest claim in
+this document that the planner beats the checkpoint that used to be shipped as
+the opponent.
 
 Phase 1 was not worthless, it was unmeasurable this way. What it bought shows up
 on the defect it was aimed at: self-damage per cast fell from 0.30 (baseline)
 and 0.45 (the shipped checkpoint) to **0.06**, and multi-spell allocation works
 at all, pinned by `cast.test.ts`.
+
+### Shipped
+
+`src/ui/game/bot.ts` builds the opponent, and since the swap it builds this
+planner rather than `weights/latest.json`. The hand-written vector is what
+ships — no fit has cleared the head-to-head rule above.
+
+Difficulty is search budget, not a temperature. The old easy setting sampled a
+worse move on purpose, which reads as a bot with a twitch; easy is now a
+planner that looks two placements and one cast ahead instead of six and three.
+It plays each move soundly and cannot see the combinations, which is the thing
+a beginner actually misses. Neither setting will cast a spell that loses it
+ground, because that arithmetic does not change with depth.
+
+**It thinks on a worker.** A battle-phase decision runs about 85 ms and the
+worst measured was 1.8 s, essentially all of it `structuredClone` inside
+`applyAction`. On the main thread that is a frozen board, not a slow bot, and
+trimming the budget does not help — `maxLines` is not the binding constraint, so
+a smaller cap buys a weaker opponent and the same stall. `botWorker.ts` is the
+whole fix, and it is thirty lines only because `src/engine/` is pure: the
+planner already ran headless in the simulator, and a worker is one more place
+with no DOM in it. Measured in the browser afterwards: no main-thread task over
+50 ms across a full bot turn.
 
 ### Commands
 

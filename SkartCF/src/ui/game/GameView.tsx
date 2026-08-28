@@ -13,7 +13,7 @@ import Board, { Loaded } from "./Board";
 import NewGame from "./NewGame";
 import type { Sides } from "./NewGame";
 import { makeBot } from "./bot";
-import type { Agent } from "../../bot/agent";
+import type { Opponent } from "./bot";
 import {
   ambienceFor,
   anchorRect,
@@ -58,7 +58,7 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   const [bare, setBare] = useState(false);
   const [fault, setFault] = useState<string | null>(null);
   const [botSide, setBotSide] = useState<PlayerId | null>(null);
-  const bot = useRef<Agent | null>(null);
+  const bot = useRef<Opponent | null>(null);
 
   // What is currently worth watching. Beats are derived from the difference
   // between two states and expire on their own, so they can only ever decorate
@@ -88,7 +88,8 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   function begin(sides: Sides) {
     try {
       setState(createGame({ seed: sides.seed, decks: { p1: sides.p1, p2: sides.p2 } }));
-      bot.current = sides.bot ? makeBot(sides.difficulty, Date.now() >>> 0) : null;
+      bot.current?.dispose();
+      bot.current = sides.bot ? makeBot(sides.difficulty) : null;
       setBotSide(bot.current ? sides.bot : null);
       setPast([]);
       setHeld(null);
@@ -216,6 +217,9 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       }
     }
   }, [beats, botSide, state]);
+
+  // A game left behind should not leave a thread thinking about it.
+  useEffect(() => () => bot.current?.dispose(), []);
 
   /**
    * The same beats, heard.
@@ -513,11 +517,20 @@ function Field(props: FieldProps) {
     // purpose — it is the pause a person takes picking their next card up, and
     // it is where the player actually reads the board.
     const pause = state.phase === "cleanup" ? 120 : Math.max(1100, quiet + 700);
+    // The machine now thinks on a worker, so the answer comes back after the
+    // turn it was asked about — and by then the board may have moved: an undo,
+    // a beat landing, a re-render. A decision that arrives to a torn-down
+    // effect is dropped rather than played against a state that is gone.
+    let live = true;
     const timer = setTimeout(() => {
-      const action = bot.current?.choose(state, botSide!);
-      if (action) send(action);
+      void bot.current?.choose(state, botSide!).then((action) => {
+        if (live && action) send(action);
+      });
     }, pause);
-    return () => clearTimeout(timer);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
   }, [botToMove, state, botSide, bot, send, props.beats, props.shows]);
 
   // The scored step has nothing to decide: the totals are in, Diadal and Vigasz

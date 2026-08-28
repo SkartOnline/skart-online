@@ -10,6 +10,12 @@ anything in `src/bot/`; most of what follows was paid for with a wrong turn.
 > own units, and the positional play it cannot see — are addressed there rather
 > than here. This document remains authoritative for the value function, the
 > featuriser, the mask and the training loop.
+>
+> **The planner is now the opponent in the app.** `src/ui/game/bot.ts` used to
+> load `weights/latest.json`; it builds a planner instead. The checkpoint is
+> still loaded by `arena.ts`, `sim/run.ts` and the trainer, and it is still
+> tracked, because it is the sparring partner every claim about the planner is
+> measured against — a bot with nothing to play makes no numbers.
 
 ---
 
