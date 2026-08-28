@@ -5,6 +5,8 @@ import { chooseAction, DEFAULT_POLICY } from "../sim/policy";
 import type { PolicyContext } from "../sim/policy";
 import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
 import type { BaselineContext } from "../sim/baseline";
+import { choosePlannerAction, DEFAULT_PLAN } from "./plan/policy";
+import type { PlanContext } from "./plan/policy";
 
 /**
  * Playing one game and recording what each side saw.
@@ -52,11 +54,12 @@ export const DEFAULT_REWARDS: RewardParams = {
   matchReward: 2,
 };
 
-/** A learned agent, the randomised greedy policy, or the deterministic baseline. */
+/** A learned agent, the randomised greedy policy, the deterministic baseline, or the planner. */
 export type Seat =
   | { kind: "agent"; agent: Agent; learn: boolean }
   | { kind: "greedy"; ctx: PolicyContext }
-  | { kind: "baseline"; ctx: BaselineContext };
+  | { kind: "baseline"; ctx: BaselineContext }
+  | { kind: "planner"; ctx: PlanContext };
 
 const MAX_ACTIONS = 4000;
 
@@ -106,6 +109,8 @@ export function playGame(
       if (seat.learn) step = { features: decision.features, reward: 0, value: decision.value };
     } else if (seat.kind === "baseline") {
       action = chooseBaselineAction(state, player, seat.ctx);
+    } else if (seat.kind === "planner") {
+      action = choosePlannerAction(state, player, seat.ctx);
     } else {
       action = chooseAction(state, player, seat.ctx);
     }
@@ -169,4 +174,8 @@ export function greedySeat(seed: string): Seat {
 
 export function baselineSeat(foldMargin = DEFAULT_BASELINE.foldMargin): Seat {
   return { kind: "baseline", ctx: { params: { foldMargin } } };
+}
+
+export function plannerSeat(params = DEFAULT_PLAN): Seat {
+  return { kind: "planner", ctx: { params } };
 }

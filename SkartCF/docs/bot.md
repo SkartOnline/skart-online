@@ -3,6 +3,14 @@
 Everything a fresh session needs to pick this up. Read this before changing
 anything in `src/bot/`; most of what follows was paid for with a wrong turn.
 
+> **The learned bot is no longer the only player in `src/bot/`.**
+> `docs/bot-planner.md` describes the planner being built beside it in
+> `src/bot/plan/`, which computes its move instead of recognising it. Two of the
+> limitations listed at the bottom of this document — the damage it aims at its
+> own units, and the positional play it cannot see — are addressed there rather
+> than here. This document remains authoritative for the value function, the
+> featuriser, the mask and the training loop.
+
 ---
 
 ## What it is

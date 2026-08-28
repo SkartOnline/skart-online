@@ -45,8 +45,14 @@ export default function CardFace({ card, livePower, className }: Props) {
         <h4 className="cf-name">{card.name}</h4>
       </header>
 
+      {/* Lazy, because the gallery prints the whole set at once and there is no
+          reason to fetch two hundred paintings to look at the first row. */}
       <div className="cf-art">
-        {art ? <img src={art} alt="" /> : <span className="cf-art-empty" />}
+        {art ? (
+          <img src={art} alt="" loading="lazy" decoding="async" />
+        ) : (
+          <span className="cf-art-empty" />
+        )}
       </div>
 
       {/* Rarity, then the traits — the order 2.1.4 prints them, minus the word
@@ -115,7 +121,7 @@ export function CardTile({
   return (
     <>
       <span className="tile-art">
-        {art && <img src={art} alt="" />}
+        {art && <img src={art} alt="" loading="lazy" decoding="async" />}
         <span className="tile-name">{card.name}</span>
       </span>
       <span className="tile-foot">

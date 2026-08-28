@@ -34,6 +34,7 @@ public site.
 | New/changed effect kind | `src/engine/schema.ts` (KindSpec) + `src/engine/effects.ts` (handler) — exactly these two, editor UI and validation follow for free |
 | Asking abilities (tutors, hand swaps, traps) | `src/engine/prompts.ts` (Prompt queue, Reveal record) + `src/engine/interactions.ts` (completion handler per prompt kind) — a new asking ability is one prompt kind + one handler |
 | Rules disputes, phase order, timing | `docs/szabaly-teljes.md` (numbered, authoritative) → `src/engine/reducer.ts`, `resolve.ts`; `rulebook.test.ts` pins numbered rules |
+| Who may see what (hidden info, netcode) | `src/engine/view.ts` — `redact(state, viewer)`. Anything sent to a client goes through it; `view.test.ts` scans the whole payload for leaks |
 | Power, statics, positional bonuses | `src/engine/power.ts` (`basePower` vs `power` — see invariants) |
 | Slot adjacency, ranges | `src/engine/grid.ts` |
 | Game setup, decks, rule config | `src/engine/setup.ts`, `src/engine/cards.ts` (registry + `validateCardSet`) |
@@ -45,6 +46,7 @@ public site.
 | In-app rulebook screen | `src/ui/Rulebook.tsx` renders `docs/szabaly-*.md` directly — edit the docs, never the screen |
 | Balance simulator | `src/sim/run.ts` (runner/report), `src/sim/baseline.ts` (default policy: deterministic, theoretical-max driven), `src/sim/policy.ts` (old randomised greedy, kept as the bot's sparring partner) |
 | Learning bot | `src/bot/` — `docs/bot.md` first; `agent.ts`, `features.ts`, `observe.ts`, `model.ts`, `learn.ts`, `selfplay.ts`, `train.ts` |
+| Planning bot | `src/bot/plan/` — `docs/bot-planner.md` first; `value.ts` (the score), `board.ts` (units phase), `cast.ts` (battle phase), `threat.ts` (enemy model), `knowledge.ts` (information gate), `policy.ts` (routing) |
 | Card art | drop `src/ui/art/<cardId>.webp` — nothing else to change |
 
 ## Invariants — do not break

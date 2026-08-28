@@ -11,6 +11,7 @@
  *   npm run sim -- --games 500 --fold 4
  *   npm run sim -- --games 500 --policy greedy --stop-margin 0,2,4
  *   npm run sim -- --games 500 --policy bot
+ *   npm run sim -- --games 500 --policy planner
  *
  * Which policy plays the games is the number's biggest hidden assumption. The
  * default is the deterministic baseline in `baseline.ts`: build the strongest
@@ -29,7 +30,9 @@ import { DEFAULT_BASELINE } from "./baseline";
 import type { BaselineParams } from "./baseline";
 import { Agent, DEFAULT_AGENT } from "../bot/agent";
 import { loadModel } from "../bot/arena";
-import { baselineSeat, greedySeat, playGame as playRecorded } from "../bot/selfplay";
+import { baselineSeat, greedySeat, plannerSeat, playGame as playRecorded } from "../bot/selfplay";
+import { DEFAULT_PLAN } from "../bot/plan/policy";
+import type { PlanParams } from "../bot/plan/policy";
 import type { Seat } from "../bot/selfplay";
 import type { ValueModel } from "../bot/model";
 
@@ -45,10 +48,12 @@ interface GameResult {
 export type Contestant =
   | { kind: "baseline"; params: BaselineParams }
   | { kind: "greedy"; params: PolicyParams }
-  | { kind: "bot"; model: ValueModel };
+  | { kind: "bot"; model: ValueModel }
+  | { kind: "planner"; params: PlanParams };
 
 function seatFor(contestant: Contestant, seed: string): Seat {
   if (contestant.kind === "baseline") return baselineSeat(contestant.params.foldMargin);
+  if (contestant.kind === "planner") return plannerSeat(contestant.params);
   if (contestant.kind === "greedy") return greedySeat(seed);
   return {
     kind: "agent",
@@ -192,7 +197,9 @@ function main(): void {
       ? "policy: trained bot"
       : policy === "greedy"
         ? "policy: greedy heuristic"
-        : `policy: baseline (fold ${fold})`,
+        : policy === "planner"
+          ? "policy: planner"
+          : `policy: baseline (fold ${fold})`,
   );
 
   let anyBroken = false;
@@ -206,7 +213,9 @@ function main(): void {
       ? { kind: "bot", model }
       : policy === "greedy"
         ? { kind: "greedy", params: { ...DEFAULT_POLICY, stopMargin } }
-        : { kind: "baseline", params: { foldMargin: fold } };
+        : policy === "planner"
+          ? { kind: "planner", params: DEFAULT_PLAN }
+          : { kind: "baseline", params: { foldMargin: fold } };
 
     for (let i = 0; i < deckIds.length; i++) {
       for (let j = i + 1; j < deckIds.length; j++) {

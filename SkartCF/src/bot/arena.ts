@@ -5,7 +5,11 @@ import { Agent, DEFAULT_AGENT } from "./agent";
 import type { AgentParams } from "./agent";
 import { deserialise } from "./model";
 import type { SerialisedModel, ValueModel } from "./model";
-import { greedySeat, playGame } from "./selfplay";
+import { greedySeat, plannerSeat, playGame } from "./selfplay";
+import { baselineSeat } from "./selfplay";
+import { DEFAULT_PLAN } from "./plan/policy";
+import type { PlanParams } from "./plan/policy";
+import { buildParams } from "./plan/params";
 import type { Seat } from "./selfplay";
 
 /**
@@ -50,10 +54,14 @@ export function loadModel(path: string): ValueModel {
 
 export type Contender =
   | { kind: "bot"; model: ValueModel; params?: AgentParams }
-  | { kind: "greedy" };
+  | { kind: "greedy" }
+  | { kind: "baseline" }
+  | { kind: "planner"; params?: PlanParams };
 
 function seatFor(contender: Contender, seed: string): Seat {
   if (contender.kind === "greedy") return greedySeat(seed);
+  if (contender.kind === "baseline") return baselineSeat();
+  if (contender.kind === "planner") return plannerSeat(contender.params ?? DEFAULT_PLAN);
   return {
     kind: "agent",
     // Temperature 0: an evaluation measures the policy, not its exploration.
@@ -131,6 +139,13 @@ export function describe(name: string, result: ArenaResult): string {
 
 // ---------------------------------------------------------------------------
 
+/** A checkpoint path reads better in the table as its file name. */
+function label(spec: string): string {
+  if (spec === "greedy" || spec === "baseline" || spec === "planner") return spec;
+  if (spec.startsWith("planner:")) return `planner ${spec.split(/[\/]/).pop()}`;
+  return spec.split(/[\/]/).pop() ?? spec;
+}
+
 function parseArgs(argv: string[]): Record<string, string> {
   const out: Record<string, string> = {};
   for (let i = 0; i < argv.length; i++) {
@@ -149,29 +164,61 @@ function main(): void {
   const seed = args.seed ?? "arena";
   const weights = args.weights ?? "src/bot/weights/latest.json";
 
-  const challenger: Contender = { kind: "bot", model: loadModel(weights) };
-  const defender: Contender = args.against
-    ? { kind: "bot", model: loadModel(args.against) }
-    : { kind: "greedy" };
-  const name = args.against ? `bot vs ${args.against}` : "bot vs greedy";
+  // A contender is either a keyword — greedy, baseline, planner — or a path to
+  // a checkpoint. Naming them by keyword is what makes "is the planner better
+  // than the thing it is replacing" one command rather than a code edit.
+  // "planner" is the shipped configuration; "planner:<path>" is a fitted vector
+  // out of `npm run tune`, which is how two fits get compared head to head.
+  const named = (spec: string): Contender => {
+    if (spec === "greedy") return { kind: "greedy" };
+    if (spec === "baseline") return { kind: "baseline" };
+    if (spec === "planner") return { kind: "planner" };
+    if (spec.startsWith("planner:")) {
+      const file = JSON.parse(readFileSync(spec.slice("planner:".length), "utf8")) as {
+        overrides?: Record<string, number>;
+      };
+      return { kind: "planner", params: buildParams(file.overrides ?? {}) };
+    }
+    return { kind: "bot", model: loadModel(spec) };
+  };
+
+  const challengerSpec = args.challenger ?? weights;
+  const defenderSpec = args.against ?? "greedy";
+  const challenger = named(challengerSpec);
+  const defender = named(defenderSpec);
+  const name = `${label(challengerSpec)} vs ${label(defenderSpec)}`;
 
   console.log(`${games} games on ${decks.length} decks, sides swapped each game\n`);
   console.log("matchup                       score          95% CI     record");
   const result = arena(challenger, defender, { games, decks, seed });
   console.log(describe(name, result));
 
-  if (!args.against) {
+  if (!args.against && !args.challenger) {
     const mirror = arena({ kind: "greedy" }, { kind: "greedy" }, { games, decks, seed });
     console.log(describe("greedy vs greedy (control)", mirror));
   }
 
-  console.log(
-    result.low > 0.6
-      ? "\nClears the 60% gate."
-      : result.high < 0.6
-        ? "\nBelow the 60% gate. The features or the loop need work before a bigger model."
-        : "\nToo close to call at this sample size. Run more games.",
-  );
+  // The 60% gate was written for the trained model against greedy. Every other
+  // matchup is a question about 50%, and printing the gate verdict at those was
+  // actively misleading: a planner-versus-planner run reading "below the 60%
+  // gate" says nothing at all about which of the two is better.
+  if (defenderSpec === "greedy") {
+    console.log(
+      result.low > 0.6
+        ? "\nClears the 60% gate."
+        : result.high < 0.6
+          ? "\nBelow the 60% gate. The features or the loop need work before a bigger model."
+          : "\nToo close to call at this sample size. Run more games.",
+    );
+  } else {
+    console.log(
+      result.low > 0.5
+        ? "\nBetter, and the interval says so."
+        : result.high < 0.5
+          ? "\nWorse, and the interval says so."
+          : "\nNo difference this sample can see. The interval covers 50%.",
+    );
+  }
 }
 
 if (process.argv[1] && process.argv[1].endsWith("arena.ts")) main();

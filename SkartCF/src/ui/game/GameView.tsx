@@ -15,6 +15,7 @@ import type { Sides } from "./NewGame";
 import { makeBot } from "./bot";
 import type { Agent } from "../../bot/agent";
 import {
+  ambienceFor,
   anchorRect,
   BEAT_MS,
   beatsBetween,
@@ -23,9 +24,12 @@ import {
   captureHandCard,
   flyBack,
   flyTo,
+  matchSounds,
   REVEAL_MS,
   slotElement,
+  soundFor,
 } from "./theatre";
+import { playAmbience, playSound, preloadSounds, stopAmbience } from "../audio";
 import type { BeatKind, Flight } from "./theatre";
 import { cardFor, handHeld, other } from "./common";
 import type { FieldProps, Held, LiveBeat, LiveReveal } from "./common";
@@ -92,6 +96,10 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       setBeats([]);
       setShows([]);
       setPrologue(true);
+      // Decoding takes a few milliseconds and `playSound` does not wait for it,
+      // so an un-warmed cue arrives a beat late. Warm them while the prologue
+      // is still playing its ceremony.
+      preloadSounds(matchSounds());
     } catch (e) {
       setFault(String(e));
     }
@@ -208,6 +216,32 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       }
     }
   }, [beats, botSide, state]);
+
+  /**
+   * The same beats, heard.
+   *
+   * Sound rides the theatre clock rather than the state, so a cue lands on the
+   * moment its beat starts — which for a chain is not the moment the action was
+   * sent. The `sounded` ref is the same guard `flown` needs and for the same
+   * reason: the beat list is rebuilt on every render, so without a record of
+   * what has already played, one death would fire forty times a second.
+   */
+  const sounded = useRef(new Set<number>());
+  useEffect(() => {
+    for (const beat of beats) {
+      if (beat.startsAt > Date.now()) continue;
+      if (sounded.current.has(beat.id)) continue;
+      sounded.current.add(beat.id);
+      playSound(soundFor(beat));
+    }
+  }, [beats]);
+
+  // The room tone follows the battlefield, and stops when the match does.
+  const locationId = state?.locations[state.locationIndex]?.cardId;
+  useEffect(() => {
+    playAmbience(locationId ? ambienceFor(locationId) : null);
+  }, [locationId]);
+  useEffect(() => stopAmbience, []);
 
   /**
    * One timer for the whole theatre, aimed at the next moment anything changes:
@@ -596,6 +630,10 @@ function Field(props: FieldProps) {
   function startDrag(event: React.PointerEvent, card: Held) {
     if (event.button !== 0 || state.phase !== "units") return;
     setHeld(card);
+    // Out of the fan and into your fingers. The drop has no cue of its own —
+    // the unit landing is already a `land` or a `veil`, and two sounds for one
+    // gesture is one too many.
+    playSound("ui-lift");
     const session = beginCardDrag(card.uid, event.nativeEvent, {
       onDrop: (slot) => commit(slot, card),
       onEnd: () => setLifted(null),

@@ -147,8 +147,11 @@ export default function Prologue({
         // moments the row rearranges, and whether it passes over or under
         // whatever it crosses; the stylesheet does the rest.
         <ul className="prologue-monte">
+          {/* Keyed by position, not by id: nothing stops both players bringing
+              the same battlefield, and six cards where two share a key is a row
+              React is entitled to draw with five. */}
           {brought.map((bf, i) => (
-            <li key={bf.id} style={monte(i)}>
+            <li key={`${bf.id}-${i}`} style={monte(i)}>
               <span className="cardback location" />
             </li>
           ))}
@@ -165,7 +168,7 @@ export default function Prologue({
                 {brought
                   .filter((bf) => bf.broughtBy === side)
                   .map((bf, i) => (
-                    <li key={bf.id} style={{ "--nth": i } as React.CSSProperties}>
+                    <li key={`${bf.id}-${i}`} style={{ "--nth": i } as React.CSSProperties}>
                       <CardFace card={bf} className="battlefield" />
                     </li>
                   ))}

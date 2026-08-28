@@ -1,0 +1,39 @@
+{
+  "overrides": {
+    "board.winMargin": 8.423,
+    "board.surplusLive": 0.526,
+    "board.surplusClosed": 0.344,
+    "board.cardValue": 1.198,
+    "board.threat": 1.032,
+    "board.hideValue": 1.561,
+    "board.hideMinPower": 0.026,
+    "board.spareWeight": 0.12,
+    "cast.winMargin": 2.705,
+    "cast.surplusLive": 0.773,
+    "cast.surplusClosed": 0.099,
+    "cast.cardValue": 0.8,
+    "cast.damageValue": 0.184,
+    "cast.stopRisk": 0,
+    "cast.channelBonus": 1.487,
+    "cast.threat": 0.367,
+    "score.auraPotential": 0.355,
+    "score.contingency": 0.219,
+    "score.castPotential": 0.4,
+    "score.castsPerUnit": 2,
+    "threat.hideBias": 1.25,
+    "threat.potential": 0.779
+  },
+  "fit": {
+    "seed": "fitB",
+    "games": 36,
+    "against": [
+      "baseline",
+      "planner",
+      "src/bot/weights/latest.json"
+    ],
+    "margin": 1,
+    "winRate": 0.6944444444444444
+  },
+  "rounds": 44,
+  "accepted": 12
+}
