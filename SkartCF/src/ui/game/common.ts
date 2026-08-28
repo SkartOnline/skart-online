@@ -9,7 +9,7 @@ import type {
   SpellCard,
   UnitCard,
 } from "../../engine";
-import type { Agent } from "../../bot/agent";
+import type { Opponent } from "./bot";
 import type { Beat } from "./theatre";
 import type { MutableRefObject } from "react";
 
@@ -68,7 +68,7 @@ export interface FieldProps {
   actor: PlayerId | null;
   /** The seat the machine is playing, or `null` for hotseat. */
   botSide: PlayerId | null;
-  bot: MutableRefObject<Agent | null>;
+  bot: MutableRefObject<Opponent | null>;
   /** What just happened, for the theatre to show. Never read for rules. */
   beats: LiveBeat[];
   /** What a player has been shown: a peeked card, a tutor, a trap going off. */

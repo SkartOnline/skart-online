@@ -1,4 +1,4 @@
-import { ALL_SLOTS, newReveals } from "../../engine";
+import { ALL_SLOTS, getSpell, newReveals } from "../../engine";
 import type { GameState, PlayerId, SlotId } from "../../engine";
 
 /**
@@ -216,6 +216,116 @@ const BEAT_ORDER: Record<BeatKind, number> = {
  * read the cost and find out whether it beat him.
  */
 export const REVEAL_MS = 3600;
+
+// --------------------------------------------------------------------- sound
+//
+// The beat list is already a cue sheet. It says what happened, when it starts,
+// and how long it lasts, which is everything a sound needs, so the audio layer
+// is a lookup rather than a second pass over the state.
+//
+// The table is here, next to the timings it belongs with, and it is pure: no
+// `AudioContext`, no files, nothing a node test cannot run. `src/ui/audio.ts`
+// is what turns an id into a noise, and it shrugs at ids with no file behind
+// them — so the set can be filled in one cue at a time.
+
+/** One cue per beat kind. Filenames under `src/ui/sfx/`, minus the extension. */
+export const BEAT_SOUND: Record<BeatKind, string> = {
+  battlefield: "battlefield",
+  step: "step",
+  done: "done",
+  cast: "cast",
+  land: "land",
+  veil: "veil",
+  reveal: "reveal",
+  fall: "fall",
+  march: "march",
+  strike: "strike",
+  draw: "draw",
+  toss: "toss",
+};
+
+/**
+ * A spell sounds like the school that threw it.
+ *
+ * Six extra files for the one beat that happens most and matters most. A cast
+ * is the loudest thing either player does, and six of them are far more
+ * memorable than one played six times — you learn to hear a Bestia coming.
+ * Missing files fall back to the plain `cast`, so this costs nothing until the
+ * files exist.
+ */
+const CAST_SOUND: Record<string, string> = {
+  Mágus: "cast-magus",
+  Feketemágus: "cast-feketemagus",
+  Harcos: "cast-harcos",
+  Zsivány: "cast-zsivany",
+  Druida: "cast-druida",
+  Bestia: "cast-bestia",
+};
+
+/**
+ * The cue for one beat, school-flavoured where that applies.
+ *
+ * `veil` deliberately does not consult the card: a beat for a hidden unit
+ * carries no `cardId` precisely so its identity cannot leak, and a cue chosen
+ * from the card would leak it through the speakers.
+ */
+export function soundFor(beat: Beat): string {
+  if (beat.kind === "cast" && beat.cardId) {
+    const school = trySpell(beat.cardId)?.schools?.[0];
+    if (school && CAST_SOUND[school]) return CAST_SOUND[school];
+  }
+  return BEAT_SOUND[beat.kind];
+}
+
+function trySpell(cardId: string) {
+  try {
+    return getSpell(cardId);
+  } catch {
+    // A unit id, or a card the set no longer has. The plain cast will do.
+    return null;
+  }
+}
+
+/**
+ * Which room tone a battlefield plays under.
+ *
+ * Three loops, not fifteen. A tone runs for a whole location and its job is to
+ * say *what kind of place this is* — a made place, an open one, or one that has
+ * gone wrong — which is the distinction the palettes already draw. Fifteen
+ * would be fifteen times the work for a difference nobody could name.
+ */
+export const ROOM: Record<string, string> = {
+  sikator: "room-varos",
+  feketepiac: "room-varos",
+  a_pek_hidja: "room-varos",
+  lingadori_konyvtar: "room-varos",
+  kikoto: "room-varos",
+  malom: "room-varos",
+  // Oppidium is a walled town and Falóda feeds people; both are made places.
+  oppidium: "room-varos",
+  faloda: "room-varos",
+
+  akaczos: "room-vadon",
+  plazs: "room-vadon",
+  kodret: "room-vadon",
+
+  maguskor: "room-atok",
+  umbra: "room-atok",
+  // A Kesergő takes a point off everything standing in it and A Zóna answers
+  // to no cost at all. Whatever those are, they are not well.
+  kesergo: "room-atok",
+  a_zona: "room-atok",
+};
+
+/** The loop for a battlefield, or `null` for one with no tone of its own. */
+export function ambienceFor(locationId: string): string | null {
+  return ROOM[locationId] ?? null;
+}
+
+/** Everything a match is certain to use, for warming the cache when it opens. */
+export function matchSounds(): string[] {
+  return [...new Set([...Object.values(BEAT_SOUND), ...Object.values(CAST_SOUND)])];
+}
 
 const STEP_TEXT: Partial<Record<GameState["phase"], string>> = {
   mustra: "Mustra",

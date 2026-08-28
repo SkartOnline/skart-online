@@ -153,6 +153,13 @@ beforeEach(() => {
   loadCardSet(BASE_CARD_SET);
 });
 
+// An exhaustive search is slow by construction, and this one lands within a few
+// hundred milliseconds of vitest's 5 s default on an idle machine — so it passes
+// alone and fails the moment the suite gets another file to run beside it. The
+// timeout is not the thing under test, so it is given room rather than left to
+// report a scheduling accident as a wrong answer.
+const ORACLE_TIMEOUT_MS = 30_000;
+
 describe("Θ against an exhaustive search on boards small enough to exhaust", () => {
   it("returns the exhaustive answer on every board it can be checked against", () => {
     const next = rng(RANDOM_SEED);
@@ -183,7 +190,7 @@ describe("Θ against an exhaustive search on boards small enough to exhaust", ()
     expect(checked).toBeGreaterThan(90);
     expect(skipped).toBeLessThan(30);
     expect(disagreements).toEqual([]);
-  });
+  }, ORACLE_TIMEOUT_MS);
 
   it("never claims a plan the rules do not allow", () => {
     // Every plan the search returns is a sequence of engine actions, so the
@@ -201,5 +208,5 @@ describe("Θ against an exhaustive search on boards small enough to exhaust", ()
       expect(plan.gain).toBeGreaterThan(0);
     }
     expect(withPlans).toBeGreaterThan(20);
-  });
+  }, ORACLE_TIMEOUT_MS);
 });

@@ -13,8 +13,9 @@ import Board, { Loaded } from "./Board";
 import NewGame from "./NewGame";
 import type { Sides } from "./NewGame";
 import { makeBot } from "./bot";
-import type { Agent } from "../../bot/agent";
+import type { Opponent } from "./bot";
 import {
+  ambienceFor,
   anchorRect,
   BEAT_MS,
   beatsBetween,
@@ -23,9 +24,12 @@ import {
   captureHandCard,
   flyBack,
   flyTo,
+  matchSounds,
   REVEAL_MS,
   slotElement,
+  soundFor,
 } from "./theatre";
+import { playAmbience, playSound, preloadSounds, stopAmbience } from "../audio";
 import type { BeatKind, Flight } from "./theatre";
 import { cardFor, handHeld, other } from "./common";
 import type { FieldProps, Held, LiveBeat, LiveReveal } from "./common";
@@ -54,7 +58,7 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   const [bare, setBare] = useState(false);
   const [fault, setFault] = useState<string | null>(null);
   const [botSide, setBotSide] = useState<PlayerId | null>(null);
-  const bot = useRef<Agent | null>(null);
+  const bot = useRef<Opponent | null>(null);
 
   // What is currently worth watching. Beats are derived from the difference
   // between two states and expire on their own, so they can only ever decorate
@@ -84,7 +88,8 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   function begin(sides: Sides) {
     try {
       setState(createGame({ seed: sides.seed, decks: { p1: sides.p1, p2: sides.p2 } }));
-      bot.current = sides.bot ? makeBot(sides.difficulty, Date.now() >>> 0) : null;
+      bot.current?.dispose();
+      bot.current = sides.bot ? makeBot() : null;
       setBotSide(bot.current ? sides.bot : null);
       setPast([]);
       setHeld(null);
@@ -92,6 +97,10 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       setBeats([]);
       setShows([]);
       setPrologue(true);
+      // Decoding takes a few milliseconds and `playSound` does not wait for it,
+      // so an un-warmed cue arrives a beat late. Warm them while the prologue
+      // is still playing its ceremony.
+      preloadSounds(matchSounds());
     } catch (e) {
       setFault(String(e));
     }
@@ -208,6 +217,35 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       }
     }
   }, [beats, botSide, state]);
+
+  // A game left behind should not leave a thread thinking about it.
+  useEffect(() => () => bot.current?.dispose(), []);
+
+  /**
+   * The same beats, heard.
+   *
+   * Sound rides the theatre clock rather than the state, so a cue lands on the
+   * moment its beat starts — which for a chain is not the moment the action was
+   * sent. The `sounded` ref is the same guard `flown` needs and for the same
+   * reason: the beat list is rebuilt on every render, so without a record of
+   * what has already played, one death would fire forty times a second.
+   */
+  const sounded = useRef(new Set<number>());
+  useEffect(() => {
+    for (const beat of beats) {
+      if (beat.startsAt > Date.now()) continue;
+      if (sounded.current.has(beat.id)) continue;
+      sounded.current.add(beat.id);
+      playSound(soundFor(beat));
+    }
+  }, [beats]);
+
+  // The room tone follows the battlefield, and stops when the match does.
+  const locationId = state?.locations[state.locationIndex]?.cardId;
+  useEffect(() => {
+    playAmbience(locationId ? ambienceFor(locationId) : null);
+  }, [locationId]);
+  useEffect(() => stopAmbience, []);
 
   /**
    * One timer for the whole theatre, aimed at the next moment anything changes:
@@ -479,11 +517,26 @@ function Field(props: FieldProps) {
     // purpose — it is the pause a person takes picking their next card up, and
     // it is where the player actually reads the board.
     const pause = state.phase === "cleanup" ? 120 : Math.max(1100, quiet + 700);
+    // The request goes in after the pause, not before it. Asking early would
+    // overlap the thinking with the theatre and save a second — but React runs
+    // this effect twice in development, and the planner is stateful: two
+    // questions about one position would each take an action off a cast in
+    // flight. Inside the timer, the second run's cleanup cancels the first
+    // before it is ever asked.
+    let live = true;
     const timer = setTimeout(() => {
-      const action = bot.current?.choose(state, botSide!);
-      if (action) send(action);
+      void bot.current?.choose(state, botSide!).then((action) => {
+        // Eight seconds is a long time for a board to stay still. It may not
+        // be the same board any more — an undo, a beat landing — so a decision
+        // arriving to a torn-down effect is dropped rather than played against
+        // a state that is gone.
+        if (live && action) send(action);
+      });
     }, pause);
-    return () => clearTimeout(timer);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
   }, [botToMove, state, botSide, bot, send, props.beats, props.shows]);
 
   // The scored step has nothing to decide: the totals are in, Diadal and Vigasz
@@ -596,6 +649,10 @@ function Field(props: FieldProps) {
   function startDrag(event: React.PointerEvent, card: Held) {
     if (event.button !== 0 || state.phase !== "units") return;
     setHeld(card);
+    // Out of the fan and into your fingers. The drop has no cue of its own —
+    // the unit landing is already a `land` or a `veil`, and two sounds for one
+    // gesture is one too many.
+    playSound("ui-lift");
     const session = beginCardDrag(card.uid, event.nativeEvent, {
       onDrop: (slot) => commit(slot, card),
       onEnd: () => setLifted(null),
