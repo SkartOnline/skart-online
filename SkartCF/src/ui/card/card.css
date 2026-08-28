@@ -9,14 +9,22 @@
 
 /* A card face reads as printed, wherever it is mounted.
  *
- * This has to be stated rather than left to inherit. `font-variant-caps` is an
- * inherited property and every button in the app is small-caps by the rule in
- * `theme.css` — and in the Gyűjtemény each card sits *inside* a button, so the
- * whole face, rules text and all, came out in small capitals there and nowhere
- * else. Card text is written to be read, not deciphered. The tag field opts
- * back in below; nothing else does. */
+ * All four of these have to be stated rather than left to inherit, and the
+ * reason is the Gyűjtemény: each card there sits *inside* a button, and the
+ * button rule in `theme.css` sets small capitals, `letter-spacing: 0.07em` and
+ * `font-weight: 600` — every one of them an inherited property, every one of
+ * them landing on the whole card face. So the same card was set wider, heavier
+ * and in small capitals in the gallery than it was in a hand, which is why it
+ * never quite matched the game.
+ *
+ * A card is a printed object. It should not pick up type settings from whatever
+ * it happens to be sitting in, so it declares its own and the tag field opts
+ * back into small caps below. Nothing else does. */
 .cardface {
   font-variant-caps: normal;
+  letter-spacing: normal;
+  font-weight: 400;
+  font-style: normal;
 
   --card-w: 208px;
   /* The corner gems are laid out against the frame, so the frame is the

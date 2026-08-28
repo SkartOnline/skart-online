@@ -11,7 +11,7 @@
   min-height: 0;
   padding: 26px 20px 60px;
   scrollbar-width: thin;
-  scrollbar-color: var(--iron) transparent;
+  scrollbar-color: var(--metal-dim) transparent;
 }
 .prose {
   width: min(78ch, 92vw);
@@ -50,9 +50,14 @@
 .prose li {
   margin-bottom: 5px;
 }
+/* Chrome is metal here too — see the `--panel` block in `theme.css` for why the
+   interface stopped being made of wood. Oak is kept for what oak is good at:
+   card stock, and the planked table underneath. Ember still means *chosen*;
+   hover is metal, the way it is on every button in the game. */
+
 .prose hr {
   border: none;
-  border-top: 1px solid var(--iron);
+  border-top: 1px solid var(--panel-edge);
   margin: 26px 0;
 }
 .prose b {
@@ -62,8 +67,8 @@
   color: var(--flame);
 }
 .prose pre {
-  background: var(--oak-pitch);
-  border: 1px solid var(--iron);
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
   padding: 10px 12px;
   overflow-x: auto;
   font-size: 12px;
@@ -79,12 +84,12 @@
 }
 .prose th,
 .prose td {
-  border: 1px solid var(--iron);
+  border: 1px solid var(--panel-edge);
   padding: 4px 9px;
   text-align: left;
 }
 .prose th {
-  background: rgba(74, 47, 24, 0.6);
+  background: var(--panel-lit);
   font-variant-caps: small-caps;
   color: var(--tallow);
 }

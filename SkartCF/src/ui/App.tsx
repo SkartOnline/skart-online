@@ -11,7 +11,12 @@ import type { CardOverlay } from "./cardSet";
 import { playSound, resumeAudio } from "./audio";
 
 export default function App() {
-  const [room, setRoom] = useState<Room>("menu");
+  // `#muhely` opens the card workshop, which the menu no longer advertises. Read
+  // once, at startup: it is a way in for whoever is building the set, not a
+  // route the game navigates through.
+  const [room, setRoom] = useState<Room>(() =>
+    typeof location !== "undefined" && location.hash === "#muhely" ? "editor" : "menu",
+  );
 
   // The overlay is installed into the engine before anything renders, so a card
   // or deck built in the workshop is live the moment a game starts.

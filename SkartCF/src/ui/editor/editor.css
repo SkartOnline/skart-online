@@ -30,7 +30,7 @@
   overflow-y: auto;
   min-height: 0;
   scrollbar-width: thin;
-  scrollbar-color: var(--iron) transparent;
+  scrollbar-color: var(--metal-dim) transparent;
 }
 .index li button {
   width: 100%;
@@ -45,7 +45,7 @@
   font-weight: 400;
 }
 .index li button:hover {
-  background: rgba(74, 47, 24, 0.6);
+  background: var(--panel-lit);
   border-color: transparent;
 }
 .index li button.here {
@@ -65,7 +65,7 @@
   overflow-y: auto;
   min-height: 0;
   scrollbar-width: thin;
-  scrollbar-color: var(--iron) transparent;
+  scrollbar-color: var(--metal-dim) transparent;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -125,9 +125,14 @@
   width: 100%;
 }
 
+/* Chrome is metal here too — see the `--panel` block in `theme.css` for why the
+   interface stopped being made of wood. Oak is kept for what oak is good at:
+   card stock, and the planked table underneath. Ember still means *chosen*;
+   hover is metal, the way it is on every button in the game. */
+
 .block {
-  border: 1px solid var(--iron);
-  background: rgba(23, 15, 8, 0.45);
+  border: 1px solid var(--panel-edge);
+  background: var(--panel);
   padding: 10px 12px;
 }
 .block-head {
@@ -144,8 +149,8 @@
   letter-spacing: 0.03em;
 }
 .piece {
-  border: 1px solid var(--iron);
-  background: var(--oak);
+  border: 1px solid var(--panel-edge);
+  background: var(--panel-lit);
   padding: 8px 10px;
   margin-bottom: 8px;
 }
@@ -175,8 +180,8 @@
   color: var(--flame);
 }
 .raw pre {
-  background: var(--oak-pitch);
-  border: 1px solid var(--iron);
+  background: var(--panel);
+  border: 1px solid var(--panel-edge);
   padding: 9px;
   overflow-x: auto;
   font-size: 11.5px;
