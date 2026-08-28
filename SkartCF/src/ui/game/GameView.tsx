@@ -545,15 +545,47 @@ function Field(props: FieldProps) {
   // a turn.
   const sendRef = useRef(send);
   sendRef.current = send;
+  // When the scoring arrived, fixed for as long as the step lasts. The wait is
+  // computed against this rather than against "now", which is what lets the
+  // effect re-run on every beat without the step running away from us.
+  const scoredAt = useRef(0);
+  if (state.phase === "scored" && scoredAt.current === 0) scoredAt.current = Date.now();
+  if (state.phase !== "scored" && scoredAt.current !== 0) scoredAt.current = 0;
   useEffect(() => {
     if (state.phase !== "scored") return;
-    const timer = setTimeout(() => sendRef.current({ type: "nextLocation" }), 3600);
+
+    // Two conditions, and the step waits for the later of them.
+    //
+    // The first is reading time: the banner carries the result, and a result
+    // needs a moment in front of you. That was the whole of it before, as a
+    // flat 3.6 s from whenever the phase turned over.
+    //
+    // The second is the theatre, and it is why Leszerelés kept arriving early.
+    // Scoring is not a still board — Diadal and Vigasz fire, units fall, cards
+    // are drawn — and those beats are queued one after another, so a battlefield
+    // that ends with three deaths owes several seconds of animation that the
+    // flat timer knew nothing about. The banner for the next step then landed on
+    // top of the last one, which is the report: leszerelés, too early, at the
+    // end of the round.
+    //
+    // Re-running as beats expire is safe now because both ends are absolute
+    // timestamps: `scoredAt` does not move, and the quiet point only comes
+    // closer as the queue drains.
+    const quiet = Math.max(
+      0,
+      ...props.beats.map((b) => b.expiresAt - Date.now()),
+      ...props.shows.map((s) => s.expiresAt - Date.now()),
+    );
+    const readAt = scoredAt.current + 3600;
+    // Not zero: a step announced the instant the last card stops moving reads as
+    // an interruption. This is the breath between the two.
+    const settledAt = Date.now() + quiet + 700;
+    const timer = setTimeout(
+      () => sendRef.current({ type: "nextLocation" }),
+      Math.max(0, Math.max(readAt, settledAt) - Date.now()),
+    );
     return () => clearTimeout(timer);
-    // Deliberately keyed to the battle rather than to the whole state: beats
-    // expiring re-render this component, and a timer that restarted on every
-    // render would keep pushing the step further away for as long as anything
-    // was still animating.
-  }, [state.phase, state.locationIndex]);
+  }, [state.phase, state.locationIndex, props.beats, props.shows]);
 
   const moves = useMemo(() => (actor ? legalActions(state, actor) : []), [state, actor]);
 

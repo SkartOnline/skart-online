@@ -179,6 +179,9 @@ export function NearHand(
       .filter((m) => m.type === "playUnit" && m.faceDown)
       .map((m) => (m as { uid: string }).uid),
   );
+  const heldInHand = held ? p.unitHand.find((c) => c.uid === held.uid) : undefined;
+  const heldCard = heldInHand ? getUnit(heldInHand.cardId) : undefined;
+
   const castable = new Set(
     moves.filter((m) => m.type === "castSpell").map((m) => (m as { uid: string }).uid),
   );
@@ -280,23 +283,65 @@ export function NearHand(
 
   return (
     <>
-      {held?.veiled && (
+      {/* Face up or face down, decided in a bar rather than on the card.
+        *
+        * The old control was a `fordít` tag pinned to the bottom of the card in
+        * the hand, and it had two faults that made it unusable rather than
+        * merely awkward. The hand is a fan, so each card covers the bottom of
+        * the one before it — the tag was under its neighbour until the card was
+        * lifted. And lifting it is a drag: the pointer is captured the moment it
+        * goes down, so the click the tag was waiting for never arrived. A
+        * control you can only see while doing the one thing that stops it
+        * working is not a control.
+        *
+        * Here it is a toggle in the strip that already exists for the toll, so
+        * it is never under anything, it is a click and not a gesture, and the
+        * card's two states are both named and visibly one of two. The toll
+        * follows in the same strip when it is owed, which is the order the rule
+        * puts them in: decide to hide, then pay for it. */}
+      {mine && unitsPhase && held && heldCard && (
         <div className="toll">
-          <span className="label">Ára, eldobott egységlap:</span>
-          {p.unitHand
-            .filter((c) => c.uid !== held.uid)
-            .map((c) => (
-              <button
-                key={c.uid}
-                className={held.tollUid === c.uid ? "tiny ember" : "tiny"}
-                onClick={() => setHeld({ ...held, tollUid: c.uid })}
-              >
-                {getUnit(c.cardId).name}
-              </button>
-            ))}
-          <button className="tiny quiet" onClick={() => setHeld({ ...held, veiled: false })}>
-            mégsem fordítom
-          </button>
+          <span className="label">{heldCard.name}</span>
+          <span className="veilswitch">
+            <button
+              className={held.veiled ? "tiny" : "tiny ember"}
+              onClick={() => setHeld({ ...held, veiled: false, tollUid: null })}
+            >
+              nyíltan
+            </button>
+            <button
+              className={held.veiled ? "tiny ember" : "tiny"}
+              // Hiding costs a unit card off the same hand, so the last card in
+              // it cannot pay for itself. The engine already says so by offering
+              // no face-down move; this only has to not lie about it.
+              disabled={!veilable.has(held.uid)}
+              title={
+                veilable.has(held.uid) ? undefined : "Nincs mivel kifizetned a rejtést"
+              }
+              onClick={() => {
+                const toll = p.unitHand.find((x) => x.uid !== held.uid);
+                setHeld({ ...held, veiled: true, tollUid: held.tollUid ?? toll?.uid ?? null });
+              }}
+            >
+              rejtve
+            </button>
+          </span>
+          {held.veiled && (
+            <>
+              <span className="label">ára, eldobott egységlap:</span>
+              {p.unitHand
+                .filter((c) => c.uid !== held.uid)
+                .map((c) => (
+                  <button
+                    key={c.uid}
+                    className={held.tollUid === c.uid ? "tiny ember" : "tiny"}
+                    onClick={() => setHeld({ ...held, tollUid: c.uid })}
+                  >
+                    {getUnit(c.cardId).name}
+                  </button>
+                ))}
+            </>
+          )}
         </div>
       )}
 
@@ -347,18 +392,6 @@ export function NearHand(
                 }
               >
                 <CardFace card={card} />
-                {live && veilable.has(c.uid) && (
-                  <button
-                    className="veil-tag"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const toll = p.unitHand.find((x) => x.uid !== c.uid);
-                      setHeld({ uid: c.uid, veiled: true, tollUid: toll?.uid ?? null });
-                    }}
-                  >
-                    fordít
-                  </button>
-                )}
               </Slot>
             );
           })}

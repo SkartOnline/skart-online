@@ -7,7 +7,17 @@
  * font size, so one `--card-w` scales the whole thing.
  */
 
+/* A card face reads as printed, wherever it is mounted.
+ *
+ * This has to be stated rather than left to inherit. `font-variant-caps` is an
+ * inherited property and every button in the app is small-caps by the rule in
+ * `theme.css` — and in the Gyűjtemény each card sits *inside* a button, so the
+ * whole face, rules text and all, came out in small capitals there and nowhere
+ * else. Card text is written to be read, not deciphered. The tag field opts
+ * back in below; nothing else does. */
 .cardface {
+  font-variant-caps: normal;
+
   --card-w: 208px;
   /* The corner gems are laid out against the frame, so the frame is the
      containing block. At hand scale they overhang it deliberately. */
@@ -102,7 +112,6 @@
   margin: 0;
   padding: 0.06em 0.3em;
   font-size: 0.62em;
-  font-variant-caps: small-caps;
   letter-spacing: 0.03em;
   background: rgba(60, 44, 26, 0.14);
   border-top: 1px solid var(--ink-edge);
@@ -123,7 +132,12 @@
   font-weight: 400;
   color: var(--ink-soft);
 }
+/* The tag field keeps its small capitals — it is a row of labels (Faj, Rend,
+   Tipus), not something anyone reads as a sentence, and the filters read the
+   same words. Everything else on the face is set as written: card text in small
+   caps is a card you decipher rather than read, which is the whole complaint. */
 .cf-traits {
+  font-variant-caps: small-caps;
   text-align: right;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -156,7 +170,6 @@
 }
 .cf-keywords {
   font-weight: 600;
-  font-variant-caps: small-caps;
 }
 .cf-rules {
   overflow-wrap: anywhere;

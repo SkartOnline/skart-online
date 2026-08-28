@@ -1110,19 +1110,24 @@
   padding-left: 1.1em;
 }
 
-.veil-tag {
-  position: absolute;
-  left: 50%;
-  bottom: 4px;
-  transform: translateX(-50%);
-  z-index: 4;
-  font-size: 11px;
-  font-variant-caps: small-caps;
-  background: #3d2a13;
-  color: var(--flame);
+/* Face up or face down, as one control rather than two buttons that happen to
+   sit together: a hairline between them and a single border around the pair, so
+   the card's two states read as two sides of one switch. Lives in the toll
+   strip — see `Hands.tsx` for why it is not on the card any more. */
+.veilswitch {
+  display: inline-flex;
   border: 1px solid var(--iron);
-  padding: 0 6px;
-  cursor: pointer;
+}
+.veilswitch .tiny {
+  border: 0;
+  margin: 0;
+}
+.veilswitch .tiny + .tiny {
+  border-left: 1px solid var(--iron);
+}
+.veilswitch .tiny:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* The far hand: backs only, units and spells cut differently. */
