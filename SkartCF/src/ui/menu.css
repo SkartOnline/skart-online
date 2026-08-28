@@ -1,16 +1,32 @@
 /* ---------------------------------------------------------------- the menu */
 
+/* The table stays oak, and only the table.
+ *
+ * `theme.css` explains why the chrome went neutral: oak panels on an oak table
+ * meant every surface competed with every other one. The menu never got the
+ * memo — its plate and its four doors were still oak on oak — so walking from
+ * here into a match looked like changing games. The planking and the firelight
+ * are what oak is still good at, so they stay; everything sitting on them is
+ * `.timber` and metal now, exactly as it is on every other screen.
+ *
+ * `--title-art` is an empty hook, the same way `--bf-texture` is one in
+ * `game.css`: when the title painting exists it goes here, over the planks and
+ * under the firelight, and nothing else has to change. */
 .hall {
   height: 100%;
   display: grid;
   place-items: center;
   position: relative;
   overflow: hidden;
+  --title-art: none;
   background-color: var(--oak);
   background-image:
     radial-gradient(120% 70% at 50% -14%, rgba(232, 129, 31, 0.3), transparent 62%),
-    radial-gradient(140% 110% at 50% 118%, rgba(0, 0, 0, 0.7), transparent 62%),
+    radial-gradient(140% 110% at 50% 118%, rgba(0, 0, 0, 0.72), transparent 62%),
+    var(--title-art),
     var(--planks);
+  background-size: auto, auto, cover, auto;
+  background-position: center, center, center, center;
 }
 
 .hall-inner {
@@ -47,23 +63,31 @@
 .gates {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
+  padding: 14px;
 }
+/* Size and rhythm only. The lit top edge, the metal hairline, the hover and the
+   press all come from the one `button` rule in `theme.css` — which is the whole
+   point of the migration, and why this block is now shorter than what it
+   replaced rather than longer. */
 .gate {
   width: 100%;
-  padding: 13px 18px;
-  font-size: 21px;
-  font-weight: 500;
-  font-variant-caps: small-caps;
-  letter-spacing: 0.07em;
-  color: var(--parchment);
-  background: linear-gradient(180deg, var(--oak-raised), var(--oak-lit));
-  border: 1px solid var(--iron);
-  border-top-color: var(--iron-bright);
-}
-.gate:hover:not(:disabled) {
-  background: linear-gradient(180deg, var(--oak-lit), var(--oak));
-  border-color: var(--ember);
-  color: var(--tallow);
+  padding: 14px 18px;
+  font-size: 20px;
 }
 
+/* The line nobody reads and everybody would miss. Dim enough to be furniture,
+   present enough to say this is a released thing with a number on it. */
+.hall-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 18px 2px 0;
+  font-size: 12px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.09em;
+  color: var(--ash-dim);
+}
+.hall-version {
+  color: var(--metal-dim);
+}

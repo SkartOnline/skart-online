@@ -26,13 +26,20 @@ export default function MainMenu({ onEnter }: { onEnter: (room: Room) => void })
           <span className="crest-sub">Harc Felindorért</span>
         </h1>
 
-        <nav className="gates">
+        <nav className="gates timber">
           {GATES.map((gate) => (
             <button key={gate.room} className="gate" onClick={() => onEnter(gate.room)}>
               {gate.name}
             </button>
           ))}
         </nav>
+
+        {/* The quiet line. A version in the corner is the difference between a
+            thing someone built and a thing someone released. */}
+        <p className="hall-foot">
+          <span>Skart 2</span>
+          <span className="hall-version num">v{__APP_VERSION__}</span>
+        </p>
       </div>
     </div>
   );

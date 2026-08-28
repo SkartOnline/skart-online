@@ -1,8 +1,12 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import pkg from "./package.json";
 
 export default defineConfig({
   plugins: [react()],
+  // The version, from the one place it is already written down. A number typed
+  // into the menu by hand is a number that is wrong by the next release.
+  define: { __APP_VERSION__: JSON.stringify(pkg.version) },
   // Relative base so a static build works from any subdirectory.
   base: "./",
   // Honour an assigned port (tooling sets PORT); fall back to vite's default.
