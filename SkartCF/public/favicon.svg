@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Skart">
+  <!--
+    The tab icon, in the game's own geometry: nothing is rounded, so this is a
+    chamfered plate rather than a circle, and the only thing allowed to glow is
+    fire. Colours are the theme tokens by hand, because a favicon cannot read
+    CSS: --oak-pitch, --iron, --ember, --flame.
+  -->
+  <path d="M6 0h20l6 6v20l-6 6H6l-6-6V6Z" fill="#170f08"/>
+  <path d="M6 0h20l6 6v20l-6 6H6l-6-6V6Z" fill="none" stroke="#74522c" stroke-width="1.5"/>
+  <path d="M16 4c0 6.5 6 8.5 6 14 0 4.4-2.7 8-6 8s-6-3.6-6-8c0-5.5 6-7.5 6-14Z" fill="#e8811f"/>
+  <path d="M16 12c0 3.6 2.8 4.8 2.8 7.7 0 2.4-1.3 4.1-2.8 4.1s-2.8-1.7-2.8-4.1c0-2.9 2.8-4.1 2.8-7.7Z" fill="#ffc55c"/>
+</svg>

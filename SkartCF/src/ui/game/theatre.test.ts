@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { applyAction, createGame } from "../../engine";
 import type { GameState, SlotId } from "../../engine";
-import { BEAT_MS, beatsBetween, boardAsOf } from "./theatre";
+import { allLocations, allSpells } from "../../engine";
+import {
+  ambienceFor,
+  BEAT_MS,
+  BEAT_SOUND,
+  beatsBetween,
+  boardAsOf,
+  matchSounds,
+  ROOM,
+  soundFor,
+} from "./theatre";
+import type { Beat, BeatKind } from "./theatre";
 
 /**
  * The theatre's clock, which is the difference between a game you can follow and
@@ -238,5 +249,63 @@ describe("boardAsOf", () => {
   it("hands back the state untouched when nothing is pending", () => {
     const { before, after } = mustraPair();
     expect(boardAsOf(after, live(before, after, -99999), 0)).toBe(after);
+  });
+});
+
+/**
+ * The cue sheet.
+ *
+ * Pure, so it pins here rather than needing a browser and a pair of ears. What
+ * matters is that every beat has a cue, that the cue never says more than the
+ * beat does, and that the room tone knows all fifteen battlefields.
+ */
+describe("sound", () => {
+  const beat = (over: Partial<Beat>): Beat =>
+    ({ id: 1, kind: "land", at: 0, hold: [], ...over }) as Beat;
+
+  it("gives every beat kind a cue", () => {
+    for (const kind of Object.keys(BEAT_MS) as BeatKind[]) {
+      expect(BEAT_SOUND[kind], kind).toBeTruthy();
+      expect(soundFor(beat({ kind }))).toBe(BEAT_SOUND[kind]);
+    }
+  });
+
+  it("flavours a cast by the school that threw it", () => {
+    const bestia = allSpells().find((s) => s.schools?.[0] === "Bestia");
+    expect(bestia, "the set has no Bestia spell to test with").toBeTruthy();
+    expect(soundFor(beat({ kind: "cast", cardId: bestia!.id }))).toBe("cast-bestia");
+  });
+
+  it("falls back to the plain cast for a card it cannot read", () => {
+    expect(soundFor(beat({ kind: "cast", cardId: "nincs-ilyen-lap" }))).toBe("cast");
+    expect(soundFor(beat({ kind: "cast" }))).toBe("cast");
+  });
+
+  it("never lets a hidden unit name itself through the speakers", () => {
+    // A `veil` beat carries no cardId by design. Even handed one, the cue must
+    // not vary: a school-flavoured noise on a face-down card would say out loud
+    // what the player paid to hide.
+    expect(soundFor(beat({ kind: "veil", cardId: "harapas" }))).toBe(BEAT_SOUND.veil);
+  });
+
+  it("gives every battlefield a room tone", () => {
+    // Read from the registry rather than the JSON: a battlefield is a card, and
+    // one added to the set without a tone should fail here rather than fall
+    // silent in a match nobody is testing.
+    for (const l of allLocations()) expect(ambienceFor(l.id), l.id).toBeTruthy();
+  });
+
+  it("has no room tone for a battlefield that does not exist", () => {
+    // The other direction, and the one that actually bit: the table outlived
+    // three battlefields that had been cut from the set, and nothing said so.
+    // A dead key is not a silent match, it is a table nobody has read since the
+    // cards moved.
+    const real = new Set(allLocations().map((l) => l.id));
+    for (const id of Object.keys(ROOM)) expect(real.has(id), id).toBe(true);
+  });
+
+  it("asks for no cue twice", () => {
+    const all = matchSounds();
+    expect(new Set(all).size).toBe(all.length);
   });
 });

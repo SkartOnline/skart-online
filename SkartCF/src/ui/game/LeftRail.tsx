@@ -139,7 +139,9 @@ export function Annals({
             {entry.veiled ? (
               <span className="annal-veil" />
             ) : (
-              artFor(entry.cardId) && <img src={artFor(entry.cardId)} alt="" />
+              artFor(entry.cardId) && (
+                <img src={artFor(entry.cardId)} alt="" loading="lazy" decoding="async" />
+              )
             )}
           </li>
         ))}

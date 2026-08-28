@@ -13,3 +13,4 @@ export * from "./prompts";
 export * from "./interactions";
 export * from "./reducer";
 export * from "./setup";
+export * from "./view";
