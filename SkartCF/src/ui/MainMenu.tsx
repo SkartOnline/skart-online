@@ -1,3 +1,10 @@
+// The version from the one place it is already written down: a number typed
+// into a menu by hand is a number that is wrong by the next release. Imported
+// rather than injected through vite's `define`, because a bare global is not
+// defined in the dev server unless its dep cache is cleared — and the failure
+// mode for that is the menu throwing a ReferenceError at a white screen.
+// Vite gives JSON named exports, so only the string travels into the bundle.
+import { version } from "../../package.json";
 import "./menu.css";
 
 export type Room = "menu" | "play" | "collection" | "editor" | "rules";
@@ -38,7 +45,7 @@ export default function MainMenu({ onEnter }: { onEnter: (room: Room) => void })
             thing someone built and a thing someone released. */}
         <p className="hall-foot">
           <span>Skart 2</span>
-          <span className="hall-version num">v{__APP_VERSION__}</span>
+          <span className="hall-version num">v{version}</span>
         </p>
       </div>
     </div>
