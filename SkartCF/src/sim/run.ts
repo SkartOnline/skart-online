@@ -6,84 +6,219 @@
  * that battlefield or that deck is broken and gets changed. This script exists
  * to measure exactly that.
  *
- *   npm run sim -- --games 2000
- *   npm run sim -- --games 500 --decks value,swarm
- *   npm run sim -- --games 500 --fold 4
- *   npm run sim -- --games 500 --policy greedy --stop-margin 0,2,4
- *   npm run sim -- --games 500 --policy bot
+ *   npm run sim -- --games 100
+ *   npm run sim -- --games 100 --decks magus,bestia
+ *   npm run sim -- --games 100 --report reports/run.json
+ *   npm run sim -- --games 20 --nodes 80        # a coarser, faster planner
  *
- * Which policy plays the games is the number's biggest hidden assumption. The
- * default is the deterministic baseline in `baseline.ts`: build the strongest
- * board, spend as few cards as possible, stop only when stopping is provably
- * right. `--policy greedy` restores the old randomised heuristic (the only one
- * `--stop-margin` applies to), and `--policy bot` plays the trained model —
- * re-running a flagged pair under another policy is how a battlefield that
- * punishes bad play gets told apart from one that is genuinely broken.
+ * ## Who plays
+ *
+ * The planner, on both seats — Θ, Γ, the combo graph, the board optimiser and
+ * the belief model, the bot `docs/bot-algorithm.md` describes. It is the same
+ * opponent the game screen puts in front of a player, so a win rate here is a
+ * statement about the cards under the play the cards will actually meet.
+ *
+ * The trained checkpoint and the randomised greedy heuristic that used to be
+ * selectable here are gone. Both measured a player nobody faces, and a balance
+ * number is only worth what its policy is worth.
+ *
+ * `baseline.ts` stays, and is not a rival policy: the planner speaks for the
+ * gathering and the battle, and hands every other decision — the leszerelés,
+ * the scored step, a prompt it has no opinion about — to the baseline. It is
+ * the planner's own fallback, which is why deleting it was never on the table.
+ *
+ * ## The budget, and what it costs to be honest about it
+ *
+ * The planner is bounded by a wall clock, not by its node budget. Measured over
+ * forty decisions of a magus/bestia game:
+ *
+ *     budgetMs 0,   Θ nodes 200 → 449 ms/action
+ *     budgetMs 0,   Θ nodes  10 → 362 ms/action
+ *     budgetMs 100, Θ nodes 200 →  99 ms/action
+ *     budgetMs 30,  Θ nodes 200 →  78 ms/action
+ *
+ * Cutting the node budget twentyfold bought 20%; the clock bought 4.5×. So the
+ * node budget is not the binding constraint and turning the clock off does not
+ * make a run reproducible, it makes it slow — a thousand games would take a day.
+ *
+ * Which leaves an honest trade rather than a free lunch: these numbers are
+ * wall-clock dependent, and a re-run on a differently loaded machine will not
+ * reproduce them exactly. Two things keep that from mattering much. The budget
+ * is per decision, so a slow machine loses a little search depth on every move
+ * rather than truncating whole games; and both seats run the identical planner,
+ * so whatever the clock gives it gives to both. The seed still fixes the deal,
+ * the shuffle and the battlefield order.
+ *
+ * The defaults below are a measured operating point — about 2.6 s a game, so
+ * a hundred games across ten matchups is well under an hour. `--budget`,
+ * `--nodes`, `--beam` and `--finalists` move it. Raising them makes a stronger
+ * player and a longer run; the shape of the balance answer should not depend on
+ * that, and if it does, that is itself worth knowing.
  */
 
-import { allDecks, getLocation, hashSeed } from "../engine";
-import type { PlayerId } from "../engine";
-import { DEFAULT_POLICY } from "./policy";
-import type { PolicyParams } from "./policy";
+import {
+  allDecks,
+  applyAction,
+  createGame,
+  getLocation,
+  getSpell,
+  getUnit,
+  legalActions,
+  pendingPrompt,
+} from "../engine";
+import type { Action, GameState, PlayerId } from "../engine";
 import { DEFAULT_BASELINE } from "./baseline";
-import type { BaselineParams } from "./baseline";
-import { Agent, DEFAULT_AGENT } from "../bot/agent";
-import { loadModel } from "../bot/arena";
-import { baselineSeat, greedySeat, playGame as playRecorded } from "../bot/selfplay";
-import type { Seat } from "../bot/selfplay";
-import type { ValueModel } from "../bot/model";
+import { DEFAULT_PLANNER, Planner } from "../bot/planner";
+import { FAST_THETA } from "../bot/theta";
+import { totals } from "../engine/totaling";
+import { writeReport } from "./report";
+import type { MatchRecord, RunReport } from "./report";
+
+/** A game that has not ended by here is an engine bug, not a slow policy. */
+const MAX_ACTIONS = 4000;
 
 interface GameResult {
   winner: PlayerId | "draw";
   /** Location card id → who took it, or "void". */
-  locations: { cardId: string; broughtBy: PlayerId; winner: PlayerId | "void" | null }[];
+  locations: {
+    cardId: string;
+    broughtBy: PlayerId;
+    winner: PlayerId | "void" | null;
+    totals?: { p1: number; p2: number };
+  }[];
   reachedTiebreaker: boolean;
   actions: number;
+  /** Every decision taken, in order, when the run is recording detail. */
+  log: MatchRecord["log"];
 }
 
-/** Who is playing. Both seats always use the same one, so it is a fair fight. */
-export type Contestant =
-  | { kind: "baseline"; params: BaselineParams }
-  | { kind: "greedy"; params: PolicyParams }
-  | { kind: "bot"; model: ValueModel };
-
-function seatFor(contestant: Contestant, seed: string): Seat {
-  if (contestant.kind === "baseline") return baselineSeat(contestant.params.foldMargin);
-  if (contestant.kind === "greedy") return greedySeat(seed);
-  return {
-    kind: "agent",
-    // Temperature 0: measuring the policy, not its exploration.
-    agent: new Agent(contestant.model, { ...DEFAULT_AGENT, temperature: 0 }, hashSeed(seed)),
-    learn: false,
-  };
+/**
+ * Whose decision it is. Prompts and mid-resolution picks outrank the turn, and
+ * the scored and cleanup steps belong to whoever still has a legal move —
+ * which since 12.5 can be either player, or both.
+ */
+function actorOf(state: GameState): PlayerId | null {
+  const asking = pendingPrompt(state);
+  if (asking) return asking.player;
+  if (state.resolution?.pending) return state.resolution.pending.player;
+  if (state.phase === "units" || state.phase === "battle") return state.turn;
+  if (state.phase === "scored" || state.phase === "cleanup") {
+    return legalActions(state, "p1").length > 0 ? "p1" : "p2";
+  }
+  return null;
 }
+
+/** The card an action names, when it names one. Used for every card statistic. */
+function cardOfAction(state: GameState, action: Action): string | undefined {
+  const player = "player" in action ? action.player : undefined;
+  if (!player) return undefined;
+  const p = state.players[player];
+  const uid =
+    action.type === "playUnit" || action.type === "castSpell" || action.type === "toss"
+      ? action.uid
+      : action.type === "finishChannel"
+        ? action.discardUid
+        : undefined;
+  if (!uid) return undefined;
+  const found =
+    p.unitHand.find((c) => c.uid === uid) ??
+    p.spellHand.find((c) => c.uid === uid) ??
+    p.discard.find((c) => c.uid === uid);
+  return found?.cardId;
+}
+
+export interface PlayOptions {
+  /** Record every action. Off for a quick run; the report needs it. */
+  detail?: boolean;
+  nodeBudget?: number;
+  /** Wall clock per decision. The bound that actually binds — see the header. */
+  budgetMs?: number;
+  beamWidth?: number;
+  finalists?: number;
+}
+
+/** The measured operating point. See the header for how it was arrived at. */
+export const SIM_PLANNER = {
+  budgetMs: 10,
+  nodeBudget: 40,
+  beamWidth: 2,
+  finalists: 2,
+};
 
 export function playGame(
   deckA: string,
   deckB: string,
   seed: string | number,
-  contestant: Contestant = { kind: "greedy", params: DEFAULT_POLICY },
+  options: PlayOptions = {},
 ): GameResult {
-  const record = playRecorded(
-    { p1: seatFor(contestant, `${seed}-p1`), p2: seatFor(contestant, `${seed}-p2`) },
-    { p1: deckA, p2: deckB },
-    String(seed),
-  );
+  const theta = { ...FAST_THETA, nodeBudget: options.nodeBudget ?? SIM_PLANNER.nodeBudget };
+  const params = {
+    ...DEFAULT_PLANNER,
+    theta,
+    board: {
+      beamWidth: options.beamWidth ?? SIM_PLANNER.beamWidth,
+      finalists: options.finalists ?? SIM_PLANNER.finalists,
+      theta,
+    },
+    budgetMs: options.budgetMs ?? SIM_PLANNER.budgetMs,
+  };
+  // One planner per seat. The planner is stateful — a cast in flight lives
+  // inside the instance — so the two sides cannot share one.
+  const seats: Record<PlayerId, Planner> = {
+    p1: new Planner(params),
+    p2: new Planner(params),
+  };
+  seats.p1.reset();
+  seats.p2.reset();
 
-  if (record.truncated) {
+  let state = createGame({ seed, decks: { p1: deckA, p2: deckB } });
+  const log: MatchRecord["log"] = [];
+  let actions = 0;
+
+  while (state.phase !== "gameOver" && actions < MAX_ACTIONS) {
+    const player = actorOf(state);
+    if (player === null) break;
+    const action = seats[player].choose(state, player);
+    if (!action) break;
+
+    if (options.detail) {
+      const t = totals(state);
+      log.push({
+        i: actions,
+        p: player,
+        t: action.type,
+        c: cardOfAction(state, action),
+        s: "slot" in action ? action.slot : undefined,
+        ph: state.phase,
+        loc: state.locationIndex,
+        m: t.p1 - t.p2,
+      });
+    }
+
+    state = applyAction(state, action);
+    actions += 1;
+  }
+
+  if (actions >= MAX_ACTIONS) {
     throw new Error(
-      `Game did not terminate after ${record.actions} actions. ` +
+      `Game did not terminate after ${actions} actions. ` +
         "That is an engine bug, not a policy one, some action stopped making progress.",
     );
   }
 
+  const locations = state.locations.map((l) => ({
+    cardId: l.cardId,
+    broughtBy: l.broughtBy,
+    winner: l.winner,
+    totals: l.totals ?? undefined,
+  }));
+
   return {
-    winner: record.winner,
-    locations: record.locations,
-    reachedTiebreaker: record.locations.some(
-      (l) => getLocation(l.cardId).tiebreaker && l.winner !== null,
-    ),
-    actions: record.actions,
+    winner: state.winner ?? "draw",
+    locations,
+    reachedTiebreaker: locations.some((l) => getLocation(l.cardId).tiebreaker && l.winner !== null),
+    actions,
+    log,
   };
 }
 
@@ -175,54 +310,127 @@ function parseArgs(argv: string[]): Record<string, string> {
   return out;
 }
 
+/** Every card the report will need to name, so the viewer holds no card data. */
+function cardDictionary(deckIds: string[]): RunReport["cards"] {
+  const out: RunReport["cards"] = {};
+  const add = (id: string) => {
+    if (out[id]) return;
+    try {
+      const unit = getUnit(id);
+      out[id] = {
+        name: unit.name,
+        kind: "unit",
+        cost: unit.cost,
+        power: unit.power,
+        rarity: unit.rarity,
+        keywords: [unit.race, unit.origin, unit.order].filter(Boolean) as string[],
+      };
+      return;
+    } catch {
+      /* not a unit */
+    }
+    try {
+      const spell = getSpell(id);
+      out[id] = {
+        name: spell.name,
+        kind: "spell",
+        cost: spell.cost,
+        rarity: spell.rarity,
+        keywords: spell.schools ?? [],
+      };
+      return;
+    } catch {
+      /* not a spell */
+    }
+    try {
+      out[id] = { name: getLocation(id).name, kind: "location", keywords: [] };
+    } catch {
+      out[id] = { name: id, kind: "unknown", keywords: [] };
+    }
+  };
+
+  for (const deckId of deckIds) {
+    const deck = allDecksById(deckId);
+    if (!deck) continue;
+    for (const id of Object.keys(deck.units)) add(id);
+    for (const id of Object.keys(deck.spells)) add(id);
+    for (const id of deck.battlefields) add(id);
+  }
+  add("a_zona");
+  return out;
+}
+
+function allDecksById(id: string) {
+  return allDecks().find((d) => d.id === id);
+}
+
 function main(): void {
   const args = parseArgs(process.argv.slice(2));
-  const games = Number(args.games ?? 500);
+  const games = Number(args.games ?? 100);
   const baseSeed = args.seed ?? "skartcf";
   const deckIds = args.decks ? args.decks.split(",") : allDecks().map((d) => d.id);
-  const margins = (args["stop-margin"] ?? String(DEFAULT_POLICY.stopMargin))
-    .split(",")
-    .map(Number);
+  const reportPath = args.report;
+  const tune: PlayOptions = {
+    nodeBudget: args.nodes ? Number(args.nodes) : undefined,
+    budgetMs: args.budget ? Number(args.budget) : undefined,
+    beamWidth: args.beam ? Number(args.beam) : undefined,
+    finalists: args.finalists ? Number(args.finalists) : undefined,
+  };
+  const detail = !!reportPath;
+  const shown = { ...SIM_PLANNER, ...Object.fromEntries(Object.entries(tune).filter(([, v]) => v !== undefined)) };
 
-  const policy = args.policy ?? "baseline";
-  const model = policy === "bot" ? loadModel(args.weights ?? "src/bot/weights/latest.json") : null;
-  const fold = Number(args.fold ?? DEFAULT_BASELINE.foldMargin);
   console.log(
-    policy === "bot"
-      ? "policy: trained bot"
-      : policy === "greedy"
-        ? "policy: greedy heuristic"
-        : `policy: baseline (fold ${fold})`,
+    `policy: planner on both seats — ${shown.budgetMs}ms/decision, Θ nodes ` +
+      `${shown.nodeBudget}, beam ${shown.beamWidth}×${shown.finalists}, ` +
+      `fallback fold ${DEFAULT_BASELINE.foldMargin}`,
   );
+  if (detail) console.log(`recording every action → ${reportPath}`);
 
+  const matches: MatchRecord[] = [];
   let anyBroken = false;
+  const startedAt = Date.now();
+  let played = 0;
+  const totalGames = games * ((deckIds.length * (deckIds.length - 1)) / 2);
 
-  // The stop-margin sweep only means anything to the greedy policy; the
-  // baseline and the bot run the loop once.
-  const sweeps = policy === "greedy" ? margins : [margins[0]];
-  for (const stopMargin of sweeps) {
-    if (sweeps.length > 1) console.log(`\n=== stopMargin ${stopMargin} ===`);
-    const contestant: Contestant = model
-      ? { kind: "bot", model }
-      : policy === "greedy"
-        ? { kind: "greedy", params: { ...DEFAULT_POLICY, stopMargin } }
-        : { kind: "baseline", params: { foldMargin: fold } };
+  for (let i = 0; i < deckIds.length; i++) {
+    for (let j = i + 1; j < deckIds.length; j++) {
+      const [a, b] = [deckIds[i], deckIds[j]];
+      const tally = emptyTally(a, b);
+      for (let g = 0; g < games; g++) {
+        // Swap sides every other game so first-player advantage cancels.
+        const swap = g % 2 === 1;
+        const decks = swap
+          ? ({ p1: b, p2: a } as Record<PlayerId, string>)
+          : ({ p1: a, p2: b } as Record<PlayerId, string>);
+        const seed = `${baseSeed}-${a}-${b}-${g}`;
+        const result = playGame(decks.p1, decks.p2, seed, { detail, ...tune });
+        record(tally, result, decks);
 
-    for (let i = 0; i < deckIds.length; i++) {
-      for (let j = i + 1; j < deckIds.length; j++) {
-        const [a, b] = [deckIds[i], deckIds[j]];
-        const tally = emptyTally(a, b);
-        for (let g = 0; g < games; g++) {
-          // Swap sides every other game so first-player advantage cancels.
-          const swap = g % 2 === 1;
-          const decks = swap
-            ? ({ p1: b, p2: a } as Record<PlayerId, string>)
-            : ({ p1: a, p2: b } as Record<PlayerId, string>);
-          const result = playGame(decks.p1, decks.p2, `${baseSeed}-${a}-${b}-${g}`, contestant);
-          record(tally, result, decks);
+        if (detail) {
+          matches.push({
+            id: `${a}-${b}-${g}`,
+            seed,
+            decks,
+            winner: result.winner,
+            winnerDeck: result.winner === "draw" ? "draw" : decks[result.winner],
+            actions: result.actions,
+            locations: result.locations,
+            log: result.log,
+          });
         }
-        if (reportPair(a, b, tally)) anyBroken = true;
+
+        played += 1;
+        if (played % 10 === 0 || played === totalGames) {
+          const rate = played / ((Date.now() - startedAt) / 1000);
+          const left = (totalGames - played) / Math.max(rate, 0.001);
+          process.stdout.write(
+            `\r  ${played}/${totalGames} games  ${rate.toFixed(1)}/s  ` +
+              `${Math.round(left)}s left        `,
+          );
+        }
       }
+      process.stdout.write("\r" + " ".repeat(60) + "\r");
+      if (reportPair(a, b, tally)) anyBroken = true;
     }
   }
 
@@ -231,6 +439,34 @@ function main(): void {
       ? "\nAt least one deck/battlefield pair is over the 75% line. Change it."
       : "\nNo deck/battlefield pair is over the 75% line.",
   );
+
+  if (reportPath) {
+    const report: RunReport = {
+      meta: {
+        createdAt: new Date().toISOString(),
+        games,
+        decks: deckIds,
+        seed: String(baseSeed),
+        policy:
+          `planner both seats, ${shown.budgetMs}ms/decision, ` +
+          `Θ nodes ${shown.nodeBudget}, beam ${shown.beamWidth}×${shown.finalists}`,
+        totalGames,
+        elapsedMs: Date.now() - startedAt,
+      },
+      cards: cardDictionary(deckIds),
+      decks: allDecks()
+        .filter((d) => deckIds.includes(d.id))
+        .map((d) => ({
+          id: d.id,
+          name: d.name,
+          battlefields: d.battlefields,
+          units: d.units,
+          spells: d.spells,
+        })),
+      matches,
+    };
+    writeReport(reportPath, report);
+  }
 }
 
 // Only run when invoked directly, so the runner stays importable from tests.

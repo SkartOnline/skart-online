@@ -29,7 +29,7 @@ import { applyAction, legalActions } from "../engine/reducer";
 import { createGame } from "../engine/setup";
 import type { Action, GameState, PlayerId } from "../engine/types";
 import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
-import { wilson } from "./arena";
+import { wilson } from "./stats";
 import { LEGACY_PLANNER } from "./legacy";
 import { DEFAULT_PLANNER, Planner } from "./planner";
 import { Progress } from "./progress";

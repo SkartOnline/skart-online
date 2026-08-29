@@ -18,7 +18,9 @@ npm run dev         # http://localhost:5173 — hotseat game + card editor
 npm test            # vitest, the engine suite; fast, run it after engine edits
 npm run typecheck   # tsc --noEmit
 npm run sim -- --games 2000        # headless balance runner (win rates, BROKEN flags)
-npm run train / arena / balance / cardstats   # bot training & evaluation (see docs/bot.md)
+npm run mirror / planner    # bot evaluation (see docs/bot.md)
+npm run sim -- --games 100 --report reports/run.json   # then:
+npm run stats -- reports/run.json                      # → a clickable HTML report
 ```
 
 CI (`.github/workflows/pages.yml`): every push to `main` touching `SkartCF/`
@@ -44,8 +46,9 @@ public site.
 | Deck building / collection | `src/ui/collection/CollectionManager.tsx`, `src/ui/cardSet.ts` (localStorage overlay) |
 | Styling | Per screen, next to the component: `src/ui/theme.css` (tokens, reset, shared vocabulary — loaded first), `menu.css`, `rulebook.css`, `collection/collection.css`, `game/game.css`, `editor/editor.css` |
 | In-app rulebook screen | `src/ui/Rulebook.tsx` renders `docs/szabaly-*.md` directly — edit the docs, never the screen |
-| Balance simulator | `src/sim/run.ts` (runner/report), `src/sim/baseline.ts` (default policy: deterministic, theoretical-max driven), `src/sim/policy.ts` (old randomised greedy, kept as the bot's sparring partner) |
-| Learning bot | `src/bot/` — `docs/bot.md` first; `agent.ts`, `features.ts`, `observe.ts`, `model.ts`, `learn.ts`, `selfplay.ts`, `train.ts` |
+| Balance simulator | `src/sim/run.ts` — the planner on both seats; read its header for the budget and why it is a wall clock. `src/sim/baseline.ts` is the planner's fallback, not a rival policy |
+| Balance reports | `--report x.json` records every match and every action; `npm run stats -- x.json` builds a self-contained page from `src/sim/viewer.html`. Every statistic is derived in the browser from the raw log, so a new question is a new function there and not another run |
+| The bot | `src/bot/` — one player, the planner. `docs/bot-algorithm.md` is the design; `docs/bot.md` says what the deleted trained bot was and why it went |
 | Bot redesign (score, plans, combo graph) | `docs/bot-algorithm.md` — the layered plan; built so far: `src/bot/combo.ts` (which cards can matter to each other), `src/bot/theta.ts` (the best plan still available, and `score`), `src/bot/board.ts` (the best board to put down, given theirs), `src/bot/belief.ts` (what they are holding, from the mask only), `src/bot/deck.ts` (what a decklist can never do). `npm run combos`, `npm run theta`, `npm run belief` and `npm run decks` measure them |
 | Measuring the bot | `npm run mirror` — same deck both seats, so the matchup cancels; `--against baseline\|legacy`, `--no-secure` and friends ablate one change at a time, and it reports fields won **by position in the six**, which is the column that found the last real bug. Cross-deck win rates measure the card set, not the policy |
 | Reading the bot's play | `npm run replay -- --seed 7 --decks magus,felindori --seat p1` prints one game from one seat, every decision with the board and hand it was taken from. `npm run planner` reports **wasted casts** — the play-quality number a weak opponent cannot flatter. §13 of `docs/bot-algorithm.md` is what reading a trace found that six scans had not |
@@ -87,9 +90,11 @@ public site.
   when they disagree, one of them is a bug and the rulebook usually wins.
   Settled rules are constants, not options (list: SkartCF/README.md
   "Settled rules").
-- **Only `src/bot/weights/latest.json` is tracked.** Everything else in
-  `weights/` is local training scratch — never commit it, never delete it
-  unasked.
+- **One bot, and the simulator runs it.** The trained value function and the
+  greedy heuristic are deleted (`docs/bot.md`); the planner is the only player,
+  so a balance number and the opponent a person actually faces are the same
+  thing. `src/sim/baseline.ts` is the planner's fallback for the phases it does
+  not speak for, not a policy anyone chooses.
 - **Domain vocabulary is Hungarian** (Belépő, Mustra, Csata, gyűrű, Diadal,
   Vigasz…) and card text is first person. Keep both in any text you write.
 

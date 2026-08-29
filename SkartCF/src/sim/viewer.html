@@ -1,0 +1,1011 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skart Balance Report</title>
+<style>
+  :root {
+    --bg: #0b0c0e;
+    --panel: #131519;
+    --panel-2: #171a1f;
+    --edge: #262b33;
+    --edge-lit: #39414d;
+    --ink: #e7e3da;
+    --dim: #9aa3ad;
+    --faint: #6b7480;
+    --ember: #e8811f;
+    --brass: #d0a03c;
+    --good: #7fb069;
+    --bad: #cf5c4a;
+    --blue: #6fa8c7;
+    --violet: #9c86c9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.5 "Inter", "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+
+  header {
+    padding: 18px 22px 0;
+    border-bottom: 1px solid var(--edge);
+    background: linear-gradient(180deg, #101216, var(--bg));
+  }
+  h1 { margin: 0 0 4px; font-size: 21px; font-weight: 600; letter-spacing: 0.01em; }
+  .meta { color: var(--faint); font-size: 12.5px; margin-bottom: 14px; }
+  .meta b { color: var(--dim); font-weight: 500; }
+
+  nav { display: flex; gap: 2px; }
+  nav button {
+    background: none; border: 0; border-bottom: 2px solid transparent;
+    color: var(--dim); padding: 9px 15px; font: inherit; font-size: 13.5px;
+    cursor: pointer;
+  }
+  nav button:hover { color: var(--ink); }
+  nav button.on { color: var(--ember); border-bottom-color: var(--ember); }
+
+  main { padding: 18px 22px 60px; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--edge);
+    border-radius: 6px; padding: 14px 16px; margin-bottom: 16px;
+  }
+  .panel > h2 {
+    margin: 0 0 10px; font-size: 13px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.07em; color: var(--brass);
+  }
+  .panel > h2 .sub {
+    text-transform: none; letter-spacing: 0; color: var(--faint);
+    font-weight: 400; margin-left: 8px;
+  }
+  .note {
+    color: var(--faint); font-size: 12.5px; margin: -4px 0 12px;
+    border-left: 2px solid var(--edge-lit); padding-left: 10px;
+  }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .controls label { color: var(--faint); font-size: 12px; }
+  .controls .spacer { flex: 1; }
+  input[type="search"], select, input[type="number"] {
+    background: #0e1013; border: 1px solid var(--edge); color: var(--ink);
+    border-radius: 4px; padding: 5px 8px; font: inherit; font-size: 13px;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--edge-lit); }
+  .chip {
+    background: #0e1013; border: 1px solid var(--edge); color: var(--dim);
+    border-radius: 999px; padding: 3px 11px; font-size: 12px; cursor: pointer;
+  }
+  .chip.on { border-color: var(--ember); color: var(--ember); background: rgba(232,129,31,0.09); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 6px 9px; text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child, .l { text-align: left; }
+  thead th {
+    position: sticky; top: 0; z-index: 2; background: var(--panel-2);
+    color: var(--dim); font-weight: 500; font-size: 11.5px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--edge); cursor: pointer; user-select: none;
+  }
+  thead th:hover { color: var(--ink); }
+  thead th.sorted { color: var(--ember); }
+  thead th.key { color: var(--brass); }
+  tbody tr { border-bottom: 1px solid #1c2026; }
+  tbody tr:hover { background: #171a20; }
+  tbody tr.clickable { cursor: pointer; }
+  td.sep { border-left: 1px solid #1c2026; }
+  th.sep { border-left: 1px solid var(--edge); }
+  .scroll { max-height: 70vh; overflow: auto; margin: 0 -16px -14px; padding: 0 16px; }
+  .expand { color: var(--faint); }
+  tbody tr:hover .expand { color: var(--ember); }
+
+  .bar {
+    position: relative; display: inline-block; width: 46px; height: 7px;
+    background: #22262d; border-radius: 3px; vertical-align: middle; margin-left: 7px;
+  }
+  .bar > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--blue); }
+  .good { color: var(--good); } .bad { color: var(--bad); } .dim { color: var(--faint); }
+  .tag { font-size: 11px; padding: 1px 6px; border-radius: 3px; background: #22262d; color: var(--dim); }
+  .tag.unit { background: rgba(111,168,199,0.16); color: var(--blue); }
+  .tag.spell { background: rgba(156,134,201,0.16); color: var(--violet); }
+  .broken { color: var(--bad); font-weight: 600; }
+
+  .grid-wrap { overflow-x: auto; }
+  table.grid td, table.grid th { text-align: center; }
+  table.grid td.cell { font-weight: 600; }
+
+  .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: none; z-index: 40; }
+  .backdrop.open { display: block; }
+  .drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(780px, 96vw);
+    background: var(--panel); border-left: 1px solid var(--edge-lit);
+    z-index: 41; transform: translateX(100%); transition: transform 160ms ease-out;
+    display: flex; flex-direction: column;
+  }
+  .drawer.open { transform: none; }
+  .drawer-head {
+    padding: 14px 18px; border-bottom: 1px solid var(--edge);
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  .drawer-head h3 { margin: 0; font-size: 17px; font-weight: 600; }
+  .drawer-head .close {
+    margin-left: auto; background: none; border: 0; color: var(--faint);
+    font-size: 20px; cursor: pointer;
+  }
+  .drawer-body { padding: 14px 18px 40px; overflow-y: auto; }
+  .drawer-body h4 {
+    margin: 18px 0 8px; font-size: 11.5px; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--brass); font-weight: 600;
+  }
+  .drawer-body h4:first-child { margin-top: 0; }
+
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; font-size: 13px; }
+  .kv dt { color: var(--faint); }
+  .kv dd { margin: 0; }
+
+  .headline { display: flex; gap: 22px; flex-wrap: wrap; margin-bottom: 12px; }
+  .headline div { line-height: 1.25; }
+  .headline b { display: block; font-size: 19px; font-weight: 600; }
+  .headline span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); }
+
+  .log { font-size: 12.5px; }
+  .log .row {
+    display: grid; grid-template-columns: 38px 26px 1fr auto auto;
+    gap: 8px; align-items: baseline; padding: 3px 6px; border-radius: 3px; cursor: pointer;
+  }
+  .log .row:hover { background: #1d222a; }
+  .log .row.p1 { border-left: 2px solid var(--brass); }
+  .log .row.p2 { border-left: 2px solid var(--violet); }
+  .log .row.sel { background: #232935; }
+  .log .i { color: var(--faint); text-align: right; }
+  .log .act { color: var(--dim); }
+  .log .card { color: var(--ink); }
+  .log .m { color: var(--faint); }
+  .log .bfhead {
+    margin: 12px 0 4px; padding: 4px 6px; font-size: 11.5px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--brass); background: #14171c; border-radius: 3px;
+  }
+  .empty { color: var(--faint); font-style: italic; padding: 18px 0; }
+</style>
+
+<header>
+  <h1>Skart — balance report</h1>
+  <div class="meta" id="meta"></div>
+  <nav id="tabs"></nav>
+</header>
+<main id="main"></main>
+
+<div class="backdrop" id="backdrop"></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h3 id="drawer-title"></h3>
+    <span id="drawer-sub" class="dim"></span>
+    <button class="close" id="drawer-close">×</button>
+  </div>
+  <div class="drawer-body" id="drawer-body"></div>
+</aside>
+
+<script id="report" type="application/json">/*__REPORT__*/</script>
+<script>
+/* ------------------------------------------------------------------ data */
+const R = JSON.parse(document.getElementById("report").textContent);
+const CARDS = R.cards, DECKS = R.decks, MATCHES = R.matches;
+const deckById = Object.fromEntries(DECKS.map((d) => [d.id, d]));
+const nameOf = (id) => (CARDS[id] ? CARDS[id].name : id);
+const deckName = (id) => (deckById[id] ? deckById[id].name : id);
+const other = (p) => (p === "p1" ? "p2" : "p1");
+const pct = (n, d) => (d ? (100 * n) / d : 0);
+const fmt = (v, digits = 1) =>
+  v === null || v === undefined || Number.isNaN(v) ? "–" : v.toFixed(digits);
+
+/**
+ * ## The unit of observation is a battlefield, not a match
+ *
+ * The first version of this page scored a card by the match win rate of the
+ * games it appeared in, and that number is close to worthless. A card in a
+ * strong deck inherits the deck's win rate whether or not it did anything, and
+ * a genuinely strong card in a weak deck reads as bad. It measures the
+ * decklist.
+ *
+ * A match is the wrong grain besides. A match is six battlefields; a card is on
+ * the table for one of them; attributing the whole match to it drags in five
+ * fields it was never present for.
+ *
+ * So every card number below is computed over **field records** — one (match,
+ * seat, battlefield) triple with one binary outcome, did that seat take that
+ * field. A card is "on" a field if its seat played it during that battlefield.
+ * Then:
+ *
+ *     delta = field win rate with the card on the table
+ *           − field win rate for the same deck with it not on the table
+ *
+ * Same deck, same battlefields, card present or absent. That difference is the
+ * card with the deck divided out, which is what a balance pass is asking.
+ *
+ * Synergies work the same way: both cards on the *same* battlefield, and
+ * whether that battlefield was taken. Two cards that merely turned up in the
+ * same match are not a synergy, they are a decklist.
+ *
+ * Match win rate is still shown — for decks it is the point, and for cards it
+ * stays as a secondary column — but nothing is ranked by it any more.
+ */
+
+/** Every (match, seat, battlefield) that was reached and decided. */
+const fieldRecords = (() => {
+  const out = [];
+  for (const m of MATCHES) {
+    // What each seat had on the table during each battlefield. 12.2 clears the
+    // board between fields, so a play during battlefield i is on battlefield i
+    // and nothing carries over.
+    const onField = { p1: new Map(), p2: new Map() };
+    for (const a of m.log) {
+      if (!a.c || (a.t !== "playUnit" && a.t !== "castSpell")) continue;
+      const per = onField[a.p];
+      if (!per.has(a.loc)) per.set(a.loc, new Set());
+      per.get(a.loc).add(a.c);
+    }
+    for (let i = 0; i < m.locations.length; i++) {
+      const l = m.locations[i];
+      if (l.winner === null) continue;
+      for (const seat of ["p1", "p2"]) {
+        out.push({
+          matchId: m.id, seat, deck: m.decks[seat], oppDeck: m.decks[other(seat)],
+          loc: l.cardId, index: i,
+          won: l.winner === seat, isVoid: l.winner === "void",
+          cards: onField[seat].get(i) || new Set(),
+        });
+      }
+    }
+  }
+  return out;
+})();
+
+/** Deck totals at both grains. */
+const deckTotals = (() => {
+  const m = new Map();
+  const get = (d) => {
+    let e = m.get(d);
+    if (!e) { e = { deck: d, games: 0, wins: 0, draws: 0, fields: 0, fieldWins: 0, voids: 0 }; m.set(d, e); }
+    return e;
+  };
+  for (const d of DECKS) get(d.id);
+  for (const match of MATCHES) {
+    for (const seat of ["p1", "p2"]) {
+      const e = get(match.decks[seat]);
+      e.games += 1;
+      if (match.winner === seat) e.wins += 1;
+      else if (match.winner === "draw") e.draws += 1;
+    }
+  }
+  for (const f of fieldRecords) {
+    const e = get(f.deck);
+    e.fields += 1;
+    if (f.won) e.fieldWins += 1;
+    if (f.isVoid) e.voids += 1;
+  }
+  return m;
+})();
+
+/** Per (card, deck), measured on field records. */
+const cardStats = (() => {
+  const stats = new Map();
+  const row = (card, deck) => {
+    const key = card + "|" + deck;
+    let r = stats.get(key);
+    if (!r) {
+      r = {
+        card, deck, copies: 0,
+        fields: 0, on: 0, onWon: 0, off: 0, offWon: 0,
+        matches: 0, matchOn: 0, matchOnWins: 0, indexSum: 0,
+        byLoc: new Map(), byOpp: new Map(),
+      };
+      stats.set(key, r);
+    }
+    return r;
+  };
+  const listOf = new Map();
+  for (const d of DECKS) {
+    listOf.set(d.id, [...Object.keys(d.units), ...Object.keys(d.spells)]);
+    for (const id of Object.keys(d.units)) row(id, d.id).copies = d.units[id];
+    for (const id of Object.keys(d.spells)) row(id, d.id).copies = d.spells[id];
+  }
+
+  for (const f of fieldRecords) {
+    const ids = listOf.get(f.deck);
+    if (!ids) continue;
+    for (const id of ids) {
+      const r = row(id, f.deck);
+      r.fields += 1;
+      if (f.cards.has(id)) {
+        r.on += 1;
+        r.indexSum += f.index;
+        if (f.won) r.onWon += 1;
+        const e = r.byLoc.get(f.loc) || { on: 0, won: 0 };
+        e.on += 1; if (f.won) e.won += 1;
+        r.byLoc.set(f.loc, e);
+        const o = r.byOpp.get(f.oppDeck) || { on: 0, won: 0 };
+        o.on += 1; if (f.won) o.won += 1;
+        r.byOpp.set(f.oppDeck, o);
+      } else {
+        r.off += 1;
+        if (f.won) r.offWon += 1;
+      }
+    }
+  }
+
+  // Match level, kept only as a secondary column.
+  for (const m of MATCHES) {
+    for (const seat of ["p1", "p2"]) {
+      const ids = listOf.get(m.decks[seat]);
+      if (!ids) continue;
+      const played = new Set();
+      for (const a of m.log) {
+        if (a.p === seat && a.c && (a.t === "playUnit" || a.t === "castSpell")) played.add(a.c);
+      }
+      for (const id of ids) {
+        const r = row(id, m.decks[seat]);
+        r.matches += 1;
+        if (played.has(id)) {
+          r.matchOn += 1;
+          if (m.winner === seat) r.matchOnWins += 1;
+        }
+      }
+    }
+  }
+
+  const rows = [...stats.values()].filter((r) => r.fields > 0);
+  for (const r of rows) {
+    r.playrate = pct(r.on, r.fields);
+    r.fieldRate = r.on ? pct(r.onWon, r.on) : null;
+    r.withoutRate = r.off ? pct(r.offWon, r.off) : null;
+    r.delta = r.fieldRate !== null && r.withoutRate !== null ? r.fieldRate - r.withoutRate : null;
+    r.matchRate = r.matchOn ? pct(r.matchOnWins, r.matchOn) : null;
+    const dt = deckTotals.get(r.deck);
+    r.deckFieldRate = dt ? pct(dt.fieldWins, dt.fields) : 0;
+    r.avgIndex = r.on ? r.indexSum / r.on + 1 : null;
+    r.info = CARDS[r.card] || { name: r.card, kind: "unknown", keywords: [] };
+  }
+  return rows;
+})();
+
+const matchups = (() => {
+  const m = new Map();
+  for (const match of MATCHES) {
+    const key = [match.decks.p1, match.decks.p2].sort().join("|");
+    let e = m.get(key);
+    if (!e) { e = { a: key.split("|")[0], b: key.split("|")[1], games: 0, wins: {}, draws: 0 }; m.set(key, e); }
+    e.games += 1;
+    if (match.winner === "draw") e.draws += 1;
+    else e.wins[match.winnerDeck] = (e.wins[match.winnerDeck] || 0) + 1;
+  }
+  return [...m.values()];
+})();
+
+const fieldStats = (() => {
+  const m = new Map();
+  for (const f of fieldRecords) {
+    const key = f.deck + "|" + f.loc;
+    const e = m.get(key) || { deck: f.deck, loc: f.loc, played: 0, won: 0, voids: 0 };
+    e.played += 1;
+    if (f.won) e.won += 1;
+    if (f.isVoid) e.voids += 1;
+    m.set(key, e);
+  }
+  const rows = [...m.values()];
+  for (const r of rows) { r.rate = pct(r.won, r.played); r.voidRate = pct(r.voids, r.played); }
+  return rows;
+})();
+
+/**
+ * Pairs that shared a battlefield, and whether that battlefield was taken.
+ *
+ * Sharing a *match* is not synergy: in a thirty-card deck nearly everything
+ * shares a match with nearly everything. Standing on the same tile at the same
+ * time, and taking it, is the claim the word is making.
+ */
+function synergies(minFields) {
+  const solo = new Map(), pair = new Map();
+  for (const f of fieldRecords) {
+    const list = [...f.cards].sort();
+    const won = f.won ? 1 : 0;
+    for (const c of list) {
+      const k = c + "|" + f.deck;
+      const e = solo.get(k) || { n: 0, w: 0 };
+      e.n += 1; e.w += won; solo.set(k, e);
+    }
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        const k = list[i] + "+" + list[j] + "|" + f.deck;
+        const e = pair.get(k) || { n: 0, w: 0 };
+        e.n += 1; e.w += won; pair.set(k, e);
+      }
+    }
+  }
+  const out = [];
+  for (const [k, e] of pair) {
+    if (e.n < minFields) continue;
+    const sep = k.lastIndexOf("|");
+    const [a, b] = k.slice(0, sep).split("+");
+    const deck = k.slice(sep + 1);
+    const sa = solo.get(a + "|" + deck), sb = solo.get(b + "|" + deck);
+    if (!sa || !sb) continue;
+    const together = pct(e.w, e.n);
+    // What each manages on a field without needing the other, averaged. The
+    // delta is what standing together adds on top of that.
+    const apart = (pct(sa.w, sa.n) + pct(sb.w, sb.n)) / 2;
+    out.push({ a, b, deck, n: e.n, together, apart, delta: together - apart });
+  }
+  return out;
+}
+
+/* ----------------------------------------------------------------- view */
+const el = (tag, attrs = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v;
+    else if (k === "html") n.innerHTML = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (v !== null && v !== undefined) n.setAttribute(k, v);
+  }
+  for (const kid of kids.flat()) {
+    if (kid === null || kid === undefined || kid === false) continue;
+    n.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
+  }
+  return n;
+};
+const main = document.getElementById("main");
+
+const TABS = [
+  ["overview", "Overview"],
+  ["cards", "Cards"],
+  ["synergy", "Synergies"],
+  ["fields", "Battlefields"],
+  ["matches", "Matches"],
+];
+let tab = "overview";
+
+document.getElementById("meta").innerHTML =
+  `<b>${R.meta.totalGames}</b> games · <b>${R.meta.games}</b> per matchup · ` +
+  `<b>${fieldRecords.length.toLocaleString()}</b> field records · ` +
+  `policy: <b>${R.meta.policy}</b> · seed <b>${R.meta.seed}</b> · ` +
+  `${new Date(R.meta.createdAt).toLocaleString()} · ${(R.meta.elapsedMs / 60000).toFixed(1)} min · ` +
+  `<b>${MATCHES.reduce((n, m) => n + m.log.length, 0).toLocaleString()}</b> actions`;
+
+const nav = document.getElementById("tabs");
+for (const [id, label] of TABS) {
+  nav.append(el("button", { class: id === tab ? "on" : "", onclick: () => go(id) }, label));
+}
+function go(id) {
+  tab = id;
+  [...nav.children].forEach((b, i) => (b.className = TABS[i][0] === id ? "on" : ""));
+  render();
+}
+
+function table(cols, rows, opts = {}) {
+  const state = opts.state || { key: opts.sort, dir: opts.dir || -1 };
+  const wrap = el("div", { class: "scroll" });
+  const t = el("table", opts.grid ? { class: "grid" } : {});
+  const head = el("tr");
+  for (const c of cols) {
+    head.append(el("th", {
+      class: [c.key === state.key ? "sorted" : "", c.l ? "l" : "", c.sep ? "sep" : "", c.key_ ? "key" : ""].join(" ").trim(),
+      title: c.help || "",
+      onclick: () => {
+        if (state.key === c.key) state.dir *= -1;
+        else { state.key = c.key; state.dir = c.dir || -1; }
+        render();
+      },
+    }, c.label + (c.key === state.key ? (state.dir < 0 ? " ↓" : " ↑") : "")));
+  }
+  t.append(el("thead", {}, head));
+  const sorted = [...rows].sort((x, y) => {
+    const a = x[state.key], b = y[state.key];
+    if (a === null || a === undefined) return 1;
+    if (b === null || b === undefined) return -1;
+    return (typeof a === "string" ? a.localeCompare(b) : a - b) * state.dir;
+  });
+  const body = el("tbody");
+  for (const r of sorted.slice(0, opts.limit || 4000)) {
+    const tr = el("tr", opts.onRow ? { class: "clickable", onclick: () => opts.onRow(r) } : {});
+    for (const c of cols) tr.append(el("td", { class: [c.l ? "l" : "", c.sep ? "sep" : ""].join(" ").trim() }, c.cell(r)));
+    if (opts.onRow) tr.append(el("td", { class: "expand" }, "⤢"));
+    body.append(tr);
+  }
+  if (opts.onRow) head.append(el("th", {}, ""));
+  t.append(body);
+  wrap.append(t);
+  if (!sorted.length) wrap.append(el("div", { class: "empty" }, "Nothing matches those filters."));
+  return wrap;
+}
+
+const rateCell = (v) => {
+  if (v === null || v === undefined) return el("span", { class: "dim" }, "–");
+  return el("span", {}, el("span", { class: "num" }, fmt(v) + "%"),
+    el("span", { class: "bar" }, el("i", { style: `width:${Math.max(2, Math.min(100, v))}%` })));
+};
+const deltaCell = (v) =>
+  v === null || v === undefined
+    ? el("span", { class: "dim" }, "–")
+    : el("span", { class: "num " + (v > 0.5 ? "good" : v < -0.5 ? "bad" : "dim") },
+        (v > 0 ? "+" : "") + fmt(v) + " pt");
+
+/**
+ * Filters. The sample floor scales to the run: a fixed 20 hides every row of a
+ * twelve-game probe and lets a one-appearance card top the delta sort on a
+ * thousand-game one.
+ */
+const medianDeckFields = (() => {
+  const counts = [...deckTotals.values()].map((d) => d.fields).sort((a, b) => a - b);
+  return counts.length ? counts[Math.floor(counts.length / 2)] : 0;
+})();
+const F = {
+  deck: "", loc: "", kind: "", q: "",
+  min: Math.max(1, Math.round(medianDeckFields * 0.02)),
+  synMin: Math.max(2, Math.round(medianDeckFields * 0.02)),
+};
+
+function filterBar(fields) {
+  const bar = el("div", { class: "controls" });
+  if (fields.includes("q")) {
+    bar.append(el("input", {
+      type: "search", placeholder: "search card…", value: F.q,
+      oninput: (e) => { F.q = e.target.value.toLowerCase(); render(); },
+    }));
+  }
+  if (fields.includes("deck")) {
+    bar.append(el("label", {}, "deck "), el("select", {
+      onchange: (e) => { F.deck = e.target.value; render(); },
+    }, el("option", { value: "" }, "all decks"),
+      ...DECKS.map((d) => el("option", { value: d.id, ...(F.deck === d.id ? { selected: "" } : {}) }, d.name))));
+  }
+  if (fields.includes("loc")) {
+    const locs = [...new Set(fieldStats.map((f) => f.loc))].sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+    bar.append(el("label", {}, "battlefield "), el("select", {
+      onchange: (e) => { F.loc = e.target.value; render(); },
+    }, el("option", { value: "" }, "all battlefields"),
+      ...locs.map((l) => el("option", { value: l, ...(F.loc === l ? { selected: "" } : {}) }, nameOf(l)))));
+  }
+  if (fields.includes("kind")) {
+    for (const k of ["", "unit", "spell"]) {
+      bar.append(el("button", {
+        class: "chip" + (F.kind === k ? " on" : ""),
+        onclick: () => { F.kind = k; render(); },
+      }, k || "all"));
+    }
+  }
+  if (fields.includes("min")) {
+    bar.append(el("span", { class: "spacer" }));
+    bar.append(el("label", {}, "minimum sample size "), el("input", {
+      type: "number", min: "0", step: "5", value: F.min, style: "width:76px",
+      oninput: (e) => { F.min = Number(e.target.value) || 0; render(); },
+    }));
+  }
+  return bar;
+}
+
+/* -------------------------------------------------------------- overview */
+function overview() {
+  const out = el("div");
+
+  const standings = DECKS.map((d) => {
+    const t = deckTotals.get(d.id) || { games: 0, wins: 0, fields: 0, fieldWins: 0, voids: 0 };
+    return {
+      deck: d.name, id: d.id, games: t.games, wins: t.wins,
+      matchRate: pct(t.wins, t.games),
+      fields: t.fields, fieldRate: pct(t.fieldWins, t.fields), voidRate: pct(t.voids, t.fields),
+    };
+  });
+  const p1 = el("div", { class: "panel" },
+    el("h2", {}, "Decks", el("span", { class: "sub" }, "both grains: matches won, and battlefields taken")),
+    el("div", {
+      class: "note",
+      html:
+        "Match win rate is the result; <b>field win rate</b> is the engine underneath it. A deck can " +
+        "take more fields than it wins matches, by taking the ones that were never in doubt.",
+    }));
+  p1.append(table([
+    { key: "deck", label: "Deck", l: true, cell: (r) => r.deck },
+    { key: "games", label: "Matches", cell: (r) => r.games },
+    { key: "matchRate", label: "Match win", cell: (r) => rateCell(r.matchRate) },
+    { key: "fields", label: "Fields", sep: true, cell: (r) => r.fields },
+    { key: "fieldRate", label: "Field win", key_: true, cell: (r) => rateCell(r.fieldRate) },
+    { key: "voidRate", label: "Void", cell: (r) => fmt(r.voidRate) + "%", help: "nobody took it" },
+  ], standings, { state: overviewSort }));
+  out.append(p1);
+
+  const ids = R.meta.decks;
+  const p2 = el("div", { class: "panel" },
+    el("h2", {}, "Matchups", el("span", { class: "sub" }, "row deck's match win rate against column deck")));
+  const wrap = el("div", { class: "grid-wrap" });
+  const t = el("table", { class: "grid" });
+  t.append(el("thead", {}, el("tr", {}, el("th", { class: "l" }, ""), ...ids.map((i) => el("th", {}, deckName(i))))));
+  const body = el("tbody");
+  for (const a of ids) {
+    const tr = el("tr", {}, el("td", { class: "l" }, deckName(a)));
+    for (const b of ids) {
+      if (a === b) { tr.append(el("td", { class: "dim" }, "—")); continue; }
+      const m = matchups.find((x) => (x.a === a && x.b === b) || (x.a === b && x.b === a));
+      if (!m) { tr.append(el("td", { class: "dim" }, "·")); continue; }
+      const rate = pct(m.wins[a] || 0, m.games);
+      tr.append(el("td", {
+        class: "cell " + (rate >= 65 ? "good" : rate <= 35 ? "bad" : "dim"),
+        title: `${m.wins[a] || 0}W / ${m.games}`,
+      }, fmt(rate, 0) + "%"));
+    }
+    body.append(tr);
+  }
+  t.append(body);
+  wrap.append(t);
+  p2.append(wrap);
+  out.append(p2);
+
+  const broken = fieldStats.filter((f) => f.rate > 75).sort((a, b) => b.rate - a.rate);
+  const p3 = el("div", { class: "panel" },
+    el("h2", {}, "Over the 75% line",
+      el("span", { class: "sub" }, "the hard failure condition — change the card or the battlefield, do not tune it")));
+  if (!broken.length) p3.append(el("div", { class: "empty" }, "Nothing is over the line."));
+  else p3.append(table([
+    { key: "locName", label: "Battlefield", l: true, cell: (r) => nameOf(r.loc) },
+    { key: "deck", label: "Deck", l: true, cell: (r) => deckName(r.deck) },
+    { key: "played", label: "Played", cell: (r) => r.played },
+    { key: "rate", label: "Won", cell: (r) => el("span", { class: "broken num" }, fmt(r.rate) + "%") },
+  ], broken.map((b) => ({ ...b, locName: nameOf(b.loc) })), { state: { key: "rate", dir: -1 } }));
+  out.append(p3);
+  return out;
+}
+const overviewSort = { key: "fieldRate", dir: -1 };
+
+/* ----------------------------------------------------------------- cards */
+const cardSort = { key: "delta", dir: -1 };
+function cardsTab() {
+  let rows = cardStats;
+  if (F.deck) rows = rows.filter((r) => r.deck === F.deck);
+  if (F.kind) rows = rows.filter((r) => r.info.kind === F.kind);
+  if (F.q) rows = rows.filter((r) => r.info.name.toLowerCase().includes(F.q));
+
+  // Narrowing to one battlefield re-bases every number on that field alone.
+  if (F.loc) {
+    rows = rows.map((r) => {
+      const e = r.byLoc.get(F.loc);
+      if (!e) return null;
+      const deckField = fieldStats.find((f) => f.deck === r.deck && f.loc === F.loc);
+      const on = e.on, onWon = e.won;
+      const off = deckField ? deckField.played - on : 0;
+      const offWon = deckField ? deckField.won - onWon : 0;
+      const fieldRate = on ? pct(onWon, on) : null;
+      const withoutRate = off ? pct(offWon, off) : null;
+      return {
+        ...r, on, onWon, off, fields: deckField ? deckField.played : on,
+        playrate: deckField ? pct(on, deckField.played) : null,
+        fieldRate, withoutRate,
+        delta: fieldRate !== null && withoutRate !== null ? fieldRate - withoutRate : null,
+      };
+    }).filter(Boolean);
+  }
+  rows = rows.filter((r) => r.on >= F.min);
+
+  const out = el("div", { class: "panel" },
+    el("h2", {}, "Cards",
+      el("span", { class: "sub" }, F.loc ? "on " + nameOf(F.loc) : "across every battlefield")),
+    el("div", {
+      class: "note",
+      html:
+        "One row is a card in one deck. <b>Field win</b> is how often that deck took the " +
+        "battlefield when this card was on the table; <b>without</b> is the same deck on the same " +
+        "battlefields with the card absent; <b>delta</b> is the difference. Delta is the column " +
+        "that says something about the card rather than about its deck. Match win is the whole " +
+        "game, kept for reference only.",
+    }),
+    filterBar(["q", "deck", "loc", "kind", "min"]));
+
+  out.append(table([
+    { key: "name", label: "Card", l: true, cell: (r) =>
+      el("span", {}, r.info.name, " ", el("span", { class: "tag " + r.info.kind }, r.info.kind)) },
+    { key: "deck", label: "Deck", l: true, cell: (r) => deckName(r.deck) },
+    { key: "cost", label: "Cost", cell: (r) => (r.info.cost ?? "–") },
+    { key: "copies", label: "×", cell: (r) => r.copies, help: "copies in the decklist" },
+    { key: "on", label: "Fields", sep: true, cell: (r) => r.on,
+      help: "battlefields where this card was on the table" },
+    { key: "playrate", label: "Play rate", cell: (r) => rateCell(r.playrate),
+      help: "share of the deck's battlefields where it reached the table" },
+    { key: "fieldRate", label: "Field win", key_: true, cell: (r) => rateCell(r.fieldRate),
+      help: "battlefields taken, when this card was on the table" },
+    { key: "withoutRate", label: "Without", cell: (r) =>
+      r.withoutRate === null ? el("span", { class: "dim" }, "–") : el("span", { class: "num" }, fmt(r.withoutRate) + "%"),
+      help: "same deck, same battlefields, card absent" },
+    { key: "delta", label: "Delta", key_: true, cell: (r) => deltaCell(r.delta),
+      help: "field win with, minus field win without — the card, with the deck divided out" },
+    { key: "matchRate", label: "Match win", sep: true, cell: (r) =>
+      r.matchRate === null ? el("span", { class: "dim" }, "–") : el("span", { class: "num dim" }, fmt(r.matchRate) + "%"),
+      help: "reference only: it mostly reflects the deck" },
+    { key: "avgIndex", label: "Avg field", cell: (r) => fmt(r.avgIndex, 1),
+      help: "which of the six it tends to appear on" },
+  ], rows.map((r) => ({ ...r, name: r.info.name, cost: r.info.cost ?? 0 })), {
+    state: cardSort, onRow: (r) => openCard(r.card, r.deck),
+  }));
+  return out;
+}
+
+/* -------------------------------------------------------------- synergy */
+const synSort = { key: "delta", dir: -1 };
+function synergyTab() {
+  let rows = synergies(F.synMin);
+  if (F.deck) rows = rows.filter((r) => r.deck === F.deck);
+  if (F.q) rows = rows.filter((r) => (nameOf(r.a) + nameOf(r.b)).toLowerCase().includes(F.q));
+
+  const out = el("div", { class: "panel" },
+    el("h2", {}, "Synergies", el("span", { class: "sub" }, "two cards on the same battlefield at the same time")),
+    el("div", {
+      class: "note",
+      html:
+        "Not &ldquo;cards that appeared in the same match&rdquo; — in a thirty-card deck almost " +
+        "everything does. This is both cards on the same tile at the same time, and whether that tile " +
+        "was taken. <b>Apart</b> is the mean of what each manages on a field without the other; " +
+        "<b>delta</b> is what standing together adds.",
+    }),
+    el("div", { class: "controls" },
+      el("input", { type: "search", placeholder: "search card…", value: F.q,
+        oninput: (e) => { F.q = e.target.value.toLowerCase(); render(); } }),
+      el("label", {}, "deck "),
+      el("select", { onchange: (e) => { F.deck = e.target.value; render(); } },
+        el("option", { value: "" }, "all decks"),
+        ...DECKS.map((d) => el("option", { value: d.id, ...(F.deck === d.id ? { selected: "" } : {}) }, d.name))),
+      el("span", { class: "spacer" }),
+      el("label", {}, "minimum sample size "),
+      el("input", { type: "number", min: "1", step: "5", value: F.synMin, style: "width:76px",
+        oninput: (e) => { F.synMin = Number(e.target.value) || 1; render(); } })));
+
+  out.append(table([
+    { key: "pair", label: "Pair", l: true, cell: (r) => nameOf(r.a) + "  +  " + nameOf(r.b) },
+    { key: "deck", label: "Deck", l: true, cell: (r) => deckName(r.deck) },
+    { key: "n", label: "Fields together", cell: (r) => r.n },
+    { key: "together", label: "Field win", key_: true, cell: (r) => rateCell(r.together) },
+    { key: "apart", label: "Apart", cell: (r) => el("span", { class: "num" }, fmt(r.apart) + "%") },
+    { key: "delta", label: "Delta", key_: true, cell: (r) => deltaCell(r.delta) },
+  ], rows.map((r) => ({ ...r, pair: nameOf(r.a) + nameOf(r.b) })), { state: synSort, limit: 800 }));
+  return out;
+}
+
+/* ---------------------------------------------------------- battlefields */
+const fieldSort = { key: "rate", dir: -1 };
+function fieldsTab() {
+  let rows = fieldStats;
+  if (F.deck) rows = rows.filter((r) => r.deck === F.deck);
+  if (F.loc) rows = rows.filter((r) => r.loc === F.loc);
+  const out = el("div", { class: "panel" },
+    el("h2", {}, "Battlefields", el("span", { class: "sub" }, "how often each deck takes each field it reaches")),
+    filterBar(["deck", "loc"]));
+  out.append(table([
+    { key: "locName", label: "Battlefield", l: true, cell: (r) => nameOf(r.loc) },
+    { key: "deck", label: "Deck", l: true, cell: (r) => deckName(r.deck) },
+    { key: "played", label: "Played", cell: (r) => r.played },
+    { key: "won", label: "Won", cell: (r) => r.won },
+    { key: "rate", label: "Field win", key_: true, cell: (r) =>
+      r.rate > 75 ? el("span", { class: "broken num" }, fmt(r.rate) + "%") : rateCell(r.rate) },
+    { key: "voidRate", label: "Void", cell: (r) => el("span", { class: "num" }, fmt(r.voidRate) + "%") },
+  ], rows.map((r) => ({ ...r, locName: nameOf(r.loc) })), { state: fieldSort }));
+  return out;
+}
+
+/* -------------------------------------------------------------- matches */
+const matchSort = { key: "id", dir: 1 };
+function matchesTab() {
+  let rows = MATCHES;
+  if (F.deck) rows = rows.filter((m) => m.decks.p1 === F.deck || m.decks.p2 === F.deck);
+  const out = el("div", { class: "panel" },
+    el("h2", {}, "Matches", el("span", { class: "sub" }, "click any row for the full decision log")),
+    filterBar(["deck"]));
+  out.append(table([
+    { key: "id", label: "Match", l: true, cell: (m) => m.id },
+    { key: "p1n", label: "P1", l: true, cell: (m) => deckName(m.decks.p1) },
+    { key: "p2n", label: "P2", l: true, cell: (m) => deckName(m.decks.p2) },
+    { key: "winnerDeck", label: "Winner", l: true, cell: (m) =>
+      el("span", { class: m.winner === "draw" ? "dim" : "good" },
+        deckName(m.winnerDeck) + (m.winner === "draw" ? "" : " (" + m.winner + ")")) },
+    { key: "decided", label: "Fields decided", cell: (m) => m.decided },
+    { key: "actions", label: "Actions", cell: (m) => m.actions },
+  ], rows.map((m) => ({
+    ...m, p1n: m.decks.p1, p2n: m.decks.p2,
+    decided: m.locations.filter((l) => l.winner && l.winner !== "void").length,
+  })), { state: matchSort, onRow: (m) => openMatch(m.id), limit: 1500 }));
+  return out;
+}
+
+/* --------------------------------------------------------------- drawer */
+const drawer = document.getElementById("drawer");
+const backdrop = document.getElementById("backdrop");
+const dBody = document.getElementById("drawer-body");
+function closeDrawer() { drawer.classList.remove("open"); backdrop.classList.remove("open"); }
+document.getElementById("drawer-close").onclick = closeDrawer;
+backdrop.onclick = closeDrawer;
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+function openDrawer(title, sub, body) {
+  document.getElementById("drawer-title").textContent = title;
+  document.getElementById("drawer-sub").textContent = sub || "";
+  dBody.replaceChildren(body);
+  dBody.scrollTop = 0;
+  drawer.classList.add("open");
+  backdrop.classList.add("open");
+}
+
+function openCard(cardId, deckId) {
+  const r = cardStats.find((x) => x.card === cardId && x.deck === deckId);
+  if (!r) return;
+  const body = el("div");
+  const info = r.info;
+
+  body.append(el("div", { class: "headline" },
+    el("div", {}, el("b", { class: "num" }, r.on), el("span", {}, "fields on table")),
+    el("div", {}, el("b", { class: "num" }, fmt(r.playrate) + "%"), el("span", {}, "play rate")),
+    el("div", {}, el("b", { class: "num" }, fmt(r.fieldRate) + "%"), el("span", {}, "field win")),
+    el("div", {}, el("b", { class: "num" }, fmt(r.withoutRate) + "%"), el("span", {}, "without it")),
+    el("div", {}, el("b", { class: "num " + (r.delta > 0.5 ? "good" : r.delta < -0.5 ? "bad" : "") },
+      (r.delta > 0 ? "+" : "") + fmt(r.delta)), el("span", {}, "delta"))));
+
+  body.append(el("h4", {}, "Card"));
+  body.append(el("dl", { class: "kv" },
+    el("dt", {}, "Kind"), el("dd", {}, info.kind),
+    el("dt", {}, "Cost"), el("dd", {}, String(info.cost ?? "–")),
+    info.power !== undefined ? el("dt", {}, "Power") : null,
+    info.power !== undefined ? el("dd", {}, String(info.power)) : null,
+    el("dt", {}, "Rarity"), el("dd", {}, info.rarity || "–"),
+    el("dt", {}, "Tags"), el("dd", {}, info.keywords.join(", ") || "–"),
+    el("dt", {}, "Copies in deck"), el("dd", {}, String(r.copies)),
+    el("dt", {}, "Deck field win"), el("dd", {}, fmt(r.deckFieldRate) + "%"),
+    el("dt", {}, "Match win when played"), el("dd", { class: "dim" }, fmt(r.matchRate) + "%")));
+
+  const byLoc = [...r.byLoc.entries()].map(([loc, e]) => {
+    const deckField = fieldStats.find((f) => f.deck === deckId && f.loc === loc);
+    const off = deckField ? deckField.played - e.on : 0;
+    const offWon = deckField ? deckField.won - e.won : 0;
+    const rate = pct(e.won, e.on);
+    const without = off ? pct(offWon, off) : null;
+    return { loc, name: nameOf(loc), on: e.on, rate, without, delta: without === null ? null : rate - without };
+  });
+  if (byLoc.length) {
+    body.append(el("h4", {}, "By battlefield"));
+    body.append(table([
+      { key: "name", label: "Battlefield", l: true, cell: (x) => x.name },
+      { key: "on", label: "Fields", cell: (x) => x.on },
+      { key: "rate", label: "Field win", cell: (x) => rateCell(x.rate) },
+      { key: "without", label: "Without", cell: (x) => (x.without === null ? "–" : fmt(x.without) + "%") },
+      { key: "delta", label: "Delta", cell: (x) => deltaCell(x.delta) },
+    ], byLoc, { state: { key: "delta", dir: -1 } }));
+  }
+
+  const byOpp = [...r.byOpp.entries()].map(([deck, e]) => ({
+    deck, name: deckName(deck), on: e.on, rate: pct(e.won, e.on),
+  }));
+  if (byOpp.length) {
+    body.append(el("h4", {}, "Against"));
+    body.append(table([
+      { key: "name", label: "Opposing deck", l: true, cell: (x) => x.name },
+      { key: "on", label: "Fields", cell: (x) => x.on },
+      { key: "rate", label: "Field win", cell: (x) => rateCell(x.rate) },
+    ], byOpp, { state: { key: "rate", dir: -1 } }));
+  }
+
+  const partners = synergies(Math.max(2, Math.round(F.synMin / 2)))
+    .filter((s) => s.deck === deckId && (s.a === cardId || s.b === cardId))
+    .map((s) => ({ ...s, name: nameOf(s.a === cardId ? s.b : s.a) }));
+  if (partners.length) {
+    body.append(el("h4", {}, "Best alongside"));
+    body.append(table([
+      { key: "name", label: "Partner", l: true, cell: (x) => x.name },
+      { key: "n", label: "Fields together", cell: (x) => x.n },
+      { key: "together", label: "Field win", cell: (x) => rateCell(x.together) },
+      { key: "delta", label: "Delta", cell: (x) => deltaCell(x.delta) },
+    ], partners, { state: { key: "delta", dir: -1 }, limit: 20 }));
+  }
+
+  openDrawer(info.name, deckName(deckId), body);
+}
+
+const ACT = {
+  playUnit: "plays", castSpell: "casts", toss: "throws away",
+  declareUnitsDone: "ends gathering", declareSpellsDone: "ends battle",
+  finishChannel: "finishes channel", chooseSlot: "picks tile",
+  chooseHandCard: "picks card", nextLocation: "next battlefield",
+  declareTossDone: "done disarming", answerPrompt: "answers", finishPrompt: "stops picking",
+};
+
+function openMatch(id) {
+  const m = MATCHES.find((x) => x.id === id);
+  if (!m) return;
+  const body = el("div");
+
+  body.append(el("h4", {}, "Match"));
+  body.append(el("dl", { class: "kv" },
+    el("dt", {}, "Seed"), el("dd", {}, m.seed),
+    el("dt", {}, "P1"), el("dd", {}, deckName(m.decks.p1)),
+    el("dt", {}, "P2"), el("dd", {}, deckName(m.decks.p2)),
+    el("dt", {}, "Winner"), el("dd", {},
+      m.winner === "draw" ? "draw" : `${m.winner} — ${deckName(m.winnerDeck)}`),
+    el("dt", {}, "Actions"), el("dd", {}, String(m.actions)),
+    el("dt", {}, "Replay"), el("dd", {}, `npm run replay -- --seed ${m.seed}`)));
+
+  body.append(el("h4", {}, "Battlefields"));
+  body.append(table([
+    { key: "i", label: "#", cell: (l) => l.i + 1 },
+    { key: "name", label: "Battlefield", l: true, cell: (l) => nameOf(l.cardId) },
+    { key: "broughtBy", label: "Brought by", l: true, cell: (l) => l.broughtBy },
+    { key: "winner", label: "Taken by", l: true, cell: (l) =>
+      el("span", { class: l.winner && l.winner !== "void" ? "good" : "dim" }, l.winner || "not reached") },
+    { key: "score", label: "Totals", cell: (l) => (l.totals ? `${l.totals.p1} : ${l.totals.p2}` : "–") },
+    { key: "p1cards", label: "P1 on field", cell: (l) => l.p1cards },
+    { key: "p2cards", label: "P2 on field", cell: (l) => l.p2cards },
+  ], m.locations.map((l, i) => {
+    const f1 = fieldRecords.find((f) => f.matchId === m.id && f.index === i && f.seat === "p1");
+    const f2 = fieldRecords.find((f) => f.matchId === m.id && f.index === i && f.seat === "p2");
+    return { ...l, i, name: nameOf(l.cardId), score: 0,
+      p1cards: f1 ? f1.cards.size : 0, p2cards: f2 ? f2.cards.size : 0 };
+  }), { state: { key: "i", dir: 1 } }));
+
+  body.append(el("h4", {}, "Every decision"));
+  const log = el("div", { class: "log" });
+  let lastLoc = -1;
+  for (const a of m.log) {
+    if (a.loc !== lastLoc) {
+      lastLoc = a.loc;
+      const l = m.locations[a.loc];
+      log.append(el("div", { class: "bfhead" },
+        `Battlefield ${a.loc + 1} — ${l ? nameOf(l.cardId) : "?"}` +
+        (l && l.winner ? `  ·  taken by ${l.winner}` : "")));
+    }
+    log.append(el("div", {
+      class: "row " + a.p,
+      onclick: (e) => {
+        log.querySelectorAll(".row.sel").forEach((n) => n.classList.remove("sel"));
+        e.currentTarget.classList.add("sel");
+        showAction(m, a);
+      },
+    },
+      el("span", { class: "i num" }, String(a.i)),
+      el("span", { class: "dim" }, a.p),
+      el("span", {}, el("span", { class: "act" }, (ACT[a.t] || a.t) + " "),
+        a.c ? el("span", { class: "card" }, nameOf(a.c)) : "",
+        a.s ? el("span", { class: "dim" }, " → " + a.s) : ""),
+      el("span", { class: "dim" }, a.ph),
+      el("span", { class: "m num" }, (a.m > 0 ? "+" : "") + a.m)));
+  }
+  body.append(log);
+  body.append(el("div", { id: "action-detail" }));
+
+  openDrawer(m.id, deckName(m.decks.p1) + " vs " + deckName(m.decks.p2), body);
+}
+
+function showAction(m, a) {
+  const host = document.getElementById("action-detail");
+  if (!host) return;
+  const l = m.locations[a.loc];
+  const info = a.c ? CARDS[a.c] : null;
+  const rec = fieldRecords.find((f) => f.matchId === m.id && f.index === a.loc && f.seat === a.p);
+  host.replaceChildren(el("div", { class: "panel", style: "margin-top:14px" },
+    el("h2", {}, "Action " + a.i),
+    el("dl", { class: "kv" },
+      el("dt", {}, "Seat"), el("dd", {}, a.p + " — " + deckName(m.decks[a.p])),
+      el("dt", {}, "Decision"), el("dd", {}, ACT[a.t] || a.t),
+      a.c ? el("dt", {}, "Card") : null,
+      a.c ? el("dd", {}, `${nameOf(a.c)}${info ? ` — ${info.kind}, cost ${info.cost ?? "–"}` +
+        `${info.power !== undefined ? `, power ${info.power}` : ""}` : ""}`) : null,
+      a.s ? el("dt", {}, "Tile") : null,
+      a.s ? el("dd", {}, a.s) : null,
+      el("dt", {}, "Phase"), el("dd", {}, a.ph),
+      el("dt", {}, "Battlefield"), el("dd", {},
+        `${a.loc + 1} — ${l ? nameOf(l.cardId) : "?"}${l && l.winner ? ` (taken by ${l.winner})` : ""}`),
+      el("dt", {}, "Margin before"), el("dd", {},
+        el("span", { class: a.m > 0 ? "good" : a.m < 0 ? "bad" : "dim" },
+          (a.m > 0 ? "+" : "") + a.m + " (p1 − p2)")),
+      rec ? el("dt", {}, "This seat's field") : null,
+      rec ? el("dd", {}, [...rec.cards].map(nameOf).join(", ") || "nothing") : null)));
+  host.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+/* ---------------------------------------------------------------- render */
+function render() {
+  const views = { overview, cards: cardsTab, synergy: synergyTab, fields: fieldsTab, matches: matchesTab };
+  main.replaceChildren(views[tab]());
+}
+render();
+</script>

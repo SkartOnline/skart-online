@@ -11,3 +11,9 @@ src/bot/weights/*
 # Scratch from one-off training and sweep scripts.
 final.*
 sweep.*
+sim.txt
+
+# Balance runs: the JSON and the page built from it are both generated, and a
+# thousand-game report is megabytes. `npm run sim -- --report` remakes them.
+reports/
+sim*.txt

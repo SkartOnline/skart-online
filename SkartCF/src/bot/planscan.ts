@@ -19,9 +19,7 @@ import { applyAction, legalActions } from "../engine/reducer";
 import { createGame } from "../engine/setup";
 import type { Action, GameState, PlayerId } from "../engine/types";
 import { chooseBaselineAction, DEFAULT_BASELINE } from "../sim/baseline";
-import { chooseAction, DEFAULT_POLICY } from "../sim/policy";
-import { loadModel, wilson } from "./arena";
-import { Agent, DEFAULT_AGENT } from "./agent";
+import { wilson } from "./stats";
 import { FAST_THETA, margin as marginOf, theta } from "./theta";
 import type { ThetaOptions } from "./theta";
 import { DEFAULT_PLANNER, Planner } from "./planner";
@@ -31,7 +29,8 @@ import { chooseNeverStopAction } from "./reference";
 const DECKS = ["felindori", "csempesz", "magus", "bestia", "elettelen"];
 const MAX_ACTIONS = 4000;
 
-type Side = "baseline" | "greedy" | "bot" | "neverstop";
+/** The two opponents left once the trained model and the greedy heuristic went. */
+type Side = "baseline" | "neverstop";
 
 function actorOf(state: GameState): PlayerId | null {
   const asking = pendingPrompt(state);
@@ -87,13 +86,10 @@ function play(
   opponent: Side,
   planner: Planner,
   result: Result,
-  bot: Agent | null,
 ): void {
   let state = createGame({ seed, decks: { p1: deckA, p2: deckB } });
   const baseline = { params: DEFAULT_BASELINE };
-  const greedy = { params: { ...DEFAULT_POLICY }, seed: 12345 };
   planner.reset();
-  if (bot) bot.reset(1);
   let actions = 0;
 
   while (state.phase !== "gameOver" && actions < MAX_ACTIONS) {
@@ -125,9 +121,7 @@ function play(
       continue;
     }
 
-    if (opponent === "bot" && bot) action = bot.choose(state, player);
-    else if (opponent === "greedy") action = chooseAction(state, player, greedy);
-    else if (opponent === "neverstop") action = chooseNeverStopAction(state, player, baseline);
+    if (opponent === "neverstop") action = chooseNeverStopAction(state, player, baseline);
     else action = chooseBaselineAction(state, player, baseline);
     if (!action) break;
     state = applyAction(state, action);
@@ -180,18 +174,13 @@ function run(
     wastedLost: 0,
     planner,
   };
-  // Temperature 0: an evaluation measures the policy, not its exploration.
-  const bot =
-    opponent === "bot"
-      ? new Agent(loadModel("src/bot/weights/latest.json"), { ...DEFAULT_AGENT, temperature: 0 }, 1)
-      : null;
   const progress = new Progress({ total: games, label: `vs ${opponent}` });
   for (let i = 0; i < games; i += 1) {
     const deckA = DECKS[i % DECKS.length];
     const deckB = DECKS[(i * 3 + 1) % DECKS.length];
     // Swap seats every other game: moving first is worth something.
     const seat: PlayerId = i % 2 === 0 ? "p1" : "p2";
-    play(deckA, deckB, `plan-${i}`, seat, opponent, planner, result, bot);
+    play(deckA, deckB, `plan-${i}`, seat, opponent, planner, result);
     const decided = result.wins + result.losses;
     progress.tick(
       i + 1,
@@ -226,7 +215,7 @@ export function main(argv: string[] = process.argv.slice(2)): void {
 
   const opponents: Side[] =
     only === -1
-      ? ["baseline", "greedy", "bot", "neverstop"]
+      ? ["baseline", "neverstop"]
       : [argv[only + 1] as Side];
   const results = opponents.map((o) => run(o, games, FAST_THETA, gather, legacy));
   opponents.forEach((o, i) => report(o, results[i], games));
