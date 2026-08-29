@@ -667,7 +667,7 @@ export const EFFECT_SPECS: KindSpec[] = [
   {
     kind: "discard",
     label: "Eldobás",
-    summary: "Lapot dob el a kézből, akár gyűrűért cserébe. Chupacabra, Vadász, Varjú, Umbradog.",
+    summary: "Lapot dob el a kézből, akár gyűrűért cserébe. Chupacabra, Vadász, Varj, Umbradog.",
     selfTargeting: true,
     fields: [
       { name: "cardKind", type: "select", label: "Miből", default: "unit", options: ["spell", "unit", "both"] },
@@ -680,7 +680,7 @@ export const EFFECT_SPECS: KindSpec[] = [
         label: "Gyűrű eldobott laponként",
         default: 0,
         step: 1,
-        help: "A Vadász 2-t kap egyért, a Varjú 1-et minden eldobottért.",
+        help: "A Vadász 2-t kap egyért, a Varj 1-et minden eldobottért.",
       },
       {
         name: "choose",

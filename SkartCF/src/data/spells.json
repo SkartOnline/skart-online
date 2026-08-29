@@ -419,13 +419,13 @@
     "effects": [
       {
         "kind": "damage",
-        "amount": 1
+        "amount": 2
       }
     ],
     "tags": [
       "Tűzmágia"
     ],
-    "text": "Tűzcsóvát hajítok egy ellenségre. 1-et sebződik."
+    "text": "Tűzcsóvát hajítok egy ellenségre. 2-t sebződik."
   },
   {
     "id": "fagypancel",
@@ -526,7 +526,7 @@
   },
   {
     "id": "hajitotor",
-    "name": "Hajítótőr",
+    "name": "Tőrhajítás",
     "kind": "spell",
     "schools": [
       "Zsivány"
@@ -643,13 +643,13 @@
     "effects": [
       {
         "kind": "damage",
-        "amount": 4
+        "amount": 3
       }
     ],
     "tags": [
       "Támadás"
     ],
-    "text": "Széttépem a prédám. 4-et sebzek egy nálam gyengébb egységbe."
+    "text": "Széttépem a prédám. 3-at sebzek egy nálam gyengébb egységbe."
   },
   {
     "id": "szoritas",
@@ -870,7 +870,7 @@
     "schools": [
       "Feketemágus"
     ],
-    "cost": 2,
+    "cost": 1,
     "rarity": "Gyakori",
     "target": {
       "side": "any",
@@ -1085,7 +1085,7 @@
     "schools": [
       "Mágus"
     ],
-    "cost": 2,
+    "cost": 1,
     "rarity": "Gyakori",
     "target": {
       "side": "any",
@@ -1109,7 +1109,7 @@
     "schools": [
       "Mágus"
     ],
-    "cost": 2,
+    "cost": 1,
     "rarity": "Gyakori",
     "target": {
       "side": "ally",
@@ -1428,7 +1428,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Napfényt hívok egy szövetségesre. +2 erőt kap."
+    "text": "Napsugarakat hívok egy szövetségesre. +2 erőt kap."
   },
   {
     "id": "rothadas",
@@ -1485,7 +1485,8 @@
     "rarity": "Kivételes",
     "target": {
       "side": "enemy",
-      "range": 1
+      "range": 1,
+      "adjacent": true
     },
     "effects": [
       {
@@ -1536,6 +1537,7 @@
     "target": {
       "side": "any",
       "range": 1,
+      "adjacent": true,
       "filter": {
         "minPower": 8
       }
@@ -1549,7 +1551,7 @@
       "Támadás",
       "Mesteri"
     ],
-    "text": "Mesteri.\nMegölök egy egységet, akinek az ereje legalább 8."
+    "text": "Mesteri.\nMegölök egy velem szomszédos egységet, akinek az ereje legalább 8."
   },
   {
     "id": "elfeledes",
@@ -1638,13 +1640,13 @@
     "effects": [
       {
         "kind": "damage",
-        "amount": 3
+        "amount": 4
       }
     ],
     "tags": [
       "Tűzmágia"
     ],
-    "text": "Izzó szikraszilánkot küldök egy ellenségre. 3-at sebződik."
+    "text": "Izzó szikraszilánkot küldök egy ellenségre. 4-et sebződik."
   },
   {
     "id": "csapdaallitas",
@@ -1754,7 +1756,8 @@
     "rarity": "Ritka",
     "target": {
       "side": "enemy",
-      "range": 1
+      "range": 1,
+      "adjacent": true
     },
     "effects": [
       {
@@ -1901,7 +1904,7 @@
       "Harcos",
       "Zsivány"
     ],
-    "cost": 4,
+    "cost": 3,
     "rarity": "Kivételes",
     "target": {
       "side": "enemy",
@@ -1962,13 +1965,13 @@
     "effects": [
       {
         "kind": "modifyPower",
-        "amount": -2
+        "amount": -3
       }
     ],
     "tags": [
       "Fagymágia"
     ],
-    "text": "Ráfagyasztom a leheletem egy ellenségre. -2 erőt kap."
+    "text": "Ráfagyasztom a leheletem egy ellenségre. -3 erőt kap."
   },
   {
     "id": "langlandzsa",
@@ -2157,13 +2160,13 @@
     "effects": [
       {
         "kind": "modifyPower",
-        "amount": -3
+        "amount": -4
       }
     ],
     "tags": [
       "Feketemágia"
     ],
-    "text": "Ráhozom az enyészetet egy ellenségre. -3 erőt kap."
+    "text": "Ráhozom az enyészetet egy ellenségre. -4 erőt kap."
   },
   {
     "id": "kaoszkolera",
@@ -2300,6 +2303,7 @@
     "target": {
       "side": "ally",
       "range": 1,
+      "adjacent": true,
       "emptyOnly": true
     },
     "effects": [

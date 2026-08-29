@@ -101,7 +101,7 @@ describe("card data", () => {
       expect(spell.schools).not.toContain("Ravaszság");
     }
     // Farkas still channels a school, and still reads as an Állat on the board.
-    expect(getUnit("farkas").spellpower.Bestia).toBe(1);
+    expect(getUnit("farkas").spellpower.Bestia).toBe(2);
     expect(getUnit("farkas").race).toBe("Állat");
     expect(cardKeywords(getUnit("farkas"))).toContain("Állat");
   });
@@ -127,7 +127,7 @@ describe("power()", () => {
     place(state, "novicius", "p1.B3");
     expect(power(state.board["p1.B1"]!, state)).toBe(5);
     expect(power(state.board["p1.F1"]!, state)).toBe(3);
-    expect(power(state.board["p1.B3"]!, state)).toBe(1); // mage, no positional keyword
+    expect(power(state.board["p1.B3"]!, state)).toBe(2); // mage, no positional keyword
   });
 
   it("drops the Távolsági bonus on Ködrét", () => {
@@ -321,14 +321,14 @@ describe("sérthetetlenség", () => {
 describe("varázslás", () => {
   it("lets a multi-school spell be paid from either pool, never from both", () => {
     const state = blankState();
-    place(state, "felindori_bajnok", "p1.F1"); // Harcos 3
-    place(state, "maffiavezer", "p1.F2"); // Zsivány 4
+    place(state, "hetvenkedo_katona", "p1.F1"); // Harcos 2
+    place(state, "maffiavezer", "p1.F2"); // Zsivány 5
     place(state, "novicius", "p1.F3"); // Mágus 3, neither school
-    const kegyelem = getSpell("kegyelemdofes"); // cost 4, Harcos + Zsivány
+    const kegyelem = getSpell("kegyelemdofes"); // cost 3, Harcos + Zsivány
 
     expect(kegyelem.schools).toEqual(["Harcos", "Zsivány"]);
-    // Cost 4 against a pool of 3 funds nothing, in either named school, and the
-    // two pools never add together.
+    // Cost 3 against a shallower pool funds nothing, in either named school,
+    // and the two pools never add together.
     expect(payingSchool(state, kegyelem, state.board["p1.F1"]!)).toBeNull();
     expect(payingSchool(state, kegyelem, state.board["p1.F3"]!)).toBeNull();
     // Either named school covers it on its own once the pool is deep enough.
@@ -691,10 +691,10 @@ describe("sebzés", () => {
     expect(isDead(hydra, state)).toBe(true);
   });
 
-  it("is what Explar does, one damage, no points", () => {
+  it("is what Explar does, two damage, no points", () => {
     const explar = getSpell("explar");
     expect(explar.effects[0].kind).toBe("damage");
-    expect(explar.effects[0].amount).toBe(1);
+    expect(explar.effects[0].amount).toBe(2);
   });
 
   it("stays distinct from a power debuff, which always shifts the comparison", () => {

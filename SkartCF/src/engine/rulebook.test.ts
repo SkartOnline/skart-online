@@ -399,11 +399,45 @@ describe("Összjáték", () => {
   });
 });
 
+/**
+ * 4.5.5: distance counts the diagonal and szomszédosság does not, so a card
+ * that says "szomszédos" is read off 4.2 whatever `range` happens to measure.
+ * `adjacent: true` on the target spec is that reading, and these four cards say
+ * the word: Párbaj, Rozzant gránát, Óriásölő and Idézés.
+ */
+describe("szomszédos targeting", () => {
+  it("drops the diagonal that range 1 would otherwise hand over", () => {
+    const state = blankState();
+    place(state, "felindori_bajnok", "p1.F2"); // the caster
+    place(state, "ogre", "p2.F2"); // straight across the line: a shared edge
+    place(state, "ogre", "p2.F1"); // corner contact only
+    place(state, "ogre", "p1.B2"); // behind the caster: also a shared edge
+
+    const parbaj = getSpell("parbaj");
+    expect(parbaj.target!.adjacent).toBe(true);
+    expect(legalTargets(state, parbaj.target!, "p1.F2", "p1", parbaj)).toEqual(["p2.F2"]);
+
+    // The same spec without the flag is where the extra tile comes from.
+    const loose = { ...parbaj.target!, adjacent: false };
+    expect(legalTargets(state, loose, "p1.F2", "p1", parbaj)).toContain("p2.F1");
+  });
+
+  it("is set on every spell whose text names it, and on no other", () => {
+    for (const spell of BASE_CARD_SET.spells) {
+      if (!spell.target?.adjacent) continue;
+      expect(spell.text ?? "", spell.id).toContain("szomszédos");
+    }
+    expect(
+      BASE_CARD_SET.spells.filter((s) => s.target?.adjacent).map((s) => s.id).sort(),
+    ).toEqual(["idezes", "oriasolo", "parbaj", "rozzant_granat"]);
+  });
+});
+
 describe("Vízköpő", () => {
   it("reads the front row, not whichever row it stands in", () => {
     const state = blankState("umbra");
-    place(state, "vizkopo", "p1.B1"); // 2 printed, +3 while the front row is empty
-    expect(power(state.board["p1.B1"]!, state)).toBe(5);
+    place(state, "vizkopo", "p1.B1"); // 2 printed, +4 while the front row is empty
+    expect(power(state.board["p1.B1"]!, state)).toBe(6);
     place(state, "patkany", "p1.F3");
     expect(power(state.board["p1.B1"]!, state)).toBe(2);
   });

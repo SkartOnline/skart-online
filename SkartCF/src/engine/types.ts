@@ -104,6 +104,15 @@ export interface TargetSpec {
   side: "enemy" | "ally" | "self" | "any";
   /** Measured from the nominated caster, via the 12×12 distance matrix. */
   range: number;
+  /**
+   * Tightens `range` from a measurement to a relationship: only tiles sharing
+   * an edge with the caster, `szomszédos` in the rules (4.2.1). Distance 1 is
+   * the larger of the row and column gaps, so it takes in the diagonals too —
+   * which is one tile too many for a spell whose text says "szomszédos".
+   * 4.5.5 settles it: the words are read off 4.2, not off whatever you measure.
+   * Párbaj, Rozzant gránát, Óriásölő and Idézés all say it.
+   */
+  adjacent?: boolean;
   /** 4.8.1: a spell may say it does not need a clear line to its target. */
   ignoreSight?: boolean;
   /** Target an empty slot instead of a unit (Idézés, Teleport destinations). */

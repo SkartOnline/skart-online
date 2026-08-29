@@ -245,7 +245,7 @@
     "power": 2,
     "keywords": [],
     "spellpower": {
-      "Zsivány": 1
+      "Zsivány": 2
     },
     "rarity": "Gyakori",
     "order": "Csempész",
@@ -262,7 +262,7 @@
     "power": 2,
     "keywords": [],
     "spellpower": {
-      "Bestia": 1
+      "Bestia": 2
     },
     "rarity": "Gyakori",
     "race": "Élettelen",
@@ -279,7 +279,7 @@
     "power": 2,
     "keywords": [],
     "spellpower": {
-      "Harcos": 1
+      "Harcos": 2
     },
     "rarity": "Gyakori",
     "order": "Harcos",
@@ -352,7 +352,7 @@
     "power": 2,
     "keywords": [],
     "spellpower": {
-      "Zsivány": 2
+      "Zsivány": 3
     },
     "rarity": "Kivételes",
     "origin": "Felindori",
@@ -383,7 +383,7 @@
       "Farkas"
     ],
     "spellpower": {
-      "Bestia": 1
+      "Bestia": 2
     },
     "rarity": "Gyakori",
     "race": "Állat",
@@ -438,7 +438,7 @@
     "name": "Novícius",
     "kind": "unit",
     "cost": 3,
-    "power": 1,
+    "power": 2,
     "keywords": [],
     "spellpower": {
       "Mágus": 3
@@ -497,7 +497,7 @@
     "power": 2,
     "keywords": [],
     "spellpower": {
-      "Bestia": 1
+      "Bestia": 2
     },
     "rarity": "Gyakori",
     "order": "Kalóz",
@@ -615,7 +615,7 @@
     "power": 3,
     "keywords": [],
     "spellpower": {
-      "Harcos": 1
+      "Harcos": 2
     },
     "rarity": "Gyakori",
     "origin": "Felindori",
@@ -668,14 +668,14 @@
     "statics": [
       {
         "kind": "powerBonus",
-        "amount": 3,
+        "amount": 4,
         "condition": "aloneInFrontRow"
       }
     ],
     "tags": [
       "keleti"
     ],
-    "text": "Ha nincs rajtam kívül szövetséges az első sorban, +3 erőt kapok."
+    "text": "Ha nincs rajtam kívül szövetséges az első sorban, +4 erőt kapok."
   },
   {
     "id": "griff_hamiskartyas",
@@ -685,7 +685,7 @@
     "power": 2,
     "keywords": [],
     "spellpower": {
-      "Zsivány": 2
+      "Zsivány": 4
     },
     "rarity": "Legendás",
     "belepo": {
@@ -735,13 +735,13 @@
   },
   {
     "id": "varju",
-    "name": "Varjú",
+    "name": "Varj",
     "kind": "unit",
     "cost": 4,
-    "power": 2,
+    "power": 3,
     "keywords": [],
     "spellpower": {
-      "Feketemágus": 2
+      "Feketemágus": 3
     },
     "rarity": "Kivételes",
     "origin": "Felindori",
@@ -773,7 +773,7 @@
     "power": 3,
     "keywords": [],
     "spellpower": {
-      "Zsivány": 2
+      "Zsivány": 4
     },
     "rarity": "Ritka",
     "order": "Csempész",
@@ -803,7 +803,7 @@
     "power": 3,
     "keywords": [],
     "spellpower": {
-      "Harcos": 2
+      "Harcos": 3
     },
     "rarity": "Ritka",
     "origin": "Felindori",
@@ -829,7 +829,7 @@
     "power": 3,
     "keywords": [],
     "spellpower": {
-      "Bestia": 2
+      "Bestia": 3
     },
     "rarity": "Ritka",
     "belepo": {
@@ -887,7 +887,7 @@
     "power": 3,
     "keywords": [],
     "spellpower": {
-      "Zsivány": 2
+      "Zsivány": 4
     },
     "rarity": "Ritka",
     "order": "Orgyilkos",
@@ -916,7 +916,7 @@
     "power": 3,
     "keywords": [],
     "spellpower": {
-      "Harcos": 2
+      "Zsivány": 3
     },
     "rarity": "Ritka",
     "order": "Kalóz",
@@ -972,7 +972,7 @@
     "power": 2,
     "keywords": [],
     "spellpower": {
-      "Mágus": 4
+      "Mágus": 5
     },
     "rarity": "Ritka",
     "order": "Mágus",
@@ -1020,7 +1020,7 @@
     "power": 3,
     "keywords": [],
     "spellpower": {
-      "Druida": 3
+      "Druida": 4
     },
     "rarity": "Kivételes",
     "origin": "Felindori",
@@ -1049,7 +1049,7 @@
     "power": 4,
     "keywords": [],
     "spellpower": {
-      "Harcos": 2
+      "Harcos": 3
     },
     "rarity": "Gyakori",
     "origin": "Felindori",
@@ -1068,7 +1068,7 @@
     "power": 5,
     "keywords": [],
     "spellpower": {
-      "Bestia": 2
+      "Bestia": 4
     },
     "rarity": "Ritka",
     "race": "Bestia",
@@ -1123,7 +1123,7 @@
     "power": 4,
     "keywords": [],
     "spellpower": {
-      "Zsivány": 4
+      "Zsivány": 5
     },
     "rarity": "Kivételes",
     "order": "Csempész",
@@ -1150,7 +1150,7 @@
     "power": 4,
     "keywords": [],
     "spellpower": {
-      "Zsivány": 3
+      "Zsivány": 4
     },
     "rarity": "Ritka",
     "order": "Orgyilkos",
@@ -1198,7 +1198,7 @@
     "power": 5,
     "keywords": [],
     "spellpower": {
-      "Bestia": 3
+      "Bestia": 4
     },
     "rarity": "Ritka",
     "race": "Állat",
@@ -1222,7 +1222,7 @@
     "power": 5,
     "keywords": [],
     "spellpower": {
-      "Bestia": 3
+      "Bestia": 5
     },
     "rarity": "Gyakori",
     "race": "Bestia",
@@ -1268,7 +1268,7 @@
     "power": 3,
     "keywords": [],
     "spellpower": {
-      "Feketemágus": 2
+      "Feketemágus": 4
     },
     "rarity": "Legendás",
     "order": "Garabonciás",
@@ -1294,7 +1294,7 @@
     "power": 3,
     "keywords": [],
     "spellpower": {
-      "Mágus": 5
+      "Mágus": 6
     },
     "rarity": "Legendás",
     "origin": "Felindori",
@@ -1326,7 +1326,7 @@
     "power": 3,
     "keywords": [],
     "spellpower": {
-      "Mágus": 5
+      "Mágus": 6
     },
     "rarity": "Legendás",
     "origin": "Felindori",
@@ -1358,7 +1358,7 @@
     "power": 3,
     "keywords": [],
     "spellpower": {
-      "Mágus": 5
+      "Mágus": 6
     },
     "rarity": "Legendás",
     "origin": "Felindori",
@@ -1440,7 +1440,7 @@
     "power": 5,
     "keywords": [],
     "spellpower": {
-      "Bestia": 3
+      "Bestia": 5
     },
     "rarity": "Ritka",
     "race": "Állat",
@@ -1471,7 +1471,7 @@
     "power": 4,
     "keywords": [],
     "spellpower": {
-      "Druida": 5
+      "Druida": 6
     },
     "rarity": "Kivételes",
     "origin": "Felindori",
@@ -1499,7 +1499,7 @@
     "power": 7,
     "keywords": [],
     "spellpower": {
-      "Harcos": 3
+      "Harcos": 4
     },
     "rarity": "Ritka",
     "origin": "Felindori",
@@ -1518,7 +1518,7 @@
     "power": 7,
     "keywords": [],
     "spellpower": {
-      "Bestia": 3
+      "Bestia": 5
     },
     "rarity": "Gyakori",
     "race": "Bestia",
@@ -1570,9 +1570,7 @@
     "keywords": [
       "Távolsági"
     ],
-    "spellpower": {
-      "Harcos": 3
-    },
+    "spellpower": {},
     "rarity": "Ritka",
     "order": "Harcos",
     "race": "Sárkány",
@@ -1621,8 +1619,8 @@
     "power": 4,
     "keywords": [],
     "spellpower": {
-      "Druida": 4,
-      "Feketemágus": 4
+      "Druida": 5,
+      "Feketemágus": 5
     },
     "rarity": "Kivételes",
     "origin": "Felindori",
@@ -1664,7 +1662,7 @@
     "power": 5,
     "keywords": [],
     "spellpower": {
-      "Zsivány": 5
+      "Zsivány": 7
     },
     "rarity": "Kivételes",
     "origin": "Felindori",
@@ -1691,9 +1689,7 @@
     "keywords": [
       "Távolsági"
     ],
-    "spellpower": {
-      "Harcos": 3
-    },
+    "spellpower": {},
     "rarity": "Kivételes",
     "order": "Harcos",
     "statics": [
@@ -1719,7 +1715,7 @@
       "Farkas"
     ],
     "spellpower": {
-      "Bestia": 4
+      "Bestia": 5
     },
     "rarity": "Kivételes",
     "race": "Bestia",
@@ -1792,7 +1788,7 @@
     "power": 5,
     "keywords": [],
     "spellpower": {
-      "Mágus": 7
+      "Mágus": 8
     },
     "rarity": "Ritka",
     "origin": "Felindori",
@@ -1815,7 +1811,7 @@
     "name": "Viator",
     "kind": "unit",
     "cost": 8,
-    "power": 5,
+    "power": 6,
     "keywords": [],
     "spellpower": {
       "Mágus": 8
@@ -2293,8 +2289,8 @@
     "id": "a_moirak",
     "name": "A Moirák",
     "kind": "unit",
-    "cost": 21,
-    "power": 15,
+    "cost": 18,
+    "power": 12,
     "keywords": [],
     "spellpower": {},
     "rarity": "Legendás",

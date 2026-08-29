@@ -122,8 +122,8 @@ describe("Θ on a single cast", () => {
     const state = blankBattle();
     place(state, "celebrant", "p1.F2");
     place(state, "ogre", "p2.F2"); // power 7, nothing kills it here
-    hand(state, "p1", "fagyos_lehelet"); // Mágus 4, −2
-    expect(theta(state, "p1")).toBe(2);
+    hand(state, "p1", "fagyos_lehelet"); // Mágus 4, −3
+    expect(theta(state, "p1")).toBe(3);
   });
 });
 
@@ -131,14 +131,14 @@ describe("Θ on the combos a per-cast score cannot see", () => {
   it("finds two damage spells that kill together and score nothing apart", () => {
     const state = blankBattle();
     place(state, "celebrant", "p1.F2"); // Mágus 10 pays for both
-    place(state, "bandita", "p2.F2"); // power 2
-    hand(state, "p1", "explar", "explar"); // 1 damage each, range 2
+    place(state, "felindori_fegyverhordozo", "p2.F2"); // power 3
+    hand(state, "p1", "explar", "explar"); // 2 damage each, range 2
 
     // 9.5.2: a damage token that does not reach the unit's power changes no
     // total at all. One Explar is worth exactly nothing.
     expect(bestSingleCast(state, "p1")).toBe(0);
-    // Two of them reach 2 against power 2, and the unit falls.
-    expect(theta(state, "p1")).toBe(2);
+    // Two of them reach 4 against power 3, and the unit falls.
+    expect(theta(state, "p1")).toBe(3);
   });
 
   it("finds a debuff that drops a unit into a sweep's threshold", () => {

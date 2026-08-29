@@ -833,7 +833,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
 
   /**
    * Discarding is the one place a Belépő pays for itself. The engine picks the
-   * cheapest legal cards rather than asking, which is what makes Varjú's "any
+   * cheapest legal cards rather than asking, which is what makes Varj's "any
    * number" come out as all of it.
    */
   discard(ctx, effect, _targets) {
@@ -1582,8 +1582,13 @@ export function legalTargets(
   spell: SpellCard,
 ): SlotId[] {
   const range = effectiveRange(state, spec.range);
+  // `adjacent` is a stricter question than `range`, not a shorter one: a shared
+  // edge, never a corner. Both still apply, so a battlefield rangeCap can cut a
+  // szomszédos spell down to nothing the same as any other.
+  const neighbours = spec.adjacent ? new Set(orthogonalNeighbours(casterSlot)) : null;
   return ALL_SLOTS.filter((slot) => {
     if (distance(casterSlot, slot) > range) return false;
+    if (neighbours && !neighbours.has(slot)) return false;
     if (!spec.ignoreSight && !hasLineOfSight(state, casterSlot, slot, controller)) return false;
     if (!sideMatches(slot, spec, controller, casterSlot)) return false;
     const unit = state.board[slot];

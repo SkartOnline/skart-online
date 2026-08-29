@@ -211,6 +211,14 @@ The `TargetFilter` fields: `keyword`, `keywords` (any of), `notKeyword`,
 `maxCost`, `minCost`, `maxBasePower`, `minBasePower`, `maxPower`, `minPower`,
 `damaged`, `isolated`, `hasPlaced`, `hidden`, `row`, `weakerThanCaster`.
 
+Around the filter sits the `TargetSpec` itself: `side`, `range`, and three
+flags — `ignoreSight` (4.8.1), `emptyOnly` (Idézés, teleport destinations) and
+`adjacent`. The last one is not a shorter range but a different question.
+Distance counts the diagonal and szomszédosság does not (4.5.5), so `range: 1`
+alone hands a "szomszédos" spell one tile more than its text allows. Párbaj,
+Rozzant gránát, Óriásölő and Idézés all say the word and all carry the flag;
+`rulebook.test.ts` pins that the two lists stay the same list.
+
 Every effect receives the same three gates: `if` (+ `ifValue`) from the
 condition enum above, plus `ifKeyword` and `ifNotKeyword` on keywords. Sújtás
 is assembled from these: 3 damage `ifKeyword: "Élettelen"`, 1 damage
@@ -245,7 +253,7 @@ The `scope: "trigger"` targeting points at the unit that caused the event.
 `UnitInstance.rings` is a number. It counts into `power()`, does **not** depend
 on the granter, and shows on the board with a ⊙ mark. Its sources: the
 `grantRing` effect (Bodur, Temetkezési vállalkozó, Szarvas, Hajnalmadár, Azman,
-Októ, Lélekszipoly, Vadász, Varjú, Fejvadász, Szerencsejátékos) and Vaskarom,
+Októ, Lélekszipoly, Vadász, Varj, Fejvadász, Szerencsejátékos) and Vaskarom,
 which is a ring-flagged attachment. `grantRing` also takes a `per`: `keyword`
 counts the matching allies on the board (Falkavezér), `graveyard` counts the
 pile (Csontvért), and `targets` counts what the ability actually reached —

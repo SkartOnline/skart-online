@@ -150,10 +150,10 @@ describe("páncél", () => {
     const warded = place(state, "ikerhidra", "p1.F2");
     cast(state, "fagypancel", ["p1.F2"]);
     expect(damageReductionFor(state, warded)).toBe(1);
-    cast(state, "explar", ["p1.F2"]); // 1 damage, entirely absorbed
-    expect(warded.damage).toBe(0);
+    cast(state, "explar", ["p1.F2"]); // 2 damage, one of them absorbed
+    expect(warded.damage).toBe(1);
     cast(state, "langlandzsa", ["p1.F2"]); // 5 damage, barely notices
-    expect(warded.damage).toBe(4);
+    expect(warded.damage).toBe(5);
   });
 
   it("stacks Pajzs on top and comes off with the card", () => {

@@ -380,8 +380,8 @@ describe("the planner in the gathering phase", () => {
     // battlefield could have used — and the bot placed five of them, taking a
     // 7-5 lead to 28-5.
     const state = gathering();
-    place(state, "ogre", "p1.F1"); // 7
-    place(state, "vizkopo", "p2.F1"); // 2, and no spellpower at all
+    place(state, "ikerhidra", "p1.F1"); // 11
+    place(state, "vizkopo", "p2.F1"); // 6 alone in the front row, and no spellpower at all
     state.players.p2.flags.unitsClosed = true;
     state.players.p2.spellHand = [];
 

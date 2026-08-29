@@ -670,6 +670,15 @@ function SpellFields({ draft, set }: { draft: Record<string, unknown>; set: SetF
             <label className="f tick">
               <input
                 type="checkbox"
+                checked={target.adjacent === true}
+                onChange={(e) => set("target", { ...target, adjacent: e.target.checked })}
+              />
+              <span>Csak szomszédos</span>
+              <small>Élben érintkező mező, átló nélkül. A hatótáv emellett is számít.</small>
+            </label>
+            <label className="f tick">
+              <input
+                type="checkbox"
                 checked={target.emptyOnly === true}
                 onChange={(e) => set("target", { ...target, emptyOnly: e.target.checked })}
               />

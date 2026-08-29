@@ -467,7 +467,7 @@ scoreboard. It dies the moment damage reaches its current power — so a debuff 
 afterwards can finish what the damage started.
 
 `power()` therefore does not subtract damage; `isDead()` compares the two. Explar is a
-damaging spell (`1-et sebzek egy egységbe`), so playing it into a big unit and not
+damaging spell (`2-t sebződik`), so playing it into a big unit and not
 killing it gains you nothing at all.
 
 ## Settled rules
@@ -537,7 +537,7 @@ nothing in the engine plays that role now.
   Bérgyilkos takes the `weakest` in its column, Carnifex the `strongest` it is allowed to
   kill, Azman the `weakest` ally, Mágiacenzor the `highestSpellpower` enemy in its column.
   A Belépő that should ask instead pushes a `Prompt` — see *The abilities that ask*.
-- **Varjú discards "any number" by discarding all of it.** The card lets the player
+- **Varj discards "any number" by discarding all of it.** The card lets the player
   choose how many, and this one does not ask, so it empties the unit hand and keeps a ring per
   card. Vadász and Chupacabra pick the cheapest for the same reason.
 - **The cost cap is enforced at placement, not audited at Mustra.** 7.4 has the cap

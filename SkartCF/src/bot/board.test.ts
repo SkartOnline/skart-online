@@ -301,7 +301,15 @@ describe("what the exposure term would buy, if it were on", () => {
     // target as a cost, and a spell they spend on this body is a spell they did
     // not spend on another. The tile preference it produces is still real, so
     // the dial stays and the behaviour is pinned here rather than shipped.
-    const plan = bestBoard(underThreat(), "p1", { theta: CHEAP, exposure: 0.5, arrangements: 6 });
+    // Asked about the board as it stands, not the one belief sketches in: the
+    // question here is whether the dial moves a body out of a known spell's
+    // reach, and a guessed enemy board answers a different one.
+    const plan = bestBoard(underThreat(), "p1", {
+      theta: CHEAP,
+      exposure: 0.5,
+      arrangements: 6,
+      expectOpponent: false,
+    });
     expect(plan.placements).toHaveLength(1);
     expect(plan.placements[0].slot).toMatch(/\.B[123]$/);
   });

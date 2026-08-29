@@ -112,13 +112,13 @@ What it buys, on the cases greedy cannot see:
 
 | board | best single cast | Θ |
 |---|---|---|
-| two Explars against a 2-power body | 0 | 2 |
+| two Explars against a 3-power body | 0 | 3 |
 | Senyvesztés + Káoszkolera against a 3-power archer | 1 | 3 |
 
 Both are in `theta.test.ts` with the arithmetic written out. The first is the
 whole argument in one line: 9.5.2 means a damage token that does not kill moves
-no total at all, so one Explar is worth *exactly* nothing and two are worth a
-unit.
+no total at all, so one Explar is worth *exactly* nothing against a body it
+cannot reach on its own, and two are worth a unit.
 
 ### Why `Θ` and not a weighted spellpower feature
 

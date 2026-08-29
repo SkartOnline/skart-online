@@ -145,7 +145,7 @@ export const PROMPT_HANDLERS: Record<string, PromptHandler> = {
    *
    * The pick can come out of either hand — `cardKind: "both"` offers units and
    * spells in one list — so the card is looked for in both rather than in one
-   * named pile. `ringPer` rides along because Vadász and Varjú pay for what
+   * named pile. `ringPer` rides along because Vadász and Varj pay for what
    * they throw, and a chosen discard has to pay the same as an automatic one.
    */
   discardChoice(state, prompt, log) {
