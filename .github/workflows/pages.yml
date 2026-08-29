@@ -40,7 +40,16 @@ jobs:
       - run: npm test
 
       # Runs tsc --noEmit first, then vite build into SkartCF/dist.
+      #
+      # The relay address is baked in here rather than read at runtime, because
+      # vite resolves `import.meta.env` at build time and the published site is
+      # static files with nowhere to look up a config. Set the repository
+      # variable RELAY_URL (Settings → Secrets and variables → Actions →
+      # Variables) to a `wss://` address to turn online play on. Left unset, the
+      # lobby still works between two tabs of one browser and says so on screen.
       - run: npm run build
+        env:
+          VITE_RELAY_URL: ${{ vars.RELAY_URL }}
 
       - uses: actions/upload-pages-artifact@v3
         with:

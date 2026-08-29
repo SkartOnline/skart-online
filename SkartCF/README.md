@@ -63,8 +63,11 @@ The site opens on a main menu with three ways in.
 - **Kártyaműhely** — the card editor. Units, spells, battlefields and attachments.
   Effects come from a form generated out of the engine's own schema, so what you set is
   exactly what the engine plays.
+- **Online parti** — a room, from the deck picker. One player opens a room and reads
+  out six digits, the other types them in; both pick a deck, the host deals. See
+  *Playing across a room* below.
 
-Not built yet: networked multiplayer, card art, AI worth playing against.
+Not built yet: card art, AI worth playing against.
 
 ## Architecture
 
@@ -327,6 +330,105 @@ is over. Clicking skips it.
 
 The shuffle decides nothing: `createGame` shuffled the locations before the screen existed
 and the answer is already in `state.locations[0]`, which is exactly why it is safe to show.
+
+## Playing across a room
+
+Two people, two machines, one match. `src/net/` is the whole of it, and it is built on
+a claim `src/engine/view.ts` had already made: whoever holds the state applies the
+actions and sends everybody else `redact(state, them)`.
+
+### Who is the server
+
+**The host's browser.** It holds the one real `GameState` and is the only thing that
+calls `applyAction`. The guest holds a picture and sends requests.
+
+The relay in `server/relay.ts` is not a game server. It pairs two sockets by a
+six-digit code and forwards bytes between them — it never imports the engine, holds no
+game state and has no database, so it is deployed once and then has no reason to change
+again. That is the point of putting the truth in the host rather than in the server:
+**cards are data and the data is local.** Both players have a workshop and a
+localStorage overlay, and an authoritative server would need the host's card set
+uploaded to it or redeployed into it every time somebody edited a card. Instead the
+host sends its overlay down the room on arrival, the guest installs it for the duration
+of the match, and the server stays ignorant.
+
+The price is stated plainly because it is real: a host who opens a debugger can read
+the guest's hand out of the `HostMatch` object. The guest is fully protected — nothing
+that crosses the wire towards them has ever contained a card they are not entitled to
+— and the host is on their honour. For a game two friends arrange between themselves,
+that is the right trade.
+
+Both screens render `redact(truth, theirSeat)`, including the host's. Nothing in either
+React tree ever holds the opponent's hand, and `GameView` has no idea which end of the
+wire it is on: online play is the hotseat screen with a fixed seat and a different sink
+for its actions.
+
+### The layers
+
+```
+protocol.ts     frames (client↔relay) and room messages (player↔player)
+room.ts         what the game sees: a code, a seat, a way to speak
+link.ts         the seam: a duplex of frames, plus the handshake over it
+relayCore.ts    the matchmaking, with no socket in it
+  loopback.ts     …wired up in-process, for the tests
+  channel.ts      …over a BroadcastChannel, for two tabs of one browser
+  socket.ts       …over a WebSocket, for two people in two houses
+match.ts        HostMatch holds the truth; GuestMatch holds a picture
+```
+
+One `Relay` class serves all three transports, so the matchmaking is tested once, in
+milliseconds, without opening a port. `src/net/match.test.ts` plays a **whole game to a
+winner across a room**, with both sides choosing their moves from `legalActions` on
+their own redacted view — which is the question hotseat never has to answer.
+
+### Two things that are not obvious
+
+**`applyAction` does not throw on an illegal action.** It quietly does nothing, or
+worse, something: `doToss` will throw away a card belonging to whoever the action names.
+So "apply it and see" is not a validation strategy, and every action arriving at the
+host is instead tested for membership of `legalActions(state, sender)` — the same
+enumeration the bot and the simulator pick from. The host's own moves go through it too.
+That ought to be dead code, which is exactly why it is there.
+
+**A redacted position cannot be asked about the other player.** It answers `legalActions`
+for its own seat perfectly well — the full game in the suite is played that way — but
+asking it for the opponent's moves walks into a hand of blanks, and every card lookup in
+the engine throws on a blank. Hotseat never notices, because hotseat holds the truth.
+`GameView` therefore enumerates only for the seat it is sitting in, and `bare`
+(reveal-all) is forced off online for the same reason.
+
+### Running one
+
+With no relay configured the lobby still works, between two tabs of one browser, over a
+`BroadcastChannel`, and says so on screen. That is how the feature was built and it is
+still the fastest way to see it work: open the game twice, create in one tab, paste the
+code into the other.
+
+For two machines:
+
+```
+npm run relay                              # port 8787, or $PORT
+npm run smoke                              # two clients, real sockets, eight checks
+npm run smoke -- wss://relay.example.com   # or against a deployed one
+```
+
+The client reads `VITE_RELAY_URL` **at build time** — vite resolves `import.meta.env`
+into the bundle, and the published site is static files with nowhere to look up a
+config at runtime. Locally that means a `.env` file; for the published site, set the
+repository variable `RELAY_URL` and the Pages workflow bakes it in.
+
+Any host that runs Node and terminates TLS will do; the relay wants a `wss://` address
+because the site is served over HTTPS and a browser will not open a plaintext socket
+from a secure page. It answers `GET /health` for whatever the host wants to poll.
+
+### What is deliberately not there
+
+Reconnection into a game in progress. `HostMatch` will send the position to a guest who
+arrives to a room already playing, so the pieces are in place, but nothing holds the
+room open while a socket is down: an empty room is deleted, because the relay holding a
+position is exactly the thing that would stop it being something you deploy once and
+forget. Undo is gone online for the same family of reasons — it would rewind a move the
+other player has already watched.
 
 ## The simulator
 

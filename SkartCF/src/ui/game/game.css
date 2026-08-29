@@ -1939,6 +1939,82 @@ body.dragging-card {
   padding-top: 14px;
   border-top: 1px solid var(--iron);
 }
+
+/* ------------------------------------------------------------------- lobby */
+
+/* Six digits, and they are the point of the screen.
+ *
+ * Set at the size of a verdict rather than a form field, because this number is
+ * read out loud down a phone line to somebody in another town, and the common
+ * failure is not that it looked wrong but that it was misheard. Tabular figures
+ * so the spacing does not shift between a 1 and a 0, and generous tracking so
+ * the two groups of three stay two groups. */
+.lobby-crest {
+  font-size: 46px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--brass);
+  margin: 10px 0 4px;
+  user-select: all;
+}
+
+.lobby-doors {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+  width: min(360px, 100%);
+  margin-top: 18px;
+}
+.lobby-join {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.lobby-code {
+  flex: 1;
+  text-align: center;
+  font-size: 22px;
+  letter-spacing: 0.22em;
+  padding: 7px 10px;
+  background: rgba(10, 6, 3, 0.55);
+  border: 1px solid var(--iron);
+  color: var(--parchment);
+}
+.lobby-code:focus {
+  outline: none;
+  border-color: var(--ember);
+}
+
+/* The two notes that are not errors: one says the other player arrived, one
+   says this build has no server to reach them through. Neither is red. */
+.lobby-here {
+  color: var(--sprout);
+}
+.lobby-local {
+  font-size: 13px;
+  max-width: 46ch;
+  color: var(--ash);
+}
+.lobby-local code {
+  color: var(--brass);
+}
+
+/* Their column of the lobby table. Same shape as a deck button so the two read
+   as one table, and pointedly not a button: their pakli is not yours to press. */
+.quiet-pick {
+  cursor: default;
+  opacity: 0.75;
+}
+.quiet-pick:hover {
+  border-color: var(--iron);
+}
+
+/* The lobby's way out sits under everything, so the casket has one tail for
+   leaving and one for starting, and they never compete for the same corner. */
+.lobby-foot {
+  width: 100%;
+}
 .tail .grow {
   flex: 1;
 }

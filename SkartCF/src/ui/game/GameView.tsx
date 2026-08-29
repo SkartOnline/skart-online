@@ -9,9 +9,11 @@ import {
   trapSlots,
 } from "../../engine";
 import type { Action, GameState, PlayerId, SlotId } from "../../engine";
+import type { GuestMatch, HostMatch, MatchState } from "../../net";
 import Board, { Loaded } from "./Board";
 import NewGame from "./NewGame";
 import type { Sides } from "./NewGame";
+import Lobby from "./Lobby";
 import { makeBot } from "./bot";
 import type { Opponent } from "./bot";
 import {
@@ -30,6 +32,7 @@ import {
   soundFor,
 } from "./theatre";
 import { playAmbience, playSound, preloadSounds, stopAmbience } from "../audio";
+import { installOverlay, readOverlay } from "../cardSet";
 import type { BeatKind, Flight } from "./theatre";
 import { cardFor, handHeld, other } from "./common";
 import type { FieldProps, Held, LiveBeat, LiveReveal } from "./common";
@@ -59,6 +62,25 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   const [fault, setFault] = useState<string | null>(null);
   const [botSide, setBotSide] = useState<PlayerId | null>(null);
   const bot = useRef<Opponent | null>(null);
+  /** Set while the player is choosing how to play, before there is a game. */
+  const [lobby, setLobby] = useState(false);
+  /**
+   * The room, when there is one.
+   *
+   * Held rather than derived because it owns a socket: the same object has to
+   * be handed back its subscription on every render and closed exactly once,
+   * on the way out.
+   */
+  const [match, setMatch] = useState<HostMatch | GuestMatch | null>(null);
+  const [net, setNet] = useState<MatchState | null>(null);
+  /**
+   * Bumped when the installed card set changes under the screen.
+   *
+   * The registry the engine reads is a module, not React state, so swapping in
+   * the host's cards changes nothing anybody is watching. This is the nudge
+   * that makes the deck list redraw with the names that are now live.
+   */
+  const [, setCards] = useState(0);
 
   // What is currently worth watching. Beats are derived from the difference
   // between two states and expire on their own, so they can only ever decorate
@@ -84,58 +106,33 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   const [prologue, setPrologue] = useState(true);
   /** Captured before the state changes, launched after it has rendered. */
   const pendingFlight = useRef<{ flight: Flight; slot?: SlotId } | null>(null);
-
-  function begin(sides: Sides) {
-    try {
-      setState(createGame({ seed: sides.seed, decks: { p1: sides.p1, p2: sides.p2 } }));
-      bot.current?.dispose();
-      bot.current = sides.bot ? makeBot() : null;
-      setBotSide(bot.current ? sides.bot : null);
-      setPast([]);
-      setHeld(null);
-      setFault(null);
-      setBeats([]);
-      setShows([]);
-      setPrologue(true);
-      // Decoding takes a few milliseconds and `playSound` does not wait for it,
-      // so an un-warmed cue arrives a beat late. Warm them while the prologue
-      // is still playing its ceremony.
-      preloadSounds(matchSounds());
-    } catch (e) {
-      setFault(String(e));
-    }
-  }
+  /**
+   * The position the theatre last read, for diffing the next one against.
+   *
+   * A ref rather than the `state` itself because a position no longer always
+   * arrives from a call this component made. Online it turns up in a
+   * subscription, whose closure would otherwise be holding whatever `state` was
+   * when the effect ran — which, one opponent's move later, is the wrong one.
+   */
+  const shownState = useRef<GameState | null>(null);
 
   /**
-   * One action, or a run of them that a single gesture produced.
+   * A new position, from wherever.
    *
-   * Dragging Fuedrax's trap out of the hand and onto a tile answers two
-   * questions at once — which spell, and where — and they cannot be two calls,
-   * because both would apply to the same stale state. They are folded here
-   * instead, and the theatre reads the difference across the whole run, so the
-   * gesture reads as the one thing it was.
+   * The screen used to derive its beats inside `send`, which was fine while
+   * every position was one this browser had just computed. Half of them now
+   * arrive over a wire, made by the other player, and they have to be read the
+   * same way: diff against what was on screen, queue the beats and reveals the
+   * difference implies, and let the clock play them. That the opponent's turn
+   * animates at all — cards landing, units dying, the banner turning the phase
+   * over — is this function and `beatsBetween` doing exactly what they already
+   * did, with nobody having to teach them about the network.
    */
-  function send(action: Action | Action[]) {
-    if (!state) return;
-    const run = Array.isArray(action) ? action : [action];
-    if (run.length === 0) return;
-    try {
-      // The card has to be cloned while it still exists in the hand, which is
-      // now: applying the action is what takes it away.
-      const first = run[0];
-      if (first.type === "playUnit" || first.type === "castSpell") {
-        const flight = captureHandCard(first.uid);
-        if (flight) {
-          pendingFlight.current = {
-            flight,
-            slot: first.type === "playUnit" ? first.slot : undefined,
-          };
-        }
-      }
-      const next = run.reduce(applyAction, state);
-      const at = Date.now();
-      setPast((h) => [...h.slice(-40), state]);
-      const fresh = beatsBetween(state, next);
+  const absorb = useCallback((next: GameState) => {
+    const prev = shownState.current;
+    const at = Date.now();
+    if (prev) {
+      const fresh = beatsBetween(prev, next);
       setBeats((b) => {
         // A phase turning over waits for the phase it is ending.
         //
@@ -160,19 +157,163 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       // has to be down and readable before the hand he is going through opens.
       setShows((s) => [
         ...s,
-        ...newReveals(state, next).map((reveal, i) => ({
+        ...newReveals(prev, next).map((reveal, i) => ({
           ...reveal,
           startsAt: at + 520 + i * 220,
           expiresAt: at + 520 + i * 220 + REVEAL_MS,
         })),
       ]);
-      setNow(at);
-      setState(next);
-      setHeld(null);
-      setFault(null);
+    }
+    shownState.current = next;
+    setNow(at);
+    setState(next);
+    setHeld(null);
+    setFault(null);
+  }, []);
+
+  /** Everything a fresh game clears, whichever way it was started. */
+  function reset() {
+    setPast([]);
+    setHeld(null);
+    setFault(null);
+    setBeats([]);
+    setShows([]);
+    setPrologue(true);
+    shownState.current = null;
+  }
+
+  function begin(sides: Sides) {
+    try {
+      const fresh = createGame({ seed: sides.seed, decks: { p1: sides.p1, p2: sides.p2 } });
+      bot.current?.dispose();
+      bot.current = sides.bot ? makeBot() : null;
+      setBotSide(bot.current ? sides.bot : null);
+      reset();
+      shownState.current = fresh;
+      setState(fresh);
+      // Decoding takes a few milliseconds and `playSound` does not wait for it,
+      // so an un-warmed cue arrives a beat late. Warm them while the prologue
+      // is still playing its ceremony.
+      preloadSounds(matchSounds());
     } catch (e) {
       setFault(String(e));
     }
+  }
+
+  /**
+   * One action, or a run of them that a single gesture produced.
+   *
+   * Dragging Fuedrax's trap out of the hand and onto a tile answers two
+   * questions at once — which spell, and where — and they cannot be two calls,
+   * because both would apply to the same stale state. They are folded here
+   * instead, and the theatre reads the difference across the whole run, so the
+   * gesture reads as the one thing it was.
+   */
+  function send(action: Action | Action[]) {
+    if (!state) return;
+    const run = Array.isArray(action) ? action : [action];
+    if (run.length === 0) return;
+    try {
+      // The card has to be cloned while it still exists in the hand, which is
+      // now: applying the action is what takes it away. Online the clone waits
+      // in memory for the round trip and is launched when the position comes
+      // back; if the move is refused it is simply never launched, and a clone
+      // that never reached the flight layer is a few bytes for the collector.
+      const first = run[0];
+      if (first.type === "playUnit" || first.type === "castSpell") {
+        const flight = captureHandCard(first.uid);
+        if (flight) {
+          pendingFlight.current = {
+            flight,
+            slot: first.type === "playUnit" ? first.slot : undefined,
+          };
+        }
+      }
+      // Across a room, the move is a request. The host owns `applyAction` and
+      // this browser may not have the cards to compute the answer even if it
+      // wanted to — so it asks, and absorbs whatever comes back.
+      if (match) {
+        match.act(run);
+        return;
+      }
+      setPast((h) => [...h.slice(-40), state]);
+      absorb(run.reduce(applyAction, state));
+    } catch (e) {
+      setFault(String(e));
+    }
+  }
+
+  /**
+   * The room's positions, as they arrive.
+   *
+   * Subscribed once per match. `absorb` reads the previous position out of a
+   * ref rather than a closure, so this handler stays correct for the whole
+   * game instead of only for the move after it was installed.
+   */
+  useEffect(() => {
+    if (!match) return;
+    const take = (snapshot: MatchState) => {
+      setNet(snapshot);
+      if (snapshot.state && snapshot.state !== shownState.current) absorb(snapshot.state);
+    };
+    // Taken once up front as well as on every change: a match handed over with
+    // a position already in it — the host pressing start, a guest arriving to a
+    // game in progress — has no change left to announce.
+    take(match.value);
+    return match.subscribe(take);
+  }, [match, absorb]);
+
+  /**
+   * The host's cards, for as long as the match lasts.
+   *
+   * Both players have a workshop and a localStorage overlay, and there is no
+   * reason on earth the two agree. The host runs the engine, so the host's set
+   * is the set: it is installed here, over this player's own, and taken out
+   * again when the room closes. Installed rather than merged, because a match
+   * played with a card that means one thing on one screen and another on the
+   * other is not one match.
+   *
+   * Not persisted — `installOverlay` alone touches the registry, `writeOverlay`
+   * is what touches storage — so nothing a guest plays against can quietly
+   * become part of their own collection.
+   */
+  useEffect(() => {
+    const catalog = net?.catalog;
+    if (!catalog) return;
+    installOverlay(catalog);
+    setCards((n) => n + 1);
+    return () => {
+      installOverlay(readOverlay());
+      setCards((n) => n + 1);
+    };
+  }, [net?.catalog]);
+
+  /**
+   * A room left behind should not keep a socket open.
+   *
+   * This is the only place a match is closed, so swapping one for another and
+   * walking away from the screen both go through the same door.
+   */
+  useEffect(() => () => match?.close(), [match]);
+
+  /** Leaves the hotseat behind and opens the lobby. */
+  function openLobby() {
+    bot.current?.dispose();
+    bot.current = null;
+    setBotSide(null);
+    reset();
+    setState(null);
+    setLobby(true);
+    preloadSounds(matchSounds());
+  }
+
+  /** Puts down the room and everything played in it. */
+  function leaveRoom() {
+    setMatch(null);
+    setNet(null);
+    setLobby(false);
+    reset();
+    setState(null);
   }
 
   // Launch the flight now that the destination is on screen. The effect body
@@ -324,7 +465,25 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
     });
   }
 
-  if (!state) return <NewGame onStart={begin} onLeave={onLeave} />;
+  // The lobby holds the screen until there is a position to show, and not one
+  // moment longer: the host pressing start is what ends it, on both machines at
+  // once, and neither of them has to be told separately that it is over.
+  if (!state && (lobby || match)) {
+    return (
+      <Lobby
+        match={match}
+        net={net}
+        onRoom={setMatch}
+        onLeave={() => {
+          leaveRoom();
+          onLeave();
+        }}
+        onBack={leaveRoom}
+      />
+    );
+  }
+
+  if (!state) return <NewGame onStart={begin} onOnline={openLobby} onLeave={onLeave} />;
 
   const asking = pendingPrompt(state);
   const pending = state.resolution?.pending ?? null;
@@ -347,6 +506,8 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       state={state}
       actor={actor}
       botSide={botSide}
+      seat={net ? net.seat : botSide ? other(botSide) : null}
+      online={!!match}
       bot={bot}
       beats={beats}
       shows={shows}
@@ -357,13 +518,22 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       setHeld={setHeld}
       send={send}
       stepBack={stepBack}
-      canStepBack={past.length > 0}
-      cancelCast={cancelCast}
-      bare={bare}
+      // Undo is a hotseat courtesy, and it does not survive a second player.
+      // Rewinding here would leave the other screen showing a move that this
+      // one has decided never happened, and the position they are looking at is
+      // the host's, not ours to edit.
+      canStepBack={!match && past.length > 0}
+      cancelCast={match ? () => match.rewind() : cancelCast}
+      // Reveal-all is a hotseat and workshop tool, and online it is not merely
+      // impolite but impossible: it renders the far hand face up, and the far
+      // hand this client was sent is a row of blanks that no card lookup can
+      // resolve. Forced off rather than only hidden, so no stale `true` from
+      // before the room was opened can reach the hand rail.
+      bare={match ? false : bare}
       setBare={setBare}
-      onQuit={() => setState(null)}
+      onQuit={match ? leaveRoom : () => setState(null)}
       onLeave={onLeave}
-      fault={fault}
+      fault={fault ?? net?.notice ?? net?.ended ?? null}
     />
   );
 }
@@ -422,10 +592,11 @@ function Field(props: FieldProps) {
   const [tucked, setTucked] = useState(false);
 
   // The table turns so whoever is acting sits at the bottom of the screen, with
-  // their hand in front of them and the enemy across the line. Against the
-  // machine it does not turn: the camera stays with the person holding the
-  // keyboard, and the machine plays from the far side like an opponent would.
-  const human: PlayerId | null = botSide ? other(botSide) : null;
+  // their hand in front of them and the enemy across the line. It only turns in
+  // hotseat, where the chair really does change hands. Against the machine, and
+  // across a room, the camera stays with the person holding the keyboard and
+  // the opponent plays from the far side — which is what `seat` names.
+  const human: PlayerId | null = props.seat;
   // A reveal holds the camera where it is.
   //
   // Without this, hotseat could never show one at all: playing Mágusinkvizítor
@@ -553,6 +724,11 @@ function Field(props: FieldProps) {
   if (state.phase !== "scored" && scoredAt.current !== 0) scoredAt.current = 0;
   useEffect(() => {
     if (state.phase !== "scored") return;
+    // Across a room this effect is running on two machines, and the step is one
+    // step. 12.4 gives it to whoever holds the turn, so that is the only screen
+    // that sends it; the other one would have its copy refused and would flash
+    // the refusal at a player who pressed nothing, once per battlefield.
+    if (props.online && actor !== viewer) return;
 
     // Two conditions, and the step waits for the later of them.
     //
@@ -585,9 +761,24 @@ function Field(props: FieldProps) {
       Math.max(0, Math.max(readAt, settledAt) - Date.now()),
     );
     return () => clearTimeout(timer);
-  }, [state.phase, state.locationIndex, props.beats, props.shows]);
+  }, [state.phase, state.locationIndex, props.beats, props.shows, props.online, actor, viewer]);
 
-  const moves = useMemo(() => (actor ? legalActions(state, actor) : []), [state, actor]);
+  /**
+   * What the actor may do — and only ever when the actor is us.
+   *
+   * Online the position on screen is a redacted one, and a redacted position
+   * cannot answer for the other player: their hand is a row of blanks and every
+   * card lookup in the engine throws on a blank. So asking it what the opponent
+   * may play does not return a cautious `[]`, it takes the screen down. It is
+   * also none of our business — the host enumerates their moves, on the state
+   * that still has cards in it. Nothing is lost by not asking: `TurnCue` gates
+   * every button on `actor === viewer` already, and the board lights no tiles
+   * on somebody else's turn.
+   */
+  const moves = useMemo(
+    () => (actor && (!props.online || actor === viewer) ? legalActions(state, actor) : []),
+    [state, actor, props.online, viewer],
+  );
 
   const open = useMemo(() => {
     const set = new Set<SlotId>();

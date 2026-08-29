@@ -37,6 +37,7 @@ public site.
 | Power, statics, positional bonuses | `src/engine/power.ts` (`basePower` vs `power` — see invariants) |
 | Slot adjacency, ranges | `src/engine/grid.ts` |
 | Game setup, decks, rule config | `src/engine/setup.ts`, `src/engine/cards.ts` (registry + `validateCardSet`) |
+| Online play, lobby, relay | `SkartCF/README.md` § *Playing across a room* first; `src/net/` — `protocol.ts`, `room.ts`, `link.ts`, `relayCore.ts` (matchmaking, no socket), `loopback.ts`/`channel.ts`/`socket.ts` (three transports), `match.ts` (`HostMatch` holds the truth, `GuestMatch` a picture); `src/ui/game/Lobby.tsx`; `server/relay.ts` + `npm run smoke` |
 | Game screen UI | `src/ui/game/`: `GameView.tsx` (orchestrator: state, undo, beat/reveal clock, bot timer, drag), `LeftRail.tsx` (battlefield card, turn cue, tools, annals), `RightRail.tsx` (counters, piles, ledger), `Hands.tsx` (both hands, hover reading, prompt takeover), `TheatreView.tsx` (banner + played-card panel), `Asking.tsx` (Almanac pile panel, Curtain reveals), `Prologue.tsx` (opening ceremony), `Overlays.tsx` (chronicle, aftermath), `common.ts` (shared props/lookups), `Board.tsx`, `theatre.ts` (state-diff → animation beats), `NewGame.tsx`, `bot.ts` |
 | Card rendering | `src/ui/card/model.ts`, `CardFace.tsx`, `card.css` |
 | Card editor | `src/ui/editor/CardEditor.tsx`, `fields.tsx` (form generated from schema.ts) |
@@ -68,6 +69,20 @@ public site.
   immediately. Keep them apart.
 - **Auto-close rules live in the engine, not the UI**, so the simulator and the
   hotseat screen always agree on legal actions.
+- **Whoever holds the state redacts it.** `redact(state, viewer)` in
+  `src/engine/view.ts` is a security boundary, not a display convenience, and
+  `view.test.ts` guards it. Online, the host's browser is the server: it alone
+  calls `applyAction`, it validates every action — including its own — against
+  `legalActions` membership, and **both** screens render a redacted position so
+  nothing in either React tree holds the opponent's hand.
+- **A redacted state answers only for its own seat.** `legalActions(redacted,
+  theOtherPlayer)` throws, because their hand is blanks and every card lookup
+  throws on a blank. Anything reading the far side's cards — `legalActions` for
+  them, `bare` mode — must be off online. Hotseat never notices; the online
+  screen white-screens.
+- **The relay never imports the engine.** It pairs sockets by a six-digit code
+  and forwards bytes. Cards stay data and stay local: the host sends its card
+  overlay down the room, so no card change ever needs a server redeploy.
 - **`docs/szabaly-teljes.md` decides rule disputes.** The engine follows it;
   when they disagree, one of them is a bug and the rulebook usually wins.
   Settled rules are constants, not options (list: SkartCF/README.md

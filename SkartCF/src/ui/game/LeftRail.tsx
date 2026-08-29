@@ -170,6 +170,7 @@ export function Tools({
   setBare,
   stepBack,
   canStepBack,
+  online,
   onQuit,
   onLog,
   logOpen,
@@ -185,25 +186,38 @@ export function Tools({
       >
         ☰
       </button>
+      {/* Neither of these means anything with a second player watching: undo
+          would rewind a move they have already seen, and reveal-all has nothing
+          to show that this screen was sent. A disabled button invites the
+          question; an absent one does not. */}
+      {!online && (
+        <>
+          <button
+            className="glyph"
+            onClick={stepBack}
+            disabled={!canStepBack}
+            title="Vissza"
+            aria-label="Vissza"
+          >
+            ↺
+          </button>
+          <button
+            className={`glyph${bare ? " on" : ""}`}
+            onClick={() => setBare(!bare)}
+            title="Mindent mutat"
+            aria-label="Mindent mutat"
+            aria-pressed={bare}
+          >
+            {bare ? "◉" : "◎"}
+          </button>
+        </>
+      )}
       <button
         className="glyph"
-        onClick={stepBack}
-        disabled={!canStepBack}
-        title="Vissza"
-        aria-label="Vissza"
+        onClick={onQuit}
+        title={online ? "Kilépés" : "Új parti"}
+        aria-label={online ? "Kilépés" : "Új parti"}
       >
-        ↺
-      </button>
-      <button
-        className={`glyph${bare ? " on" : ""}`}
-        onClick={() => setBare(!bare)}
-        title="Mindent mutat"
-        aria-label="Mindent mutat"
-        aria-pressed={bare}
-      >
-        {bare ? "◉" : "◎"}
-      </button>
-      <button className="glyph" onClick={onQuit} title="Új parti" aria-label="Új parti">
         ⟲
       </button>
     </div>

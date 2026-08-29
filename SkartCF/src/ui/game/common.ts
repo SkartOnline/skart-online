@@ -68,6 +68,24 @@ export interface FieldProps {
   actor: PlayerId | null;
   /** The seat the machine is playing, or `null` for hotseat. */
   botSide: PlayerId | null;
+  /**
+   * The seat this screen sits in, when it sits in one.
+   *
+   * Hotseat has no such thing — the chair changes hands with the turn, which is
+   * what makes it hotseat. Against the machine it is whichever side the machine
+   * is not, and online it is the seat the room gave out. Everything the screen
+   * shows from one point of view is derived from this.
+   */
+  seat: PlayerId | null;
+  /**
+   * Played across a room, against somebody who is not here.
+   *
+   * Three things follow from it and nothing else does: the position on screen
+   * is a redacted one, so it can only be asked about its own seat; undo would
+   * rewind a move the other player has already watched; and reveal-all has
+   * nothing to reveal that this client is entitled to.
+   */
+  online: boolean;
   bot: MutableRefObject<Opponent | null>;
   /** What just happened, for the theatre to show. Never read for rules. */
   beats: LiveBeat[];

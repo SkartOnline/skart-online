@@ -15,9 +15,12 @@ const SIDE_NAME: Record<PlayerId, string> = { p1: "Első játékos", p2: "Másod
 /** Deck choice and a seed. Everything else is a settled rule. */
 export default function NewGame({
   onStart,
+  onOnline,
   onLeave,
 }: {
   onStart: (sides: Sides) => void;
+  /** Away to the lobby, where the two decks are picked on two machines. */
+  onOnline: () => void;
   onLeave: () => void;
 }) {
   const decks = allDecks();
@@ -92,6 +95,14 @@ export default function NewGame({
             Gép
           </button>
           <span className="grow" />
+          {/* Not a third value of the same setting, which is why it is a
+              separate button that leaves. The two above answer "who sits in the
+              other chair"; this one answers "where is the other chair", and the
+              deck picked on this screen is not the one that travels — the other
+              player picks their own, on their own machine. */}
+          <button className="tiny" onClick={onOnline}>
+            Online ellenfél…
+          </button>
         </div>
 
         <div className="tail">

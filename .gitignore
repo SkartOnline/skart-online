@@ -4,3 +4,8 @@
 .claude/settings.local.json
 node_modules/
 dist/
+
+# A relay address is per-checkout. `.env.example` is the one that travels.
+.env
+.env.*
+!.env.example
