@@ -70,9 +70,10 @@ import type { Action, GameState, PlayerId } from "../engine";
 import { DEFAULT_BASELINE } from "./baseline";
 import { DEFAULT_PLANNER, Planner } from "../bot/planner";
 import { FAST_THETA } from "../bot/theta";
+import { power } from "../engine/power";
 import { totals } from "../engine/totaling";
 import { writeReport } from "./report";
-import type { MatchRecord, RunReport } from "./report";
+import type { BoardSnapshot, MatchRecord, RunReport } from "./report";
 
 /** A game that has not ended by here is an engine bug, not a slow policy. */
 const MAX_ACTIONS = 4000;
@@ -90,6 +91,26 @@ interface GameResult {
   actions: number;
   /** Every decision taken, in order, when the run is recording detail. */
   log: MatchRecord["log"];
+  /** The board at the Mustra and at the checkout of every battlefield reached. */
+  snaps: BoardSnapshot[];
+}
+
+/**
+ * The board as it stands, priced.
+ *
+ * `power()` rather than the printed number, because the printed number is not
+ * what the unit is standing there as: statics, auras, positional bonuses and
+ * the battlefield's own modifiers all land inside it, and 9.5.2 keeps damage
+ * out of it. This is the figure the scoreboard adds up, so a unit's `w` and the
+ * side totals are the same arithmetic.
+ */
+function snapshot(state: GameState, at: BoardSnapshot["at"]): BoardSnapshot {
+  const units: BoardSnapshot["units"] = [];
+  for (const [slot, unit] of Object.entries(state.board)) {
+    if (!unit) continue;
+    units.push({ s: slot, c: unit.cardId, p: unit.owner, w: power(unit, state), u: unit.uid });
+  }
+  return { loc: state.locationIndex, at, totals: totals(state), units };
 }
 
 /**
@@ -173,6 +194,8 @@ export function playGame(
 
   let state = createGame({ seed, decks: { p1: deckA, p2: deckB } });
   const log: MatchRecord["log"] = [];
+  const snaps: BoardSnapshot[] = [];
+  let lastBattle: BoardSnapshot | null = null;
   let actions = 0;
 
   while (state.phase !== "gameOver" && actions < MAX_ACTIONS) {
@@ -181,9 +204,18 @@ export function playGame(
     const action = seats[player].choose(state, player);
     if (!action) break;
 
+    let record: MatchRecord["log"][number] | undefined;
     if (options.detail) {
       const t = totals(state);
-      log.push({
+      // A pick is only legible while the question is still standing: `pending`
+      // names what is being asked and for which spell, and the tile still holds
+      // whoever was chosen. One `applyAction` later the request is gone and the
+      // target may be too.
+      const asking =
+        action.type === "chooseSlot" || action.type === "chooseHandCard"
+          ? state.resolution?.pending
+          : undefined;
+      record = {
         i: actions,
         p: player,
         t: action.type,
@@ -192,11 +224,39 @@ export function playGame(
         ph: state.phase,
         loc: state.locationIndex,
         m: t.p1 - t.p2,
-      });
+        r: asking?.kind,
+        sp: asking?.cardId,
+        o: asking && action.type === "chooseSlot" ? state.board[action.slot]?.cardId : undefined,
+      };
+      log.push(record);
     }
 
+    // The board the field will be decided on, kept one action behind. The only
+    // action that can end a battle is `declareSpellsDone` — it is the sole
+    // setter of `spellsClosed`, and scoring waits on both flags — so the board
+    // standing here when the battle ends is the board that was scored, down to
+    // the unit. Reading it *after* the transition would be wrong: a Vigasz
+    // fires on the way out, and Makacs élőhalott walks home before anyone could
+    // look, having counted for its side the whole time.
+    if (options.detail && state.phase === "battle") lastBattle = snapshot(state, "checkout");
+
+    const before = state.phase;
     state = applyAction(state, action);
     actions += 1;
+
+    if (options.detail) {
+      const t = totals(state);
+      record!.m2 = t.p1 - t.p2;
+      // The Mustra happens *inside* one `applyAction` too, so its phase is never
+      // the one a decision is taken in and the transition is the only sighting
+      // of it. This side of that one is right: every unit face up, every Belépő
+      // and Mustra ability landed, and the battle not yet opened.
+      if (before === "units" && state.phase === "battle") snaps.push(snapshot(state, "mustra"));
+      if (before === "battle" && state.phase === "scored" && lastBattle) {
+        snaps.push(lastBattle);
+        lastBattle = null;
+      }
+    }
   }
 
   if (actions >= MAX_ACTIONS) {
@@ -219,6 +279,7 @@ export function playGame(
     reachedTiebreaker: locations.some((l) => getLocation(l.cardId).tiebreaker && l.winner !== null),
     actions,
     log,
+    snaps,
   };
 }
 
@@ -416,6 +477,7 @@ function main(): void {
             actions: result.actions,
             locations: result.locations,
             log: result.log,
+            snaps: result.snaps,
           });
         }
 

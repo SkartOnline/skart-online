@@ -382,6 +382,222 @@ const matchups = (() => {
   return [...m.values()];
 })();
 
+/**
+ * ## What the log cannot tell you, and the two boards that can
+ *
+ * Everything above is derived from the action log, which records what was
+ * decided and never what any of it was worth. Power is computed — statics,
+ * auras, position, the battlefield's own modifiers — so a card's printed number
+ * is not the number it was standing there as, and no scan of the decisions
+ * recovers it.
+ *
+ * So the runner photographs the board twice a battlefield: at the Mustra, where
+ * the gathering is finished and the battle has not started spending it, and at
+ * the checkout, the board the field was decided on. Between those two sits every
+ * question about what a unit was actually worth and whether it lived.
+ *
+ * Older reports have no `snaps`. Everything below degrades to empty rather than
+ * throwing, and the columns that need it say "–".
+ */
+const HAS_SNAPS = MATCHES.some((m) => m.snaps && m.snaps.length);
+
+/** (matchId, seat, battlefield index) → the field record, for joining onto. */
+const fieldByKey = new Map(fieldRecords.map((f) => [f.matchId + "|" + f.seat + "|" + f.index, f]));
+
+/**
+ * Per (deck, battlefield): what each side had on the table at each of the two
+ * moments. The enemy column is the same number read from the other seat, and it
+ * is the more interesting half — a deck that arrives at the Mustra behind and
+ * takes the field anyway is winning it with spells, not with bodies.
+ */
+const powerStats = (() => {
+  const m = new Map();
+  const get = (deck, loc) => {
+    const key = deck + "|" + loc;
+    let e = m.get(key);
+    if (!e) {
+      e = { deck, loc, mus: 0, musOwn: 0, musFoe: 0, out: 0, outOwn: 0, outFoe: 0 };
+      m.set(key, e);
+    }
+    return e;
+  };
+  for (const match of MATCHES) {
+    for (const snap of match.snaps || []) {
+      const loc = match.locations[snap.loc];
+      if (!loc) continue;
+      for (const seat of ["p1", "p2"]) {
+        const e = get(match.decks[seat], loc.cardId);
+        if (snap.at === "mustra") {
+          e.mus += 1;
+          e.musOwn += snap.totals[seat];
+          e.musFoe += snap.totals[other(seat)];
+        } else {
+          e.out += 1;
+          e.outOwn += snap.totals[seat];
+          e.outFoe += snap.totals[other(seat)];
+        }
+      }
+    }
+  }
+  for (const e of m.values()) {
+    e.mustraOwn = e.mus ? e.musOwn / e.mus : null;
+    e.mustraFoe = e.mus ? e.musFoe / e.mus : null;
+    e.endOwn = e.out ? e.outOwn / e.out : null;
+    e.endFoe = e.out ? e.outFoe / e.out : null;
+    // What the battle itself moved: the gap at the end, less the gap it opened
+    // with. Positive means this deck gained ground after the bodies were down.
+    e.swing =
+      e.mustraOwn === null || e.endOwn === null
+        ? null
+        : e.endOwn - e.endFoe - (e.mustraOwn - e.mustraFoe);
+  }
+  return m;
+})();
+
+/**
+ * Per (unit card, deck): what it was standing at, and whether it was still
+ * standing.
+ *
+ * Mortality is counted over instances, not tiles — a unit that was pushed,
+ * swapped or portalled is the same unit at the other end, and `u` is what says
+ * so. Anything that reached the checkout survived; anything at the Mustra and
+ * not at the checkout died on that field.
+ *
+ * Units that arrive *after* the Mustra — summoned, returned, portalled in — have
+ * no Mustra reading and are counted only where they appear. That is why the two
+ * samples are separate columns rather than one N.
+ */
+const unitLife = (() => {
+  const m = new Map();
+  const get = (card, deck) => {
+    const key = card + "|" + deck;
+    let e = m.get(key);
+    if (!e) { e = { card, deck, mus: 0, musSum: 0, out: 0, outSum: 0, tracked: 0, died: 0 }; m.set(key, e); }
+    return e;
+  };
+  for (const match of MATCHES) {
+    if (!match.snaps) continue;
+    // Pair the two photographs of each battlefield before reading either.
+    const byLoc = new Map();
+    for (const snap of match.snaps) {
+      const pair = byLoc.get(snap.loc) || {};
+      pair[snap.at] = snap;
+      byLoc.set(snap.loc, pair);
+    }
+    for (const pair of byLoc.values()) {
+      for (const u of (pair.mustra ? pair.mustra.units : [])) {
+        const e = get(u.c, match.decks[u.p]);
+        e.mus += 1;
+        e.musSum += u.w;
+      }
+      for (const u of (pair.checkout ? pair.checkout.units : [])) {
+        const e = get(u.c, match.decks[u.p]);
+        e.out += 1;
+        e.outSum += u.w;
+      }
+      if (!pair.mustra || !pair.checkout) continue;
+      const alive = new Set(pair.checkout.units.map((u) => u.u));
+      for (const u of pair.mustra.units) {
+        const e = get(u.c, match.decks[u.p]);
+        e.tracked += 1;
+        if (!alive.has(u.u)) e.died += 1;
+      }
+    }
+  }
+  for (const e of m.values()) {
+    e.mustraPower = e.mus ? e.musSum / e.mus : null;
+    e.endPower = e.out ? e.outSum / e.out : null;
+    e.mortality = e.tracked ? pct(e.died, e.tracked) : null;
+  }
+  return m;
+})();
+
+/**
+ * One record per cast: the spell, the unit that paid for it, the unit it landed
+ * on, and what the scoreboard did while it resolved.
+ *
+ * A cast is not one action. It is a `castSpell` and then the picks the spell
+ * asks for, and the picks carry the interesting part — the caster is a decision
+ * about spellpower and position, the target a decision about the board. Every
+ * one of them goes through a `ChoiceRequest` even when only one answer is legal,
+ * so grouping the picks reconstructs every cast rather than a subset.
+ *
+ * `swing` is the margin across the resolution, signed for the caster: how much
+ * ground the spell gained its own side. It is the honest measure of a cast,
+ * because a spell that takes power off a unit the enemy was never going to score
+ * with moves the scoreboard by nothing and should read as nothing.
+ */
+const castRecords = (() => {
+  const out = [];
+  for (const match of MATCHES) {
+    let cur = null;
+    const flush = () => { if (cur) out.push(cur); cur = null; };
+    for (const a of match.log) {
+      if (!a.sp || (a.t !== "chooseSlot" && a.t !== "chooseHandCard")) continue;
+      if (a.r === "caster") {
+        flush();
+        const loc = match.locations[a.loc];
+        cur = {
+          matchId: match.id, spell: a.sp, seat: a.p, deck: match.decks[a.p],
+          index: a.loc, loc: loc ? loc.cardId : null,
+          caster: a.o || null, target: null,
+          m0: a.m, m1: a.m2 === undefined ? a.m : a.m2,
+        };
+      } else if (cur && cur.spell === a.sp) {
+        if (a.r === "target") cur.target = a.o || null;
+        if (a.m2 !== undefined) cur.m1 = a.m2;
+      }
+    }
+    flush();
+  }
+  for (const c of out) {
+    c.swing = (c.m1 - c.m0) * (c.seat === "p1" ? 1 : -1);
+    const f = fieldByKey.get(c.matchId + "|" + c.seat + "|" + c.index);
+    c.won = f ? f.won : null;
+  }
+  return out;
+})();
+
+/** Per (spell, deck): who cast it, what it hit, and how the numbers move. */
+const spellCasts = (() => {
+  const m = new Map();
+  const get = (spell, deck) => {
+    const key = spell + "|" + deck;
+    let e = m.get(key);
+    if (!e) {
+      e = { spell, deck, n: 0, swing: 0, won: 0, decided: 0, byCaster: new Map(), byTarget: new Map() };
+      m.set(key, e);
+    }
+    return e;
+  };
+  const bump = (map, key) => {
+    let e = map.get(key);
+    if (!e) { e = { key, n: 0, swing: 0, won: 0, decided: 0 }; map.set(key, e); }
+    return e;
+  };
+  for (const c of castRecords) {
+    const e = get(c.spell, c.deck);
+    for (const slice of [e, bump(e.byCaster, c.caster || "—"), bump(e.byTarget, c.target || "—")]) {
+      slice.n += 1;
+      slice.swing += c.swing;
+      if (c.won !== null) { slice.decided += 1; if (c.won) slice.won += 1; }
+    }
+  }
+  const finish = (e) => {
+    e.meanSwing = e.n ? e.swing / e.n : null;
+    e.winRate = e.decided ? pct(e.won, e.decided) : null;
+    return e;
+  };
+  for (const e of m.values()) {
+    finish(e);
+    for (const slice of e.byCaster.values()) finish(slice);
+    for (const slice of e.byTarget.values()) finish(slice);
+    e.topCaster = [...e.byCaster.values()].sort((a, b) => b.n - a.n)[0] || null;
+    e.topTarget = [...e.byTarget.values()].sort((a, b) => b.n - a.n)[0] || null;
+  }
+  return m;
+})();
+
 const fieldStats = (() => {
   const m = new Map();
   for (const f of fieldRecords) {
@@ -524,6 +740,19 @@ const rateCell = (v) => {
   return el("span", {}, el("span", { class: "num" }, fmt(v) + "%"),
     el("span", { class: "bar" }, el("i", { style: `width:${Math.max(2, Math.min(100, v))}%` })));
 };
+/** A power figure, or a dash when the run predates the board snapshots. */
+const powerCell = (v, digits = 1) =>
+  v === null || v === undefined
+    ? el("span", { class: "dim" }, "–")
+    : el("span", { class: "num" }, fmt(v, digits));
+
+/** A signed figure where the sign is the point: swing, ground gained. */
+const swingCell = (v) =>
+  v === null || v === undefined
+    ? el("span", { class: "dim" }, "–")
+    : el("span", { class: "num " + (v > 0.25 ? "good" : v < -0.25 ? "bad" : "dim") },
+        (v > 0 ? "+" : "") + fmt(v));
+
 const deltaCell = (v) =>
   v === null || v === undefined
     ? el("span", { class: "dim" }, "–")
@@ -685,6 +914,23 @@ function cardsTab() {
   }
   rows = rows.filter((r) => r.on >= F.min);
 
+  // The board and the cast records answer different questions for the two kinds
+  // of card, so each row carries whichever of them applies to it.
+  rows = rows.map((r) => {
+    const life = unitLife.get(r.card + "|" + r.deck);
+    const cast = spellCasts.get(r.card + "|" + r.deck);
+    return {
+      ...r,
+      mustraPower: life ? life.mustraPower : null,
+      endPower: life ? life.endPower : null,
+      mortality: life ? life.mortality : null,
+      casts: cast ? cast.n : null,
+      meanSwing: cast ? cast.meanSwing : null,
+      topCaster: cast && cast.topCaster ? cast.topCaster : null,
+      topTarget: cast && cast.topTarget ? cast.topTarget : null,
+    };
+  });
+
   const out = el("div", { class: "panel" },
     el("h2", {}, "Cards",
       el("span", { class: "sub" }, F.loc ? "on " + nameOf(F.loc) : "across every battlefield")),
@@ -721,10 +967,42 @@ function cardsTab() {
       help: "reference only: it mostly reflects the deck" },
     { key: "avgIndex", label: "Avg field", cell: (r) => fmt(r.avgIndex, 1),
       help: "which of the six it tends to appear on" },
-  ], rows.map((r) => ({ ...r, name: r.info.name, cost: r.info.cost ?? 0 })), {
+    ...(F.kind === "spell" ? [] : [
+      { key: "mustraPower", label: "Power at Mustra", sep: true, cell: (r) => powerCell(r.mustraPower),
+        help: "mean computed power when the battle opened — statics and position in, printed number out" },
+      { key: "endPower", label: "Power at checkout", cell: (r) => powerCell(r.endPower),
+        help: "mean power when the field was decided, counting only the times it was still standing" },
+      { key: "mortality", label: "Mortality", cell: (r) =>
+        r.mortality === null ? el("span", { class: "dim" }, "–")
+          : el("span", { class: "num " + (r.mortality > 50 ? "bad" : "") }, fmt(r.mortality) + "%"),
+        help: "share of the times it stood at the Mustra and was gone by the checkout" },
+    ]),
+    ...(F.kind === "unit" ? [] : [
+      { key: "casts", label: "Casts", sep: true, cell: (r) =>
+        r.casts === null ? el("span", { class: "dim" }, "–") : r.casts,
+        help: "times this spell actually resolved" },
+      { key: "meanSwing", label: "Swing", cell: (r) => swingCell(r.meanSwing),
+        help: "mean margin the scoreboard moved in the caster's favour while it resolved" },
+      { key: "casterName", label: "Usual caster", l: true, cell: (r) => shareCell(r.topCaster, r.casts),
+        help: "the unit that paid for it most often, and that unit's share of its casts" },
+      { key: "targetName", label: "Usual target", l: true, cell: (r) => shareCell(r.topTarget, r.casts),
+        help: "the card it landed on most often, and that card's share of its casts" },
+    ]),
+  ], rows.map((r) => ({
+    ...r, name: r.info.name, cost: r.info.cost ?? 0,
+    casterName: r.topCaster ? nameOf(r.topCaster.key) : "",
+    targetName: r.topTarget ? nameOf(r.topTarget.key) : "",
+  })), {
     state: cardSort, onRow: (r) => openCard(r.card, r.deck),
   }));
   return out;
+}
+
+/** "Erif mester 62%" — the most common answer, and how dominant it is. */
+function shareCell(slice, total) {
+  if (!slice || !total) return el("span", { class: "dim" }, "–");
+  return el("span", {}, slice.key === "—" ? el("span", { class: "dim" }, "no target") : nameOf(slice.key),
+    " ", el("span", { class: "num dim" }, fmt(pct(slice.n, total), 0) + "%"));
 }
 
 /* -------------------------------------------------------------- synergy */
@@ -775,6 +1053,17 @@ function fieldsTab() {
   if (F.loc) rows = rows.filter((r) => r.loc === F.loc);
   const out = el("div", { class: "panel" },
     el("h2", {}, "Battlefields", el("span", { class: "sub" }, "how often each deck takes each field it reaches")),
+    el("div", {
+      class: "note",
+      html: HAS_SNAPS
+        ? "The four power columns are the board itself, photographed twice: at the <b>Mustra</b>, " +
+          "where the gathering is spent and the battle has not started, and at the <b>checkout</b>, " +
+          "the board the field was decided on. <b>Mine</b> and <b>theirs</b> are the same total read " +
+          "from the two seats. <b>Swing</b> is the gap at the end less the gap it opened with — a " +
+          "deck that arrives behind and leaves ahead is winning with spells, not with bodies."
+        : "This run predates the board snapshots, so the power columns are empty. Re-run with " +
+          "<b>--report</b> to fill them.",
+    }),
     filterBar(["deck", "loc"]));
   out.append(table([
     { key: "locName", label: "Battlefield", l: true, cell: (r) => nameOf(r.loc) },
@@ -784,7 +1073,24 @@ function fieldsTab() {
     { key: "rate", label: "Field win", key_: true, cell: (r) =>
       r.rate > 75 ? el("span", { class: "broken num" }, fmt(r.rate) + "%") : rateCell(r.rate) },
     { key: "voidRate", label: "Void", cell: (r) => el("span", { class: "num" }, fmt(r.voidRate) + "%") },
-  ], rows.map((r) => ({ ...r, locName: nameOf(r.loc) })), { state: fieldSort }));
+    { key: "mustraOwn", label: "Mustra mine", sep: true, cell: (r) => powerCell(r.mustraOwn),
+      help: "mean total power this deck had on the table when the battle opened" },
+    { key: "mustraFoe", label: "Mustra theirs", cell: (r) => powerCell(r.mustraFoe),
+      help: "and what was facing it at the same moment" },
+    { key: "endOwn", label: "Checkout mine", sep: true, cell: (r) => powerCell(r.endOwn),
+      help: "mean total power this deck was scored on when the field was decided" },
+    { key: "endFoe", label: "Checkout theirs", cell: (r) => powerCell(r.endFoe),
+      help: "and what it was scored against" },
+    { key: "swing", label: "Swing", cell: (r) => swingCell(r.swing),
+      help: "gap at the checkout minus gap at the Mustra: what the battle itself moved" },
+  ], rows.map((r) => {
+    const pw = powerStats.get(r.deck + "|" + r.loc) || {};
+    return {
+      ...r, locName: nameOf(r.loc),
+      mustraOwn: pw.mustraOwn ?? null, mustraFoe: pw.mustraFoe ?? null,
+      endOwn: pw.endOwn ?? null, endFoe: pw.endFoe ?? null, swing: pw.swing ?? null,
+    };
+  }), { state: fieldSort }));
   return out;
 }
 
@@ -884,6 +1190,54 @@ function openCard(cardId, deckId) {
       { key: "on", label: "Fields", cell: (x) => x.on },
       { key: "rate", label: "Field win", cell: (x) => rateCell(x.rate) },
     ], byOpp, { state: { key: "rate", dir: -1 } }));
+  }
+
+  const life = unitLife.get(cardId + "|" + deckId);
+  if (life && (life.mus || life.out)) {
+    body.append(el("h4", {}, "On the table"));
+    body.append(el("dl", { class: "kv" },
+      el("dt", {}, "Power at Mustra"), el("dd", {}, fmt(life.mustraPower) + `  (${life.mus} sightings)`),
+      el("dt", {}, "Power at checkout"), el("dd", {},
+        life.endPower === null ? "–" : fmt(life.endPower) + `  (${life.out} still standing)`),
+      el("dt", {}, "Mortality"), el("dd", { class: life.mortality > 50 ? "bad" : "" },
+        life.mortality === null ? "–" : fmt(life.mortality) + `%  (${life.died} of ${life.tracked})`),
+      el("dt", {}, "Printed"), el("dd", { class: "dim" }, String(info.power ?? "–"))));
+  }
+
+  /**
+   * What the spell was actually for.
+   *
+   * A spell's printed line says what it can do; these two tables say what it
+   * kept being pointed at, and whether pointing it there moved anything. A
+   * removal spell whose usual target is a two-power body it did not need to kill
+   * is a spell the deck is using as a cantrip.
+   */
+  const casting = spellCasts.get(cardId + "|" + deckId);
+  if (casting && casting.n) {
+    const sliceRows = (map) =>
+      [...map.values()].map((x) => ({ ...x, name: x.key === "—" ? "(none)" : nameOf(x.key),
+        share: pct(x.n, casting.n) }));
+    const sliceCols = (label) => [
+      { key: "name", label, l: true, cell: (x) => x.name },
+      { key: "n", label: "Casts", cell: (x) => x.n },
+      { key: "share", label: "Share", cell: (x) => el("span", { class: "num" }, fmt(x.share, 0) + "%") },
+      { key: "meanSwing", label: "Swing", cell: (x) => swingCell(x.meanSwing) },
+      { key: "winRate", label: "Field win", cell: (x) => rateCell(x.winRate) },
+    ];
+
+    body.append(el("h4", {}, "Casting"));
+    body.append(el("dl", { class: "kv" },
+      el("dt", {}, "Casts"), el("dd", {}, String(casting.n)),
+      el("dt", {}, "Mean swing"), el("dd", {},
+        (casting.meanSwing > 0 ? "+" : "") + fmt(casting.meanSwing) + " power, in the caster's favour")));
+
+    body.append(el("h4", {}, "By caster"));
+    body.append(table(sliceCols("Cast from"), sliceRows(casting.byCaster),
+      { state: { key: "n", dir: -1 }, limit: 20 }));
+
+    body.append(el("h4", {}, "By target"));
+    body.append(table(sliceCols("Landed on"), sliceRows(casting.byTarget),
+      { state: { key: "n", dir: -1 }, limit: 20 }));
   }
 
   const partners = synergies(Math.max(2, Math.round(F.synMin / 2)))

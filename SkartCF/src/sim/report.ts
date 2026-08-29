@@ -40,6 +40,60 @@ export interface ActionRecord {
   loc: number;
   /** p1's total minus p2's, before the action. The shape of the game. */
   m: number;
+  /**
+   * The same margin after the action landed. `m2 - m` is what this one decision
+   * moved, which is the only per-cast number that does not need the viewer to
+   * stitch a resolution back together out of the actions it spans.
+   */
+  m2?: number;
+  /**
+   * A resolution pick, described. `r` is which of the spell's questions was
+   * being answered — `caster`, `target` or `destination` — `sp` the spell that
+   * asked it, and `o` the card standing on the chosen tile *at the moment of
+   * choosing*, which is the only moment it is reliably still there: a target is
+   * often dead by the time the same action finishes applying.
+   *
+   * Every caster and target goes through `ChoiceRequest`, even when there is
+   * only one of them, so this is a complete record and not a sample.
+   */
+  r?: "caster" | "target" | "destination" | "handCard";
+  sp?: string;
+  o?: string;
+}
+
+/**
+ * The board, twice a battlefield.
+ *
+ * The action log says what was decided; it never says what any of it was worth
+ * on the table. Power is a computed quantity — statics, positions, auras, the
+ * battlefield's own modifiers — so a card's printed number is not what it was
+ * standing there as, and no amount of scanning the log recovers it.
+ *
+ * Two moments answer nearly every question anyone asks of a balance run: the
+ * Mustra, where the gathering's work is finished and the battle has not started
+ * spending it, and the checkout, where the field is decided. A unit in both is a
+ * unit that survived; a unit in the first and not the second is the mortality
+ * rate; the two totals are the swing the spells bought.
+ */
+export interface UnitSnapshot {
+  /** Tile. */
+  s: string;
+  /** Card id. */
+  c: string;
+  /** Whose. */
+  p: PlayerId;
+  /** Power as the scoreboard reads it: statics in, damage not (9.5.2). */
+  w: number;
+  /** Instance id, so a unit that moved is still the same unit at checkout. */
+  u: string;
+}
+
+export interface BoardSnapshot {
+  /** Which battlefield of the six. */
+  loc: number;
+  at: "mustra" | "checkout";
+  totals: { p1: number; p2: number };
+  units: UnitSnapshot[];
 }
 
 export interface MatchRecord {
@@ -56,6 +110,8 @@ export interface MatchRecord {
     totals?: { p1: number; p2: number };
   }[];
   log: ActionRecord[];
+  /** Two per battlefield reached: the Mustra board and the deciding one. */
+  snaps?: BoardSnapshot[];
 }
 
 export interface CardInfo {
