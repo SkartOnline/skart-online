@@ -300,13 +300,15 @@ describe("Álomfogó", () => {
     expect(guarded.fizzleShields.some((s) => s.maxCost <= 0 || s.maxCost >= 8)).toBe(true);
   });
 
-  it("is what Omnifex brings, and only Omnifex has no ceiling", () => {
+  it("has no ceiling, on the card or on Omnifex", () => {
     expect(getUnit("omnifex").belepo!.effects).toEqual([
       { kind: "fizzleShield", maxCost: 0, on: "caster" },
     ]);
-    // The card itself stops at five, so the big removal still gets through and
-    // a two-cost ward cannot blank an eight-cost spell.
-    expect(getSpell("alomfogo").effects).toEqual([{ kind: "fizzleShield", maxCost: 5 }]);
+    // The spell used to stop at five, so the expensive removal walked through
+    // it. The card text is "a következő őt érő varázslat hatástalan" — the next
+    // one, full stop — and `maxCost: 0` is how the effect says that.
+    expect(getSpell("alomfogo").effects).toEqual([{ kind: "fizzleShield", maxCost: 0 }]);
+    // The ceiling still exists for anything that wants one; nothing uses it.
     expect(getSpell("argeo").cost).toBeGreaterThan(5);
   });
 });
@@ -529,21 +531,22 @@ describe("Mustra sorrend", () => {
     state.players.p1.spellHand = [];
     state.players.p2.spellHand = [];
 
-    place(state, "bergyilkos", "p1.F1"); // kills the weakest weaker enemy in its column
+    // Two headsmen, revealed one after the other, each taking the strongest
+    // enemy on the board at the moment its own turn comes up.
+    place(state, "carnifex", "p1.F1");
     state.board["p1.F1"]!.faceDown = true;
-    place(state, "azman", "p2.F2"); // eats his own weakest ally, wherever it stands
-    state.board["p2.F2"]!.faceDown = true;
-    place(state, "patkany", "p2.F1"); // power 1: the assassin's mark, and Azman's
-    place(state, "felindori_ijasz", "p2.B3"); // power 3: next weakest thing p2 owns
+    place(state, "carnifex", "p1.F2");
+    state.board["p1.F2"]!.faceDown = true;
+    place(state, "felindori_ijasz", "p2.B3"); // power 3: the first one's mark
+    place(state, "patkany", "p2.F1"); // power 1: what is left for the second
 
     const after = runMustra(state);
-    // p1.E1 goes first and shoots the rat. By the time p2.E2 comes up the rat is
-    // gone, so Azman looks at the board in front of him and eats the archer
-    // instead. Reading a snapshot taken before the reveal would have aimed him
-    // at the rat and wasted the meal on a corpse.
-    expect(after.board["p2.F1"]).toBeNull();
+    // The first Carnifex takes the archer. By the time the second comes up the
+    // archer is gone, so it looks at the board in front of it and takes the rat
+    // instead. Reading a snapshot taken before the reveal would have aimed the
+    // second one at a corpse and wasted it.
     expect(after.board["p2.B3"]).toBeNull();
-    expect(after.board["p2.F2"]!.rings).toBe(4);
+    expect(after.board["p2.F1"]).toBeNull();
   });
 });
 

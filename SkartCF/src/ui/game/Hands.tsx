@@ -157,8 +157,23 @@ export function NearHand(
     lifted: string | null;
   },
 ) {
-  const { state, actor, held, setHeld, send, moves, viewer, onDrag, onDragTrap, onRead, lifted } =
-    props;
+  const {
+    state,
+    actor,
+    held,
+    setHeld,
+    send,
+    moves,
+    viewer,
+    onDrag,
+    onDragTrap,
+    onRead,
+    lifted,
+    veilNext,
+    setVeilNext,
+    staged,
+    setStaged,
+  } = props;
   const read = (uid: string) => (on: boolean) => onRead(on ? uid : null);
   const pending = state.resolution?.pending ?? null;
   const p = state.players[viewer];
@@ -181,6 +196,38 @@ export function NearHand(
   );
   const heldInHand = held ? p.unitHand.find((c) => c.uid === held.uid) : undefined;
   const heldCard = heldInHand ? getUnit(heldInHand.cardId) : undefined;
+
+  /**
+   * A card picked up, carrying the standing hide choice with it.
+   *
+   * The toll defaults to the first other unit in hand rather than to nothing.
+   * Somebody who has said "rejtve" has already decided to pay; asking which
+   * card pays before they have even chosen a tile is asking the small question
+   * before the big one. It stays changeable in the strip while the card is up.
+   */
+  const lift = (uid: string): Held => {
+    const hide = veilNext && veilable.has(uid);
+    return {
+      uid,
+      veiled: hide,
+      tollUid: hide ? (p.unitHand.find((c) => c.uid !== uid)?.uid ?? null) : null,
+    };
+  };
+  /** Is there any card in hand this turn that could be hidden at all? */
+  const canHideSomething = veilable.size > 0;
+
+  /**
+   * The hand as drawn: what is really in it, minus what is sitting in the
+   * discard box waiting to be confirmed.
+   *
+   * The staged cards have not been thrown — as far as the rules are concerned
+   * they are still held, and nothing has been sent — but a card that has
+   * visibly jumped out of the fan and into the box must not still be in the
+   * fan, or the player is looking at two of it.
+   */
+  const inBox = new Set(staged);
+  const unitFan = p.unitHand.filter((c) => !inBox.has(c.uid));
+  const spellFan = p.spellHand.filter((c) => !inBox.has(c.uid));
 
   const castable = new Set(
     moves.filter((m) => m.type === "castSpell").map((m) => (m as { uid: string }).uid),
@@ -299,36 +346,63 @@ export function NearHand(
         * card's two states are both named and visibly one of two. The toll
         * follows in the same strip when it is owed, which is the order the rule
         * puts them in: decide to hide, then pay for it. */}
-      {mine && unitsPhase && held && heldCard && (
-        <div className="toll">
-          <span className="label">{heldCard.name}</span>
+      {/* The standing choice, always there, next to the hand it governs.
+        *
+        * It used to be a pair of buttons that appeared inside the card strip
+        * *after* a card was picked up, which put the two decisions on screen in
+        * the opposite order to the one anybody makes them in: you decide you
+        * want something hidden, and then you decide what. Worse, the strip only
+        * exists while a card is held, so the setting had to be made again for
+        * every single unit, and a drag — the fastest way to play one — never
+        * showed it at all.
+        *
+        * Here it is a switch that sits beside the hand for the whole phase and
+        * says what will happen to the next unit you put down, whether you drop
+        * it or click it. Left where it was, the toll: which card pays is a
+        * detail about the card in your hand, so it belongs in the card's own
+        * strip. */}
+      {mine && unitsPhase && (
+        <div className="veil-toggle timber">
+          <span className="label">A következő egység</span>
           <span className="veilswitch">
             <button
-              className={held.veiled ? "tiny" : "tiny ember"}
-              onClick={() => setHeld({ ...held, veiled: false, tollUid: null })}
+              className={veilNext ? "tiny" : "tiny ember"}
+              aria-pressed={!veilNext}
+              onClick={() => {
+                setVeilNext(false);
+                if (held) setHeld({ ...held, veiled: false, tollUid: null });
+              }}
             >
               nyíltan
             </button>
             <button
-              className={held.veiled ? "tiny ember" : "tiny"}
+              className={veilNext ? "tiny ember" : "tiny"}
+              aria-pressed={veilNext}
               // Hiding costs a unit card off the same hand, so the last card in
               // it cannot pay for itself. The engine already says so by offering
               // no face-down move; this only has to not lie about it.
-              disabled={!veilable.has(held.uid)}
-              title={
-                veilable.has(held.uid) ? undefined : "Nincs mivel kifizetned a rejtést"
-              }
+              disabled={!canHideSomething}
+              title={canHideSomething ? undefined : "Nincs mivel kifizetned a rejtést"}
               onClick={() => {
-                const toll = p.unitHand.find((x) => x.uid !== held.uid);
-                setHeld({ ...held, veiled: true, tollUid: held.tollUid ?? toll?.uid ?? null });
+                setVeilNext(true);
+                if (held && veilable.has(held.uid)) {
+                  const toll = p.unitHand.find((x) => x.uid !== held.uid);
+                  setHeld({ ...held, veiled: true, tollUid: held.tollUid ?? toll?.uid ?? null });
+                }
               }}
             >
               rejtve
             </button>
           </span>
-          {held.veiled && (
+        </div>
+      )}
+
+      {mine && unitsPhase && held && heldCard && (
+        <div className="toll">
+          <span className="label">{heldCard.name}</span>
+          {held.veiled ? (
             <>
-              <span className="label">ára, eldobott egységlap:</span>
+              <span className="label">rejtve — ára, eldobott egységlap:</span>
               {p.unitHand
                 .filter((c) => c.uid !== held.uid)
                 .map((c) => (
@@ -341,6 +415,8 @@ export function NearHand(
                   </button>
                 ))}
             </>
+          ) : (
+            <span className="label dim">nyíltan</span>
           )}
         </div>
       )}
@@ -357,7 +433,7 @@ export function NearHand(
 
       <div className="hand-rail near">
         <div className={`hand-group${mine && (unitsPhase || cleanup) ? "" : " muted"}`}>
-          {p.unitHand.map((c, i) => {
+          {unitFan.map((c, i) => {
             const card: UnitCard = getUnit(c.cardId);
             const live = mine && unitsPhase && playable.has(c.uid);
             const toss = mine && cleanup && discardable.has(c.uid);
@@ -365,31 +441,22 @@ export function NearHand(
               <Slot
                 key={c.uid}
                 uid={c.uid}
-                style={arc(i, p.unitHand.length)}
+                style={arc(i, unitFan.length)}
                 playable={live || toss}
                 picked={held?.uid === c.uid}
                 lifted={lifted === c.uid}
                 onRead={read(c.uid)}
                 onClick={
                   toss
-                    ? () => send({ type: "toss", player: viewer, uid: c.uid })
+                    ? () => setStaged([...staged, c.uid])
                     : live
-                      ? () =>
-                          setHeld(
-                            held?.uid === c.uid
-                              ? null
-                              : { uid: c.uid, veiled: false, tollUid: null },
-                          )
+                      ? () => setHeld(held?.uid === c.uid ? null : lift(c.uid))
                       : undefined
                 }
                 // Pick the card up and drop it on a tile. Selecting the card is
                 // the same thing a click does, so the tiles light up either way
                 // and the two ways of playing share one code path.
-                onDragStart={
-                  live
-                    ? (e) => onDrag(e, { uid: c.uid, veiled: false, tollUid: null })
-                    : undefined
-                }
+                onDragStart={live ? (e) => onDrag(e, lift(c.uid)) : undefined}
               >
                 <CardFace card={card} />
               </Slot>
@@ -398,7 +465,7 @@ export function NearHand(
         </div>
 
         <div className={`hand-group${mine && !unitsPhase ? "" : " muted"}`}>
-          {p.spellHand.map((c, i) => {
+          {spellFan.map((c, i) => {
             const card: SpellCard = getSpell(c.cardId);
             const feed = mine && tossable.has(c.uid);
             const cast = mine && !channel && castable.has(c.uid);
@@ -407,14 +474,14 @@ export function NearHand(
               <Slot
                 key={c.uid}
                 uid={c.uid}
-                style={arc(i, p.spellHand.length)}
+                style={arc(i, spellFan.length)}
                 playable={feed || cast || drop}
                 lifted={lifted === c.uid}
                 onRead={read(c.uid)}
                 dead={mine && !unitsPhase && !cleanup && !feed && !cast}
                 onClick={
                   drop
-                    ? () => send({ type: "toss", player: viewer, uid: c.uid })
+                    ? () => setStaged([...staged, c.uid])
                     : feed
                       ? () => send({ type: "finishChannel", player: viewer, discardUid: c.uid })
                       : cast

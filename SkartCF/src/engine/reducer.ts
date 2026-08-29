@@ -191,8 +191,15 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
 
   // Leszerelés, 12.5: throw away as much of either hand as you like, then say
   // you are done. Neither is forced, and either hand is fair game.
+  // 12.5: "A két játékos egyszerre dönt." Leszerelés is not a turn — both
+  // players throw at once, out of their own hands, and neither decision touches
+  // the other. The engine used to gate it on `state.turn`, which made the two
+  // of them queue up; that was a bug against the rulebook, and it was invisible
+  // in hotseat because one screen can only ask one person at a time anyway.
+  // Online it is the difference between a step both players spend ten seconds
+  // on and a step each of them spends ten seconds watching the other do.
   if (state.phase === "cleanup") {
-    if (state.turn !== player || p.tossDone) return out;
+    if (p.tossDone) return out;
     for (const card of [...p.unitHand, ...p.spellHand]) {
       out.push({ type: "toss", player, uid: card.uid });
     }
@@ -314,7 +321,7 @@ export function applyAction(state: GameState, action: Action): GameState {
       }
       break;
     case "declareTossDone":
-      if (next.phase === "cleanup" && next.turn === action.player) {
+      if (next.phase === "cleanup") {
         next.players[action.player].tossDone = true;
         log(next, "Leszerelés: kész.", action.player);
       }
@@ -330,7 +337,7 @@ export function applyAction(state: GameState, action: Action): GameState {
  * every other discard is the price of something.
  */
 function doToss(state: GameState, action: Extract<Action, { type: "toss" }>): void {
-  if (state.phase !== "cleanup" || state.turn !== action.player) return;
+  if (state.phase !== "cleanup") return;
   const p = state.players[action.player];
   if (p.tossDone) return;
   for (const hand of [p.unitHand, p.spellHand]) {
@@ -583,8 +590,13 @@ export function settle(state: GameState): void {
   // already passed on in most cases; the question outlives it.
   if (state.prompts.length > 0) return;
 
-  // Leszerelés hands the turn to whoever still has cards to throw away, and ends
-  // when neither has anything left to say.
+  // Leszerelés ends when neither player has anything left to say.
+  //
+  // `turn` still moves off whoever has finished. Nothing in the rules reads it
+  // during this step any more — both players may act throughout — but the
+  // hotseat screen shows one player at a time and needs to know which, and a
+  // turn parked on somebody who is already done would show that player an
+  // empty panel while the other waited.
   if (state.phase === "cleanup") {
     if (PLAYERS.every((id) => state.players[id].tossDone)) {
       finishCleanup(state);

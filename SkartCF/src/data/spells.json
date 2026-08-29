@@ -1142,13 +1142,13 @@
     "effects": [
       {
         "kind": "fizzleShield",
-        "maxCost": 5
+        "maxCost": 0
       }
     ],
     "tags": [
       "Felszerelés"
     ],
-    "text": "Álomfogót adok egy szövetségesnek. A következő rá szálló, legfeljebb 5 költségű varázslat hatástalan."
+    "text": "Álomfogót adok egy szövetségesnek. A következő őt érő varázslat hatástalan."
   },
   {
     "id": "fedezek",
@@ -2025,23 +2025,27 @@
     "schools": [
       "Bestia"
     ],
-    "cost": 5,
+    "cost": 4,
     "rarity": "Ritka",
     "target": {
       "side": "enemy",
-      "range": 1
+      "range": 1,
+      "filter": {
+        "weakerThanCaster": true
+      }
     },
     "effects": [
       {
         "kind": "damage",
         "amount": 0,
-        "casterPowerDiv": 1
+        "source": "powerGap",
+        "minimum": 3
       }
     ],
     "tags": [
       "Támadás"
     ],
-    "text": "Eltaposok egy ellenséget. Az erőmmel egyenlő sebzést kap."
+    "text": "Eltaposok egy nálam gyengébb ellenséget. Annyi sebzést kap, amennyivel erősebb vagyok nála, de legalább 3-at."
   },
   {
     "id": "hydrairha",

@@ -1,10 +1,13 @@
 import {
   attachmentsOn,
+  canCast,
+  canMove,
   cardOf,
   coordLabel,
   getAttachment,
   getSpell,
   getUnit,
+  grantsOf,
   isBlocked,
   power,
   powerBreakdown,
@@ -241,7 +244,11 @@ function Cell({
     >
       <span className="coord">{coordLabel(slot)}</span>
       <Marks unit={unit} state={state} />
-      <CardTile card={card} power={power(unit, state)} />
+      <CardTile
+        card={card}
+        power={power(unit, state)}
+        status={<Status unit={unit} state={state} />}
+      />
     </button>
   );
 }
@@ -329,12 +336,7 @@ function Marks({ unit, state }: { unit: UnitInstance; state: GameState }) {
   const rings =
     unit.rings + attachmentsOn(unit).reduce((n, a) => n + (a.ring ? (a.powerDelta ?? 0) : 0), 0);
   const any =
-    unit.damage > 0 ||
-    unit.powerDelta !== 0 ||
-    rings !== 0 ||
-    unit.placed.length > 0 ||
-    unit.fizzleShields.length > 0 ||
-    unit.immunities.length > 0;
+    unit.damage > 0 || unit.powerDelta !== 0 || rings !== 0 || unit.placed.length > 0;
   if (!any) return null;
 
   return (
@@ -357,15 +359,87 @@ function Marks({ unit, state }: { unit: UnitInstance; state: GameState }) {
         </span>
       )}
       {unit.placed.length > 0 && <span className="scroll-count">✦{unit.placed.length}</span>}
-      {unit.fizzleShields.map((s, i) => (
-        <span className="bound" key={`f${i}`}>
-          ≤{s.maxCost}
-        </span>
-      ))}
-      {unit.immunities.map((school, i) => (
-        <span className="bound" key={`i${i}`}>
-          {school.slice(0, 3)}∅
-        </span>
+    </span>
+  );
+}
+
+/**
+ * What is true of a unit that none of its printed numbers say.
+ *
+ * These used to be split between nowhere and the corner marks: a fizzle shield
+ * showed up as a bare `≤5` floating over the art with no hint of what it meant,
+ * an immunity as three letters and a slashed circle, and the four states that
+ * actually decide whether you can *do* anything to a unit — asleep, rooted,
+ * untargetable, unkillable — showed up not at all. You had to know the board
+ * from the chronicle.
+ *
+ * So they are icons now, in the foot, in a fixed order so the same condition is
+ * always in the same place: what stops a spell first, then what stops a move,
+ * then what stops death. Everything carries a `title`, because a glyph nobody
+ * can name is a decoration.
+ *
+ * Ordered by how much they change your plan, not alphabetically. `locked` is
+ * first because it is all three at once.
+ */
+function Status({ unit, state }: { unit: UnitInstance; state: GameState }) {
+  const grants = grantsOf(state, unit);
+  const rooted = !canMove(unit, state);
+  const silenced = !canCast(unit, state);
+  const icons: { key: string; glyph: string; title: string; tone: string }[] = [];
+
+  // Jéghegy: frozen at the power it had, and nothing may touch it meanwhile.
+  if (unit.locked) {
+    icons.push({ key: "lock", glyph: "❄", title: `Jéghegy alatt (${unit.lockedPower})`, tone: "chill" });
+  }
+  // Álomfogó, and anything else that eats the next spell aimed here. `maxCost`
+  // of zero is the engine's way of writing "no ceiling", which is what the card
+  // actually says: a következő őt érő varázslat, full stop.
+  for (const [i, shield] of unit.fizzleShields.entries()) {
+    icons.push({
+      key: `fizzle${i}`,
+      glyph: "☾",
+      title:
+        shield.maxCost > 0
+          ? `Álomfogó: a következő legfeljebb ${shield.maxCost} költségű varázslat hatástalan`
+          : "Álomfogó: a következő őt érő varázslat hatástalan",
+      tone: "dream",
+    });
+  }
+  if (grants.spellImmune) {
+    icons.push({ key: "spellimmune", glyph: "⊘", title: "Varázslatra immunis", tone: "ward" });
+  }
+  for (const [i, school] of unit.immunities.entries()) {
+    icons.push({
+      key: `imm${i}`,
+      glyph: "◈",
+      title: `Immunis erre az iskolára: ${school}`,
+      tone: "ward",
+    });
+  }
+  if (grants.untargetable) {
+    icons.push({ key: "untarget", glyph: "◇", title: "Célozhatatlan", tone: "ward" });
+  }
+  if (grants.invulnerable) {
+    icons.push({ key: "invuln", glyph: "✜", title: "Sérthetetlen", tone: "ward" });
+  } else if (grants.cannotDie) {
+    // Not both: sérthetetlen already implies it, and two shields side by side
+    // read as two different things being true.
+    icons.push({ key: "nodie", glyph: "♱", title: "Nem eshet el", tone: "ward" });
+  }
+  if (rooted && !unit.locked) {
+    icons.push({ key: "rooted", glyph: "⛓", title: "Nem mozdítható", tone: "bind" });
+  }
+  if (silenced && !unit.locked) {
+    icons.push({ key: "silent", glyph: "✧", title: "Nem varázsolhat", tone: "bind" });
+  }
+
+  if (icons.length === 0) return null;
+  return (
+    <span className="tile-status">
+      {icons.map((icon) => (
+        <i key={icon.key} className={`status ${icon.tone}`} title={icon.title} aria-label={icon.title}>
+          {icon.glyph}
+        </i>
       ))}
     </span>
   );

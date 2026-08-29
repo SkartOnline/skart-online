@@ -110,10 +110,19 @@ export default function CardFace({ card, livePower, className }: Props) {
 export function CardTile({
   card,
   power,
+  status,
   children,
 }: {
   card: AnyCard;
   power?: number;
+  /**
+   * What is currently true of this unit that no number on the card says:
+   * asleep, unmovable, untargetable, sheltered. Handed in rather than worked
+   * out here, because that reading needs the whole `GameState` and this
+   * component is also drawn by the editor and the collection, where there is
+   * no game to read. `Board.tsx` builds it.
+   */
+  status?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   const art = artFor(card.id);
@@ -132,6 +141,10 @@ export function CardTile({
             </span>
           ))}
         </span>
+        {/* Between the casting pips and the power, which is the order the eye
+            already reads the foot in: what it can do, what is being done to
+            it, what it is worth. */}
+        {status}
         {isUnit(card) && <span className="tile-power num">{power ?? card.power}</span>}
         {isSpell(card) && card.target && <span className="tile-range num">{card.target.range}</span>}
       </span>

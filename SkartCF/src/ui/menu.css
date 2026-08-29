@@ -1,17 +1,22 @@
 /* ---------------------------------------------------------------- the menu */
 
-/* The table stays oak, and only the table.
+/* The front door, and it is not a table any more.
  *
- * `theme.css` explains why the chrome went neutral: oak panels on an oak table
- * meant every surface competed with every other one. The menu never got the
- * memo — its plate and its four doors were still oak on oak — so walking from
- * here into a match looked like changing games. The planking and the firelight
- * are what oak is still good at, so they stay; everything sitting on them is
- * `.timber` and metal now, exactly as it is on every other screen.
+ * The chrome went neutral and metallic everywhere else (see `theme.css`), and
+ * the menu was the last room still standing on brown planks. Oak behind steel
+ * buttons did not read as oak — it read as moulded plastic, because a flat
+ * mid-brown plane with a repeating seam in it is exactly what plastic looks
+ * like. There was nothing wrong with the buttons.
+ *
+ * So the ground is now the same near-black the panels are cut from, lit from
+ * one place: a low ember bloom behind the title, as if the room were lit by
+ * something off the bottom of the screen. Warmth stays — this is still Skart —
+ * but it arrives as light on a dark surface rather than as the colour of the
+ * surface itself, which is the difference between a lit room and a brown one.
  *
  * `--title-art` is an empty hook, the same way `--bf-texture` is one in
- * `game.css`: when the title painting exists it goes here, over the planks and
- * under the firelight, and nothing else has to change. */
+ * `game.css`: when the painting exists it drops in there, over the ground and
+ * under the firelight, and nothing else in this file has to change. */
 .hall {
   height: 100%;
   display: grid;
@@ -19,14 +24,67 @@
   position: relative;
   overflow: hidden;
   --title-art: none;
-  background-color: var(--oak);
+  background-color: #0b0c0e;
   background-image:
-    radial-gradient(120% 70% at 50% -14%, rgba(232, 129, 31, 0.3), transparent 62%),
-    radial-gradient(140% 110% at 50% 118%, rgba(0, 0, 0, 0.72), transparent 62%),
+    /* The crest's own glow, tight and warm, sitting behind the lettering. */
+    radial-gradient(58% 38% at 50% 26%, rgba(232, 129, 31, 0.16), transparent 68%),
+    /* A wider, cooler wash so the middle of the screen is not a black hole. */
+    radial-gradient(120% 82% at 50% 40%, rgba(126, 140, 152, 0.09), transparent 72%),
+    /* Firelight from below, which is what stops the ground reading as a wall. */
+    radial-gradient(90% 46% at 50% 104%, rgba(232, 129, 31, 0.13), transparent 70%),
     var(--title-art),
-    var(--planks);
-  background-size: auto, auto, cover, auto;
-  background-position: center, center, center, center;
+    /* Vignette last of the gradients: it has to sit over the light, not under. */
+    radial-gradient(128% 92% at 50% 46%, transparent 46%, rgba(0, 0, 0, 0.62));
+  background-size: auto, auto, auto, cover, auto;
+  background-position: center, center, center, center, center;
+}
+
+/* Tooth, not texture.
+ *
+ * A hair of noise over the whole ground. Large flat gradients band on cheap
+ * panels and read as plastic on good ones, and a fine speckle breaks both up
+ * for a few bytes. It is a separate layer rather than another background image
+ * so the painting can slide in above it without inheriting the grain. */
+.hall::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.4;
+  background-image:
+    repeating-linear-gradient(
+      37deg,
+      rgba(255, 255, 255, 0.012) 0 1px,
+      rgba(0, 0, 0, 0.02) 1px 2px,
+      transparent 2px 5px
+    ),
+    repeating-linear-gradient(
+      -51deg,
+      rgba(255, 255, 255, 0.01) 0 1px,
+      transparent 1px 4px
+    );
+}
+
+/* A cold hairline across the middle distance, level with the crest's foot.
+ *
+ * One horizontal rule is what turns a dark rectangle into a room with a floor
+ * in it. Fading at both ends so it never becomes a border. */
+.hall::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(198, 208, 214, 0.14) 22%,
+    rgba(232, 129, 31, 0.22) 50%,
+    rgba(198, 208, 214, 0.14) 78%,
+    transparent
+  );
 }
 
 .hall-inner {
@@ -49,7 +107,11 @@
   letter-spacing: 0.06em;
   font-variant-caps: small-caps;
   color: var(--tallow);
-  text-shadow: 0 0 48px rgba(232, 129, 31, 0.45);
+  /* Two shadows: a tight one that gives the letters an edge against the dark,
+     and the wide bloom that makes them the light source for the room. */
+  text-shadow:
+    0 2px 1px rgba(0, 0, 0, 0.55),
+    0 0 52px rgba(232, 129, 31, 0.4);
 }
 .crest-sub {
   margin-top: 6px;
@@ -65,6 +127,13 @@
   flex-direction: column;
   gap: 8px;
   padding: 14px;
+  /* The doors sit on their own plate, and the plate now has to hold its own
+     against a dark ground rather than against oak, so it is lit a shade more
+     than a plain `.timber` panel and carries a real shadow under it. */
+  background-color: var(--panel-lit);
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 /* Size and rhythm only. The lit top edge, the metal hairline, the hover and the
    press all come from the one `button` rule in `theme.css` — which is the whole

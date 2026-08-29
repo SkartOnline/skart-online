@@ -405,15 +405,29 @@ code {
   pointer-events: none;
   filter: drop-shadow(0 12px 26px rgba(0, 0, 0, 0.7));
   animation: loupe-opens 120ms ease-out both;
+
+  /* Sized and placed against the board rather than against the rail.
+   *
+   * A 3-wide board of portrait tiles cannot fill a 16:9 window however large
+   * the tiles get — the height runs out first, every time — so there is always
+   * a column of empty table between the board and each rail. That column is
+   * not waste, it is where you read a card, and the preview now takes it: as
+   * wide as the gap allows, centred in it, so the card sits *beside the unit
+   * it belongs to* instead of pinned against the furniture with a void in
+   * between.
+   *
+   * `--sidegap` and `--board-w` come from `.field` in `game.css`, which is
+   * also where the board decides how big it wants to be. */
+  --loupe-w: clamp(190px, calc(var(--sidegap, 220px) - 30px), 320px);
 }
 .loupe.mine {
-  right: calc(var(--rail) + 12px);
+  right: calc(var(--rail) + (var(--sidegap, 220px) - var(--loupe-w)) / 2);
 }
 .loupe.theirs {
-  left: calc(var(--rail) + 12px);
+  left: calc(var(--rail) + (var(--sidegap, 220px) - var(--loupe-w)) / 2);
 }
 .loupe .cardface {
-  --card-w: 190px;
+  --card-w: var(--loupe-w);
 }
 @keyframes loupe-opens {
   from {

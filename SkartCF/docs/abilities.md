@@ -97,14 +97,23 @@ during the battle phase.
 `advance`, `sacrificeStrike`, `forceAttack`, `modifySpellpower`,
 `revealHidden`, `clearPlaced`.
 
-The amount of `damage` can come four ways: `amount` is the fixed number;
+The amount of `damage` can come five ways: `amount` is the fixed number;
 `altAmount` + `altIf` is the second number when the condition holds for the
 targeted unit (Hátbaszúrás: 1, or 4 in the back row); `casterPowerDiv` derives
-it from the caster's power (Eltaposás: all of it); `source: "load"` counts what
-is already lying on the target — spells, damage markers and rings alike
-(Lélektűz). A `fizzleShield` with `maxCost: 0` means **no** cost limit, which
-now only Omnifex has; the Álomfogó card itself stops at 5, so the big removal
-still gets through.
+it from the caster's power; `source: "load"` counts what is already lying on
+the target — spells, damage markers and rings alike (Lélektűz); and
+`source: "powerGap"` is how far the caster's power overtops the target's
+(Eltaposás), never below zero. `minimum` floors whichever of those came out,
+which is what stops Eltaposás being a four-cost spell for one damage when the
+two are nearly matched.
+
+`powerGap` goes with `weakerThanCaster` on the target spec, the same filter
+Marcangolás uses: you trample things smaller than you, so a stronger enemy is
+not a legal target rather than a legal target that does the minimum.
+
+A `fizzleShield` with `maxCost: 0` means **no** cost limit, and both things
+that grant one — Omnifex and the Álomfogó card — write zero. The card text is
+"a következő őt érő varázslat hatástalan": the next one, whatever it cost.
 
 ### What the physical game rules out
 
@@ -237,7 +246,12 @@ The `scope: "trigger"` targeting points at the unit that caused the event.
 on the granter, and shows on the board with a ⊙ mark. Its sources: the
 `grantRing` effect (Bodur, Temetkezési vállalkozó, Szarvas, Hajnalmadár, Azman,
 Októ, Lélekszipoly, Vadász, Varjú, Fejvadász, Szerencsejátékos) and Vaskarom,
-which is a ring-flagged attachment.
+which is a ring-flagged attachment. `grantRing` also takes a `per`: `keyword`
+counts the matching allies on the board (Falkavezér), `graveyard` counts the
+pile (Csontvért), and `targets` counts what the ability actually reached —
+which is how a ring can be the *price* of something. Azman uses it: he pays +4
+for the unit he sacrifices, and standing in the back row with nothing behind
+him he sacrifices nothing and is paid nothing.
 
 ---
 

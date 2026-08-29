@@ -1080,7 +1080,8 @@
         {
           "kind": "discard",
           "cardKind": "both",
-          "count": 1
+          "count": 1,
+          "choose": true
         }
       ]
     },
@@ -1955,8 +1956,7 @@
     "race": "Bestia",
     "belepo": {
       "target": {
-        "scope": "allAlly",
-        "pick": "weakest"
+        "scope": "columnBackAlly"
       },
       "effects": [
         {
@@ -1965,14 +1965,15 @@
         {
           "kind": "grantRing",
           "amount": 4,
-          "on": "caster"
+          "on": "caster",
+          "per": "targets"
         }
       ]
     },
     "tags": [
       "beast"
     ],
-    "text": "Belépő: Megölök egy szövetséges egységet, hogy +4 erőt kapjak."
+    "text": "Belépő: Feláldozom a mögöttem álló egységet, hogy +4 erőt kapjak."
   },
   {
     "id": "kirkar",

@@ -71,6 +71,18 @@ export function frontOfSlot(slot: SlotId): SlotId | null {
 }
 
 /**
+ * The slot one step *away* from the centerline on my own side: what is standing
+ * behind me, in my own column. Azman reads this.
+ *
+ * The exact mirror of `frontOfSlot`, and null for the same reason in reverse —
+ * a unit already in the back row has nothing behind it.
+ */
+export function behindOfSlot(slot: SlotId): SlotId | null {
+  if (rowOfSlot(slot) !== "F") return null;
+  return slotId(ownerOfSlot(slot), "B", colOfSlot(slot));
+}
+
+/**
  * One step further up the column, from `owner`'s point of view, and it does not
  * stop at the centreline: own back → own front → enemy front → enemy back, then
  * nothing. Advancing is a move, and 8.4.5 lets a move land on either half, so a

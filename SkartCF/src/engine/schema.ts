@@ -340,9 +340,9 @@ export const EFFECT_SPECS: KindSpec[] = [
         type: "select",
         label: "Mennyiért jár",
         default: "once",
-        options: ["once", "keyword", "graveyard"],
+        options: ["once", "keyword", "graveyard", "targets"],
         help:
-          "A 'keyword' a táblán álló illeszkedő szövetségeseket számolja (Falkavezér), a 'graveyard' a temető lapjait, `perCount`-onként (Csontvért).",
+          "A 'keyword' a táblán álló illeszkedő szövetségeseket számolja (Falkavezér), a 'graveyard' a temető lapjait, `perCount`-onként (Csontvért). A 'targets' azt, hány célpontja lett a képességnek — ezzel a gyűrű az ára valaminek: nincs célpont, nincs gyűrű. Ez az Azman.",
       },
       { name: "keyword", type: "keyword", label: "Kulcsszó (per=keyword)", default: "" },
       {
@@ -405,9 +405,18 @@ export const EFFECT_SPECS: KindSpec[] = [
         type: "select",
         label: "Honnan jön a mennyiség",
         default: "flat",
-        options: ["flat", "load"],
+        options: ["flat", "load", "powerGap"],
         help:
-          "A 'load' a célponton fekvő lapokat számolja: minden ráhelyezett varázslat, minden sebzésjelölő és minden gyűrű egy sebzés. Ez a Lélektűz.",
+          "A 'load' a célponton fekvő lapokat számolja: minden ráhelyezett varázslat, minden sebzésjelölő és minden gyűrű egy sebzés. Ez a Lélektűz. A 'powerGap' az, amennyivel a varázsló erősebb a célpontnál — ez az Eltaposás, és a célzásnál a weakerThanCaster szűrő tartozik hozzá.",
+      },
+      {
+        name: "minimum",
+        type: "number",
+        label: "Alsó határ",
+        default: 0,
+        min: 0,
+        help:
+          "A kiszámolt mennyiség sosem lehet ennél kevesebb. Az Eltaposás 3-at ír ide: két egyforma erejű egység között is fáj.",
       },
       ON_FIELD,
     ],
@@ -672,6 +681,14 @@ export const EFFECT_SPECS: KindSpec[] = [
         default: 0,
         step: 1,
         help: "A Vadász 2-t kap egyért, a Varjú 1-et minden eldobottért.",
+      },
+      {
+        name: "choose",
+        type: "boolean",
+        label: "A játékos választja ki",
+        default: false,
+        help:
+          "Bekapcsolva a lap megkérdezi, mit dobjon el, ahelyett hogy a legolcsóbbat venné. A Chupacabra ezt írja be. Csak a saját kezére működik: az ellenfél kezéből dobatni továbbra is a legolcsóbbat viszi.",
       },
       { name: "optional", type: "boolean", label: "Nem kötelező", default: false },
     ],
@@ -1120,6 +1137,7 @@ export const AUTO_TARGET_SCOPES = [
   "diagonalAny",
   "columnEnemy",
   "columnFrontAlly",
+  "columnBackAlly",
   "trigger",
   "none",
 ] as const;

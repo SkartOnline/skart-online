@@ -126,6 +126,8 @@ export interface AutoTargetSpec {
     | "diagonalAny"
     | "columnEnemy"
     | "columnFrontAlly"
+    /** The ally directly behind, in my own column. */
+    | "columnBackAlly"
     /** The unit that fired the trigger, the mover, the unit that died. */
     | "trigger"
     | "none";

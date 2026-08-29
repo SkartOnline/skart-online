@@ -41,7 +41,7 @@ import { Battlefield, Annals, Tools, TurnCue } from "./LeftRail";
 import { Counters, Ledger } from "./RightRail";
 import type { Tracking } from "./RightRail";
 import { FarHand, NearHand, Reading } from "./Hands";
-import { Almanac, Coin, Curtain, Disarming } from "./Asking";
+import { Almanac, Coin, Curtain, Disarming, GravePortal } from "./Asking";
 import { Beacon, Spotlight } from "./Spotlight";
 import Prologue from "./Prologue";
 import { Chronicle, Aftermath } from "./Overlays";
@@ -58,6 +58,10 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   const [state, setState] = useState<GameState | null>(null);
   const [past, setPast] = useState<GameState[]>([]);
   const [held, setHeld] = useState<Held | null>(null);
+  /** The standing "next unit goes face down" choice; see `FieldProps`. */
+  const [veilNext, setVeilNext] = useState(false);
+  /** Leszerelés: chosen for the discard, not yet thrown; see `FieldProps`. */
+  const [staged, setStaged] = useState<string[]>([]);
   const [bare, setBare] = useState(false);
   const [fault, setFault] = useState<string | null>(null);
   const [botSide, setBotSide] = useState<PlayerId | null>(null);
@@ -171,10 +175,28 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
     setFault(null);
   }, []);
 
+  /**
+   * The two standing choices, dropped the moment they stop meaning anything.
+   *
+   * A staged discard belongs to one leszerelés and to one player: carrying it
+   * into the next battlefield would confirm a handful of cards that were chosen
+   * three turns ago. The hide switch is per-battlefield rather than per-card —
+   * it is a habit, not a decision about one unit — but a new board is a new
+   * plan, so it goes back to open.
+   */
+  useEffect(() => {
+    if (state?.phase !== "cleanup") setStaged([]);
+  }, [state?.phase, state?.turn, state?.locationIndex]);
+  useEffect(() => {
+    setVeilNext(false);
+  }, [state?.locationIndex]);
+
   /** Everything a fresh game clears, whichever way it was started. */
   function reset() {
     setPast([]);
     setHeld(null);
+    setVeilNext(false);
+    setStaged([]);
     setFault(null);
     setBeats([]);
     setShows([]);
@@ -490,23 +512,32 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   // An ability waiting on a pick answers before anything else, and not
   // necessarily on its own turn: a battlefield that hands both players a tutor
   // asks the second one while the first still holds the turn.
+  const seat = net ? net.seat : botSide ? other(botSide) : null;
   const actor: PlayerId | null = asking
     ? asking.player
     : pending
       ? pending.player
-      : state.phase === "units" ||
-          state.phase === "battle" ||
-          state.phase === "scored" ||
-          state.phase === "cleanup"
-        ? state.turn
-        : null;
+      : // 12.5 gives leszerelés to both players at once, and online each of them
+        // is sitting in front of their own screen — so each does their own
+        // rather than watching the other take a turn at it. Online only:
+        // hotseat is one screen and genuinely can only ask one person at a
+        // time, and against the machine the turn already alternates fast
+        // enough that changing it would be a change nobody asked for.
+        state.phase === "cleanup" && net && !state.players[net.seat].tossDone
+        ? net.seat
+        : state.phase === "units" ||
+            state.phase === "battle" ||
+            state.phase === "scored" ||
+            state.phase === "cleanup"
+          ? state.turn
+          : null;
 
   return (
     <Field
       state={state}
       actor={actor}
       botSide={botSide}
-      seat={net ? net.seat : botSide ? other(botSide) : null}
+      seat={seat}
       online={!!match}
       bot={bot}
       beats={beats}
@@ -516,6 +547,10 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       endPrologue={endPrologue}
       held={held}
       setHeld={setHeld}
+      veilNext={veilNext}
+      setVeilNext={setVeilNext}
+      staged={staged}
+      setStaged={setStaged}
       send={send}
       stepBack={stepBack}
       // Undo is a hotseat courtesy, and it does not survive a second player.
@@ -722,6 +757,31 @@ function Field(props: FieldProps) {
   const scoredAt = useRef(0);
   if (state.phase === "scored" && scoredAt.current === 0) scoredAt.current = Date.now();
   if (state.phase !== "scored" && scoredAt.current !== 0) scoredAt.current = 0;
+  /**
+   * When the Összesítés banner will actually be finished with the screen.
+   *
+   * Not the same thing as "3.6 s after the phase turned over", which is what
+   * the wait used to be measured from, and why the result kept being shoved off
+   * screen by the Leszerelés banner half-read. A step beat queues *behind*
+   * whatever is still playing — the scoring itself is deaths and draws and
+   * several seconds of it — so the banner carrying the totals routinely starts
+   * a second or two after the phase changed and is still up when the timer
+   * fires. `quiet` was supposed to cover that, but it is computed from the
+   * beats still in the list, and by then the banner may already have been
+   * pruned from it, leaving nothing to wait for.
+   *
+   * A ref, so the deadline survives the pruning: once we have seen the banner
+   * we know when it ends, whether or not it is still in the queue.
+   */
+  const scoredBannerEnds = useRef(0);
+  if (state.phase !== "scored" && scoredBannerEnds.current !== 0) scoredBannerEnds.current = 0;
+  useEffect(() => {
+    if (state.phase !== "scored") return;
+    for (const beat of props.beats) {
+      if (beat.kind !== "step" || !beat.totals) continue;
+      scoredBannerEnds.current = Math.max(scoredBannerEnds.current, beat.expiresAt);
+    }
+  }, [state.phase, props.beats]);
   useEffect(() => {
     if (state.phase !== "scored") return;
     // Across a room this effect is running on two machines, and the step is one
@@ -752,7 +812,13 @@ function Field(props: FieldProps) {
       ...props.beats.map((b) => b.expiresAt - Date.now()),
       ...props.shows.map((s) => s.expiresAt - Date.now()),
     );
-    const readAt = scoredAt.current + 3600;
+    // The later of "long enough to read" and "the banner has actually finished",
+    // plus a breath, so Leszerelés is announced after the result rather than
+    // over the top of it.
+    const readAt = Math.max(
+      scoredAt.current + 3600,
+      scoredBannerEnds.current > 0 ? scoredBannerEnds.current + 700 : 0,
+    );
     // Not zero: a step announced the instant the last card stops moving reads as
     // an interruption. This is the breath between the two.
     const settledAt = Date.now() + quiet + 700;
@@ -779,6 +845,32 @@ function Field(props: FieldProps) {
     () => (actor && (!props.online || actor === viewer) ? legalActions(state, actor) : []),
     [state, actor, props.online, viewer],
   );
+
+  /**
+   * Umbra: which of your dead may stand up again, right now.
+   *
+   * Read off `legalActions` rather than off the graveyard, so the cost cap,
+   * the blocked tiles and every placement rule have already been applied — the
+   * pile shows what can actually be played, not what is lying in it.
+   */
+  const [portalOpen, setPortalOpen] = useState(false);
+  const risen = useMemo(() => {
+    if (state.phase !== "units" || actor !== viewer) return [];
+    const playable = new Set(
+      moves.filter((m) => m.type === "playUnit").map((m) => (m as { uid: string }).uid),
+    );
+    const seen = new Set<string>();
+    return state.players[viewer].discard.filter((c) => {
+      if (!playable.has(c.uid) || seen.has(c.uid)) return false;
+      seen.add(c.uid);
+      return true;
+    });
+  }, [state, moves, viewer, actor]);
+  // A pile that has emptied — the last body played, the phase over — must not
+  // leave an open panel hanging over the board.
+  useEffect(() => {
+    if (risen.length === 0 && portalOpen) setPortalOpen(false);
+  }, [risen.length, portalOpen]);
 
   const open = useMemo(() => {
     const set = new Set<SlotId>();
@@ -1089,13 +1181,53 @@ function Field(props: FieldProps) {
       {/* Szerencsejátékos' coin, and the question that follows a win. */}
       <Coin shows={shows} prompt={coinAsking} send={send} />
 
+      {/* Umbra's grave portal. Only when there is something in it to raise. */}
+      {risen.length > 0 && (
+        <GravePortal
+          cards={risen}
+          open={portalOpen}
+          onToggle={() => setPortalOpen((o) => !o)}
+          held={held?.uid ?? null}
+          onPick={(uid) => {
+            // Same shape a hand card produces, so the tiles light and the drop
+            // commits through exactly the same path. A body cannot be buried
+            // again on the way in, so it is never veiled.
+            setHeld(held?.uid === uid ? null : { uid, veiled: false, tollUid: null });
+            setPortalOpen(false);
+          }}
+          onDrag={(e, uid) => {
+            setPortalOpen(false);
+            startDrag(e, { uid, veiled: false, tollUid: null });
+          }}
+        />
+      )}
+
       {/* Leszerelés: a real decision, so it gets a real panel. */}
       {disarming && actor && (
         <Disarming
           kept={
-            state.players[actor].unitHand.length + state.players[actor].spellHand.length
+            state.players[actor].unitHand.length +
+            state.players[actor].spellHand.length -
+            props.staged.length
           }
-          onDone={() => send({ type: "declareTossDone", player: actor })}
+          staged={props.staged
+            .map((uid) =>
+              [...state.players[actor].unitHand, ...state.players[actor].spellHand].find(
+                (c) => c.uid === uid,
+              ),
+            )
+            .filter((c): c is { uid: string; cardId: string } => !!c)}
+          onReturn={(uid) => props.setStaged(props.staged.filter((u) => u !== uid))}
+          // One gesture, one run of actions: every throw, then the declaration
+          // that ends the step. `send` already folds a run into a single visible
+          // beat, and across a room the host validates each one against the
+          // position the one before it produced.
+          onDone={() =>
+            send([
+              ...props.staged.map((uid) => ({ type: "toss" as const, player: actor, uid })),
+              { type: "declareTossDone" as const, player: actor },
+            ])
+          }
         />
       )}
 

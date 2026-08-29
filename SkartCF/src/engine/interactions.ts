@@ -17,6 +17,7 @@ import type {
   Trap,
   UnitInstance,
 } from "./types";
+import { SIDE_NAME } from "./types";
 
 /**
  * What happens once an ability has been answered, plus the two zones the rules
@@ -136,6 +137,39 @@ export const PROMPT_HANDLERS: Record<string, PromptHandler> = {
       cardIds: taken,
       sourceCardId: prompt.sourceCardId,
     });
+  },
+
+  /**
+   * Chupacabra: the card you decided to lose, rather than the cheapest one you
+   * were holding.
+   *
+   * The pick can come out of either hand — `cardKind: "both"` offers units and
+   * spells in one list — so the card is looked for in both rather than in one
+   * named pile. `ringPer` rides along because Vadász and Varjú pay for what
+   * they throw, and a chosen discard has to pay the same as an automatic one.
+   */
+  discardChoice(state, prompt, log) {
+    const player = prompt.player;
+    const p = state.players[player];
+    const thrown: string[] = [];
+    for (const uid of prompt.chosen) {
+      const card = takeByUid(p.unitHand, uid) ?? takeByUid(p.spellHand, uid);
+      if (!card) continue;
+      p.discard.push(card);
+      thrown.push(card.cardId);
+    }
+    if (thrown.length === 0) return;
+    log(`${SIDE_NAME[player]} eldobja: ${thrown.map(nameOf).join(", ")}.`);
+
+    const ringPer = Number(prompt.data?.ringPer ?? 0);
+    const sourceUid = prompt.data?.sourceUid;
+    if (ringPer !== 0 && typeof sourceUid === "string") {
+      const source = ALL_SLOTS.map((s) => state.board[s]).find((u) => u && u.uid === sourceUid);
+      if (source) {
+        source.rings += ringPer * thrown.length;
+        log(`${cardOf(source).name} +${ringPer * thrown.length} gyűrűt kap.`);
+      }
+    }
   },
 
   /**

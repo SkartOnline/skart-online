@@ -98,6 +98,30 @@ export interface FieldProps {
   endPrologue: () => void;
   held: Held | null;
   setHeld: (h: Held | null) => void;
+  /**
+   * Whether the next unit put down goes face down.
+   *
+   * A standing choice rather than a question asked after the fact. 6.5 makes
+   * hiding a decision about the card you are *about* to play, and the old
+   * control only appeared once a card was already picked up — so the order on
+   * screen was pick, then decide, when the thinking runs the other way. Kept
+   * here rather than inside the hand because dropping a card on a tile is a
+   * drag that starts in one component and ends in another, and both ends have
+   * to agree about what was intended.
+   */
+  veilNext: boolean;
+  setVeilNext: (v: boolean) => void;
+  /**
+   * Leszerelés, staged: cards chosen for the discard but not yet thrown.
+   *
+   * 12.5 lets you throw away as much as you like, and the engine takes them one
+   * at a time — which meant one misclick was a card gone, with no undo online
+   * and no undo worth having offline. Nothing is sent until the whole handful
+   * is confirmed, so this is a list of uids that are still, as far as the rules
+   * are concerned, in your hand.
+   */
+  staged: string[];
+  setStaged: (uids: string[]) => void;
   send: (a: Action | Action[]) => void;
   stepBack: () => void;
   canStepBack: boolean;

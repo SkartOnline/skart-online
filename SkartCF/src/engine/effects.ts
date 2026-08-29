@@ -5,6 +5,7 @@ import {
   diagonalNeighbours,
   distance,
   forwardOf,
+  behindOfSlot,
   frontOfSlot,
   opponentOf,
   opposedSlot,
@@ -432,6 +433,12 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     } else if (per === "graveyard") {
       const step = Math.max(1, Number(effect.perCount ?? 1));
       amount *= Math.floor(ctx.state.players[ctx.controller].discard.length / step);
+    } else if (per === "targets") {
+      // The ring is the price of something, so it is only paid for what the
+      // ability actually reached. Azman standing in the back row has nothing
+      // behind him to sacrifice, and a sacrifice that never happened does not
+      // buy +4.
+      amount *= targets.length;
     }
     const cap = Number(effect.max ?? 0);
     if (cap > 0) amount = Math.min(amount, cap);
@@ -473,6 +480,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     const scaled =
       div > 0 && ctx.source ? Math.ceil(power(ctx.source, ctx.state) / div) : flat;
     const altIf = effect.altIf ? (String(effect.altIf) as StaticCondition) : null;
+    const floor = Number(effect.minimum ?? 0);
     for (const unit of targetUnits(ctx, effect, targets)) {
       let amount = scaled;
       // Lélektűz burns whatever is already weighing the unit down: every spell
@@ -480,10 +488,18 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
       if (effect.source === "load") {
         amount = unit.placed.length + unit.damageMarks.length + unit.rings;
       }
+      // Eltaposás: how far the caster overtops the target. You trample things
+      // smaller than you, so it only ever runs one way — the target spec's
+      // `weakerThanCaster` is what enforces that, and the clamp here is the
+      // belt to its braces, because the filter compares printed power while
+      // this reads the live value and a buff can put them briefly at odds.
+      if (effect.source === "powerGap" && ctx.source) {
+        amount = Math.max(0, power(ctx.source, ctx.state) - power(unit, ctx.state));
+      }
       if (altIf && conditionHolds(ctx.state, unit, altIf, Number(effect.ifValue ?? 0))) {
         amount = Number(effect.altAmount ?? amount);
       }
-      applyDamage(ctx, unit, amount);
+      applyDamage(ctx, unit, Math.max(floor, amount));
     }
   },
 
@@ -826,6 +842,43 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     const keyword = effect.keyword ? String(effect.keyword) : undefined;
     const ringPer = Number(effect.ringPer ?? 0);
     for (const player of sidesFor(ctx, String(effect.who ?? "self"))) {
+      /**
+       * Chupacabra, with the player's eyes open.
+       *
+       * The rule below takes the cheapest card in hand, which is the right
+       * answer for a card that makes somebody *else* discard — the victim does
+       * not get to be asked, and the simulator needs a deterministic answer.
+       * It is the wrong answer for "dobj el egy lapot", where choosing what to
+       * lose is the entire decision the card is asking you to make.
+       *
+       * Only ever for the player's own hand, and only when there is a real
+       * choice to make: one eligible card is not a question.
+       */
+      if (effect.choose === true && player === ctx.controller) {
+        const kinds = kind === "both" ? ["unit", "spell"] : [kind];
+        const offer = kinds.flatMap((k) =>
+          handOf(ctx.state, player, k).filter((c) => {
+            if (!keyword || k !== "unit") return true;
+            const card = tryUnit(c.cardId);
+            return !!card && keywordMatches(cardKeywords(card), keyword);
+          }),
+        );
+        const take = wanted < 0 ? offer.length : Math.min(wanted, offer.length);
+        if (take > 0 && offer.length > take) {
+          askPrompt(ctx.state, {
+            kind: "discardChoice",
+            player,
+            prompt: take > 1 ? `Dobj el ${take} lapot` : "Dobj el egy lapot",
+            picking: "card",
+            cards: offer,
+            min: effect.optional === true ? 0 : take,
+            max: take,
+            data: { ringPer, sourceUid: ctx.source?.uid },
+            sourceCardId: ctx.source ? ctx.source.cardId : undefined,
+          });
+          continue;
+        }
+      }
       const kinds = kind === "both" ? ["unit", "spell"] : [kind];
       let discarded = 0;
       for (const k of kinds) {
@@ -1681,6 +1734,11 @@ export function resolveAutoTargets(
     case "columnFrontAlly": {
       const front = frontOfSlot(source.slot);
       slots = front ? [front] : [];
+      break;
+    }
+    case "columnBackAlly": {
+      const back = behindOfSlot(source.slot);
+      slots = back ? [back] : [];
       break;
     }
     default:

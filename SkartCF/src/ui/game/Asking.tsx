@@ -1,6 +1,15 @@
 import { useState } from "react";
 import { promptSatisfied } from "../../engine";
-import type { Action, LocationCard, PlayerId, Prompt, Reveal, SpellCard, UnitCard } from "../../engine";
+import type {
+  Action,
+  HandCard,
+  LocationCard,
+  PlayerId,
+  Prompt,
+  Reveal,
+  SpellCard,
+  UnitCard,
+} from "../../engine";
 import CardFace from "../card/CardFace";
 import { cardFor, isSpellCard, tryLocation } from "./common";
 
@@ -145,25 +154,151 @@ export function Almanac({
  * It sits above the board and never over the hands, because the hands are what
  * the question is about.
  */
+/**
+ * Umbra's grave portal.
+ *
+ * Umbra says the graveyard is an extension of your hand, and the engine has
+ * always agreed: `playablePile` offers those units and `takeFromPile` pulls
+ * them out. What was missing was anywhere to *click* — the hand rail draws
+ * `unitHand` and nothing else, so on Umbra the tiles lit up for units that
+ * existed nowhere on screen, and the battlefield did nothing at all.
+ *
+ * A pile beside the board rather than more cards in the fan. The graveyard is
+ * a pile, it is usually far larger than a hand, and folding a dozen dead units
+ * into the arc would bury the cards you are actually holding. Closed it is a
+ * count; open it is the pile, face up, and picking one out of it is the same
+ * gesture as picking one out of your hand — click it, or drag it onto a tile.
+ *
+ * Only ever your own graveyard, and only the units that are legal right now:
+ * the list comes from `legalActions`, so the cost cap and the placement rules
+ * have already had their say.
+ */
+export function GravePortal({
+  cards,
+  open,
+  onToggle,
+  onPick,
+  onDrag,
+  held,
+}: {
+  cards: HandCard[];
+  open: boolean;
+  onToggle: () => void;
+  onPick: (uid: string) => void;
+  onDrag: (event: React.PointerEvent, uid: string) => void;
+  /** The uid currently picked up, so the pile can show which one it is. */
+  held: string | null;
+}) {
+  return (
+    <div className={`portal${open ? " open" : ""}`}>
+      <button
+        className="portal-tab timber"
+        onClick={onToggle}
+        aria-expanded={open}
+        title="Umbra: a temetőből is kijátszhatsz egységeket"
+      >
+        <span className="portal-glyph">⚱</span>
+        <span className="portal-count num">{cards.length}</span>
+        <span className="portal-word">temető</span>
+      </button>
+
+      {open && (
+        <div className="portal-pile timber">
+          <b>A temetődből kijátszható</b>
+          <div className="portal-cards">
+            {cards.map((c) => {
+              const card = cardFor(c.cardId);
+              if (!card) return null;
+              return (
+                <button
+                  key={c.uid}
+                  className={`portal-card${held === c.uid ? " taken" : ""}`}
+                  // The flight capture looks for this attribute, so a unit
+                  // rising out of the graveyard flies to its tile exactly the
+                  // way one leaving the hand does.
+                  data-hand-uid={c.uid}
+                  onClick={() => onPick(c.uid)}
+                  onPointerDown={(e) => onDrag(e, c.uid)}
+                >
+                  <CardFace card={card} />
+                </button>
+              );
+            })}
+          </div>
+          <span className="portal-note">
+            Válassz egyet, aztán tedd le egy mezőre.
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Disarming({
   kept,
+  staged,
+  onReturn,
   onDone,
 }: {
-  /** How many cards are still in both hands, so the panel can count down. */
+  /** How many cards would be left in both hands if this went through. */
   kept: number;
+  /** Chosen for the fire, not yet in it. */
+  staged: { uid: string; cardId: string }[];
+  onReturn: (uid: string) => void;
   onDone: () => void;
 }) {
   return (
     <div className="disarming timber">
       <b>Leszerelés</b>
-      <em>Dobj el, amennyit akarsz mindkét kezedből, aztán húzz vissza hétig.</em>
+      <em>Válaszd ki, mit dobsz el mindkét kezedből, aztán húzz vissza hétig.</em>
+
+      {/* The box, and it is a real box: cards go in, and cards come back out.
+        *
+        * Throwing used to happen on the click — one action per card, straight
+        * into the graveyard, irreversible. That made a misclick a card, and 12.5
+        * is the one moment in the game where you are clicking quickly through
+        * your own hand, which is exactly when misclicks happen. There is no undo
+        * across a room, and the undo there was offline unwound the whole turn.
+        *
+        * So nothing is thrown until the whole handful is confirmed. Until then
+        * the cards sit here, and pointing at one puts it back where it came
+        * from. The rules have not moved: this is still one `toss` per card, all
+        * of them sent at the moment you press the button. */}
+      <div className={`disarming-box${staged.length === 0 ? " empty" : ""}`}>
+        {staged.length === 0 ? (
+          <span className="disarming-empty">
+            Ide kerülnek az eldobandó lapok. Kattints rájuk a kezedben.
+          </span>
+        ) : (
+          staged.map((card) => {
+            const name = cardFor(card.cardId)?.name ?? card.cardId;
+            return (
+              <button
+                key={card.uid}
+                className="disarming-card"
+                title={`${name} — vissza a kezedbe`}
+                onClick={() => onReturn(card.uid)}
+              >
+                {name}
+              </button>
+            );
+          })
+        )}
+      </div>
+
       <span className="disarming-count num">
-        {kept} <i>lap a kézben</i>
+        {kept} <i>lap marad a kézben</i>
       </span>
       <button className="ember" onClick={onDone}>
-        Kész, húzz fel
+        {staged.length === 0
+          ? "Nem dobok el semmit"
+          : `Eldobom (${staged.length}), és húzok`}
       </button>
-      <span className="disarming-note">Eldobni semmit nem kötelező.</span>
+      <span className="disarming-note">
+        {staged.length === 0
+          ? "Eldobni semmit nem kötelező."
+          : "A dobozból bármit visszavehetsz, amíg nem nyomtál gombot."}
+      </span>
     </div>
   );
 }

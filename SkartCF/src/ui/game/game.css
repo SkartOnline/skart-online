@@ -5,6 +5,41 @@
    while a column down the side costs it nothing. */
 .field {
   --rail: 164px;
+
+  /* How big one tile is, and therefore how big everything is.
+   *
+   * The height a board costs, measured rather than guessed. A tile is a 4:3 art
+   * window with the name inside it and a foot under it, so four rows come to
+   * `4 × (0.75 · tile + foot) + 25` for the gaps and the frontline rule — which
+   * is `3 · tile` plus about 135px of feet and furniture at the sizes that
+   * actually occur. What the hands cover is another 160: sixty of card backs
+   * over the top edge, a hundred of near hand over the bottom.
+   *
+   * Hence `(100dvh - 325px) / 3`, and the two terms now divide by the same
+   * number because they are measuring the same three tiles.
+   *
+   * The old constant was `(100dvh - 404px) / 3`. It never overflowed — it
+   * simply reserved about 80px more than the hands take, at every size, and
+   * that reserve was a bigger share of the budget the shorter the window got.
+   * This is 16–26% wider at every window size between 720 and 1440, which is
+   * a third again in area, and still clears both hands at all of them.
+   *
+   * The width term still binds on a short, wide window. The floor is a tile
+   * that can hold a piece of art; the ceiling stops a board on a very tall
+   * screen from becoming furniture. */
+  --tile: clamp(
+    112px,
+    min(
+      calc((100vw - 2 * var(--rail) - 48px) / 3),
+      calc((100dvh - 325px) / 3)
+    ),
+    380px
+  );
+  /* The board's own width, and the empty column left beside it. The card
+     preview reads both: it lives in that column and is sized to fill it. */
+  --board-w: calc(3 * var(--tile) + 10px);
+  --sidegap: max(0px, calc((100vw - 2 * var(--rail) - var(--board-w)) / 2));
+
   position: relative;
   height: 100dvh;
   overflow: hidden;
@@ -522,12 +557,8 @@
 /* Four rows of tiles plus the centre line have to clear both hands. Solving
    that for the tile width is what the dvh term is: 3*tile + chrome <= height. */
 .grids {
-  /* Bigger than it was, and it has room to be: the rail is leaner and the dead
-     band under the board is gone. The dvh term is the same solve as before —
-     three tiles plus the chrome has to clear both hands — recomputed for the
-     new padding, and the floor is raised because a tile that has to hold a
-     piece of art is not a 88px thumbnail. */
-  --tile: clamp(104px, min(calc((100vw - 2 * var(--rail) - 40px) / 3), calc((100dvh - 404px) / 3)), 340px);
+  /* `--tile` is set on `.field`, not here: the card preview beside the board
+     has to know how wide the board came out in order to sit next to it. */
   display: grid;
   grid-template-rows: auto auto auto;
   justify-content: center;
@@ -691,7 +722,58 @@
 }
 .tile-foot .cf-pips {
   font-size: 13px;
-  flex: 1;
+  flex: 0 0 auto;
+}
+
+/* What is being done to a unit, between what it can do and what it is worth.
+ *
+ * Glyphs rather than words because the foot of a tile is twenty pixels tall and
+ * there may be four of them; every one carries a `title`, which is where the
+ * words went. Coloured by family, not by card: anything that wards a spell off
+ * is the same cold silver, anything that binds is rust, sleep is violet, ice is
+ * ice. Four colours you learn once beat eleven you look up. */
+.tile-status {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+.tile-status .status {
+  font-style: normal;
+  line-height: 1;
+  font-size: clamp(10px, calc(var(--tile) / 12), 17px);
+  /* A disc behind each one, so a glyph never sits directly on the art's
+     contrast and vanish into it. */
+  padding: 1px 2px;
+  border-radius: 3px;
+  background: rgba(8, 6, 4, 0.55);
+  cursor: help;
+}
+.tile-status .chill {
+  color: var(--frost);
+  text-shadow: 0 0 7px rgba(122, 176, 208, 0.5);
+}
+.tile-status .dream {
+  color: #b39ae0;
+  text-shadow: 0 0 7px rgba(179, 154, 224, 0.45);
+}
+.tile-status .ward {
+  color: var(--metal);
+}
+.tile-status .bind {
+  color: #c08a52;
+}
+
+/* On a small tile the icons are the first thing to go: the power and the
+   casting cost are the numbers the rules are played with, and a row of glyphs
+   squeezing them is worse than no glyphs. The card is one hover away. */
+@media (max-height: 700px) {
+  .tile-status {
+    display: none;
+  }
 }
 .tile-power,
 .tile-range {
@@ -1271,6 +1353,42 @@
 }
 .toll button {
   pointer-events: auto;
+}
+.toll .dim {
+  color: var(--ash-dim);
+}
+
+/* The standing hide switch, parked beside the hand it governs.
+ *
+ * Beside rather than above: it is not about the card you are holding, it is
+ * about the next one you put down, so it must not move or vanish as cards come
+ * and go. It sits at the inner edge of the right rail, level with the hand,
+ * which is the one piece of table nothing else ever wants. */
+.veil-toggle {
+  position: absolute;
+  right: calc(var(--rail) + 10px);
+  bottom: 128px;
+  z-index: 14;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  padding: 7px 9px;
+  pointer-events: auto;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+.veil-toggle .label {
+  font-size: 11px;
+  text-align: center;
+  color: var(--ash-dim);
+}
+.veil-toggle .veilswitch {
+  display: flex;
+  gap: 4px;
+}
+.veil-toggle .veilswitch button {
+  flex: 1;
+  white-space: nowrap;
 }
 
 /* ---------------------------------------------------------------- theatre */
@@ -1971,6 +2089,15 @@ body.dragging-card {
   gap: 8px;
   width: 100%;
 }
+/* The button keeps its label.
+ *
+ * As a flex item next to a `flex: 1` input it was free to shrink below its own
+ * text, and "Csatlakozás" is a long word — so the one control that has to be
+ * pressed to get into a room was the one with its end cut off. */
+.lobby-join button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
 .lobby-code {
   flex: 1;
   text-align: center;
@@ -2014,6 +2141,19 @@ body.dragging-card {
    leaving and one for starting, and they never compete for the same corner. */
 .lobby-foot {
   width: 100%;
+}
+
+/* No scrollbar on the door screen.
+ *
+ * `.casket` caps itself and scrolls, which is right for the deck lists in the
+ * room and wrong for the three controls on the way in: the box was short enough
+ * to need no scrolling and tall enough to get a scrollbar anyway, which clipped
+ * the join button against the bottom edge. The door sizes to its contents; only
+ * the room, where a long deck list really can outgrow the screen, keeps the
+ * cap. */
+.casket.lobby-door {
+  max-height: none;
+  overflow: visible;
 }
 .tail .grow {
   flex: 1;
@@ -2781,6 +2921,152 @@ body.dragging-card {
     0 24px 56px rgba(0, 0, 0, 0.82);
   animation: coin-panel-opens 260ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
 }
+/* ------------------------------------------------------------ grave portal */
+
+/* Umbra's graveyard, beside the board.
+ *
+ * Mirrors the hide switch on the other side: same height, same distance in from
+ * the rail, so the two standing controls of the gathering phase read as a pair
+ * rather than as two things that happened to land near the hand. */
+.portal {
+  position: absolute;
+  left: calc(var(--rail) + 10px);
+  bottom: 128px;
+  z-index: 15;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-start;
+  gap: 7px;
+}
+.portal-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 11px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+.portal.open .portal-tab {
+  border-color: var(--ember);
+}
+.portal-glyph {
+  font-size: 19px;
+  line-height: 1;
+  color: var(--brass);
+}
+.portal-count {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--tallow);
+}
+.portal-word {
+  font-size: 11px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.06em;
+  color: var(--ash-dim);
+}
+
+/* The pile, opened. It grows upwards out of the tab so the tab never moves,
+   and it scrolls rather than growing past the top of the screen — a graveyard
+   in a long match is a great many cards. */
+.portal-pile {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 12px;
+  width: min(320px, 26vw);
+  max-height: min(56dvh, 460px);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.7);
+}
+.portal-pile > b {
+  font-size: 12px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.05em;
+  color: var(--brass);
+}
+.portal-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--iron) transparent;
+  padding-right: 2px;
+}
+.portal-card {
+  padding: 0;
+  border: 1px solid transparent;
+  background: none;
+  box-shadow: none;
+  cursor: pointer;
+  line-height: 0;
+}
+.portal-card .cardface {
+  --card-w: 92px;
+}
+.portal-card:hover .cardface {
+  outline: 1px solid var(--ember);
+}
+.portal-card.taken .cardface {
+  outline: 2px solid var(--ember);
+}
+.portal-note {
+  font-size: 11px;
+  color: var(--ash-dim);
+}
+
+/* The box cards are dropped into, and taken back out of.
+ *
+ * Sunken rather than raised: it is a hole you are putting things into, and it
+ * has to read as somewhere cards *are* rather than as another row of buttons.
+ * It keeps its height when empty so the panel does not jump the moment the
+ * first card goes in. */
+.disarming-box {
+  width: 100%;
+  min-height: 62px;
+  max-height: 168px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--iron) transparent;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px;
+  background: rgba(0, 0, 0, 0.34);
+  border: 1px solid var(--iron);
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+.disarming-box.empty {
+  align-content: center;
+  border-style: dashed;
+  border-color: var(--iron);
+}
+.disarming-empty {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--ash-dim);
+}
+/* A card in the box names itself and says, by lighting up under the pointer,
+   that it can still come back. */
+.disarming-card {
+  padding: 3px 8px;
+  font-size: 12px;
+  font-variant-caps: normal;
+  letter-spacing: normal;
+  color: var(--ash);
+  background: rgba(23, 15, 8, 0.8);
+  border: 1px solid var(--iron);
+}
+.disarming-card::after {
+  content: " ↩";
+  color: var(--ash-dim);
+}
+.disarming-card:hover {
+  color: var(--tallow);
+  border-color: var(--ember);
+}
+
 .disarming b {
   font-size: 22px;
   font-variant-caps: small-caps;

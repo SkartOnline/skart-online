@@ -76,7 +76,7 @@ export default function Lobby({
 
   if (!match || !net) {
     return (
-      <Casket onLeave={onLeave} onBack={onBack}>
+      <Casket door onLeave={onLeave} onBack={onBack}>
         <h2>Online parti</h2>
         <p className="sub">
           Nyiss egy szobát, és mondd be a kódot — vagy írd be azt, amit kaptál.
@@ -214,16 +214,19 @@ function noteFor(deck: ReturnType<typeof allDecks>[number]): string {
 
 function Casket({
   children,
+  door,
   onBack,
   onLeave,
 }: {
   children: React.ReactNode;
+  /** The way in, which is short and must not grow a scrollbar. See `game.css`. */
+  door?: boolean;
   onBack: () => void;
   onLeave: () => void;
 }) {
   return (
     <div className="veilcloth">
-      <div className="casket timber">
+      <div className={`casket timber${door ? " lobby-door" : ""}`}>
         {children}
         <div className="tail lobby-foot">
           <span className="grow" />
