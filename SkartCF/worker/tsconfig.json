@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    // The Workers runtime is not a browser: its WebSocket, Response and
+    // Request are Cloudflare's, and pulling in DOM alongside them collides.
+    "lib": ["ES2022"],
+    "types": ["@cloudflare/workers-types"]
+  },
+  "include": ["."]
+}

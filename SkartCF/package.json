@@ -20,6 +20,9 @@
     "mirror": "tsx src/bot/mirror.ts",
     "relay": "tsx server/relay.ts",
     "smoke": "tsx server/smoke.ts",
+    "relay:dev": "wrangler dev --config worker/wrangler.toml",
+    "relay:deploy": "wrangler deploy --config worker/wrangler.toml",
+    "relay:check": "tsc --noEmit -p worker/tsconfig.json",
     "stats": "tsx src/sim/stats.ts"
   },
   "dependencies": {
@@ -30,6 +33,7 @@
     "ws": "^8.21.3"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260830.1",
     "@types/node": "^22.10.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
@@ -37,6 +41,7 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vite": "^6.0.3",
-    "vitest": "^3.2.7"
+    "vitest": "^3.2.7",
+    "wrangler": "^4.127.1"
   }
 }

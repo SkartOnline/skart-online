@@ -421,6 +421,31 @@ Any host that runs Node and terminates TLS will do; the relay wants a `wss://` a
 because the site is served over HTTPS and a browser will not open a plaintext socket
 from a secure page. It answers `GET /health` for whatever the host wants to poll.
 
+### Where it actually runs
+
+`worker/` is the same relay on Cloudflare Workers, and it is what the published site
+points at. The choice was made on one number: a free tier that sleeps is no use to a
+game you arrange by reading a six-digit code down the phone, because whoever opens the
+room eats the cold start with no way to tell it from a broken address.
+
+```
+npm run relay:dev       # wrangler, port 8787 — npm run smoke passes against it
+npm run relay:deploy    # to the account wrangler is logged into
+npm run relay:check     # tsc, against the Workers types rather than the DOM ones
+```
+
+`worker/relay.ts` is a third shell around `relayCore.ts`, next to the node server and
+the in-process loopback — the bookkeeping is not written twice, so `match.test.ts` still
+covers the deployed thing. Every room lives in one Durable Object, held resident rather
+than hibernating, because what the relay knows is in memory and an object that wakes up
+empty drops rooms mid-match. Residency is only billed while somebody is connected, and
+a 128 MB object costs about 3% of the free daily allowance even connected around the
+clock, so the frugal option would have bought nothing but a failure mode.
+
+The bundle is under 6 KB. `protocol.ts` reaches for the engine's types with `import
+type`, esbuild erases those, and so the invariant survives the port: there is no card,
+no rule and no reducer in what is deployed.
+
 ### What is deliberately not there
 
 Reconnection into a game in progress. `HostMatch` will send the position to a guest who

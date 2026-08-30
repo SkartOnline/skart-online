@@ -17,3 +17,6 @@ sim.txt
 # thousand-game report is megabytes. `npm run sim -- --report` remakes them.
 reports/
 sim*.txt
+
+# Wrangler local state: the workerd sandbox and its Durable Object storage.
+.wrangler/
