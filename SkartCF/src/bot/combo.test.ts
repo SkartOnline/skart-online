@@ -122,7 +122,7 @@ describe("the caster's own tile is not a combo on its own", () => {
    * Every targeted spell reads where its caster stands, because that is what
    * decides range (4.7.3). Classing that read as `enable` made one move spell a
    * partner of every spell in the deck: Teleport came out with 15 partners of a
-   * possible 16 in the Varázslótanács, and the graph stopped being sparse.
+   * possible 16 in the Mágus deck, and the graph stopped being sparse.
    *
    * The distinction that survives is whether the spell *pays off* for position,
    * not whether a caster could be moved — every caster can be moved.

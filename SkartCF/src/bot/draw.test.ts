@@ -39,7 +39,7 @@ describe("what the refill hands back", () => {
     const state = game();
     const outlook = drawOutlook(state, "p1", "spell");
     expect(outlook.depth).toBeGreaterThan(0);
-    // Varázslótanács is built to cast its own spells, so most of the pile is
+    // The Mágus deck is built to cast its own spells, so most of the pile is
     // payable and a spent card is close to an exchange.
     expect(outlook.usable).toBeGreaterThan(0.5);
     expect(replacementFor(state, "p1", "spell")).toBeLessThan(0.7);

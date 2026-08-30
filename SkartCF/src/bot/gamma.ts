@@ -5,7 +5,7 @@
  * Θ measures one thing: the swing this hand can make to the 11.1 sum. That
  * makes a whole family of cards invisible to it. Fagypáncél, Némítás, Álomfogó
  * and every other protective spell move the sum by exactly nothing, so Θ scores
- * them zero, and the bot has never knowingly cast one. In the Varázslótanács
+ * them zero, and the bot has never knowingly cast one. In the Mágus deck
  * that is a third of the spell list.
  *
  * Γ is the missing half, and it is denominated in the same units so the two can

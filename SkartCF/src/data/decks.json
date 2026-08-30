@@ -1,7 +1,7 @@
 [
   {
     "id": "felindori",
-    "name": "Felindori sereg",
+    "name": "Felindor",
     "archetype": "value",
     "battlefields": [
       "sikator",
@@ -40,7 +40,7 @@
   },
   {
     "id": "csempesz",
-    "name": "Csempészgyűrű",
+    "name": "Zsivány",
     "archetype": "tempo",
     "battlefields": [
       "feketepiac",
@@ -75,13 +75,13 @@
       "fojtas": 3,
       "rajtautes": 2,
       "kegyelemdofes": 2,
-      "acelpenge": 3,
+      "falanx": 3,
       "manover": 3
     }
   },
   {
     "id": "magus",
-    "name": "Varázslótanács",
+    "name": "Mágus",
     "archetype": "caster",
     "battlefields": [
       "maguskor",
@@ -128,7 +128,7 @@
   },
   {
     "id": "bestia",
-    "name": "Vadállatok",
+    "name": "Bestia",
     "archetype": "beast",
     "battlefields": [
       "akaczos",
@@ -172,7 +172,7 @@
   },
   {
     "id": "elettelen",
-    "name": "Élettelen menet",
+    "name": "Feketemágus+bestia",
     "archetype": "attrition",
     "battlefields": [
       "umbra",
@@ -208,14 +208,14 @@
       "argeo": 1,
       "homalyhimlo": 1,
       "nyirokhold": 1,
-      "explar": 3,
-      "alomfogo": 3,
-      "acelpenge": 3
+      "harapas": 3,
+      "marcangolas": 3,
+      "szoritas": 3
     }
   },
   {
     "id": "vasgarda",
-    "name": "Vasgárda",
+    "name": "Harcos+mágus",
     "archetype": "wall",
     "battlefields": [
       "oppidium",
@@ -258,7 +258,7 @@
   },
   {
     "id": "csordajaras",
-    "name": "Csordajárás",
+    "name": "Druida+bestia",
     "archetype": "herd",
     "battlefields": [
       "akaczos",
@@ -302,7 +302,7 @@
   },
   {
     "id": "verszerzodes",
-    "name": "Vérszerződés",
+    "name": "Zsivány+feketemágus",
     "archetype": "assassin",
     "battlefields": [
       "feketepiac",

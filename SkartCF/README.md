@@ -590,19 +590,20 @@ nothing in the engine plays that role now.
   set rather than to be balanced. The simulator already flags a couple of battlefields
   over the 75% line; that is tuning work, not a bug.
 
-  The first five are single-school: Felindori sereg, Csempészgyűrű, Varázslótanács,
-  Vadállatok, Élettelen menet. The three after them are **mixed**, and mixed means one
+  The first four are single-school and named for it: Felindor, Zsivány, Mágus, Bestia.
+  The four after them are **mixed**, and mixed means one
   school in the front rank and a different one behind it, because 8.3.4 pays a spell out
   of one caster's pool and a rank that fights is not a rank that can afford to hold a big
   pool. They exist to put pressure on exactly that:
 
   | Deck | Front / back | How it takes a battlefield |
   |---|---|---|
-  | **Vasgárda** | Harcos / Mágus | A front rank that is not worth removing. Bol'Jin stands behind a column and makes the unit in front of him Sérthetetlen; Nehézvért and Pajzs make everything else expensive to shift; the Mágus rank never fights, it draws and it burns — Explodus takes a gold off every Tűz spell and Erif mester puts a point of damage back on. Iniquus pays a point to every other Felindori on the board. |
-  | **Csordajárás** | Bestia / Druida | Rings, on copies. Csatacsorda blesses an Állat *and every allied copy of it*, so the herd is deliberately built four Patkány and four Farkas deep rather than one of everything; Növekedés and Falkavezér stack on top, Kivirágzás rings the whole board, and Elfina adds a ring to any allied Állat a spell so much as touches. Faun and A Faarcú are the reason it survives being answered: one floors every ally at its base power, the other caps any single effect at 2 damage. |
-  | **Vérszerződés** | Zsivány / Feketemágus | Kill things and get paid for it. The Csempész and Orgyilkos rank does the killing cheaply — Bérgyilkos, Fojtás, Rajtaütés, Tőrhajítás — and the Garabonciás rank converts the result into power: Vérdíj hands three rings to whoever collects, Csontvért reads the graveyard the deck has been filling all game, Élősködés takes two off them and gives two to the caster. Malom and Umbra are brought on purpose; both feed it. |
+  | **Harcos+mágus** | Harcos / Mágus | A front rank that is not worth removing. Bol'Jin stands behind a column and makes the unit in front of him Sérthetetlen; Nehézvért and Pajzs make everything else expensive to shift; the Mágus rank never fights, it draws and it burns — Explodus takes a gold off every Tűz spell and Erif mester puts a point of damage back on. Iniquus pays a point to every other Felindori on the board. |
+  | **Druida+bestia** | Bestia / Druida | Rings, on copies. Csatacsorda blesses an Állat *and every allied copy of it*, so the herd is deliberately built four Patkány and four Farkas deep rather than one of everything; Növekedés and Falkavezér stack on top, Kivirágzás rings the whole board, and Elfina adds a ring to any allied Állat a spell so much as touches. Faun and A Faarcú are the reason it survives being answered: one floors every ally at its base power, the other caps any single effect at 2 damage. |
+  | **Feketemágus+bestia** | Bestia / Feketemágus | Bodies that rot forward while the back rank spends them. The fighting rank is undead and cheap — Burastya, Makacs élőhalott, Lidérc, Húsgólem — and every one of them carries Bestia spellpower, so Harapás, Marcangolás and Szorítás are cast by the same units that are doing the dying. Behind them Varj, Carnifex, Welsing and Kirkar pay for the attrition proper: Senyvesztés, Rothadás, Feltámadás, and Gouraldir's Feketemágus 11 for the three Legendás at cost 8. It was the last deck holding cards nothing in it could cast, and the fix is what made it mixed. |
+  | **Zsivány+feketemágus** | Zsivány / Feketemágus | Kill things and get paid for it. The Csempész and Orgyilkos rank does the killing cheaply — Bérgyilkos, Fojtás, Rajtaütés, Tőrhajítás — and the Garabonciás rank converts the result into power: Vérdíj hands three rings to whoever collects, Csontvért reads the graveyard the deck has been filling all game, Élősködés takes two off them and gives two to the caster. Malom and Umbra are brought on purpose; both feed it. |
 
-  All three are 30/30 and inside 14.2, and `npm run decks` reports no unplayable spell and
+  All four are 30/30 and inside 14.2, and `npm run decks` reports no unplayable spell and
   no mute caster in any of them.
 
 - **14.1 and 14.2 are enforced by `validateCardSet`, not by the collection screen.** The
@@ -614,8 +615,8 @@ nothing in the engine plays that role now.
   Enforcing 14.1 turned up an older bug worth knowing about: `sizeTo` pads and trims a list
   to thirty, which is right for a half-written deck in the editor and silent for a shipped
   one, and three decks were over. The overflow is the *tail* of the JSON object, and the
-  tail is where the singletons live — Varázslótanács had never played Valóságtörés or
-  Csábítás, and Vadállatok had never played Faun, which was one of its only three Druida
+  tail is where the singletons live — the Mágus deck had never played Valóságtörés or
+  Csábítás, and the Bestia one had never played Faun, one of its only three Druida
   pools, so eleven of its thirty spells could not be paid for in any game it had ever
   played. Both are now written out to thirty with every named card kept and duplicate
   copies of cheap utility cut instead. That changes what those two decks put on the table.

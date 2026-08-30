@@ -283,7 +283,7 @@ export const DEFAULT_PLANNER: PlannerParams = {
   // gain", and it is the first change in a long run of them whose interval
   // moved *up* rather than down.
   //
-  // What it buys is not really in the win rate. A third of the Varázslótanács
+  // What it buys is not really in the win rate. A third of the Mágus deck
   // spell list moves no total at all, so Θ scored it zero and the bot has never
   // knowingly cast a Fagypáncél, a Némítás or an Álomfogó in its life. One
   // point of Γ is one point of Θ where they would in fact have tried, which is

@@ -1015,7 +1015,7 @@ sent it to stopping.
 ### The deck audit
 
 Defect 3 had a cause underneath it that no amount of search fixes. Omnifex
-carries Feketemágus 8; the Varázslótanács deck contains no Feketemágus spell.
+carries Feketemágus 8; the Mágus deck contains no Feketemágus spell.
 Ten cost buys a seven-power body and a Belépő, in every game that deck is ever
 played, and no board-level search can discover that from a hand.
 
@@ -1032,9 +1032,20 @@ game. What they report is a card-data question rather than a bot one:
 
 Spellpower on a one-cost body is flavour. Spellpower on a ten-cost body is a
 tenth of the cap paying for nothing. And the last column is the sharper finding:
-three of the Élettelen menet's twelve spells cannot be cast by anything in its
-own deck, in any game. Printed spellpower only — `modifySpellpower` exists, but
-Mágiacenzor is the only card with it and it is in neither deck.
+three of the Feketemágus deck's twelve spells could not be cast by anything in
+its own deck, in any game. Printed spellpower only — `modifySpellpower` exists,
+but Mágiacenzor is the only card with it and it is in neither deck.
+
+The last column has since been acted on, and the table is left standing because
+the finding is the point. Acélpenge was dead in the Zsivány deck too — Harcos 1
+against a cost of 2 — which the table above missed and `npm run decks` did not.
+The four dead cards were swapped for spells their decks can pay for, and the
+Feketemágus+bestia deck took the sharper version of the fix: its nine Mágus and Harcos
+cards became Bestia ones, which is what its Burastya, Makacs élőhalott, Lidérc
+and Húsgólem had been carrying spellpower for all along. That deck now reads
+`every caster in it has something to cast`, and it is named Feketemágus+bestia,
+because with a Bestia rank that casts it was never single-school in anything but
+its spell list.
 
 ### What this changes about how the bot is judged
 

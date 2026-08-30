@@ -415,7 +415,7 @@ export function spellTouches(card: SpellCard): CardTouches {
   //    reason to care where they are cast from. `slot` on `mine` was `enable`
   //    unconditionally, on the strength of Infiltráció → Hátbaszúrás — and that
   //    made one move spell a partner of every spell in the deck. Teleport came
-  //    out with 15 partners of a possible 16 in the Varázslótanács, which is
+  //    out with 15 partners of a possible 16 in the Mágus deck, which
   //    not a combo graph, it is a complete graph with a card in the middle.
   //
   //    What distinguishes Hátbaszúrás from Lánglándzsa is not that a caster can

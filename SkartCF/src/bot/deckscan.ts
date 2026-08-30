@@ -3,7 +3,7 @@
  *
  * A card audit rather than a bot measurement: it reads the lists and reports
  * the mismatches that no amount of play can fix. The one that started it was
- * Omnifex in the Varázslótanács — Feketemágus 8 in a deck whose every spell is
+ * Omnifex in the Mágus deck — Feketemágus 8 in a deck whose every spell is
  * Mágus, so ten cost buys a seven-power body and a Belépő, in every game, for
  * ever. A trace found that by accident; this finds all of them.
  *

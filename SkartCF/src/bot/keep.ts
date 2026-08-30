@@ -20,8 +20,11 @@
  *   - **A spell nothing in my deck can pay for.** 8.3.4/8.3.5: one caster
  *     covers a spell's whole cost out of one pool, never a sum across units. If
  *     no unit in the decklist carries that much spellpower in that school, the
- *     card cannot be cast in this deck in any game. `deck.ts` finds them, and
- *     the shipped decks contain three (all in the Élettelen menet).
+ *     card cannot be cast in this deck in any game. `deck.ts` finds them.
+ *     The shipped decks held four — three in the Feketemágus+bestia deck and
+ *     Acélpenge in the Zsivány one, which carries Harcos 1 against a cost
+ *     of 2 — and hold none now, so this test earns its keep on decks built in
+ *     the workshop rather than on the ones that ship.
  *
  *   - **A unit that costs more than any battlefield still to come.** 3.3 puts
  *     all six battlefields face up during setup, so the remaining cost caps are

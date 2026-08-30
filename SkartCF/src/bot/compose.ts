@@ -31,7 +31,7 @@
  *   2. **The spells it turns on.** 8.3.4: one caster pays a spell's whole cost
  *      out of one pool. A composition is worth more when it can pay for what is
  *      in hand, and worth nothing extra when it cannot — which is the whole of
- *      the Omnifex case, since the Varázslótanács holds no Feketemágus spell
+ *      the Omnifex case, since the Mágus deck holds no Feketemágus spell
  *      for him to cast.
  *   3. **Whether those spells have anything to hit.** A removal spell with no
  *      enemy in range moves the total by zero (9.5.2), so reach is counted
