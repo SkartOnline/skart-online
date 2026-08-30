@@ -382,7 +382,7 @@ export function NearHand(
               // it cannot pay for itself. The engine already says so by offering
               // no face-down move; this only has to not lie about it.
               disabled={!canHideSomething}
-              title={canHideSomething ? undefined : "Nincs mivel kifizetned a rejtést"}
+              title={canHideSomething ? undefined : "Nincs mivel fizetned a rejtésért"}
               onClick={() => {
                 setVeilNext(true);
                 if (held && veilable.has(held.uid)) {
@@ -402,7 +402,7 @@ export function NearHand(
           <span className="label">{heldCard.name}</span>
           {held.veiled ? (
             <>
-              <span className="label">rejtve — ára, eldobott egységlap:</span>
+              <span className="label">rejtve — ezt az egységet dobod el érte:</span>
               {p.unitHand
                 .filter((c) => c.uid !== held.uid)
                 .map((c) => (

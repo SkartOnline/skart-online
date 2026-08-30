@@ -267,9 +267,16 @@ const PILE_NAME: Record<string, string> = {
   both: "lap",
 };
 
+// Two case forms, because Hungarian will not let one noun do both jobs: you
+// search *out of* a pile and there is nothing left *in* it.
 const SOURCE_NAME: Record<string, string> = {
   deck: "pakliból",
   graveyard: "temetőből",
+};
+
+const SOURCE_IN: Record<string, string> = {
+  deck: "pakliban",
+  graveyard: "temetőben",
 };
 
 const STEAL_NAME: Record<string, string> = {
@@ -938,7 +945,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
         return true;
       });
       if (eligible.length === 0) {
-        ctx.log(`${SIDE_NAME[player]}: nincs kikereshető lap a ${SOURCE_NAME[source] ?? source}.`);
+        ctx.log(`${SIDE_NAME[player]}: nincs kikereshető lap a ${SOURCE_IN[source] ?? source}.`);
         continue;
       }
       askPrompt(ctx.state, {
@@ -946,8 +953,8 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
         player,
         prompt:
           count > 1
-            ? `Keress ki ${count} lapot innen: ${SOURCE_NAME[source] ?? source}`
-            : `Keress ki egy lapot innen: ${SOURCE_NAME[source] ?? source}`,
+            ? `Keress ki ${count} lapot a ${SOURCE_NAME[source] ?? source}`
+            : `Keress ki egy lapot a ${SOURCE_NAME[source] ?? source}`,
         picking: "card",
         cards: eligible,
         // The card says you take one, so you take one. Declining is not on

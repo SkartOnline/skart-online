@@ -313,7 +313,7 @@ export function Loaded({ unit, state }: { unit: UnitInstance; state: GameState }
           ))}
           {unit.damage > 0 && (
             <li className="wounded">
-              <span className="lbl">Sebzés, nem számít az összegbe</span>
+              <span className="lbl">Sebzés — az összegbe nem számít bele</span>
               <span className="num">✕{unit.damage}</span>
             </li>
           )}

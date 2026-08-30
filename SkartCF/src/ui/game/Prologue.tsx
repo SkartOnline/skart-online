@@ -196,7 +196,7 @@ export default function Prologue({
           already behind this screen, so they get out of its way instead: the
           veil pulls back, and then the hands are dealt onto the table it was
           hiding. */}
-      {act !== "deal" && <span className="prologue-skip">kattints az átugráshoz</span>}
+      {act !== "deal" && <span className="prologue-skip">kattints, ha átugranád</span>}
     </div>
   );
 }

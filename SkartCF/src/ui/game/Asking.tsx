@@ -250,7 +250,7 @@ export function Disarming({
   return (
     <div className="disarming timber">
       <b>Leszerelés</b>
-      <em>Válaszd ki, mit dobsz el mindkét kezedből, aztán húzz vissza hétig.</em>
+      <em>Eldobhatsz bármennyi lapot mindkét kezedből, aztán mindkettőt hét lapra töltöd vissza.</em>
 
       {/* The box, and it is a real box: cards go in, and cards come back out.
         *
@@ -267,7 +267,7 @@ export function Disarming({
       <div className={`disarming-box${staged.length === 0 ? " empty" : ""}`}>
         {staged.length === 0 ? (
           <span className="disarming-empty">
-            Ide kerülnek az eldobandó lapok. Kattints rájuk a kezedben.
+            Kattints a kezedben arra a lapra, amit eldobnál, és ide kerül.
           </span>
         ) : (
           staged.map((card) => {
@@ -287,17 +287,17 @@ export function Disarming({
       </div>
 
       <span className="disarming-count num">
-        {kept} <i>lap marad a kézben</i>
+        {kept} <i>lap marad a kezedben</i>
       </span>
       <button className="ember" onClick={onDone}>
         {staged.length === 0
           ? "Nem dobok el semmit"
-          : `Eldobom (${staged.length}), és húzok`}
+          : `Eldobok ${staged.length} lapot és húzok`}
       </button>
       <span className="disarming-note">
         {staged.length === 0
-          ? "Eldobni semmit nem kötelező."
-          : "A dobozból bármit visszavehetsz, amíg nem nyomtál gombot."}
+          ? "Nem kötelező eldobnod semmit."
+          : "Amíg nem nyomsz gombot, bármelyiket visszaveheted."}
       </span>
     </div>
   );
