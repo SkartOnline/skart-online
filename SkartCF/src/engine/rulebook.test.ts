@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { BASE_CARD_SET, getSpell, getUnit, loadCardSet } from "./cards";
+import { BASE_CARD_SET, getSpell, getUnit, loadCardSet, validateCardSet } from "./cards";
+import { copyLimit } from "./schema";
 import {
   applyEffect,
   hasLineOfSight,
@@ -277,6 +278,86 @@ describe("kötelező befejezés", () => {
     // One legal move, which is what lets the screen light the button up rather
     // than leaving the player hunting for what they are allowed to do.
     expect(legalActions(after, "p1")).toEqual([{ type: "declareUnitsDone", player: "p1" }]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 14.1 and 14.2, deck building
+// ---------------------------------------------------------------------------
+
+/**
+ * Rarity is not a rule of play, which is why it lived in the UI and why the
+ * collection screen's + button was the only thing that had ever enforced it. A
+ * decklist typed straight into `decks.json` went round it, and three shipped
+ * decks did. The validator owns the rule now; these pin it.
+ */
+describe("paklikészítés (14.1, 14.2)", () => {
+  function deckOf(units: Record<string, number>, spells: Record<string, number>) {
+    return {
+      ...BASE_CARD_SET,
+      decks: [
+        {
+          id: "proba",
+          name: "Próba",
+          archetype: "test",
+          battlefields: ["oppidium", "sikator", "kesergo"],
+          units,
+          spells,
+        },
+      ],
+    };
+  }
+
+  /** Thirty commons, so the deck is legal apart from whatever a test breaks. */
+  const legalUnits = { patkany: 4, farkas: 4, nyominger_melak: 4, ogre: 4, bandita: 4, kem: 4, hektor: 4, burastya: 2 };
+  const legalSpells = { harapas: 4, odu: 3, ugras: 4, marcangolas: 3, kardcsapas: 4, falanx: 4, explar: 4, hatbaszuras: 4 };
+
+  it("passes a deck that keeps to both", () => {
+    const issues = validateCardSet(deckOf(legalUnits, legalSpells));
+    expect(issues).toEqual([]);
+  });
+
+  it("counts a Legendás card once (14.2)", () => {
+    // Cassanus is Legendás; two of him is not a deck.
+    const issues = validateCardSet(
+      deckOf({ ...legalUnits, burastya: 0, cassanus: 2 }, legalSpells),
+    );
+    expect(issues.map((i) => i.path)).toContain("deck proba.units.cassanus");
+    expect(issues.find((i) => i.path === "deck proba.units.cassanus")?.message).toMatch(/14\.2/);
+  });
+
+  it("holds a Kivételes card to two and a Ritka to three (14.2)", () => {
+    const issues = validateCardSet(
+      // Odú is Ritka (3), Marcangolás is Ritka (3), Lélektűz is Kivételes (2).
+      deckOf(legalUnits, { harapas: 4, odu: 4, ugras: 4, kardcsapas: 4, falanx: 4, explar: 4, hatbaszuras: 3, lelektuz: 3 }),
+    );
+    const paths = issues.map((i) => i.path);
+    expect(paths).toContain("deck proba.spells.odu");
+    expect(paths).toContain("deck proba.spells.lelektuz");
+  });
+
+  it("wants exactly thirty of each (14.1)", () => {
+    // Four short, which `sizeTo` used to paper over by repeating the head of
+    // the list — and repeating the head is how a Legendás card gets a second
+    // copy without anybody writing one down.
+    const issues = validateCardSet(deckOf({ ...legalUnits, ogre: 0 }, legalSpells));
+    expect(issues.map((i) => i.message)).toContainEqual(
+      expect.stringContaining("14.1: a deck holds exactly 30 units"),
+    );
+  });
+
+  it("holds every shipped deck to both", () => {
+    // The one that matters: this is the assertion the three new decks broke.
+    for (const deck of BASE_CARD_SET.decks) {
+      for (const pile of ["units", "spells"] as const) {
+        const counts = deck[pile] as Record<string, number>;
+        expect(Object.values(counts).reduce((a, b) => a + b, 0)).toBe(30);
+        for (const [id, n] of Object.entries(counts)) {
+          const card = pile === "units" ? getUnit(id) : getSpell(id);
+          expect(n).toBeLessThanOrEqual(copyLimit(card.rarity));
+        }
+      }
+    }
   });
 });
 

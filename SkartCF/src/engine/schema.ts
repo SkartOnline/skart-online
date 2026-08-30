@@ -1164,6 +1164,29 @@ export const SCHOOLS = ["Mágus", "Feketemágus", "Harcos", "Zsivány", "Druida"
 
 export const RARITIES = ["Gyakori", "Ritka", "Kivételes", "Legendás"] as const;
 
+/**
+ * 14.2: how many copies of one card a deck may hold.
+ *
+ * Rarity is not a rule of play — nothing in the reducer has ever asked what a
+ * card's rarity is, and nothing should. It is a rule of deck *building*, which
+ * is why the table lives beside the schema rather than in the engine proper,
+ * and why `validateCardSet` is the thing that enforces it. It used to live in
+ * `ui/card/model.ts` and be enforced only by the collection screen's + button,
+ * so a decklist written straight into `decks.json` broke it in silence.
+ *
+ * An unrated card is a common: four.
+ */
+export const COPY_LIMIT: Record<string, number> = {
+  Gyakori: 4,
+  Ritka: 3,
+  Kivételes: 2,
+  Legendás: 1,
+};
+
+export function copyLimit(rarity: string | undefined): number {
+  return COPY_LIMIT[rarity ?? ""] ?? 4;
+}
+
 export function specFor(kind: string, table: KindSpec[]): KindSpec | undefined {
   return table.find((s) => s.kind === kind);
 }

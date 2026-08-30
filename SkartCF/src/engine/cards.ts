@@ -4,7 +4,7 @@ import locationData from "../data/locations.json";
 import attachmentData from "../data/attachments.json";
 import deckData from "../data/decks.json";
 import type { Attachment, Card, DeckList, LocationCard, SpellCard, UnitCard } from "./types";
-import { EFFECT_SPECS, LOCATION_EFFECT_SPECS, STATIC_SPECS, validateAgainstSpec } from "./schema";
+import { copyLimit, EFFECT_SPECS, LOCATION_EFFECT_SPECS, STATIC_SPECS, validateAgainstSpec } from "./schema";
 import type { ValidationIssue } from "./schema";
 
 /**
@@ -154,6 +154,9 @@ export function knownSpellTags(): string[] {
 // card built in the editor surfaces as a message instead of a crash mid-game.
 // ---------------------------------------------------------------------------
 
+/** 14.1. The same thirty `DEFAULT_CONFIG` sizes a deck to, named once. */
+const DECK_SIZE = 30;
+
 export function validateCardSet(set: CardSet): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   const unitIds = new Set(set.units.map((u) => u.id));
@@ -256,6 +259,38 @@ export function validateCardSet(set: CardSet): ValidationIssue[] {
     }
     if (deck.battlefields.length !== 3) {
       issues.push({ path: `deck ${deck.id}.battlefields`, message: "each deck brings exactly 3 battlefields" });
+    }
+
+    // 14.1 and 14.2, and they are checked here because nowhere else was
+    // checking them. `sizeTo` in setup.ts pads and trims a decklist to thirty
+    // so a half-written deck stays playable in the editor, which is right for
+    // the editor and hides a shipped decklist that is simply wrong: the tail of
+    // a 34-card list never reaches the table, and a short one is padded by
+    // repeating its own head, which can push a Legendás card to two copies.
+    // Neither of those is a legal deck and neither said anything.
+    for (const [pile, cards] of [
+      ["units", set.units] as const,
+      ["spells", set.spells] as const,
+    ]) {
+      const counts = deck[pile] as Record<string, number>;
+      const total = Object.values(counts).reduce((a, b) => a + b, 0);
+      if (total !== DECK_SIZE) {
+        issues.push({
+          path: `deck ${deck.id}.${pile}`,
+          message: `14.1: a deck holds exactly ${DECK_SIZE} ${pile}, this one lists ${total}`,
+        });
+      }
+      for (const [id, n] of Object.entries(counts)) {
+        const card = cards.find((c) => c.id === id);
+        if (!card) continue; // already reported as an unknown id
+        const limit = copyLimit(card.rarity);
+        if (n > limit) {
+          issues.push({
+            path: `deck ${deck.id}.${pile}.${id}`,
+            message: `14.2: ${card.rarity ?? "Gyakori"} allows ${limit} ${limit === 1 ? "copy" : "copies"}, this deck holds ${n}`,
+          });
+        }
+      }
     }
     if (Object.keys(deck.units).length === 0) {
       issues.push({ path: `deck ${deck.id}.units`, message: "deck has no units" });

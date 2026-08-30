@@ -573,5 +573,20 @@ nothing in the engine plays that role now.
   | **Csordajárás** | Bestia / Druida | Rings, on copies. Csatacsorda blesses an Állat *and every allied copy of it*, so the herd is deliberately built four Patkány and four Farkas deep rather than one of everything; Növekedés and Falkavezér stack on top, Kivirágzás rings the whole board, and Elfina adds a ring to any allied Állat a spell so much as touches. Faun and A Faarcú are the reason it survives being answered: one floors every ally at its base power, the other caps any single effect at 2 damage. |
   | **Vérszerződés** | Zsivány / Feketemágus | Kill things and get paid for it. The Csempész and Orgyilkos rank does the killing cheaply — Bérgyilkos, Fojtás, Rajtaütés, Tőrhajítás — and the Garabonciás rank converts the result into power: Vérdíj hands three rings to whoever collects, Csontvért reads the graveyard the deck has been filling all game, Élősködés takes two off them and gives two to the caster. Malom and Umbra are brought on purpose; both feed it. |
 
-  All three are 30/30, and `npm run decks` reports no unplayable spell and no mute caster
-  in any of them — which is more than it can say for three of the original five.
+  All three are 30/30 and inside 14.2, and `npm run decks` reports no unplayable spell and
+  no mute caster in any of them.
+
+- **14.1 and 14.2 are enforced by `validateCardSet`, not by the collection screen.** The
+  copy limit used to live in `ui/card/model.ts` and be applied by the + button, so a
+  decklist written straight into `decks.json` walked round it — which three of these decks
+  did. The table sits in `schema.ts` now and the validator reads it, which means
+  `npm test` fails on an illegal decklist.
+
+  Enforcing 14.1 turned up an older bug worth knowing about: `sizeTo` pads and trims a list
+  to thirty, which is right for a half-written deck in the editor and silent for a shipped
+  one, and three decks were over. The overflow is the *tail* of the JSON object, and the
+  tail is where the singletons live — Varázslótanács had never played Valóságtörés or
+  Csábítás, and Vadállatok had never played Faun, which was one of its only three Druida
+  pools, so eleven of its thirty spells could not be paid for in any game it had ever
+  played. Both are now written out to thirty with every named card kept and duplicate
+  copies of cheap utility cut instead. That changes what those two decks put on the table.

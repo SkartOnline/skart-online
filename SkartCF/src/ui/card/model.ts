@@ -25,19 +25,11 @@ export function isLocation(card: AnyCard): card is LocationCard {
 
 // --------------------------------------------------------------- rarity
 
-export const RARITIES = ["Gyakori", "Ritka", "Kivételes", "Legendás"] as const;
-
-/** How many copies of a card one deck may hold. */
-export const COPY_LIMIT: Record<string, number> = {
-  Gyakori: 4,
-  Ritka: 3,
-  Kivételes: 2,
-  Legendás: 1,
-};
-
-export function copyLimit(rarity: string | undefined): number {
-  return COPY_LIMIT[rarity ?? ""] ?? 4;
-}
+// 14.2 is a deck-building rule, and it is now written down once, beside the
+// schema, where `validateCardSet` can reach it. Re-exported rather than moved
+// so the collection screen's + button and the deck validator can never drift
+// apart again — that drift is how three decks shipped over the limit.
+export { COPY_LIMIT, copyLimit, RARITIES } from "../../engine";
 
 // --------------------------------------------------------------- type line
 
