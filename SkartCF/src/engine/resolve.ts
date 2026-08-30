@@ -14,6 +14,7 @@ import {
 } from "./effects";
 import type { EffectContext } from "./effects";
 import { opponentOf, slotsOf } from "./grid";
+import { askPrompt } from "./prompts";
 import { EFFECT_SPECS, specFor } from "./schema";
 import {
   abilitiesActive,
@@ -95,6 +96,26 @@ export function fireBelepo(state: GameState, unit: UnitInstance, deferDeaths = f
   if (!belepo || !belepo.effects?.length) return;
   const targets = resolveAutoTargets(state, unit, belepo.target);
   log(state, `${card.name} Belépő.`, unit.owner);
+
+  // The card says "one" and means "one of your choosing". Park the candidates
+  // and stop — `PROMPT_HANDLERS.belepoTarget` runs the effects against whatever
+  // comes back, reading them off the card rather than off a closure, so the
+  // prompt survives the clone the bot makes of every position it considers.
+  if (belepo.target.pick === "ask" && targets.length > 1) {
+    askPrompt(state, {
+      kind: "belepoTarget",
+      player: unit.owner,
+      prompt: `${card.name}: melyik egységre`,
+      picking: "slot",
+      slots: targets,
+      min: 1,
+      max: 1,
+      data: { sourceUid: unit.uid },
+      sourceCardId: card.id,
+    });
+    return;
+  }
+
   const ctx = contextFor(state, unit, unit.owner, { deferDeaths });
   for (const effect of belepo.effects) {
     const needsTargets = (effect.on ?? "target") === "target";

@@ -58,6 +58,7 @@ function emptyPlayer(id: PlayerId) {
     capSpent: 0,
     hiddenThisLocation: 0,
     bonusDraw: { units: 0, spells: 0 },
+    handLimit: { units: DEFAULT_CONFIG.handSize, spells: DEFAULT_CONFIG.spellHandSize },
     tossDone: false,
     seen: [],
   };
@@ -370,5 +371,58 @@ describe("Cassanus, a halhatatlan", () => {
     const him = state.board["p1.F1"]!;
     expect(power(him, state)).toBe(asleep() + 3);
     expect(grantsOf(state, him).invulnerable).toBe(true);
+  });
+});
+
+describe("Carnifex", () => {
+  /**
+   * "Megölök egy legfeljebb 4 alaperejű ellenséget." Which one was the engine's
+   * business until now — `pick: "strongest"` named it — and that is the whole
+   * decision the card is selling on a board with three of them.
+   */
+  it("asks which body it takes when there is more than one", () => {
+    const state = blankState();
+    place(state, "carnifex", "p1.F1");
+    place(state, "patkany", "p2.F1");
+    place(state, "bandita", "p2.F2");
+
+    fireBelepo(state, state.board["p1.F1"]!);
+
+    const asking = pendingPrompt(state);
+    expect(asking?.kind).toBe("belepoTarget");
+    expect(asking?.player).toBe("p1");
+    expect(asking?.slots).toEqual(expect.arrayContaining(["p2.F1", "p2.F2"]));
+    // Nothing has died yet: the ability is parked, not resolved.
+    expect(state.board["p2.F1"]).not.toBeNull();
+    expect(state.board["p2.F2"]).not.toBeNull();
+
+    answerPrompt(state, "p2.F2", () => {});
+    expect(state.board["p2.F2"]).toBeNull();
+    expect(state.board["p2.F1"]).not.toBeNull();
+  });
+
+  it("resolves without asking when there is only one answer", () => {
+    const state = blankState();
+    place(state, "carnifex", "p1.F1");
+    place(state, "patkany", "p2.F1");
+
+    fireBelepo(state, state.board["p1.F1"]!);
+
+    expect(pendingPrompt(state)).toBeNull();
+    expect(state.board["p2.F1"]).toBeNull();
+  });
+
+  it("does nothing if the target is gone by the time the answer comes (15.2)", () => {
+    const state = blankState();
+    place(state, "carnifex", "p1.F1");
+    place(state, "patkany", "p2.F1");
+    place(state, "bandita", "p2.F2");
+    fireBelepo(state, state.board["p1.F1"]!);
+
+    // Something else took it in the meantime — a Mustra fires several abilities
+    // in a row and the prompts are answered after them.
+    state.board["p2.F2"] = null;
+    answerPrompt(state, "p2.F2", () => {});
+    expect(state.board["p2.F1"]).not.toBeNull();
   });
 });

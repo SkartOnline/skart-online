@@ -144,10 +144,16 @@ export interface AutoTargetSpec {
   compare?: "weakerThanSelf" | "strongerThanSelf";
   /**
    * An auto-resolved ability has nobody to ask, so when the card text says
-   * "one" the data needs a deterministic rule for which one. An ability that
-   * should ask instead pushes a `Prompt` and stops.
+   * "one" the data needs a deterministic rule for which one.
+   *
+   * `"ask"` is the other answer, and it is a rule about the card rather than a
+   * rule about the engine: some abilities pick a target nobody would agonise
+   * over, and some — Carnifex choosing which of four bodies to take — are the
+   * whole decision the card is selling. Asking parks a `belepoTarget` prompt
+   * and stops; the effects run against the tile that comes back. One eligible
+   * target is not a question, so it resolves the way `"all"` would.
    */
-  pick?: "all" | "weakest" | "strongest" | "highestSpellpower";
+  pick?: "all" | "weakest" | "strongest" | "highestSpellpower" | "ask";
   filter?: TargetFilter;
 }
 
@@ -474,6 +480,24 @@ export interface PlayerState {
   hiddenThisLocation: number;
   /** Diadal: extra cards owed at the next refill. */
   bonusDraw: { units: number; spells: number };
+  /**
+   * How many cards this hand holds *this battle*, units and spells separately.
+   *
+   * The hand is no longer a number you reach once at leszerelés and then spend
+   * down over a whole battlefield. It is a level: play a card and you draw back
+   * up to it before your next turn, so a hand of five is five cards you can act
+   * on at every point in the battle rather than seven you have to ration.
+   *
+   * That makes the *limit* the resource, and every card that used to say "draw"
+   * or "discard" now moves it. Caecus raises it by one and fills the gap, which
+   * is the same card it always was; Varjú lowers it by whatever you threw away,
+   * which is what stops "discard for value" being free the moment a discard
+   * refills itself. Malom sets it to four and Faloda to six.
+   *
+   * Reset to `config.handSize` (plus anything Diadal owes) at 12.6, so a battle
+   * never inherits the last one's damage.
+   */
+  handLimit: { units: number; spells: number };
   /** Leszerelés (12.5): this player has finished throwing cards away. */
   tossDone: boolean;
   /**

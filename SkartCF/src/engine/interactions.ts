@@ -1,5 +1,13 @@
 import { getSpell, getUnit } from "./cards";
-import { applyEffect, flipCoin, isBlocked, legalDestinations, sweepDead, trapSlots } from "./effects";
+import {
+  applyEffect,
+  bumpHandLimit,
+  flipCoin,
+  isBlocked,
+  legalDestinations,
+  sweepDead,
+  trapSlots,
+} from "./effects";
 import type { EffectContext } from "./effects";
 import { ALL_SLOTS, opponentOf, ownerOfSlot, slotLabel, slotsOf } from "./grid";
 import { cardOf, matchesFilter } from "./power";
@@ -152,11 +160,25 @@ export const PROMPT_HANDLERS: Record<string, PromptHandler> = {
     const player = prompt.player;
     const p = state.players[player];
     const thrown: string[] = [];
+    // Which hand each card came out of, because the level is per hand and
+    // Chupacabra's "dobj el egy lapot" may take either.
+    const lost = { unit: 0, spell: 0 };
     for (const uid of prompt.chosen) {
-      const card = takeByUid(p.unitHand, uid) ?? takeByUid(p.spellHand, uid);
+      const fromUnits = takeByUid(p.unitHand, uid);
+      const card = fromUnits ?? takeByUid(p.spellHand, uid);
       if (!card) continue;
+      lost[fromUnits ? "unit" : "spell"] += 1;
       p.discard.push(card);
       thrown.push(card.cardId);
+    }
+    // A card thrown away takes the hand's level with it — that is what stops a
+    // discard cost being refunded by the next play. The exception is a prompt
+    // that only exists *because* the level already moved: Malom sets four and
+    // then asks which card goes, and taking another point off per card would
+    // walk the hand down to nothing.
+    if (prompt.data?.keepLimit !== true) {
+      if (lost.unit > 0) bumpHandLimit(state, player, "unit", -lost.unit);
+      if (lost.spell > 0) bumpHandLimit(state, player, "spell", -lost.spell);
     }
     if (thrown.length === 0) return;
     log(`${SIDE_NAME[player]} eldobja: ${thrown.map(nameOf).join(", ")}.`);
@@ -285,6 +307,38 @@ export const PROMPT_HANDLERS: Record<string, PromptHandler> = {
       sourceCardId: prompt.sourceCardId,
       data: { uid: card.uid, cardId: card.cardId, sourceUid: prompt.data?.sourceUid },
     });
+  },
+
+  /**
+   * A Belépő that named its own target.
+   *
+   * The effects are read off the card, not carried in the prompt: a prompt is
+   * cloned with the state every time the bot looks at a position, and a list of
+   * effects riding along would be a second copy of the card's text able to drift
+   * from the first. The uid is enough to find the unit and the unit knows what
+   * it does.
+   *
+   * The board has moved on since the question was asked — a Mustra fires several
+   * abilities in a row and the prompts are answered afterwards — so the tile is
+   * checked again here rather than trusted. An answer pointing at a unit that is
+   * already gone does nothing, which is 15.2.
+   */
+  belepoTarget(state, prompt, log) {
+    const slot = prompt.chosen[0];
+    const sourceUid = String(prompt.data?.sourceUid ?? "");
+    if (!slot || !sourceUid) return;
+    const source = ALL_SLOTS.map((s) => state.board[s]).find((u) => u && u.uid === sourceUid);
+    if (!source) return; // the unit that asked has since fallen
+    if (!state.board[slot]) return; // 15.2: the target is not there any more
+    const effects = getUnit(source.cardId).belepo?.effects ?? [];
+    const ctx: EffectContext = {
+      state,
+      source,
+      controller: prompt.player,
+      log,
+    };
+    for (const effect of effects) applyEffect(ctx, effect, [slot]);
+    sweepDead(state, log);
   },
 
   /** Fuedrax, the second half: which tile it watches. */
