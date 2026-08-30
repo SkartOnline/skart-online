@@ -439,8 +439,12 @@ the in-process loopback — the bookkeeping is not written twice, so `match.test
 covers the deployed thing. Every room lives in one Durable Object, held resident rather
 than hibernating, because what the relay knows is in memory and an object that wakes up
 empty drops rooms mid-match. Residency is only billed while somebody is connected, and
-a 128 MB object costs about 3% of the free daily allowance even connected around the
-clock, so the frugal option would have bought nothing but a failure mode.
+the free plan's 13,000 GB-s a day buys about 29 hours of it — more connected time than
+there is in a day, so the frugal option would have bought nothing but a failure mode.
+
+The bill is the other reason there is nothing to watch here. Free-plan overage is not
+charged, it is refused: past the daily line the operations fail and the line resets at
+midnight UTC. A relay that stops relaying is a bad evening, but it is not an invoice.
 
 The bundle is under 6 KB. `protocol.ts` reaches for the engine's types with `import
 type`, esbuild erases those, and so the invariant survives the port: there is no card,

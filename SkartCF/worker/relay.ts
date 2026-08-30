@@ -70,9 +70,10 @@ export class RelayRoom extends DurableObject {
     // `accept()` rather than the hibernation API: hibernation lets the object
     // fall out of memory, and everything the relay knows — which code is live,
     // who is sitting in it — is in memory. Waking up empty would drop rooms
-    // mid-match. Holding the object resident instead costs duration only while
-    // somebody is actually connected, and a 128 MB object burns about 3% of the
-    // free plan's daily allowance even if it were connected around the clock.
+    // mid-match. Holding the object resident costs duration only while somebody
+    // is actually connected: the free plan gives 13,000 GB-s a day and an
+    // object is billed at 128 MB, so it buys about 29 hours of connected time
+    // — more than a day of it, for a game two people play in the evening.
     server.accept();
 
     const seat: RelayClient = {
