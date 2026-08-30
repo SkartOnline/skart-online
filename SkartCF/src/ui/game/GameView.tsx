@@ -832,13 +832,19 @@ function Field(props: FieldProps) {
       ...props.beats.map((b) => b.expiresAt - Date.now()),
       ...props.shows.map((s) => s.expiresAt - Date.now()),
     );
-    // The later of "long enough to read" and "the banner has actually finished",
-    // plus a breath, so Leszerelés is announced after the result rather than
-    // over the top of it.
-    const readAt = Math.max(
-      scoredAt.current + 3600,
-      scoredBannerEnds.current > 0 ? scoredBannerEnds.current + 700 : 0,
-    );
+    // When the banner has actually finished, plus a breath.
+    //
+    // There used to be a flat "3.6 s after the phase turned over" floor beside
+    // this, from when the banner's own end could not be measured. It can be, and
+    // the measured deadline is always the later of the two now that the totals
+    // are no longer being sat on by the pass beats — so the floor could only
+    // ever add dead air to a battle that had already been read. `scoredAt` stays
+    // as the fallback for the case the banner was never seen at all, which is
+    // what a reconnect mid-scoring looks like.
+    const readAt =
+      scoredBannerEnds.current > 0
+        ? scoredBannerEnds.current + 700
+        : scoredAt.current + 3600;
     // Not zero: a step announced the instant the last card stops moving reads as
     // an interruption. This is the breath between the two.
     const settledAt = Date.now() + quiet + 700;

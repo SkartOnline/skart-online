@@ -96,6 +96,14 @@ export interface Beat {
    * asks the actual question is waiting behind it.
    */
   linger?: number;
+  /**
+   * How long the beat *after* this one waits, overriding `BEAT_GAP`.
+   *
+   * The pass beats use it. Two players closing the battle is 1800 ms of
+   * "Végeztél a csatával" in front of the banner carrying the score, and the
+   * banner is the thing anybody is waiting for.
+   */
+  gap?: number;
 }
 
 /**
@@ -199,8 +207,17 @@ const BEAT_GAP: Record<BeatKind, number> = {
  */
 const BEAT_ORDER: Record<BeatKind, number> = {
   battlefield: 0,
-  step: 1,
-  done: 2,
+  // Somebody stopping comes before the step their stopping caused, which is
+  // both the honest order and the only one the screen can show.
+  //
+  // `TheatreView` picks the frame by taking the *last* banner-worthy beat that
+  // has started, and these two arrived in the same batch at the same instant —
+  // so with the step sorted first, the pass beat won the frame and held it for
+  // its full 2400 ms while the step underneath it was the one carrying the
+  // totals. Összesítés surfaced for the 200 ms between the pass expiring and
+  // the step expiring, which is exactly as long as it looked.
+  done: 1,
+  step: 2,
   // The cast comes before the walk it caused. Kitörés is a spell that moves its
   // own caster, and with the march sorted first the unit slid across the board
   // and *then* the card came up naming the unit that had already moved — the
@@ -351,6 +368,13 @@ const STEP_TEXT: Partial<Record<GameState["phase"], string>> = {
  */
 const CLEANUP_STEP_MS = 1800;
 
+/**
+ * How long a pass holds the queue when a step is coming up behind it, against
+ * the 900 ms it gets on its own. Two of them is the whole preamble to
+ * Összesítés, and the preamble must not be longer than the announcement.
+ */
+const PASS_GAP_BEFORE_STEP = 420;
+
 let sequence = 0;
 const nextId = () => ++sequence;
 
@@ -447,11 +471,18 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
     // Who, and which phase they are done with. Not what to call them: a beat
     // has no idea which chair the screen belongs to, and "Első" is a rulebook
     // word rather than something you would say to somebody playing.
+    //
+    // A pass that is only clearing the way for a step is a preamble, and gets a
+    // preamble's share of the clock. Both players closing the battle is two of
+    // these back to back at 900 ms apiece, in front of the banner carrying the
+    // score — which is the thing anybody at this point in the battle is waiting
+    // to read.
+    const gap = out.some((b) => b.kind === "step") ? PASS_GAP_BEFORE_STEP : undefined;
     if (!was.unitsClosed && now.unitsClosed) {
-      out.push({ id: nextId(), kind: "done", player, phaseDone: "units" });
+      out.push({ id: nextId(), kind: "done", player, phaseDone: "units", gap });
     }
     if (!was.spellsClosed && now.spellsClosed) {
-      out.push({ id: nextId(), kind: "done", player, phaseDone: "spells" });
+      out.push({ id: nextId(), kind: "done", player, phaseDone: "spells", gap });
     }
   }
 
@@ -590,7 +621,7 @@ function stagger(beats: Omit<Beat, "at">[]): Beat[] {
     // A death still cannot play before the move that caused it, and no beat can
     // play on top of the one in front of it.
     const at = Math.max(BEAT_LEAD[beat.kind], clock);
-    clock = at + BEAT_GAP[beat.kind];
+    clock = at + (beat.gap ?? BEAT_GAP[beat.kind]);
     return { ...beat, at };
   });
 }
