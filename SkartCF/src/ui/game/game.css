@@ -2100,6 +2100,16 @@ body.dragging-card {
 }
 .lobby-code {
   flex: 1;
+  /* And it really does shrink.
+   *
+   * `flex: 1` is only half the instruction: a flex item's `min-width` defaults
+   * to `auto`, and for an `<input>` that resolves to its intrinsic size — the
+   * twenty characters the element defaults to, at 22px with a fifth of an em of
+   * tracking, which is far wider than the 360px row. So the row could not fit,
+   * and the item that gave way was the button beside it, pushed off the panel
+   * with its label cut in half. `flex: 0 0 auto` on the button was the right
+   * half of the fix and never worked without this half. */
+  min-width: 0;
   text-align: center;
   font-size: 22px;
   letter-spacing: 0.22em;
