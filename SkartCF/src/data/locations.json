@@ -115,12 +115,13 @@
     "effects": [
       {
         "kind": "startEffect",
-        "effect": "discard",
+        "effect": "handLimit",
         "cardKind": "both",
-        "count": 2
+        "count": 4,
+        "mode": "set"
       }
     ],
-    "text": "Mindkét játékos eldob 2 egységet és 2 varázslatot."
+    "text": "Mindkét játékos kézkerete 4 lap. A fölösleget te választod ki."
   },
   {
     "id": "faloda",
@@ -129,12 +130,13 @@
     "effects": [
       {
         "kind": "startEffect",
-        "effect": "draw",
+        "effect": "handLimit",
         "cardKind": "both",
-        "count": 2
+        "count": 6,
+        "mode": "set"
       }
     ],
-    "text": "Mindkét játékos húz 2 egységet és 2 varázslatot."
+    "text": "Mindkét játékos kézkerete 6 lap."
   },
   {
     "id": "kesergo",

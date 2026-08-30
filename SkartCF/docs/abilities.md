@@ -146,15 +146,44 @@ Armour is a **subtraction**, not a cap: `damageReduction` on an attachment
 while a Lánglándzsa barely notices.
 
 ### Card-economy effects
-`draw`, `discard`, `searchDeck`, `revive`, `returnToHand`, `stealCard`,
-`bounceToDeckBottom`, `swapHandGraveyard`, `drawNextLocation`, `coinFlip`,
-`peek`, `handSwap`, `setTrap`, `portal`, `note`.
+`draw`, `handLimit`, `discard`, `searchDeck`, `revive`, `returnToHand`,
+`stealCard`, `bounceToDeckBottom`, `swapHandGraveyard`, `drawNextLocation`,
+`coinFlip`, `peek`, `handSwap`, `setTrap`, `portal`, `note`.
+
+**The hand is a level, not a stock** (2.4.3). It refills to `handLimit` after
+every play, so the three card-economy effects that move cards are really three
+ways of moving the level:
+
+| Effect | What it does to the level | Cards |
+|---|---|---|
+| `draw` | `+count` for the battle | fills up to the new level at once |
+| `discard` | `-n`, where `n` is what was actually thrown | the thrown cards go to the graveyard |
+| `handLimit` | sets it (`mode: "set"`, Malom 4 / Faloda 6) or moves it (`"add"`) | fills up, or asks which cards to throw |
+
+A plain draw would be nothing: the hand fills itself after the next play
+anyway, so a loose card is a card you were about to have. A plain discard would
+be *free* for the same reason, which is why every discard takes the level with
+it — that is what makes "throw cards away for power" a price. The two exceptions
+are written down as 12.11.3 and 12.11.4: the hide toll and a Mesteri's second
+card are costs of *playing*, and a leszerelés throw is meant to be replaced.
 
 ### Effects that ask
 
 Most effects never need to ask: when the card text says "one" and the choice
 is not interesting, the data says which — that is what `pick` is for. Where
-the choice itself *is* the ability, it asks:
+the choice itself *is* the ability, it asks.
+
+A Belépő asks by setting `target.pick: "ask"`, which parks a `belepoTarget`
+prompt listing the candidates and runs the card's own effects against whatever
+comes back. One candidate is not a question and resolves on the spot. Carnifex
+is the first to use it: "megölök egy legfeljebb 4 alaperejű ellenséget" over a
+board with three of them is the whole decision the card is selling, and
+`pick: "strongest"` was taking it for you.
+
+The other half is `discard` with `choose: true`. `optional: true` makes the
+count itself the question, which is Varjú — and the guard used to compare the
+offer against the number wanted, so the one card in the set whose text is "any
+number you like" was the one card that never got asked.
 
 | Primitive | What it asks | Card |
 |---|---|---|

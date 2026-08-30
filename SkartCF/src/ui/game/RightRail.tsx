@@ -53,6 +53,13 @@ export function Counters({
   const cap = left === Infinity ? null : p.capSpent + left;
   const spent = mine ? p.capSpent : visibleCapSpent(state, side);
 
+  // Has anything moved the level off the printed one? Worth marking, because a
+  // hand of four is either "I threw a card at a Varjú" or "we are on the Malom",
+  // and either way it is not the number you were planning around.
+  const offLevel =
+    p.handLimit.units !== state.config.handSize ||
+    p.handLimit.spells !== state.config.spellHandSize;
+
   return (
     <div className={`counters ${side}`}>
       <span className="who">
@@ -72,6 +79,26 @@ export function Counters({
         keret <b>{spent}</b>
         {cap === null ? "" : `/${cap}`}
         {!mine && facedown && <em title="Rejtett egység költsége nem látszik">+?</em>}
+      </span>
+
+      {/* The other keret, and the one that moves during the battle.
+        *
+        * 2.4.3 made the hand a level rather than a stock, which means the number
+        * worth watching is not how many cards somebody is holding — that is
+        * almost always the level — but what the level *is*. A Varjú takes it
+        * down, a Caecus puts it up, Malom sets it to four for both of you, and
+        * none of that is legible from a fan of cards.
+        *
+        * Both sides, because 2.4.3 makes it public: you are entitled to know
+        * how many cards the other player will have next turn. Unit first, then
+        * spell, in the order the piles sit underneath. */}
+      <span
+        className={`hand-meter num${offLevel ? " moved" : ""}`}
+        title="Kézkeret: egység / varázslat"
+      >
+        kéz <b>{p.unitHand.length}</b>/{p.handLimit.units}
+        <i>·</i>
+        <b>{p.spellHand.length}</b>/{p.handLimit.spells}
       </span>
 
       <span className="piles">

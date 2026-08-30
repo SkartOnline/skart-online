@@ -15,8 +15,12 @@ import type {
 import { PLAYERS, SIDE_NAME } from "./types";
 
 export const DEFAULT_CONFIG: RuleConfig = {
-  handSize: 7,
-  spellHandSize: 7,
+  // Five, not seven. Fourteen cards across two hands is more than a player can
+  // hold in their head, and rationing them was most of the decision; five and a
+  // refill after every play is the same amount of choice arriving one card at a
+  // time, which is a decision you can actually take rather than a spreadsheet.
+  handSize: 5,
+  spellHandSize: 5,
   unitDeckSize: 30,
   spellDeckSize: 30,
 };
@@ -66,6 +70,7 @@ function emptyPlayer(id: PlayerId, unitDeck: HandCard[], spellDeck: HandCard[]):
     capSpent: 0,
     hiddenThisLocation: 0,
     bonusDraw: { units: 0, spells: 0 },
+    handLimit: { units: DEFAULT_CONFIG.handSize, spells: DEFAULT_CONFIG.spellHandSize },
     tossDone: false,
     seen: [],
   };
@@ -135,6 +140,7 @@ export function createGame(options: GameOptions): GameState {
 
   for (const id of PLAYERS) {
     const p = state.players[id];
+    p.handLimit = { units: config.handSize, spells: config.spellHandSize };
     p.unitHand = p.unitDeck.splice(0, config.handSize);
     p.spellHand = p.spellDeck.splice(0, config.spellHandSize);
   }

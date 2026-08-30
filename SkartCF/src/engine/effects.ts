@@ -250,6 +250,49 @@ function handOf(state: GameState, player: PlayerId, kind: string): HandCard[] {
   return kind === "unit" ? state.players[player].unitHand : state.players[player].spellHand;
 }
 
+/**
+ * The hand as a level rather than a number of cards.
+ *
+ * Three operations and everything about the hand goes through them, which is
+ * what keeps the rule in one place: a card that leaves a hand by being *played*
+ * is replaced, and a card that leaves it any other way takes the level down
+ * with it. Anything that forgot the second half would turn every discard cost
+ * in the set into a free cantrip.
+ */
+export function handLimitOf(state: GameState, player: PlayerId, kind: string): number {
+  const limit = state.players[player].handLimit;
+  return kind === "unit" ? limit.units : limit.spells;
+}
+
+export function setHandLimit(state: GameState, player: PlayerId, kind: string, n: number): void {
+  const limit = state.players[player].handLimit;
+  const value = Math.max(0, Math.floor(n));
+  if (kind === "unit") limit.units = value;
+  else limit.spells = value;
+}
+
+export function bumpHandLimit(state: GameState, player: PlayerId, kind: string, by: number): void {
+  setHandLimit(state, player, kind, handLimitOf(state, player, kind) + by);
+}
+
+/**
+ * Draw up to the level. Never down: trimming an overfull hand is a decision
+ * somebody has to take, so it belongs to the effect that caused it (Malom) and
+ * not to a housekeeping pass. 12.7 still applies — an empty deck draws nothing
+ * and charges nothing for it.
+ */
+export function refillHand(state: GameState, player: PlayerId, kind: string): number {
+  const hand = handOf(state, player, kind);
+  const deck = deckOf(state, player, kind);
+  const limit = handLimitOf(state, player, kind);
+  let drawn = 0;
+  while (hand.length < limit && deck.length > 0) {
+    hand.push(deck.shift()!);
+    drawn += 1;
+  }
+  return drawn;
+}
+
 function sidesFor(ctx: EffectContext, who: string): PlayerId[] {
   if (who === "opponent") return [opponentOf(ctx.controller)];
   if (who === "both") return [...PLAYERS];
@@ -814,18 +857,72 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
   // Card economy
   // -------------------------------------------------------------------------
 
+  /**
+   * "Húzz egy varázslatot" is now a bigger hand rather than one more card.
+   *
+   * The two used to be the same thing. They are not once the hand refills after
+   * every play: a card drawn into a hand that is about to fill itself back up
+   * anyway is a card you would have had a turn later, so a plain draw would have
+   * quietly become the weakest effect in the game. Raising the level is the same
+   * card it always was — Caecus is still "one more spell for the rest of this
+   * battle" — and it survives being spent.
+   */
   draw(ctx, effect, _targets) {
     const kind = String(effect.cardKind ?? "spell");
     const count = Number(effect.count ?? 1);
+    const kinds = kind === "both" ? ["unit", "spell"] : [kind];
     for (const player of sidesFor(ctx, String(effect.who ?? "self"))) {
-      const deck = deckOf(ctx.state, player, kind);
-      const hand = handOf(ctx.state, player, kind);
-      let drawn = 0;
-      for (let i = 0; i < count && deck.length > 0; i++) {
-        hand.push(deck.shift()!);
-        drawn += 1;
+      for (const k of kinds) {
+        bumpHandLimit(ctx.state, player, k, count);
+        const drawn = refillHand(ctx.state, player, k);
+        ctx.log(
+          `${SIDE_NAME[player]}: ${PILE_NAME[k] ?? k} +${count} (${drawn} húzva, keret ${handLimitOf(ctx.state, player, k)}).`,
+        );
       }
-      if (drawn > 0) ctx.log(`${SIDE_NAME[player]}: ${drawn} ${PILE_NAME[kind] ?? kind} húzva.`);
+    }
+  },
+
+  /**
+   * A battlefield saying how big a hand is on it. Malom four, Faloda six.
+   *
+   * `set` rather than `add` because that is what those two cards say, and
+   * because a battlefield has to be able to *shrink* a hand somebody has already
+   * grown — otherwise Faloda's six would follow you onto the Malom.
+   *
+   * Cutting down is a decision, so it is asked: `discardChoice` lists the hand
+   * and takes the difference. Only ever of the player it belongs to — a machine
+   * has nobody to ask, and the fallback there is the cheapest cards, the same
+   * rule every other unasked discard in the set uses.
+   */
+  handLimit(ctx, effect, _targets) {
+    const kind = String(effect.cardKind ?? "both");
+    const mode = String(effect.mode ?? "set");
+    const amount = Number(effect.count ?? effect.amount ?? 0);
+    const kinds = kind === "both" ? ["unit", "spell"] : [kind];
+    for (const player of sidesFor(ctx, String(effect.who ?? "self"))) {
+      for (const k of kinds) {
+        if (mode === "add") bumpHandLimit(ctx.state, player, k, amount);
+        else setHandLimit(ctx.state, player, k, amount);
+        const limit = handLimitOf(ctx.state, player, k);
+        const hand = handOf(ctx.state, player, k);
+        ctx.log(`${SIDE_NAME[player]}: ${PILE_NAME[k] ?? k} kerete ${limit}.`);
+        if (hand.length > limit) {
+          askPrompt(ctx.state, {
+            kind: "discardChoice",
+            player,
+            prompt: `Dobj el ${hand.length - limit} lapot`,
+            picking: "card",
+            cards: [...hand],
+            min: hand.length - limit,
+            max: hand.length - limit,
+            // The level has already moved; throwing the cards must not move it
+            // again or the hand would chase its own tail down to nothing.
+            data: { keepLimit: true },
+          });
+        } else {
+          refillHand(ctx.state, player, k);
+        }
+      }
     }
   },
 
@@ -839,9 +936,11 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
   },
 
   /**
-   * Discarding is the one place a Belépő pays for itself. The engine picks the
-   * cheapest legal cards rather than asking, which is what makes Varj's "any
-   * number" come out as all of it.
+   * Discarding is the one place a Belépő pays for itself, and it now costs what
+   * it looks like it costs: every card thrown takes the hand's level down with
+   * it for the rest of the battle. Without that half, a discard would refill
+   * itself on the next play and "throw cards away for power" would be the best
+   * rate in the game rather than a price.
    */
   discard(ctx, effect, _targets) {
     const kind = String(effect.cardKind ?? "unit");
@@ -871,7 +970,19 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
           }),
         );
         const take = wanted < 0 ? offer.length : Math.min(wanted, offer.length);
-        if (take > 0 && offer.length > take) {
+        // When is there a decision to take?
+        //
+        // For a fixed count, only when the hand holds more than the card is
+        // asking for: "dobj el egy lapot" with one card left picks itself.
+        //
+        // For "tetszőleges számú" it is always, and that is what Varjú needed.
+        // The guard used to compare the offer against `take`, and `take` for an
+        // open-ended discard *is* the whole offer — so the one card in the set
+        // whose entire text is "you choose how many" was the one card that never
+        // got asked, and threw the hand away every time.
+        const optional = effect.optional === true;
+        const worthAsking = optional ? offer.length > 0 : offer.length > take;
+        if (take > 0 && worthAsking) {
           askPrompt(ctx.state, {
             kind: "discardChoice",
             player,
@@ -889,6 +1000,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
       const kinds = kind === "both" ? ["unit", "spell"] : [kind];
       let discarded = 0;
       for (const k of kinds) {
+        let fromThisPile = 0;
         const hand = handOf(ctx.state, player, k);
         const eligible = hand.filter((c) => {
           if (!keyword || k !== "unit") return true;
@@ -905,7 +1017,9 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
           if (index === -1) continue;
           ctx.state.players[player].discard.push(...hand.splice(index, 1));
           discarded += 1;
+          fromThisPile += 1;
         }
+        if (fromThisPile > 0) bumpHandLimit(ctx.state, player, k, -fromThisPile);
       }
       if (discarded > 0) ctx.log(`${SIDE_NAME[player]}: ${discarded} lap eldobva.`);
       if (ringPer !== 0 && player === ctx.controller && ctx.source && discarded > 0) {
@@ -1017,6 +1131,11 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
       mine.push(pile.shift()!);
       taken += 1;
     }
+    // Out of their hand, their hand is that much smaller for the battle —
+    // otherwise their next play refills what was stolen and Zsebmetszés is a
+    // look rather than a theft. Off the top of their deck it costs them a draw
+    // they had not taken yet, and their level never moves.
+    if (taken > 0 && from === "hand") bumpHandLimit(ctx.state, victim, kind, -taken);
     if (taken > 0) ctx.log(`${taken} lap elemelve az ellenfél ${STEAL_NAME[from] ?? from}.`);
   },
 
@@ -1046,6 +1165,10 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
       hand.push(...fromGrave);
       p.discard.length = 0;
       p.discard.push(...kept, ...goingDown);
+      // Welsing hands you a graveyard, which is any size at all. The level goes
+      // to whatever came back, so the hand is neither topped up to five nor
+      // asked to throw the rest of a twenty-card pile away.
+      setHandLimit(ctx.state, ctx.controller, k, hand.length);
     }
     ctx.log("A kéz és a temető helyet cserél.");
   },
@@ -1768,7 +1891,9 @@ export function resolveAutoTargets(
   });
 
   const pick = spec.pick ?? "all";
-  if (pick === "all" || matching.length <= 1) return matching;
+  // "ask" returns the whole candidate set, which is what the prompt is built
+  // from. `fireBelepo` is what stops and asks; nothing down here knows.
+  if (pick === "all" || pick === "ask" || matching.length <= 1) return matching;
   const score = (slot: SlotId): number => {
     const unit = unitAt(state, slot)!;
     if (pick === "highestSpellpower") {

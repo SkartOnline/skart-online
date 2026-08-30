@@ -244,7 +244,7 @@
     "tags": [
       "Feketemágia"
     ],
-    "text": "Dobj el egy varázslatot, hogy +1 gyűrűt kapjak!"
+    "text": "Eldobsz egy varázslatot, hogy +1 gyűrűt kapjak. A varázslatkereted ennyivel kisebb lesz."
   },
   {
     "id": "megtorlas",
@@ -733,7 +733,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Magokat vetek, felkészülve az ínséges időkre. A következő csata előtt húzz 1-1 extra egységet és varázslatot!"
+    "text": "Magokat vetek, felkészülve az ínséges időkre. A következő csatában 1-gyel nagyobb az egység- és a varázslatkereted."
   },
   {
     "id": "termeszetes_forma",
@@ -1315,7 +1315,7 @@
     "tags": [
       "Képesség"
     ],
-    "text": "Kipakolom az ellenfelem zsebeit. Húzz egy varázslatot a kezéből!"
+    "text": "Kipakolom az ellenfelem zsebeit. Húzz egy varázslatot a kezéből! A kerete ennyivel kisebb lesz."
   },
   {
     "id": "sarkanypikkelyek",

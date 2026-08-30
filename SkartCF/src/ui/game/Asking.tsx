@@ -250,7 +250,7 @@ export function Disarming({
   return (
     <div className="disarming timber">
       <b>Leszerelés</b>
-      <em>Eldobhatsz bármennyi lapot mindkét kezedből, aztán mindkettőt hét lapra töltöd vissza.</em>
+      <em>Eldobhatsz bármennyi lapot mindkét kezedből, aztán mindkettőt a kézkeretedig töltöd vissza.</em>
 
       {/* The box, and it is a real box: cards go in, and cards come back out.
         *

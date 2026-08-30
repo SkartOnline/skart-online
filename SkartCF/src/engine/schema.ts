@@ -646,12 +646,28 @@ export const EFFECT_SPECS: KindSpec[] = [
   {
     kind: "draw",
     label: "Húzás",
-    summary: "Lapot húz a pakli tetejéről.",
+    summary:
+      "Ennyivel nagyobb kézkeret a csata hátralévő részére, és rögtön fel is tölt rá. " +
+      "A kéz minden kijátszás után visszatöltődik a keretre, ezért a puszta lapszám nem érne semmit.",
     selfTargeting: true,
     fields: [
-      { name: "cardKind", type: "select", label: "Miből", default: "spell", options: ["spell", "unit"] },
-      { name: "count", type: "number", label: "Hány lap", default: 1, min: 1 },
-      { name: "who", type: "select", label: "Ki húz", default: "self", options: ["self", "opponent", "both"] },
+      { name: "cardKind", type: "select", label: "Miből", default: "spell", options: ["spell", "unit", "both"] },
+      { name: "count", type: "number", label: "Mennyivel nő a keret", default: 1, min: 1 },
+      { name: "who", type: "select", label: "Kinél", default: "self", options: ["self", "opponent", "both"] },
+    ],
+  },
+  {
+    kind: "handLimit",
+    label: "Kézkeret",
+    summary:
+      "A kézkeretet ennyire állítja (Malom 4, Faloda 6), vagy ennyivel mozdítja. " +
+      "Ha a kéz nagyobb lett a keretnél, a játékos választja ki, mit dob el.",
+    selfTargeting: true,
+    fields: [
+      { name: "cardKind", type: "select", label: "Melyik kéz", default: "both", options: ["both", "spell", "unit"] },
+      { name: "count", type: "number", label: "Érték", default: 5, min: 0 },
+      { name: "mode", type: "select", label: "Hogyan", default: "set", options: ["set", "add"] },
+      { name: "who", type: "select", label: "Kinél", default: "self", options: ["self", "opponent", "both"] },
     ],
   },
   {
@@ -1085,9 +1101,11 @@ export const LOCATION_EFFECT_SPECS: KindSpec[] = [
     summary:
       "A csatatér elején mindkét játékosra elsül egy hatás. Lingadori könyvtár, Malom, Faloda.",
     fields: [
-      { name: "effect", type: "select", label: "Melyik", default: "draw", options: ["draw", "discard", "searchDeck"] },
+      { name: "effect", type: "select", label: "Melyik", default: "draw", options: ["draw", "discard", "searchDeck", "handLimit"] },
       { name: "cardKind", type: "select", label: "Miből", default: "both", options: ["spell", "unit", "both"] },
-      { name: "count", type: "number", label: "Hány lap", default: 2, min: 1 },
+      { name: "count", type: "number", label: "Hány lap / mekkora keret", default: 2, min: 0 },
+      { name: "mode", type: "select", label: "Keret módja (handLimit)", default: "set", options: ["set", "add"] },
+      { name: "choose", type: "boolean", label: "A játékos választ", default: false },
     ],
   },
 ];
@@ -1142,7 +1160,7 @@ export const AUTO_TARGET_SCOPES = [
   "none",
 ] as const;
 
-export const AUTO_TARGET_PICKS = ["all", "weakest", "strongest", "highestSpellpower"] as const;
+export const AUTO_TARGET_PICKS = ["all", "weakest", "strongest", "highestSpellpower", "ask"] as const;
 
 export const TRIGGER_EVENTS = [
   "onAnyDeath",

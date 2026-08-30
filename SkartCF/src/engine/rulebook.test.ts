@@ -11,6 +11,9 @@ import {
 import { ALL_SLOTS } from "./grid";
 import { abilitiesActive, cardKeywords, power, unitsOf } from "./power";
 import { applyAction, gameIsDecided, legalActions } from "./reducer";
+import { answerPrompt, finishPrompt } from "./interactions";
+import { pendingPrompt, promptOptions } from "./prompts";
+import { applyLocationStart } from "./reducer";
 import { createGame, DEFAULT_CONFIG } from "./setup";
 import { fireBelepo, hasViableCaster } from "./resolve";
 import { boardTotal, locationWinner, visibleCapSpent } from "./totaling";
@@ -64,6 +67,7 @@ function emptyPlayer(id: PlayerId) {
     capSpent: 0,
     hiddenThisLocation: 0,
     bonusDraw: { units: 0, spells: 0 },
+    handLimit: { units: DEFAULT_CONFIG.handSize, spells: DEFAULT_CONFIG.spellHandSize },
     tossDone: false,
     seen: [],
   };
@@ -211,20 +215,34 @@ describe("leszerelés", () => {
     expect(state.players.p1.unitHand.map((c) => c.uid)).toEqual(expect.arrayContaining(kept));
   });
 
-  it("refills both hands to seven and turns the next battlefield over", () => {
+  it("refills both hands to the level and turns the next battlefield over", () => {
     let state = applyAction(scoreFirst(), { type: "nextLocation" });
     const player = state.turn;
     for (const card of state.players[player].unitHand.slice(0, 3)) {
       state = applyAction(state, { type: "toss", player, uid: card.uid });
     }
-    expect(state.players[player].unitHand).toHaveLength(4);
+    // 12.5 throws and does not replace: this is the one place in the game where
+    // the hand is meant to sit under its level.
+    expect(state.players[player].unitHand).toHaveLength(DEFAULT_CONFIG.handSize - 3);
     while (state.phase === "cleanup") {
       state = applyAction(state, { type: "declareTossDone", player: state.turn });
     }
     expect(state.phase).toBe("units");
     expect(state.locationIndex).toBe(1);
-    expect(state.players[player].unitHand).toHaveLength(7);
-    expect(state.players[player].spellHand).toHaveLength(7);
+    expect(state.players[player].unitHand).toHaveLength(DEFAULT_CONFIG.handSize);
+    expect(state.players[player].spellHand).toHaveLength(DEFAULT_CONFIG.spellHandSize);
+  });
+
+  it("resets the level, so one battle's discards do not follow you into the next", () => {
+    let state = applyAction(scoreFirst(), { type: "nextLocation" });
+    const player = state.turn;
+    // A Varjú-sized hole: the level dropped to two during the battle.
+    state.players[player].handLimit.units = 2;
+    while (state.phase === "cleanup") {
+      state = applyAction(state, { type: "declareTossDone", player: state.turn });
+    }
+    expect(state.players[player].handLimit.units).toBe(DEFAULT_CONFIG.handSize);
+    expect(state.players[player].unitHand).toHaveLength(DEFAULT_CONFIG.handSize);
   });
 
   it("draws nothing from an empty deck, and charges nothing for it (12.7)", () => {
@@ -278,6 +296,197 @@ describe("kötelező befejezés", () => {
     // One legal move, which is what lets the screen light the button up rather
     // than leaving the player hunting for what they are allowed to do.
     expect(legalActions(after, "p1")).toEqual([{ type: "declareUnitsDone", player: "p1" }]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2.4.3 and 12.11, the hand as a level
+// ---------------------------------------------------------------------------
+
+describe("kézkeret", () => {
+  /**
+   * A start effect parks a prompt and nothing may happen until it is answered —
+   * Lingadori's tutor always did, and Malom's "which four do you keep" now does
+   * too. A fixture that does not clear the queue is a fixture with no legal
+   * moves in it at all.
+   */
+  function drain(state: GameState): GameState {
+    let out = state;
+    for (let guard = 0; guard < 200; guard += 1) {
+      const asking = pendingPrompt(out);
+      if (!asking) return out;
+      const pick = promptOptions(asking)[0];
+      out = pick
+        ? applyAction(out, { type: "answerPrompt", player: asking.player, pick })
+        : applyAction(out, { type: "finishPrompt", player: asking.player });
+    }
+    return out;
+  }
+
+  function opening(): GameState {
+    return drain(createGame({ seed: "hand-1", decks: { p1: "felindori", p2: "magus" } }));
+  }
+
+  it("deals five and five (3.6)", () => {
+    expect(DEFAULT_CONFIG.handSize).toBe(5);
+    expect(DEFAULT_CONFIG.spellHandSize).toBe(5);
+    // Before any battlefield has had its say: `createGame` runs the opening
+    // effect of the first field, and Lingadori hands both players a card.
+    const state = createGame({ seed: "hand-1", decks: { p1: "felindori", p2: "magus" } });
+    for (const id of ["p1", "p2"] as PlayerId[]) {
+      expect(state.players[id].unitHand.length).toBeGreaterThanOrEqual(5);
+      expect(state.players[id].handLimit.units).toBe(5);
+      expect(state.players[id].handLimit.spells).toBe(5);
+    }
+  });
+
+  it("fills the hand back up after a unit is committed (6.3.4)", () => {
+    let state = opening();
+    const player = state.turn;
+    const deckBefore = state.players[player].unitDeck.length;
+    const play = legalActions(state, player).find(
+      (a) => a.type === "playUnit" && !a.faceDown,
+    );
+    expect(play).toBeDefined();
+    state = applyAction(state, play!);
+    // One card down, one card back: the hand is a level, not a stock.
+    expect(state.players[player].unitHand).toHaveLength(5);
+    expect(state.players[player].unitDeck).toHaveLength(deckBefore - 1);
+  });
+
+  it("fills two back after a hidden one, because hiding cost two", () => {
+    let state = opening();
+    const player = state.turn;
+    const deckBefore = state.players[player].unitDeck.length;
+    const hide = legalActions(state, player).find((a) => a.type === "playUnit" && a.faceDown);
+    expect(hide).toBeDefined();
+    state = applyAction(state, hide!);
+    expect(state.players[player].unitHand).toHaveLength(5);
+    expect(state.players[player].unitDeck).toHaveLength(deckBefore - 2);
+  });
+
+  it("does not fill the other hand from the wrong deck (2.4.1)", () => {
+    // A body with no Belépő, so nothing but the refill can touch a pile. Half
+    // the Mágus deck draws on arrival, which is a different rule being tested.
+    let state = blankState();
+    state.players.p1.unitHand = [{ uid: "u1", cardId: "felindori_kardforgato" }];
+    state.players.p1.unitDeck = [{ uid: "u2", cardId: "patkany" }];
+    state.players.p1.spellDeck = [{ uid: "s1", cardId: "explar" }];
+    state.players.p1.handLimit = { units: 1, spells: 0 };
+
+    state = applyAction(state, { type: "playUnit", player: "p1", uid: "u1", slot: "p1.F1" });
+    expect(state.players.p1.unitHand.map((c) => c.uid)).toEqual(["u2"]);
+    // The spell deck is untouched: 2.4.1 keeps the two piles apart, and the
+    // refill after a unit is a unit.
+    expect(state.players.p1.spellDeck).toHaveLength(1);
+  });
+
+  it("raises the level rather than handing out one loose card (12.11.1)", () => {
+    // Caecus draws a spell. Under a hand that refills, a loose card would be a
+    // card you were about to draw anyway, so the effect is a bigger hand.
+    const state = blankState();
+    state.players.p1.spellDeck = Array.from({ length: 9 }, (_, i) => ({
+      uid: `s${i}`,
+      cardId: "explar",
+    }));
+    place(state, "caecus", "p1.F1");
+    const unit = state.board["p1.F1"]!;
+    fireBelepo(state, unit);
+
+    expect(state.players.p1.handLimit.spells).toBe(DEFAULT_CONFIG.spellHandSize + 1);
+    expect(state.players.p1.spellHand).toHaveLength(DEFAULT_CONFIG.spellHandSize + 1);
+  });
+
+  it("takes the level down when a card is thrown away for value (12.11.2)", () => {
+    // Varjú: every unit thrown is a point of power and a point off the hand.
+    // Without the second half the next play refills what the ability spent, and
+    // "discard for power" becomes the best rate in the game.
+    const state = blankState();
+    state.players.p1.unitHand = [
+      { uid: "u1", cardId: "patkany" },
+      { uid: "u2", cardId: "patkany" },
+      { uid: "u3", cardId: "patkany" },
+    ];
+    state.players.p1.handLimit.units = 3;
+    place(state, "varju", "p1.F1");
+    const unit = state.board["p1.F1"]!;
+    const before = unit.rings;
+    fireBelepo(state, unit);
+
+    // It asks now rather than emptying the hand: the number is the decision.
+    const asking = pendingPrompt(state);
+    expect(asking?.kind).toBe("discardChoice");
+    expect(asking?.min).toBe(0); // throwing nothing is a legal answer
+    expect(asking?.max).toBe(3);
+
+    answerPrompt(state, "u1", () => {});
+    answerPrompt(state, "u2", () => {});
+    finishPrompt(state, () => {});
+
+    expect(state.players.p1.unitHand).toHaveLength(1);
+    expect(state.players.p1.handLimit.units).toBe(1);
+    // A delta, because `blankState` fights on Oppidium and Oppidium rings
+    // everything that arrives.
+    expect(state.board["p1.F1"]!.rings).toBe(before + 2);
+  });
+
+  it("keeps a leszerelés throw off the level (12.11.4)", () => {
+    let state = opening();
+    // Straight to the discard step of the first battle.
+    while (state.phase === "units") {
+      state = drain(applyAction(state, { type: "declareUnitsDone", player: state.turn }));
+    }
+    while (state.phase === "battle") {
+      state = drain(applyAction(state, { type: "declareSpellsDone", player: state.turn }));
+    }
+    state = applyAction(state, { type: "nextLocation" });
+    const player = state.turn;
+    const uid = state.players[player].unitHand[0].uid;
+    state = applyAction(state, { type: "toss", player, uid });
+    // Thrown, not replaced, and the level has not moved: 12.6 is what fills it.
+    expect(state.players[player].unitHand).toHaveLength(4);
+    expect(state.players[player].handLimit.units).toBe(5);
+  });
+});
+
+describe("csatatér és a kézkeret", () => {
+  /** Runs a game up to the start of the battlefield with this id. */
+  function onField(cardId: string): GameState {
+    let state = createGame({ seed: "field-1", decks: { p1: "felindori", p2: "magus" } });
+    state.locations[0] = { cardId, broughtBy: "p1", winner: null };
+    applyLocationStart(state);
+    return state;
+  }
+
+  it("Faloda sets the level to six and fills to it", () => {
+    const state = onField("faloda");
+    for (const id of ["p1", "p2"] as PlayerId[]) {
+      expect(state.players[id].handLimit).toEqual({ units: 6, spells: 6 });
+      expect(state.players[id].unitHand).toHaveLength(6);
+      expect(state.players[id].spellHand).toHaveLength(6);
+    }
+  });
+
+  it("Malom sets it to four and asks which cards go", () => {
+    const state = onField("malom");
+    expect(state.players.p1.handLimit).toEqual({ units: 4, spells: 4 });
+    // Four prompts queued, one per hand per player, and each is a real choice
+    // rather than the engine taking the cheapest for you.
+    const asking = pendingPrompt(state);
+    expect(asking?.kind).toBe("discardChoice");
+    expect(asking?.min).toBe(1);
+    expect(asking?.max).toBe(1);
+    expect(state.prompts).toHaveLength(4);
+  });
+
+  it("does not take the level twice on Malom", () => {
+    const state = onField("malom");
+    const first = pendingPrompt(state)!;
+    const uid = first.cards![0].uid;
+    answerPrompt(state, uid, () => {});
+    // The level was set to four by the battlefield; throwing the fifth card
+    // must not knock it down to three.
+    expect(state.players[first.player].handLimit.units).toBe(4);
   });
 });
 

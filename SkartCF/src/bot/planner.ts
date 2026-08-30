@@ -66,6 +66,7 @@ import type { BaselineContext } from "../sim/baseline";
 import { bestBoard, DEFAULT_BOARD, project, scoreBoard } from "./board";
 import type { BoardOptions } from "./board";
 import { ownDeck } from "./deck";
+import { replacementFor } from "./draw";
 import { DEFAULT_THREAT, estimateThreat, pessimisticBoard, worstCaseThreat } from "./threat";
 import type { ThreatOptions } from "./threat";
 import { DEFAULT_KEEP, tossPlan } from "./keep";
@@ -197,6 +198,12 @@ export interface PlannerParams {
   believe: boolean;
   /** Passed to the threat estimate. */
   threat: Partial<ThreatOptions>;
+  /**
+   * Price a card against what the refill hands back, rather than as though it
+   * were gone (see `draw.ts`). Off restores the pre-2.4.3 accounting, which is
+   * the only way to measure what this is worth: `npm run mirror --no-refill`.
+   */
+  refillAware: boolean;
 }
 
 export const DEFAULT_PLANNER: PlannerParams = {
@@ -254,6 +261,11 @@ export const DEFAULT_PLANNER: PlannerParams = {
   budgetMs: 8000,
   toss: true,
   keep: DEFAULT_KEEP,
+  // On, and it has to be: the hand refills after every play now (2.4.3), so a
+  // card is exchanged rather than spent and a bot charging the old price hoards
+  // a hand it is being handed back. See `draw.ts` for what it measures and why
+  // one ply is all there is to measure.
+  refillAware: true,
   // Off. Measured at 50.0% against 66.7% with it off, 100 games a side. Both
   // halves of it are built on Θ — "safe" needs Θ(theirs), "hopeless" needs
   // Θ(mine) — and Θ is a truncated search, so both are lower bounds used as
@@ -630,7 +642,7 @@ export class Planner {
       // had the bot answering a closed, casterless opponent by placing five
       // more units into a lead of six.
       doubt: this.certainlyDone(state, player) ? 0 : board.doubt,
-      unitCost: this.priceOf(state, player, this.params.unitCost),
+      unitCost: this.priceOf(state, player, this.params.unitCost, "unit"),
     });
     this.stats.boards += 1;
 
@@ -786,6 +798,7 @@ export class Planner {
     state: GameState,
     player: PlayerId,
     base: number,
+    kind: "unit" | "spell",
     opts = this.params.theta,
     threat?: Threat,
   ): number {
@@ -828,7 +841,21 @@ export class Planner {
     // the board, so a hopeless battlefield charged the same as a decisive one
     // and the search spent its hand climbing towards a line it could not reach.
     const swing = this.contestable(state, player, opts, threat);
-    return cardPrice(base, stake * swing);
+    // And what the deck hands back for it.
+    //
+    // Everything above prices a card as though spending it were losing it, which
+    // is what spending it *was*: seven cards, no refill, and a hand you rationed
+    // across a whole battlefield. 2.4.3 turned that over — the hand refills to a
+    // level after every play — so a card is now exchanged rather than spent, and
+    // the price has to be the difference between what leaves and what arrives.
+    //
+    // `draw.ts` measures that as a count over the pile the refill comes from,
+    // never as a search: the owner knows the deck's contents and 1.5.2 hides
+    // only its order, so there is nothing to search and the whole signal is "how
+    // many of these could do anything here". An empty deck pays the old price in
+    // full, which is right — there the hand really is a stock again.
+    const refill = this.params.refillAware === false ? 1 : replacementFor(state, player, kind);
+    return cardPrice(base, stake * swing) * refill;
   }
 
   /**

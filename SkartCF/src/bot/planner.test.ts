@@ -22,6 +22,7 @@ function emptyPlayer(id: PlayerId) {
     capSpent: 0,
     hiddenThisLocation: 0,
     bonusDraw: { units: 0, spells: 0 },
+    handLimit: { units: DEFAULT_CONFIG.handSize, spells: DEFAULT_CONFIG.spellHandSize },
     tossDone: false,
     seen: [],
   };
@@ -262,6 +263,10 @@ describe("answering an ability's question", () => {
       { uid: "t1", cardId: "teleport" },
       { uid: "t2", cardId: "langlandzsa" },
     ];
+    // A hand already at its level, so the refill after the action cannot sweep
+    // the rest of a two-card deck up as well and hide which card was chosen.
+    // The question under test is the tutor's, not the draw's.
+    state.players.p1.handLimit.spells = 1;
 
     const legal = legalActions(state, "p1");
     // Only run the assertion if the fixture really did produce a two-way

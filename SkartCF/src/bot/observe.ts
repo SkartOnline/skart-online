@@ -62,6 +62,15 @@ export interface ObservedSide {
   spellsClosed: boolean;
   unitHandSize: number;
   spellHandSize: number;
+  /**
+   * 2.4.3: how big each hand is *allowed* to be this battle, which is public
+   * on both sides and is now the number that matters. The hand itself is almost
+   * always at the level — it refills after every play — so "they hold four"
+   * says nothing, while "their level is four" says a Varjú went off or we are
+   * standing on the Malom.
+   */
+  unitHandLimit: number;
+  spellHandLimit: number;
   /** Card ids, or `null` when this is the opponent. Sizes are always known. */
   unitHand: string[] | null;
   spellHand: string[] | null;
@@ -169,6 +178,8 @@ function observeSide(
     spellsClosed: p.flags.spellsClosed,
     unitHandSize: p.unitHand.length,
     spellHandSize: p.spellHand.length,
+    unitHandLimit: p.handLimit.units,
+    spellHandLimit: p.handLimit.spells,
     // A player does not know their own draw order either, so the deck is a
     // count on both sides. The hand is the only asymmetric pile.
     unitHand: mine ? p.unitHand.map((c) => c.cardId) : null,

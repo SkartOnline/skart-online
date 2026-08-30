@@ -23,6 +23,7 @@ function emptyPlayer(id: PlayerId) {
     capSpent: 0,
     hiddenThisLocation: 0,
     bonusDraw: { units: 0, spells: 0 },
+    handLimit: { units: DEFAULT_CONFIG.handSize, spells: DEFAULT_CONFIG.spellHandSize },
     tossDone: false,
     seen: [],
   };

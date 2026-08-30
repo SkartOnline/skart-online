@@ -4,6 +4,7 @@ import {
   isBlocked,
   makeUnitInstance,
   openSlots,
+  refillHand,
   runEffects,
   salvageDestination,
 } from "./effects";
@@ -327,8 +328,40 @@ export function applyAction(state: GameState, action: Action): GameState {
       }
       break;
   }
+  refillActor(next, action);
   settle(next);
   return next;
+}
+
+/**
+ * The refill, and the whole reason the hand is five rather than seven.
+ *
+ * Play a unit and you draw a unit; cast a spell and you draw a spell; hide a
+ * unit and you draw the two it cost you. It is written as "top the acting
+ * player's hands back up to their level" rather than as three separate draws
+ * because that is the same sentence in every case, including the ones that are
+ * awkward to enumerate — the hide toll, a Mesteri's second card, a Belépő that
+ * threw something away on the way past.
+ *
+ * Only the player who acted. Griff is why: his exchange is two prompts and two
+ * actions, and between them the other player's hand is short by three cards
+ * that are sitting in yours. Refilling both sides there would hand them three
+ * free cards in the middle of being robbed.
+ *
+ * Never during leszerelés. 12.5 is the one moment a hand is *meant* to sit
+ * below its level — you throw first and 12.6 fills afterwards — and a refill
+ * here would replace each card as it was thrown, which is a different rule and
+ * a worse one.
+ *
+ * It only ever draws up. Nothing here takes a card off anybody: an overfull
+ * hand is Malom's business, and Malom asks.
+ */
+function refillActor(state: GameState, action: Action): void {
+  if (state.phase === "cleanup" || state.phase === "gameOver") return;
+  const player = "player" in action ? action.player : state.turn;
+  if (!player) return;
+  refillHand(state, player, "unit");
+  refillHand(state, player, "spell");
 }
 
 /**
@@ -789,8 +822,18 @@ function finishCleanup(state: GameState): void {
     p.capSpent = 0;
     p.hiddenThisLocation = 0;
     p.tossDone = false;
-    drawUpTo(p.unitHand, p.unitDeck, state.config.handSize + p.bonusDraw.units);
-    drawUpTo(p.spellHand, p.spellDeck, state.config.spellHandSize + p.bonusDraw.spells);
+    // 12.6, and the only place the level is rebuilt from scratch. Whatever the
+    // last battle did to it — a Varjú, a Malom, an Umbradog that took it to
+    // nothing — expires here, which is what stops one bad battlefield following
+    // a player across the rest of the match. Diadal's promise (Kincskereső, Ki
+    // mint vet) is the one thing that carries, and it carries as a bigger hand
+    // rather than as loose cards, so it survives being spent.
+    p.handLimit = {
+      units: state.config.handSize + p.bonusDraw.units,
+      spells: state.config.spellHandSize + p.bonusDraw.spells,
+    };
+    refillHand(state, id, "unit");
+    refillHand(state, id, "spell");
     p.bonusDraw = { units: 0, spells: 0 };
   }
 
@@ -903,7 +946,18 @@ export function applyLocationStart(state: GameState): void {
           state,
           null,
           player,
-          [{ kind: String(effect.effect ?? "draw"), cardKind, count: Number(effect.count ?? 1) }],
+          [
+            {
+              kind: String(effect.effect ?? "draw"),
+              cardKind,
+              count: Number(effect.count ?? 1),
+              // Malom's four and Faloda's six travel as `mode`, and Malom's
+              // "you pick" as `choose` — a battlefield gets to say the same
+              // things a card does, or it needs its own effect table.
+              ...(effect.mode !== undefined ? { mode: effect.mode } : {}),
+              ...(effect.choose !== undefined ? { choose: effect.choose } : {}),
+            },
+          ],
           [],
           (text) => log(state, text, player),
         );
@@ -926,11 +980,6 @@ function finishGame(state: GameState): void {
   );
 }
 
-function drawUpTo(hand: HandCard[], deck: HandCard[], size: number): void {
-  while (hand.length < size && deck.length > 0) {
-    hand.push(deck.shift()!);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Convenience selectors used by both the UI and the simulator

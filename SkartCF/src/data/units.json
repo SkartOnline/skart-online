@@ -150,7 +150,7 @@
     "tags": [
       "swarm"
     ],
-    "text": "Diadal: A következő csata előtt húzz egy extra egységet!"
+    "text": "Diadal: A következő csatában eggyel nagyobb az egységkereted."
   },
   {
     "id": "greta",
@@ -235,7 +235,7 @@
     "tags": [
       "caster"
     ],
-    "text": "Belépő: húzz egy varázslatot!"
+    "text": "Belépő: A varázslatkeretem 1-gyel nő a csata végéig, és rögtön húzol rá."
   },
   {
     "id": "bandita",
@@ -431,7 +431,7 @@
     "tags": [
       "beast"
     ],
-    "text": "Belépő: Dobj el egy Állatot vagy Bestiát, hogy +2 erőt kapjak!"
+    "text": "Belépő: Eldobhatsz egy Állatot vagy Bestiát, hogy +2 erőt kapjak. Az egységkereted ennyivel kisebb lesz."
   },
   {
     "id": "novicius",
@@ -460,7 +460,7 @@
     "tags": [
       "caster"
     ],
-    "text": "Belépő: húzz egy varázslatot!"
+    "text": "Belépő: A varázslatkeretem 1-gyel nő a csata végéig, és rögtön húzol rá."
   },
   {
     "id": "kereskedo",
@@ -487,7 +487,7 @@
     "tags": [
       "polgar"
     ],
-    "text": "Belépő: húzz egy lapot!"
+    "text": "Belépő: Az egységkeretem 1-gyel nő a csata végéig, és rögtön húzol rá."
   },
   {
     "id": "barkakedvenc",
@@ -756,14 +756,16 @@
           "kind": "discard",
           "cardKind": "unit",
           "count": -1,
-          "ringPer": 1
+          "ringPer": 1,
+          "choose": true,
+          "optional": true
         }
       ]
     },
     "tags": [
       "elettelen"
     ],
-    "text": "Belépő: Dobj el tetszőleges számú egységet! Minden eldobott egység után +1 erőt kapok."
+    "text": "Belépő: Annyi egységet dobsz el, amennyit akarsz. Minden eldobott egység után +1 erőt kapok, és ennyivel kisebb az egységkereted a csata végéig."
   },
   {
     "id": "rablo",
@@ -991,7 +993,7 @@
     "tags": [
       "caster"
     ],
-    "text": "Belépő: húzz egy varázslatot!"
+    "text": "Belépő: A varázslatkeretem 1-gyel nő a csata végéig, és rögtön húzol rá."
   },
   {
     "id": "felindori_ijasz",
@@ -1088,7 +1090,7 @@
     "tags": [
       "beast"
     ],
-    "text": "Belépő: dobj el egy lapot!"
+    "text": "Belépő: Eldobsz egy lapot, és ennyivel kisebb a kereted a csata végéig."
   },
   {
     "id": "lenyidomar",
@@ -1404,7 +1406,7 @@
     "tags": [
       "caster"
     ],
-    "text": "Belépő: húzz két varázslatot!"
+    "text": "Belépő: A varázslatkeretem 2-vel nő a csata végéig, és rögtön húzol rá."
   },
   {
     "id": "ninja",
@@ -1594,7 +1596,7 @@
     "belepo": {
       "target": {
         "scope": "allEnemy",
-        "pick": "strongest",
+        "pick": "ask",
         "filter": {
           "maxBasePower": 4
         }
@@ -1609,7 +1611,7 @@
       "caster",
       "control"
     ],
-    "text": "Belépő: megölök egy legfeljebb 4 alaperejű ellenséget."
+    "text": "Belépő: Megölök egy legfeljebb 4 alaperejű ellenséget. Te választod, melyiket."
   },
   {
     "id": "korgon",
@@ -1778,7 +1780,7 @@
       "elettelen",
       "caster"
     ],
-    "text": "Belépő: Cseréld ki a kezed a temetőddel!\nMinden szövetséges ebben a csatában Élettelen és +2 erőt kap."
+    "text": "Belépő: Kicseréled a kezed a temetőddel, és a kézkereted ennyi lesz.\nMinden szövetséges ebben a csatában Élettelen és +2 erőt kap."
   },
   {
     "id": "erif_mester",
@@ -1833,7 +1835,7 @@
     "tags": [
       "caster"
     ],
-    "text": "Belépő: húzz két varázslatot!"
+    "text": "Belépő: A varázslatkeretem 2-vel nő a csata végéig, és rögtön húzol rá."
   },
   {
     "id": "charon",
@@ -2192,7 +2194,7 @@
       "beast",
       "control"
     ],
-    "text": "Nem rejthetsz el.\nBelépő: Megölök minden más egységet a csatatéren. Dobd el a kezed!"
+    "text": "Nem rejthetsz el.\nBelépő: Megölök minden más egységet a csatatéren. Eldobod a kezed, és ebben a csatában nem húzol vissza semmit."
   },
   {
     "id": "cassanus",

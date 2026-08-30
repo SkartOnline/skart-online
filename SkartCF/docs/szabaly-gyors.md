@@ -25,9 +25,15 @@ Ha a hat csata után egyenlő az állás, jön a hetedik csatatér, A Zóna, és
 1. Mindketten kiteszitek a három csatatérlapotokat képpel felfelé. Ezeket a játék elejétől mindenki látja, tehát tudjátok, milyen harcok jönnek.
 2. A hat lapot lefordítva összekeveritek, és egy sorba rakjátok. Az nem derül ki előre, melyik jön elsőnek.
 3. A Zóna a sor végére kerül. Csak akkor fordul fel, ha a hat csata után egyenlő az állás.
-4. Mindketten megkeveritek mindkét paklitokat, és húztok 7 egységlapot és 7 varázslatlapot. A két kezed végig külön marad. Kezdőkéz-csere nincs.
+4. Mindketten megkeveritek mindkét paklitokat, és húztok 5 egységlapot és 5 varázslatlapot. A két kezed végig külön marad. Kezdőkéz-csere nincs.
 
 Minden csatában az kezd, aki azt a csatatérlapot hozta. A Zónát senki nem hozza, ott sorsolás dönti el, ki kezd.
+
+## A kéz: öt lap, és mindig öt lap
+
+A kezed nem fogy el a csata alatt. Ötöt tartasz egységből és ötöt varázslatból, és **valahányszor kijátszol egy lapot, húzol egyet a helyére**. Ha rejtve tettél le egy egységet, kettőt — a rejtés ára is a kezedből ment el. Így minden körben öt valódi lehetőség közül választasz, nem tizennégy közül gazdálkodsz, és azzal kell kezdened valamit, amit épp húztál.
+
+Az öt a **kézkeret**, és ezt mozgatják a lapok. Ahol a szöveg azt mondja, hogy húzol, ott a kereted nő a csata végéig; ahol azt mondja, hogy eldobsz, ott csökken — különben az eldobás ingyen lenne, hiszen a következő kijátszás visszatöltené. A Malom 4-re, a Faloda 6-ra állítja mindkettőtökét. A leszereléskor visszaáll 5-re.
 
 ## A lapok
 
@@ -108,7 +114,7 @@ Minden lap, ami a csatatéren volt, a temetődbe megy, egységek és varázslato
 
 Ezután mindketten eldobhattok tetszőleges számú lapot bármelyik kezetekből. Egyszerre döntötök, és nem kell előre bejelenteni.
 
-Végül mindketten visszahúztok 7 egységre és 7 varázslatra, a két kezet külön számolva. Csak annyit húzol, amennyi hiányzik. Ha a pakli üres, a húzás elmarad, a temetőt nem keveritek vissza, és ezért semmilyen büntetés nem jár — csak kevesebb lapod lesz.
+Végül mindkettőtök kézkerete visszaáll 5-5 lapra, és felhúztok rá, a két kezet külön számolva. Csak annyit húzol, amennyi hiányzik. Ha a pakli üres, a húzás elmarad, a temetőt nem keveritek vissza, és ezért semmilyen büntetés nem jár — csak kevesebb lapod lesz.
 
 A csatatérlap a megszerzője oldalára kerül, döntetlennél félre, így az állás végig látszik. Jöhet a következő csatatér.
 

@@ -353,6 +353,29 @@
   font-variant-caps: small-caps;
   color: var(--ash);
 }
+
+/* The hand level, under the cost cap and reading as its sibling. Marked when a
+   card or a battlefield has moved it off the printed five, because that is the
+   only time the number is news. */
+.hand-meter {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--ash-dim);
+}
+.hand-meter b {
+  color: var(--parchment);
+  font-weight: 600;
+}
+.hand-meter i {
+  margin: 0 4px;
+  font-style: normal;
+  opacity: 0.5;
+}
+.hand-meter.moved b,
+.hand-meter.moved {
+  color: var(--ember);
+}
+
 .counters .cap-meter b {
   color: var(--tallow);
   font-size: 14px;

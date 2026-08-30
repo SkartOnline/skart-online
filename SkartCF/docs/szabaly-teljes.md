@@ -102,11 +102,15 @@ A 3. fejezet kivételével a szabályok nem időrendben állnak, hanem tárgykö
 
 2.4.1 Az egységpakli és a varázslatpakli két külön pakli. Egyikből sem lehet a másik lapját húzni.
 
-2.4.2 Az egységkéz és a varázslatkéz szintén két külön zóna, és külön-külön telik fel hét lapra.
+2.4.2 Az egységkéz és a varázslatkéz szintén két külön zóna, és külön-külön telik fel a saját kézkeretére.
 
-2.4.3 A csatatér a játékterület: mindkét játékos előtt hat mező, amelyre az egységei kerülnek.
+2.4.3 A kézkeret az a lapszám, ameddig a kéz feltöltődik. Alapértéke öt, külön az egységkézre és külön a varázslatkézre. A kézkeret nyilvános.
 
-2.4.4 A temetőbe kerülnek az eldobott, elhasznált és elesett lapok. A temető nyilvános, a sorrendje nem számít.
+2.4.4 A kézkeret a csata idejére szól. A leszereléskor mindkét kéz kerete visszaáll ötre (12.6).
+
+2.4.5 A csatatér a játékterület: mindkét játékos előtt hat mező, amelyre az egységei kerülnek.
+
+2.4.6 A temetőbe kerülnek az eldobott, elhasznált és elesett lapok. A temető nyilvános, a sorrendje nem számít.
 
 2.4.5 A fókusz az a hely a saját oldaladon, ahová a megkezdett, de még be nem fejezett Mesteri varázslat kerül, lefordítva. Egyszerre legfeljebb egy lap állhat benne.
 
@@ -126,7 +130,7 @@ A 3. fejezet kivételével a szabályok nem időrendben állnak, hanem tárgykö
 
 3.5 A Zóna a sor végére kerül. Ha a hat csata után nincs egyenlőség, sosem fordul fel.
 
-3.6 Mindkét játékos megkeveri mindkét paklijat, majd hét egységlapot és hét varázslatlapot húz. Kezdőkéz-csere nincs.
+3.6 Mindkét játékos megkeveri mindkét paklijat, majd öt egységlapot és öt varázslatlapot húz. Kezdőkéz-csere nincs.
 
 3.7 Ezután fordul fel az első csatatérlap, és megkezdődik az első csata.
 
@@ -350,6 +354,10 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 6.3.3 Az egység a letétele után a helyén marad, amíg egy hatás el nem mozdítja.
 
+6.3.4 Miután a köröd lezárult, feltöltöd az egységkezed a kézkeretedig. Ha rejtve tetted le az egységet, a rejtés ára is a kezedből ment el, tehát annyi lapot húzol, amennyi hiányzik — rejtésnél rendszerint kettőt.
+
+6.3.5 A feltöltés akkor is megtörténik, ha a kéz keretét ugyanebben a körben egy hatás megváltoztatta. Mindig az aktuális kerethez húzol.
+
 6.3.4 Lapszöveg megkötheti, hova kerülhet az egység, például előírhatja, hogy csak egy adott kulcsszavú egység mellé állhat. Az ilyen feltételnek a letétel pillanatában kell teljesülnie.
 
 6.3.5 A csatatérlap letilthat mezőket. A letiltott mező a csata végéig üresen marad, és semmilyen hatás nem tehet rá egységet.
@@ -457,6 +465,8 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 8.2.3 A varázslat kijátszása lezárja a körödet, akkor is, ha a varázslat végül nem ért el semmit.
 
 8.2.4 A kijátszott varázslat azonnal és teljesen lefut. Az ellenfél nem tud közbevágni, és nem tud rá válaszul varázsolni.
+
+8.2.5 Miután a köröd lezárult, feltöltöd a varázslatkezed a kézkeretedig. A Mesteri varázslat ára is a kezedből ment el (8.6), tehát az is visszatöltődik.
 
 ### 8.3 Kijátszás és fizetés
 
@@ -744,15 +754,35 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 12.5 Ezután mindkét játékos eldobhat tetszőleges számú lapot bármelyik kezéből. A két játékos egyszerre dönt, és a döntését nem kell előre bejelentenie.
 
-12.6 Végül mindkét játékos hét egységlapra és hét varázslatlapra húz fel, a két kezet külön-külön számolva. Csak annyi lapot húzol, amennyi hiányzik.
+12.6 Ezután mindkét játékos kézkerete visszaáll az alapértékére, vagyis öt egységlapra és öt varázslatlapra. Amit a lezárult csata a kerettel tett — nagyobbra vitte vagy megnyirbálta —, itt megszűnik.
+
+12.6.1 Végül mindkét játékos felhúz a kézkeretéig, a két kezet külön-külön számolva. Csak annyi lapot húzol, amennyi hiányzik.
+
+12.6.2 A leszerelés az egyetlen pont a játékban, ahol a kéz szándékosan a kerete alá kerül: a 12.5-ben eldobott lapok nem töltődnek vissza azonnal, hanem a 12.6.1 tölti fel a kezet.
 
 12.7 Ha a pakli üres, a húzás elmarad. A temetőt nem keverjük vissza, és a kimaradt húzásért semmilyen hátrány nem jár.
+
+12.7.1 Az a húzás sem jár hátránnyal, amelyet a kijátszás utáni feltöltés (6.3.4, 8.2.5) nem tudott teljesíteni. A kéz egyszerűen kisebb marad.
 
 12.8 A sebzések, a gyűrűk, a ráhelyezett lapok és minden csatához kötött nyilvántartás megszűnik.
 
 12.9 A csatatérlap a megszerzője oldalára kerül, döntetlen esetén pedig félre. Az állás így a játék végéig látszik.
 
 12.10 Ezután a következő csatatérlap fordul fel, hacsak a játék már el nem dőlt.
+
+### 12.11 A kézkeret mozgatása
+
+12.11.1 Ha egy lapszöveg húzást ad ("húzz egy varázslatot"), az a kézkeretet emeli ennyivel a csata végéig, és a kéz rögtön fel is töltődik rá. Puszta lapot senki nem húz: a kéz a következő kijátszás után úgyis feltöltődne, tehát az önmagában nem érne semmit.
+
+12.11.2 Ha egy lapszöveg eldobást kér, a kézkeret annyival csökken, ahány lapot eldobtál, szintén a csata végéig. Ez teszi az eldobást árrá: különben a következő kijátszás visszatöltené.
+
+12.11.3 A rejtés ára (6.5) és a Mesteri varázslat ára (8.6) nem eldobás, hanem kijátszás költsége. A keret nem mozdul, a kéz visszatöltődik.
+
+12.11.4 A 12.5 szerinti eldobás sem mozdítja a keretet: a leszerelés éppen arról szól, hogy amit eldobtál, azt frissre cseréled.
+
+12.11.5 Ha egy hatás a kezedből vesz el lapot (nem te dobod el), a kereted annyival csökken. A cserék, ahol ugyanannyi lap érkezik vissza, nem mozdítják a keretet.
+
+12.11.6 Ha a kéz a keret fölé kerül, a tulajdonosa választja ki, mely lapokat dobja el a keretig.
 
 ---
 

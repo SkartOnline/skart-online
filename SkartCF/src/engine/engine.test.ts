@@ -59,6 +59,7 @@ function emptyPlayer(id: PlayerId) {
     capSpent: 0,
     hiddenThisLocation: 0,
     bonusDraw: { units: 0, spells: 0 },
+    handLimit: { units: DEFAULT_CONFIG.handSize, spells: DEFAULT_CONFIG.spellHandSize },
     tossDone: false,
     seen: [],
   };
@@ -504,18 +505,24 @@ describe("units phase", () => {
 });
 
 describe("hiding a unit", () => {
-  it("costs one unit card out of hand", () => {
+  it("costs one unit card out of hand, and the hand fills back up", () => {
     let state = newGame();
     const player = state.turn;
     const hide = legalActions(state, player).find(
       (a) => a.type === "playUnit" && a.faceDown,
     );
     expect(hide).toBeDefined();
-    const before = state.players[player].unitHand.length;
+    const deckBefore = state.players[player].unitDeck.length;
     state = applyAction(state, hide!);
-    // One card committed, one card paid.
-    expect(state.players[player].unitHand.length).toBe(before - 2);
+    // Two cards left the hand — the one committed and the one paid — so two
+    // come back off the deck. The price of hiding is a card out of the *deck*
+    // now rather than a gap in the hand, which is the whole shape of the five
+    // card hand: what you spend is depth, not options.
     expect(state.players[player].discard.length).toBe(1);
+    expect(state.players[player].unitHand.length).toBe(
+      state.players[player].handLimit.units,
+    );
+    expect(state.players[player].unitDeck.length).toBe(deckBefore - 2);
   });
 
   it("cannot be paid for with the last card in hand", () => {
