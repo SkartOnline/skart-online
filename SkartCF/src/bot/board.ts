@@ -42,7 +42,7 @@
  */
 
 import { getUnit } from "../engine/cards";
-import { slotsOf } from "../engine/grid";
+import { ALL_SLOTS, slotsOf } from "../engine/grid";
 import { pendingPrompt } from "../engine/prompts";
 import { applyAction, legalActions, remainingCap } from "../engine/reducer";
 import { compositions, enables, reach } from "./compose";
@@ -221,8 +221,47 @@ function opponentOf(player: PlayerId): PlayerId {
 }
 
 /** The 11.1 sum from one seat, on the board as it currently stands. */
+/**
+ * The board as it will stand when it is scored.
+ *
+ * A face-down unit has no abilities while it is face down (`abilitiesActive`),
+ * which is the rule and is right — nothing a hidden unit does can fire before
+ * it turns over. It is the wrong board to *plan* against. Chapter 7 flips every
+ * hidden unit at the Mustra and chapter 11 adds the totals up afterwards, so
+ * the position that decides the battlefield is the revealed one, every time.
+ *
+ * On most battlefields the difference is a unit or two. On Ködrét it is the
+ * whole board: every unit on both sides is hidden, so the gathering was being
+ * planned against a position with *no statics on it at all* — no Morál, no
+ * Falanx, no adjacency, no Iniquus, on either side. Measured, that had the bot
+ * stopping at 67% of Ködrét's cost cap with thirteen placements still legal,
+ * against 94–100% on every other battlefield in the set.
+ *
+ * Returns the state itself when nothing is hidden, which is the common case and
+ * costs one pass over twelve tiles. Only the board is rebuilt — the hands, the
+ * decks and the piles are shared, because nothing here reads them and this runs
+ * inside the search.
+ */
+export function asScored(state: GameState): GameState {
+  let hidden = false;
+  for (const slot of ALL_SLOTS) {
+    if (state.board[slot]?.faceDown) {
+      hidden = true;
+      break;
+    }
+  }
+  if (!hidden) return state;
+  const board = { ...state.board };
+  for (const slot of ALL_SLOTS) {
+    const unit = board[slot];
+    if (unit?.faceDown) board[slot] = { ...unit, faceDown: false };
+  }
+  return { ...state, board };
+}
+
 function realisedMargin(state: GameState, player: PlayerId): number {
-  return boardTotal(state, player) - boardTotal(state, opponentOf(player));
+  const at = asScored(state);
+  return boardTotal(at, player) - boardTotal(at, opponentOf(player));
 }
 
 /**
@@ -373,7 +412,9 @@ function settle(state: GameState, player: PlayerId, limit = 8): GameState {
     let bestTotal = -Infinity;
     for (const option of options) {
       const after = applyAction(cursor, option);
-      const total = boardTotal(after, player) - boardTotal(after, opponentOf(player));
+      const revealed = asScored(after);
+      const total =
+        boardTotal(revealed, player) - boardTotal(revealed, opponentOf(player));
       if (total > bestTotal) {
         bestTotal = total;
         best = option;

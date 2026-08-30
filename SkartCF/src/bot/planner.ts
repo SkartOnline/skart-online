@@ -53,11 +53,11 @@
  * has to: an ability mid-question is not a board this layer can plan around.
  */
 
-import { getLocation, getUnit } from "../engine/cards";
+import { allUnits, getLocation, getUnit } from "../engine/cards";
 import { canCast, currentLocation, printedSpellpower } from "../engine/power";
 import { applyAction, legalActions } from "../engine/reducer";
 import { boardTotal, visibleCapSpent } from "../engine/totaling";
-import { slotsOf } from "../engine/grid";
+import { ALL_SLOTS, slotsOf } from "../engine/grid";
 import { SCHOOLS } from "../engine/schema";
 import { pendingPrompt } from "../engine/prompts";
 import type { Action, GameState, PlayerId } from "../engine/types";
@@ -945,7 +945,7 @@ export class Planner {
     // not a securing line at all: my own unspent cap is not their threat, so
     // subtracting it says a one-point lead is safe against anything.
     if (state.players[foe].flags.unitsClosed) return 1;
-    const theirs = Math.max(0, cap - visibleCapSpent(state, foe));
+    const theirs = Math.max(0, cap - spentByThem(state, foe));
     const mine = Math.max(0, cap - state.players[player].capSpent);
     // What they can still put down *beyond* what I can — not their whole
     // remaining cap, which was the first version and a disaster. Early in the
@@ -970,4 +970,49 @@ function sameAction(a: Action, b: Action): boolean {
     if (x[key] !== y[key]) return false;
   }
   return true;
+}
+
+
+/**
+ * What the other player has spent of the cost cap, counting the cards you
+ * cannot read.
+ *
+ * `visibleCapSpent` is the honest answer to "what can I see", and it is the
+ * right answer for the rail: a hidden unit's cost is concealed (1.5.2) and the
+ * screen must not print it. It is the wrong answer to "how much can they still
+ * put down", because the one thing it is certain about is wrong — a tile with a
+ * card on it did not cost nothing.
+ *
+ * On most battlefields that is a unit or two of slack. On Ködrét every unit on
+ * the board is face down, so the visible figure stays at zero however full their
+ * half gets, and the bot concluded they were still holding the entire
+ * twenty-four. A securing line built on that is unreachable; every candidate
+ * board then scores the same nothing against it, and the `- placements *
+ * unitCost` term makes the *emptiest* board the best one. Measured: the bot
+ * stopped at 64% of Ködrét's cap with fifteen placements still legal, against
+ * 94–100% on every other battlefield in the set.
+ *
+ * So a hidden unit is charged the mean cost of the set instead of nothing. It is
+ * an estimate and is meant to be one — the real figure is hidden, and working it
+ * out from their decklist would be reading a hand 3.1 keeps shut. What matters
+ * is that it is an estimate near the truth rather than the one value that is
+ * certainly false.
+ */
+function spentByThem(state: GameState, foe: PlayerId): number {
+  let spent = visibleCapSpent(state, foe);
+  for (const slot of ALL_SLOTS) {
+    const unit = state.board[slot];
+    if (unit && unit.owner === foe && unit.faceDown) spent += meanUnitCost();
+  }
+  return spent;
+}
+
+/** The mean printed cost across the loaded set, computed once. */
+let meanCost = 0;
+function meanUnitCost(): number {
+  if (meanCost === 0) {
+    const units = allUnits();
+    meanCost = units.length === 0 ? 4 : units.reduce((sum, u) => sum + u.cost, 0) / units.length;
+  }
+  return meanCost;
 }
