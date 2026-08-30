@@ -760,6 +760,8 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 12.6.2 A leszerelés az egyetlen pont a játékban, ahol a kéz szándékosan a kerete alá kerül: a 12.5-ben eldobott lapok nem töltődnek vissza azonnal, hanem a 12.6.1 tölti fel a kezet.
 
+12.6.3 A keret visszaállása a leszerelés *elején* történik, tehát a 12.5-ös eldobás már az új kerethez mérve zajlik. Ha a lezárult csata nagyobb kerettel ment — a Faloda hatosával —, a fölös lapokat el kell dobni: a leszerelést csak akkor fejezheted be, ha egyik kezed sem lóg túl a keretén. Hogy melyik lap megy, az a te döntésed.
+
 12.7 Ha a pakli üres, a húzás elmarad. A temetőt nem keverjük vissza, és a kimaradt húzásért semmilyen hátrány nem jár.
 
 12.7.1 Az a húzás sem jár hátránnyal, amelyet a kijátszás utáni feltöltés (6.3.4, 8.2.5) nem tudott teljesíteni. A kéz egyszerűen kisebb marad.

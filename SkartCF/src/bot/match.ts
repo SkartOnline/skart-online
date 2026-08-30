@@ -89,6 +89,30 @@ export function fieldValue(mine: number, theirs: number, left: number, odds: Fie
 }
 
 /**
+ * Does this battlefield settle the match, either way?
+ *
+ * `fieldValue` is a *derivative* — how much winning here moves the match odds —
+ * and a derivative goes flat at both ends of a hopeless position. At 0–3 with
+ * three fields left it reads 0.125 against a typical 0.3125, so a card costs
+ * two and a half times what it costs in an even match; once the match is
+ * arithmetically gone it reads 0 and a card costs eight times. Which is exactly
+ * backwards: a player who must win every remaining battlefield has nothing left
+ * to save cards *for*, and the one who is a field from taking the match has
+ * nothing to save them for either.
+ *
+ * So the derivative is overridden where it goes flat for the wrong reason. This
+ * is 1.3.7 asked one field early: if losing here would put the standing beyond
+ * reach — mine or theirs — then everything is riding on it, which is a stake of
+ * one whatever the odds say.
+ */
+export function decisiveField(mine: number, theirs: number, left: number): boolean {
+  if (left <= 0) return true;
+  const after = left - 1;
+  // Lose it and I cannot catch up with what is left; win it and they cannot.
+  return theirs + 1 > mine + after || mine + 1 > theirs + after;
+}
+
+/**
  * A typical field value, used to keep the effort scaling centred: at this much
  * at stake, a card costs what it says on the tin.
  *

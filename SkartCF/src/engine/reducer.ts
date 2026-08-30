@@ -204,7 +204,11 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
     for (const card of [...p.unitHand, ...p.spellHand]) {
       out.push({ type: "toss", player, uid: card.uid });
     }
-    out.push({ type: "declareTossDone", player });
+    // 12.5 is "throw as many as you like" everywhere except over the level.
+    // A hand that grew on Faloda has to come back down to five before the next
+    // battlefield, and which card goes is the player's decision — so it is a
+    // throw they have to make rather than a trim the engine performs.
+    if (overLimit(state, player) === 0) out.push({ type: "declareTossDone", player });
     return out;
   }
 
@@ -365,7 +369,23 @@ function refillActor(state: GameState, action: Action): void {
 }
 
 /**
- * Leszerelés, 12.5. Either hand, any number of cards, and it is never forced.
+ * How many cards this player is holding above their level, across both hands.
+ *
+ * Zero almost always: the hand refills *to* the level and nothing draws past
+ * it. The exception is a battlefield that raised the level for its own battle —
+ * Faloda's six — and then handed it back at 12.6.
+ */
+export function overLimit(state: GameState, player: PlayerId): number {
+  const p = state.players[player];
+  return (
+    Math.max(0, p.unitHand.length - p.handLimit.units) +
+    Math.max(0, p.spellHand.length - p.handLimit.spells)
+  );
+}
+
+/**
+ * Leszerelés, 12.5. Either hand, any number of cards, and it is never forced —
+ * except back down to the level, see `overLimit`.
  * This is the only place in the game where a card leaves your hand for nothing:
  * every other discard is the price of something.
  */
@@ -805,9 +825,35 @@ function beginCleanup(state: GameState): void {
   }
 
   state.phase = "cleanup";
-  for (const id of PLAYERS) state.players[id].tossDone = false;
+  for (const id of PLAYERS) {
+    const p = state.players[id];
+    p.tossDone = false;
+    // 12.6, and it happens *here* rather than at the end of the step, because
+    // the number a player is throwing cards against is this one.
+    //
+    // Faloda is the case that forced it. It puts both hands on six for its own
+    // battle; the level goes back to five at leszerelés, so a full hand is a
+    // card over and one card has to go. Resetting after the throws meant the
+    // hand simply stayed at six — the refill only ever draws up — and Faloda
+    // quietly became a permanent extra card rather than a battlefield effect.
+    //
+    // Whatever else the battle did to the level expires with it: a Varj, a
+    // Malom, an Umbradog that took it to nothing. Diadal's promise is the one
+    // thing that carries, and it carries as a bigger hand.
+    p.handLimit = {
+      units: state.config.handSize + p.bonusDraw.units,
+      spells: state.config.spellHandSize + p.bonusDraw.spells,
+    };
+    p.bonusDraw = { units: 0, spells: 0 };
+  }
   state.turn = state.locations[state.locationIndex].broughtBy;
   log(state, "Leszerelés: eldobhatsz bármennyi lapot mindkét kezedből.");
+  for (const id of PLAYERS) {
+    const owed = overLimit(state, id);
+    if (owed > 0) {
+      log(state, `A kézkeret ${state.config.handSize}: ${owed} lapot el kell dobnod.`, id);
+    }
+  }
 }
 
 /**
@@ -822,19 +868,11 @@ function finishCleanup(state: GameState): void {
     p.capSpent = 0;
     p.hiddenThisLocation = 0;
     p.tossDone = false;
-    // 12.6, and the only place the level is rebuilt from scratch. Whatever the
-    // last battle did to it — a Varjú, a Malom, an Umbradog that took it to
-    // nothing — expires here, which is what stops one bad battlefield following
-    // a player across the rest of the match. Diadal's promise (Kincskereső, Ki
-    // mint vet) is the one thing that carries, and it carries as a bigger hand
-    // rather than as loose cards, so it survives being spent.
-    p.handLimit = {
-      units: state.config.handSize + p.bonusDraw.units,
-      spells: state.config.spellHandSize + p.bonusDraw.spells,
-    };
+    // 12.6.1. The level was rebuilt when the step opened (`beginCleanup`), so
+    // all that is left is to fill to it — and by now nobody can be over it,
+    // because being over it is what `declareTossDone` refuses.
     refillHand(state, id, "unit");
     refillHand(state, id, "spell");
-    p.bonusDraw = { units: 0, spells: 0 };
   }
 
   // A look is worth something only while the card is still in the hand it was

@@ -54,7 +54,7 @@ export function Counters({
   const spent = mine ? p.capSpent : visibleCapSpent(state, side);
 
   // Has anything moved the level off the printed one? Worth marking, because a
-  // hand of four is either "I threw a card at a Varjú" or "we are on the Malom",
+  // hand of four is either "I threw a card at a Varj" or "we are on the Malom",
   // and either way it is not the number you were planning around.
   const offLevel =
     p.handLimit.units !== state.config.handSize ||
@@ -85,7 +85,7 @@ export function Counters({
         *
         * 2.4.3 made the hand a level rather than a stock, which means the number
         * worth watching is not how many cards somebody is holding — that is
-        * almost always the level — but what the level *is*. A Varjú takes it
+        * almost always the level — but what the level *is*. A Varj takes it
         * down, a Caecus puts it up, Malom sets it to four for both of you, and
         * none of that is legible from a fan of cards.
         *

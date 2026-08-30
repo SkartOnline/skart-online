@@ -975,7 +975,7 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
         // For a fixed count, only when the hand holds more than the card is
         // asking for: "dobj el egy lapot" with one card left picks itself.
         //
-        // For "tetszőleges számú" it is always, and that is what Varjú needed.
+        // For "tetszőleges számú" it is always, and that is what Varj needed.
         // The guard used to compare the offer against `take`, and `take` for an
         // open-ended discard *is* the whole offer — so the one card in the set
         // whose entire text is "you choose how many" was the one card that never

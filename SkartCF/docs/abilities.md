@@ -181,7 +181,7 @@ board with three of them is the whole decision the card is selling, and
 `pick: "strongest"` was taking it for you.
 
 The other half is `discard` with `choose: true`. `optional: true` makes the
-count itself the question, which is Varjú — and the guard used to compare the
+count itself the question, which is Varj — and the guard used to compare the
 offer against the number wanted, so the one card in the set whose text is "any
 number you like" was the one card that never got asked.
 

@@ -71,7 +71,7 @@ import { DEFAULT_THREAT, estimateThreat, pessimisticBoard, worstCaseThreat } fro
 import type { ThreatOptions } from "./threat";
 import { DEFAULT_KEEP, tossPlan } from "./keep";
 import type { KeepOptions } from "./keep";
-import { cardPrice, fieldValue } from "./match";
+import { cardPrice, decisiveField, fieldValue } from "./match";
 import {
   bestPlan,
   DEEP_THETA,
@@ -272,6 +272,12 @@ export const DEFAULT_PLANNER: PlannerParams = {
   // bounds in the direction that makes the bot stop early. Same defect as
   // `secure`, third time it has been measured.
   stopRule: false,
+  // On, and it is now the other half of `stopSafe` rather than a rule of its
+  // own: stop when the *outcome* is locked, whichever way it locked. Off, the
+  // bot played spells into fields it could not reach for the rest of the
+  // battle; the objection that kept it off was that Θ under-reports and would
+  // fold a winnable field, which `foldSlack` and a deep budget answer.
+  stopHopeless: true,
   // On. Magus mirror against baseline, 30 games a side: 70.0% [52,83] with it,
   // 66.7% [49,81] without — overlapping, so this is "no cost" rather than "a
   // gain", and it is the first change in a long run of them whose interval
@@ -300,7 +306,6 @@ export const DEFAULT_PLANNER: PlannerParams = {
   // a lower bound on my own capacity, and folding on a lower bound folds fields
   // that a deeper search takes. Kept, off, with the numbers, until Θ is exact
   // enough to fold on.
-  stopHopeless: false,
   foldSlack: 3,
   believe: true,
   threat: DEFAULT_THREAT,
@@ -694,28 +699,53 @@ export class Planner {
     player: PlayerId,
     opts: Partial<ThetaOptions>,
   ): boolean {
+    // 1.3.1 and 1.3.2 give three outcomes, not two: larger sum takes it, equal
+    // sums give it to nobody. So the question is not "am I winning" but "can
+    // the outcome still change" — and a spell is worth casting for exactly as
+    // long as the answer is yes.
+    //
+    // The margin ends somewhere in [now - theirCeiling, now + myReach], and the
+    // two ends are asked with the assumption that makes each safe:
+    //
+    //   - **Won.** Against the *best hand the belief still allows them* run
+    //     through Θ. If I am still ahead against that, nothing they hold takes
+    //     the field, and another spell buys nothing.
+    //   - **Lost.** Against *my own hand played out unopposed* — Θ(mine) is
+    //     computed with them standing still (8.1.3), which is the most generous
+    //     reading of my chances there is. If even that does not draw level, the
+    //     field is gone and the card is better kept.
+    //
+    // Strictly, in both directions, because a draw is a different outcome from
+    // a loss: reaching exactly level takes the field away from them (1.3.2) and
+    // is worth playing for. A margin of zero that neither side can move is the
+    // third locked outcome and stops too.
     const now = marginOf(state, player);
-    if (this.params.stopSafe) {
-      const ceiling = this.threatOf(state, player, opts).theta;
-      if (now > ceiling) {
-        this.stats.stoppedSafe += 1;
-        return true;
-      }
+    const theirs = this.threatOf(state, player, opts).theta;
+
+    if (this.params.stopSafe && now - theirs > 0) {
+      this.stats.stoppedSafe += 1;
+      return true;
     }
 
     if (!this.params.stopHopeless || !this.moreFieldsLeft(state)) return false;
+
     // Θ under-reports: the search is truncated, and a truncated search can only
     // ever find *fewer* plans than exist. `theta.ts`'s own budget sweep puts the
     // shortfall at a mean of 2.31 power when it differs from a deep run — which
     // is exactly the width between "cannot be won" and "wins by one".
     //
-    // So this one call gets a deep budget, and then a slack on top of it. The
-    // asymmetry is deliberate and it is the right way round: playing a spell
-    // into a field that turns out to be lost costs a card, and folding a field
-    // that could have been taken costs the field.
+    // So this call gets a deep budget and a slack on top, and the asymmetry is
+    // the right way round: playing a spell into a field that turns out to be
+    // lost costs a card, and folding a field that could have been taken costs
+    // the field.
     const reach = theta(state, player, { ...opts, ...DEEP_THETA, deadlineMs: opts.deadlineMs });
-    if (now + reach + this.params.foldSlack <= 0) {
+    if (now + reach + this.params.foldSlack < 0) {
       this.stats.stoppedHopeless += 1;
+      return true;
+    }
+    // Nobody can move it off level, and level is its own outcome.
+    if (now === 0 && theirs === 0 && reach === 0) {
+      this.stats.stoppedSafe += 1;
       return true;
     }
     return false;
@@ -825,7 +855,7 @@ export class Planner {
     // There is no arithmetic to do. 3.5: win this and the match is won, lose it
     // and it is lost. That is the entire stake, which is what a stake of 1 says.
     const here = currentLocation(state);
-    const stake = here.tiebreaker
+    const stake = here.tiebreaker || decisiveField(state.scores[player], state.scores[foe], left)
       ? 1
       : fieldValue(state.scores[player], state.scores[foe], left, {
           win: 0.5,

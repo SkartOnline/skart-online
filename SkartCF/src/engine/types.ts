@@ -490,7 +490,7 @@ export interface PlayerState {
    *
    * That makes the *limit* the resource, and every card that used to say "draw"
    * or "discard" now moves it. Caecus raises it by one and fills the gap, which
-   * is the same card it always was; Varjú lowers it by whatever you threw away,
+   * is the same card it always was; Varj lowers it by whatever you threw away,
    * which is what stops "discard for value" being free the moment a discard
    * refills itself. Malom sets it to four and Faloda to six.
    *

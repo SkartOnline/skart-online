@@ -78,7 +78,7 @@ export function drawOutlook(state: GameState, player: PlayerId, kind: "unit" | "
   // A refill that cannot happen is not a refill. A hand already at its level
   // draws nothing when a card leaves it — it draws one *back*, which is the
   // case this whole module is about — but a hand held under its level by a
-  // Varjú or an Umbradog gets nothing at all.
+  // Varj or an Umbradog gets nothing at all.
   const limit = kind === "unit" ? me.handLimit.units : me.handLimit.spells;
   if (limit <= 0) return { depth: deck.length, usable: 0, replacement: 0 };
 

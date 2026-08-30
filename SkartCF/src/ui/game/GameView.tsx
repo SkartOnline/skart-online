@@ -1236,6 +1236,19 @@ function Field(props: FieldProps) {
             state.players[actor].spellHand.length -
             props.staged.length
           }
+          // What the level says has to go, less what is already in the box.
+          // Counted per hand, because the two levels are separate (2.4.1) and
+          // a spare spell does not pay for a spare unit.
+          owed={(() => {
+            const p = state.players[actor];
+            const stagedIn = (hand: { uid: string }[]) =>
+              hand.filter((c) => props.staged.includes(c.uid)).length;
+            const over = (hand: { uid: string }[], limit: number) =>
+              Math.max(0, hand.length - stagedIn(hand) - limit);
+            return (
+              over(p.unitHand, p.handLimit.units) + over(p.spellHand, p.handLimit.spells)
+            );
+          })()}
           staged={props.staged
             .map((uid) =>
               [...state.players[actor].unitHand, ...state.players[actor].spellHand].find(

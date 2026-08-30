@@ -66,7 +66,7 @@ export interface ObservedSide {
    * 2.4.3: how big each hand is *allowed* to be this battle, which is public
    * on both sides and is now the number that matters. The hand itself is almost
    * always at the level — it refills after every play — so "they hold four"
-   * says nothing, while "their level is four" says a Varjú went off or we are
+   * says nothing, while "their level is four" says a Varj went off or we are
    * standing on the Malom.
    */
   unitHandLimit: number;

@@ -236,12 +236,22 @@ export function GravePortal({
 
 export function Disarming({
   kept,
+  owed,
   staged,
   onReturn,
   onDone,
 }: {
   /** How many cards would be left in both hands if this went through. */
   kept: number;
+  /**
+   * How many cards still have to go before the step can be closed.
+   *
+   * Nearly always zero — 12.5 is a free step. The exception is a battle fought
+   * on the Faloda, where both hands ran at six and the level goes back to five
+   * here: the extra card cannot travel to the next battlefield, and which one
+   * stays is the player's call rather than the engine's.
+   */
+  owed: number;
   /** Chosen for the fire, not yet in it. */
   staged: { uid: string; cardId: string }[];
   onReturn: (uid: string) => void;
@@ -250,7 +260,11 @@ export function Disarming({
   return (
     <div className="disarming timber">
       <b>Leszerelés</b>
-      <em>Eldobhatsz bármennyi lapot mindkét kezedből, aztán mindkettőt a kézkeretedig töltöd vissza.</em>
+      <em>
+        {owed > 0
+          ? `A kézkereted visszaállt, ezért ${owed} lapot el kell dobnod. Ezen felül annyit dobsz, amennyit akarsz.`
+          : "Eldobhatsz bármennyi lapot mindkét kezedből, aztán mindkettőt a kézkeretedig töltöd vissza."}
+      </em>
 
       {/* The box, and it is a real box: cards go in, and cards come back out.
         *
@@ -289,15 +303,19 @@ export function Disarming({
       <span className="disarming-count num">
         {kept} <i>lap marad a kezedben</i>
       </span>
-      <button className="ember" onClick={onDone}>
-        {staged.length === 0
-          ? "Nem dobok el semmit"
-          : `Eldobok ${staged.length} lapot és húzok`}
+      <button className="ember" onClick={onDone} disabled={owed > 0}>
+        {owed > 0
+          ? `Még ${owed} lap`
+          : staged.length === 0
+            ? "Nem dobok el semmit"
+            : `Eldobok ${staged.length} lapot és húzok`}
       </button>
       <span className="disarming-note">
-        {staged.length === 0
-          ? "Nem kötelező eldobnod semmit."
-          : "Amíg nem nyomsz gombot, bármelyiket visszaveheted."}
+        {owed > 0
+          ? "A kézkereten felüli lapok nem jöhetnek át a következő csatába."
+          : staged.length === 0
+            ? "Nem kötelező eldobnod semmit."
+            : "Amíg nem nyomsz gombot, bármelyiket visszaveheted."}
       </span>
     </div>
   );

@@ -233,16 +233,41 @@ describe("leszerelés", () => {
     expect(state.players[player].spellHand).toHaveLength(DEFAULT_CONFIG.spellHandSize);
   });
 
-  it("resets the level, so one battle's discards do not follow you into the next", () => {
-    let state = applyAction(scoreFirst(), { type: "nextLocation" });
-    const player = state.turn;
-    // A Varjú-sized hole: the level dropped to two during the battle.
-    state.players[player].handLimit.units = 2;
+  it("resets the level as the step opens, not as it closes (12.6.3)", () => {
+    const scored = scoreFirst();
+    // A Varj-sized hole carried out of the battle: the level dropped to two.
+    scored.players.p1.handLimit.units = 2;
+    scored.players.p2.handLimit.units = 2;
+    let state = applyAction(scored, { type: "nextLocation" });
+
+    // Back to five *before* anybody throws, because five is the number they are
+    // deciding against. Doing it at the end instead is what let a Faloda hand
+    // walk into the next battlefield a card over.
+    expect(state.players.p1.handLimit.units).toBe(DEFAULT_CONFIG.handSize);
+
     while (state.phase === "cleanup") {
       state = applyAction(state, { type: "declareTossDone", player: state.turn });
     }
-    expect(state.players[player].handLimit.units).toBe(DEFAULT_CONFIG.handSize);
-    expect(state.players[player].unitHand).toHaveLength(DEFAULT_CONFIG.handSize);
+    expect(state.players.p1.unitHand).toHaveLength(DEFAULT_CONFIG.handSize);
+  });
+
+  it("will not let you leave leszerelés holding more than the level (12.6.3)", () => {
+    // What a battle on the Faloda leaves behind: six in hand, five allowed.
+    const scored = scoreFirst();
+    const player = scored.turn;
+    scored.players[player].unitHand.push({ uid: "extra", cardId: "patkany" });
+    const state = applyAction(scored, { type: "nextLocation" });
+
+    expect(state.players[player].unitHand.length).toBeGreaterThan(
+      state.players[player].handLimit.units,
+    );
+    // Every throw is on offer; finishing is not, until the extra card is gone.
+    const legal = legalActions(state, player);
+    expect(legal.some((a) => a.type === "toss")).toBe(true);
+    expect(legal.some((a) => a.type === "declareTossDone")).toBe(false);
+
+    const after = applyAction(state, { type: "toss", player, uid: "extra" });
+    expect(legalActions(after, player).some((a) => a.type === "declareTossDone")).toBe(true);
   });
 
   it("draws nothing from an empty deck, and charges nothing for it (12.7)", () => {
@@ -398,7 +423,7 @@ describe("kézkeret", () => {
   });
 
   it("takes the level down when a card is thrown away for value (12.11.2)", () => {
-    // Varjú: every unit thrown is a point of power and a point off the hand.
+    // Varj: every unit thrown is a point of power and a point off the hand.
     // Without the second half the next play refills what the ability spent, and
     // "discard for power" becomes the best rate in the game.
     const state = blankState();
