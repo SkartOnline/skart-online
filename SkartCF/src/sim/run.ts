@@ -73,12 +73,12 @@
  *     fair  400 ms,  800 Θ nodes, beam 3×3  ->   27 s/game
  *     deep 2000 ms, 2000 Θ nodes, beam 4×4  ->   68 s/game
  *
- * `fair` is the default, and it costs what it costs: a hundred games across ten
- * matchups is about seven hours rather than under one. Balance runs are a
- * deliberate act (see CLAUDE.md), they happen once at the end of a change, and a
- * number produced by a bot that cannot cast is worth less than no number. Cut
- * `--games` before cutting the strength — fifty games at `fair` says more about
- * the cards than a thousand at `fast`.
+ * `fair` is the default, and it costs what it costs: eight decks are 28 pairs,
+ * so even fifty games apiece is most of a day rather than half an hour. Balance
+ * runs are a deliberate act (see CLAUDE.md), they happen once at the end of a
+ * change, and a number produced by a bot that cannot cast is worth less than no
+ * number. Cut `--games` before cutting the strength — fifty games at `fair` says
+ * more about the cards than a thousand at `fast`.
  *
  * `--strength fast|fair|deep` picks one; `--budget`, `--nodes`, `--beam` and
  * `--finalists` override individual dials on top of it. The shape of the balance

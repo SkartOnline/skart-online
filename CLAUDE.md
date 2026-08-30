@@ -113,12 +113,12 @@ public site.
   once, at the end, in the background, and only when the change could move win
   rates. Output goes to stdout — redirect it (`npm run sim -- --games 50 >
   sim.txt`) if it needs reading later, because a backgrounded run buffers and
-  shows nothing until it exits. The default strength is `fair` (~27 s a game,
-  so ~7 h for 50 games across the ten matchups) because the old default gave
-  the planner 10 ms a decision against the 8000 ms it gets on the game screen,
-  and a starved planner stops finding its spells before it stops finding its
-  units — spell decks read as unplayable. Cut `--games` before cutting
-  `--strength`; see the header of `src/sim/run.ts`.
+  shows nothing until it exits. The default strength is `fair` (~27 s a game, and
+  eight decks are 28 pairs, so even 50 games apiece is most of a day) because the
+  old default gave the planner 10 ms a decision against the 8000 ms it gets on
+  the game screen, and a starved planner stops finding its spells before it stops
+  finding its units — spell decks read as unplayable. Cut `--games` before
+  cutting `--strength`; see the header of `src/sim/run.ts`.
 - **Rebalancing is editing JSON**, then `npm run sim` to measure. Any deck over
   75% on a battlefield is the hard failure line.
 - **Delegate to subagents freely:** running sim/train/arena sweeps and

@@ -557,7 +557,21 @@ nothing in the engine plays that role now.
 - **One ability is still text only.** Gouraldir names the Three Relics, and that card
   does not exist in the set, so it keeps its `note` effect. The four that used to sit
   beside it are built — see *The abilities that ask*.
-- **The shipped decks are starting points.** Five archetypes — Felindori sereg,
-  Csempészgyűrű, Varázslótanács, Vadállatok, Élettelen menet — assembled to exercise the
-  set, not balanced. The simulator already flags a couple of battlefields over the 75%
-  line; that is tuning work, not a bug.
+- **The shipped decks are starting points.** Eight archetypes, assembled to exercise the
+  set rather than to be balanced. The simulator already flags a couple of battlefields
+  over the 75% line; that is tuning work, not a bug.
+
+  The first five are single-school: Felindori sereg, Csempészgyűrű, Varázslótanács,
+  Vadállatok, Élettelen menet. The three after them are **mixed**, and mixed means one
+  school in the front rank and a different one behind it, because 8.3.4 pays a spell out
+  of one caster's pool and a rank that fights is not a rank that can afford to hold a big
+  pool. They exist to put pressure on exactly that:
+
+  | Deck | Front / back | How it takes a battlefield |
+  |---|---|---|
+  | **Vasgárda** | Harcos / Mágus | A front rank that is not worth removing. Bol'Jin stands behind a column and makes the unit in front of him Sérthetetlen; Nehézvért and Pajzs make everything else expensive to shift; the Mágus rank never fights, it draws and it burns — Explodus takes a gold off every Tűz spell and Erif mester puts a point of damage back on. Iniquus pays a point to every other Felindori on the board. |
+  | **Csordajárás** | Bestia / Druida | Rings, on copies. Csatacsorda blesses an Állat *and every allied copy of it*, so the herd is deliberately built four Patkány and four Farkas deep rather than one of everything; Növekedés and Falkavezér stack on top, Kivirágzás rings the whole board, and Elfina adds a ring to any allied Állat a spell so much as touches. Faun and A Faarcú are the reason it survives being answered: one floors every ally at its base power, the other caps any single effect at 2 damage. |
+  | **Vérszerződés** | Zsivány / Feketemágus | Kill things and get paid for it. The Csempész and Orgyilkos rank does the killing cheaply — Bérgyilkos, Fojtás, Rajtaütés, Tőrhajítás — and the Garabonciás rank converts the result into power: Vérdíj hands three rings to whoever collects, Csontvért reads the graveyard the deck has been filling all game, Élősködés takes two off them and gives two to the caster. Malom and Umbra are brought on purpose; both feed it. |
+
+  All three are 30/30, and `npm run decks` reports no unplayable spell and no mute caster
+  in any of them — which is more than it can say for three of the original five.

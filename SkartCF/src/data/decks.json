@@ -212,5 +212,139 @@
       "alomfogo": 3,
       "acelpenge": 3
     }
+  },
+  {
+    "id": "vasgarda",
+    "name": "Vasgárda",
+    "archetype": "wall",
+    "battlefields": [
+      "oppidium",
+      "a_pek_hidja",
+      "maguskor"
+    ],
+    "units": {
+      "hektor": 2,
+      "hetvenkedo_katona": 3,
+      "felindori_fegyverhordozo": 2,
+      "magusinkvizitor": 2,
+      "sir_werdzsell": 2,
+      "felindori_kardforgato": 3,
+      "sir_ton": 2,
+      "felindori_bajnok": 1,
+      "iniquus": 1,
+      "felindori_ijasz": 2,
+      "boljin": 2,
+      "caecus": 2,
+      "adeptus": 2,
+      "explodus": 2,
+      "felix": 1,
+      "erif_mester": 1
+    },
+    "spells": {
+      "kardcsapas": 3,
+      "attores": 2,
+      "lefegyverzes": 2,
+      "nehezvert": 3,
+      "pajzs": 3,
+      "falanx": 2,
+      "verszomj": 1,
+      "moral": 2,
+      "explar": 3,
+      "szikraszilank": 3,
+      "langlandzsa": 2,
+      "lelektuz": 2,
+      "fagyos_lehelet": 2
+    }
+  },
+  {
+    "id": "csordajaras",
+    "name": "Csordajárás",
+    "archetype": "herd",
+    "battlefields": [
+      "akaczos",
+      "faloda",
+      "kesergo"
+    ],
+    "units": {
+      "patkany": 4,
+      "farkas": 4,
+      "medve": 3,
+      "szarvas": 2,
+      "chupacabra": 2,
+      "nyominger_melak": 2,
+      "ogre": 2,
+      "galaxismadar": 1,
+      "dionzosz": 3,
+      "altus": 3,
+      "elfina": 2,
+      "faun": 1,
+      "a_faarcu": 1
+    },
+    "spells": {
+      "novekedes": 3,
+      "gyogyfuvek": 2,
+      "sujtas": 2,
+      "csatacsorda": 3,
+      "toviskorbacs": 2,
+      "csordaszellem": 2,
+      "napfeny": 1,
+      "ven_tolgy": 1,
+      "monstrosis": 1,
+      "kiviragzas": 1,
+      "harapas": 2,
+      "odu": 2,
+      "ugras": 1,
+      "marcangolas": 2,
+      "falkavezer": 2,
+      "eltaposas": 2,
+      "sarkanytuz": 1
+    }
+  },
+  {
+    "id": "verszerzodes",
+    "name": "Vérszerződés",
+    "archetype": "assassin",
+    "battlefields": [
+      "feketepiac",
+      "malom",
+      "umbra"
+    ],
+    "units": {
+      "kem": 2,
+      "szerencsejatekos": 1,
+      "bandita": 3,
+      "zsalu": 3,
+      "rablo": 2,
+      "fejvadasz": 2,
+      "griff_hamiskartyas": 2,
+      "fuedrax": 2,
+      "maffiavezer": 2,
+      "bergyilkos": 2,
+      "guner": 1,
+      "varju": 2,
+      "simorf": 2,
+      "carnifex": 2,
+      "welsing": 1,
+      "omnifex": 1
+    },
+    "spells": {
+      "hajitotor": 3,
+      "hatbaszuras": 2,
+      "kotel": 1,
+      "elcsenes": 1,
+      "verdij": 3,
+      "infiltracio": 2,
+      "tuszejtes": 1,
+      "fojtas": 2,
+      "rajtautes": 1,
+      "senyvesztes": 2,
+      "megtorlas": 2,
+      "alku": 1,
+      "halalfelelem": 2,
+      "rontas": 2,
+      "csontvert": 2,
+      "eloskodes": 2,
+      "enyeszet": 1
+    }
   }
 ]
