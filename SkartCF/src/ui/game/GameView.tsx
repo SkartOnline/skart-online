@@ -153,7 +153,10 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
           ...fresh.map((beat) => ({
             ...beat,
             startsAt: base + beat.at,
-            expiresAt: base + beat.at + BEAT_MS[beat.kind],
+            // A beat may ask for its own length — the step beats do, because
+            // Összesítés and Leszerelés are not worth the same amount of
+            // reading. Everything else takes the length of its kind.
+            expiresAt: base + beat.at + (beat.linger ?? BEAT_MS[beat.kind]),
           })),
         ];
       });
@@ -675,9 +678,26 @@ function Field(props: FieldProps) {
     (s) => s.kind !== "coin" && (s.open || s.player === viewer || bare),
   );
   const heldUp = beats.some((b) => b.kind === "land" || b.kind === "cast" || b.kind === "veil");
-  // Leszerelés belongs to whoever is doing it, and only while they still can.
+  // Leszerelés belongs to whoever is doing it, and only while they still can —
+  // and never over the top of its own announcement.
+  //
+  // The panel used to go up the instant the phase turned over, which is the same
+  // instant the banner naming the phase started playing. The panel sits above the
+  // board and the banner crosses it, so the two were on screen together and the
+  // second half of the sequence read as one flash of text under a dialog. The
+  // battle now closes as three separate things a player can actually follow:
+  // Összesítés with the totals, then Leszerelés, then the question.
+  //
+  // Watching the beat rather than a timer of our own, so this cannot drift out
+  // of step with the theatre — the beat is pruned on the clock that plays it,
+  // and the pruning is what re-renders us.
+  const cleanupBannerUp = beats.some((b) => b.kind === "step" && b.text === "Leszerelés");
   const disarming =
-    state.phase === "cleanup" && !!actor && actor === viewer && !state.players[actor].tossDone;
+    state.phase === "cleanup" &&
+    !cleanupBannerUp &&
+    !!actor &&
+    actor === viewer &&
+    !state.players[actor].tossDone;
   const panelUp = almanacUp || handPanel || !!coinAsking;
   // Their search still dims the board — something is happening and it is not
   // your turn to do anything about it — but there is nothing to read.

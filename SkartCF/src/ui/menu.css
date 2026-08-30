@@ -65,28 +65,6 @@
     );
 }
 
-/* A cold hairline across the middle distance, level with the crest's foot.
- *
- * One horizontal rule is what turns a dark rectangle into a room with a floor
- * in it. Fading at both ends so it never becomes a border. */
-.hall::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 1px;
-  pointer-events: none;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(198, 208, 214, 0.14) 22%,
-    rgba(232, 129, 31, 0.22) 50%,
-    rgba(198, 208, 214, 0.14) 78%,
-    transparent
-  );
-}
-
 .hall-inner {
   position: relative;
   width: min(420px, 88vw);

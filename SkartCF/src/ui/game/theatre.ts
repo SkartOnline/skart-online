@@ -87,6 +87,15 @@ export interface Beat {
   totals?: { p1: number; p2: number };
   /** Milliseconds after the batch lands before this beat starts playing. */
   at: number;
+  /**
+   * How long this beat holds the screen, overriding `BEAT_MS` for its kind.
+   *
+   * Only the step beats use it, and only because the two that close a battle
+   * are not worth the same amount of reading. Összesítés carries the totals and
+   * has to be read; Leszerelés only names what happens next, and the panel that
+   * asks the actual question is waiting behind it.
+   */
+  linger?: number;
 }
 
 /**
@@ -334,6 +343,14 @@ const STEP_TEXT: Partial<Record<GameState["phase"], string>> = {
   cleanup: "Leszerelés",
 };
 
+/**
+ * How long the Leszerelés banner holds, against the 2600 ms a step normally
+ * gets. Shorter on purpose: it is the second banner in a row, it carries no
+ * number, and the panel it introduces is held back until it has gone — so every
+ * millisecond here is a millisecond of a player waiting to be asked something.
+ */
+const CLEANUP_STEP_MS = 1800;
+
 let sequence = 0;
 const nextId = () => ++sequence;
 
@@ -412,6 +429,7 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
         // Összesítés: the banner *is* the result, so the rail must not have
         // quietly counted it up while the banner was still on its way.
         heldScores: next.phase === "scored" ? { ...prev.scores } : undefined,
+        linger: next.phase === "cleanup" ? CLEANUP_STEP_MS : undefined,
       });
     }
   }

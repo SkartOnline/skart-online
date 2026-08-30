@@ -123,8 +123,29 @@ describe("the Mustra, one card at a time", () => {
   it("leaves every beat on screen long enough to have been read", () => {
     const { before, after } = mustra();
     for (const beat of beatsBetween(before, after)) {
-      expect(BEAT_MS[beat.kind]).toBeGreaterThanOrEqual(400);
+      expect(beat.linger ?? BEAT_MS[beat.kind]).toBeGreaterThanOrEqual(400);
     }
+  });
+
+  it("gives Összesítés longer than the Leszerelés that follows it", () => {
+    // The two banners that close a battle, and they are not worth the same
+    // amount of reading: one carries the totals, the other only names what is
+    // about to be asked — and the panel asking it is held back until this beat
+    // has gone, so its length is a length somebody spends waiting.
+    const before = opening();
+    const scored = { ...before, phase: "scored" as const };
+    const cleanup = { ...before, phase: "cleanup" as const };
+
+    const scoredStep = beatsBetween(before, scored).find((b) => b.kind === "step");
+    const cleanupStep = beatsBetween(before, cleanup).find((b) => b.kind === "step");
+
+    expect(scoredStep?.text).toBe("Összesítés");
+    expect(cleanupStep?.text).toBe("Leszerelés");
+    const scoredMs = scoredStep?.linger ?? BEAT_MS.step;
+    const cleanupMs = cleanupStep?.linger ?? BEAT_MS.step;
+    expect(cleanupMs).toBeLessThan(scoredMs);
+    // Still long enough to be a banner rather than a flicker.
+    expect(cleanupMs).toBeGreaterThanOrEqual(1500);
   });
 });
 
