@@ -9,7 +9,8 @@
  *   npm run sim -- --games 100
  *   npm run sim -- --games 100 --decks magus,bestia
  *   npm run sim -- --games 100 --report reports/run.json
- *   npm run sim -- --games 20 --nodes 80        # a coarser, faster planner
+ *   npm run sim -- --games 20 --strength fast   # a coarser, faster planner
+ *   npm run sim -- --games 20 --strength deep   # the strongest, and the slowest
  *
  * ## Who plays
  *
@@ -49,11 +50,40 @@
  * so whatever the clock gives it gives to both. The seed still fixes the deal,
  * the shuffle and the battlefield order.
  *
- * The defaults below are a measured operating point — about 2.6 s a game, so
- * a hundred games across ten matchups is well under an hour. `--budget`,
- * `--nodes`, `--beam` and `--finalists` move it. Raising them makes a stronger
- * player and a longer run; the shape of the balance answer should not depend on
- * that, and if it does, that is itself worth knowing.
+ * ## Strength, and why the default moved
+ *
+ * The old operating point was 10 ms a decision against the 8000 ms the same
+ * planner gets on the game screen — eight hundred times less clock — and it was
+ * chosen so a thousand games fitted in an hour. That is a run measuring a player
+ * nobody faces, which is the exact mistake deleting the trained checkpoint was
+ * supposed to end.
+ *
+ * It shows up as a one-sided error rather than as noise. Casting is where the
+ * planner spends its search: a spell has to be scored against every target it
+ * could take, and the Θ call that prices it is the first thing a short clock
+ * truncates. Committing a unit is nearly free by comparison — the board
+ * optimiser has a handful of tiles to try. So a starved planner still plays its
+ * units and quietly stops finding its spells, and a deck whose whole plan is the
+ * spell hand reads as unplayable here while the same deck on the game screen, at
+ * the full clock, plays like a different card set.
+ *
+ * Three named operating points, timed on magus/felindori, two games apiece:
+ *
+ *     fast   10 ms,   40 Θ nodes, beam 2×2  ->  3.5 s/game   (the old default)
+ *     fair  400 ms,  800 Θ nodes, beam 3×3  ->   27 s/game
+ *     deep 2000 ms, 2000 Θ nodes, beam 4×4  ->   68 s/game
+ *
+ * `fair` is the default, and it costs what it costs: a hundred games across ten
+ * matchups is about seven hours rather than under one. Balance runs are a
+ * deliberate act (see CLAUDE.md), they happen once at the end of a change, and a
+ * number produced by a bot that cannot cast is worth less than no number. Cut
+ * `--games` before cutting the strength — fifty games at `fair` says more about
+ * the cards than a thousand at `fast`.
+ *
+ * `--strength fast|fair|deep` picks one; `--budget`, `--nodes`, `--beam` and
+ * `--finalists` override individual dials on top of it. The shape of the balance
+ * answer should not depend on which is chosen, and if it does, that is itself
+ * worth knowing.
  */
 
 import {
@@ -151,6 +181,8 @@ function cardOfAction(state: GameState, action: Action): string | undefined {
 export interface PlayOptions {
   /** Record every action. Off for a quick run; the report needs it. */
   detail?: boolean;
+  /** Which named operating point to start from. Defaults to `fair`. */
+  strength?: Strength;
   nodeBudget?: number;
   /** Wall clock per decision. The bound that actually binds — see the header. */
   budgetMs?: number;
@@ -158,13 +190,23 @@ export interface PlayOptions {
   finalists?: number;
 }
 
-/** The measured operating point. See the header for how it was arrived at. */
-export const SIM_PLANNER = {
-  budgetMs: 10,
-  nodeBudget: 40,
-  beamWidth: 2,
-  finalists: 2,
-};
+/**
+ * The three operating points, measured. See the header for what each costs and
+ * why the default is no longer the cheapest of them.
+ */
+export const SIM_STRENGTH = {
+  /** The old default. Fast enough to sweep with, too starved to cast. */
+  fast: { budgetMs: 10, nodeBudget: 40, beamWidth: 2, finalists: 2 },
+  /** The default: enough clock that the spell hand is actually searched. */
+  fair: { budgetMs: 400, nodeBudget: 800, beamWidth: 3, finalists: 3 },
+  /** For a small, careful run — closest to the bot on the game screen. */
+  deep: { budgetMs: 2000, nodeBudget: 2000, beamWidth: 4, finalists: 4 },
+} as const;
+
+export type Strength = keyof typeof SIM_STRENGTH;
+
+/** What a run uses when nothing on the command line says otherwise. */
+export const SIM_PLANNER = SIM_STRENGTH.fair;
 
 export function playGame(
   deckA: string,
@@ -172,16 +214,17 @@ export function playGame(
   seed: string | number,
   options: PlayOptions = {},
 ): GameResult {
-  const theta = { ...FAST_THETA, nodeBudget: options.nodeBudget ?? SIM_PLANNER.nodeBudget };
+  const base = SIM_STRENGTH[options.strength ?? "fair"];
+  const theta = { ...FAST_THETA, nodeBudget: options.nodeBudget ?? base.nodeBudget };
   const params = {
     ...DEFAULT_PLANNER,
     theta,
     board: {
-      beamWidth: options.beamWidth ?? SIM_PLANNER.beamWidth,
-      finalists: options.finalists ?? SIM_PLANNER.finalists,
+      beamWidth: options.beamWidth ?? base.beamWidth,
+      finalists: options.finalists ?? base.finalists,
       theta,
     },
-    budgetMs: options.budgetMs ?? SIM_PLANNER.budgetMs,
+    budgetMs: options.budgetMs ?? base.budgetMs,
   };
   // One planner per seat. The planner is stateful — a cast in flight lives
   // inside the instance — so the two sides cannot share one.
@@ -431,17 +474,30 @@ function main(): void {
   const baseSeed = args.seed ?? "skartcf";
   const deckIds = args.decks ? args.decks.split(",") : allDecks().map((d) => d.id);
   const reportPath = args.report;
+  const strength = (args.strength ?? "fair") as Strength;
+  if (!SIM_STRENGTH[strength]) {
+    console.error(
+      `unknown --strength ${args.strength}; pick one of ${Object.keys(SIM_STRENGTH).join(", ")}`,
+    );
+    process.exit(1);
+  }
   const tune: PlayOptions = {
+    strength,
     nodeBudget: args.nodes ? Number(args.nodes) : undefined,
     budgetMs: args.budget ? Number(args.budget) : undefined,
     beamWidth: args.beam ? Number(args.beam) : undefined,
     finalists: args.finalists ? Number(args.finalists) : undefined,
   };
   const detail = !!reportPath;
-  const shown = { ...SIM_PLANNER, ...Object.fromEntries(Object.entries(tune).filter(([, v]) => v !== undefined)) };
+  const shown = {
+    ...SIM_STRENGTH[strength],
+    ...Object.fromEntries(
+      Object.entries(tune).filter(([k, v]) => k !== "strength" && v !== undefined),
+    ),
+  } as typeof SIM_STRENGTH.fair;
 
   console.log(
-    `policy: planner on both seats — ${shown.budgetMs}ms/decision, Θ nodes ` +
+    `policy: planner on both seats — ${strength}, ${shown.budgetMs}ms/decision, Θ nodes ` +
       `${shown.nodeBudget}, beam ${shown.beamWidth}×${shown.finalists}, ` +
       `fallback fold ${DEFAULT_BASELINE.foldMargin}`,
   );
@@ -510,7 +566,7 @@ function main(): void {
         decks: deckIds,
         seed: String(baseSeed),
         policy:
-          `planner both seats, ${shown.budgetMs}ms/decision, ` +
+          `planner both seats, ${strength}, ${shown.budgetMs}ms/decision, ` +
           `Θ nodes ${shown.nodeBudget}, beam ${shown.beamWidth}×${shown.finalists}`,
         totalGames,
         elapsedMs: Date.now() - startedAt,

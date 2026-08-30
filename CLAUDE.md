@@ -17,7 +17,8 @@ All run from `SkartCF/`:
 npm run dev         # http://localhost:5173 — hotseat game + card editor
 npm test            # vitest, the engine suite; fast, run it after engine edits
 npm run typecheck   # tsc --noEmit
-npm run sim -- --games 2000        # headless balance runner (win rates, BROKEN flags)
+npm run sim -- --games 50         # headless balance runner (win rates, BROKEN flags)
+npm run sim -- --games 200 --strength fast   # coarse sweep; the bot cannot cast at this budget
 npm run mirror / planner    # bot evaluation (see docs/bot.md)
 npm run sim -- --games 100 --report reports/run.json   # then:
 npm run stats -- reports/run.json                      # → a clickable HTML report
@@ -107,12 +108,17 @@ public site.
   eight changes and run the checks at the end — not `npm test` after each one
   and certainly not `npm run sim`. The suite is the cheap check (~10s); the sim
   is not, and a balance run only means anything once the changes are all in.
-- **`npm run sim` is a deliberate act, not a check.** It takes minutes, it is
+- **`npm run sim` is a deliberate act, not a check.** It takes hours, it is
   never part of "did that work", and nothing but a rebalance needs it. Run it
   once, at the end, in the background, and only when the change could move win
-  rates. Output goes to stdout — redirect it (`npm run sim -- --games 400 >
+  rates. Output goes to stdout — redirect it (`npm run sim -- --games 50 >
   sim.txt`) if it needs reading later, because a backgrounded run buffers and
-  shows nothing until it exits.
+  shows nothing until it exits. The default strength is `fair` (~27 s a game,
+  so ~7 h for 50 games across the ten matchups) because the old default gave
+  the planner 10 ms a decision against the 8000 ms it gets on the game screen,
+  and a starved planner stops finding its spells before it stops finding its
+  units — spell decks read as unplayable. Cut `--games` before cutting
+  `--strength`; see the header of `src/sim/run.ts`.
 - **Rebalancing is editing JSON**, then `npm run sim` to measure. Any deck over
   75% on a battlefield is the hard failure line.
 - **Delegate to subagents freely:** running sim/train/arena sweeps and
