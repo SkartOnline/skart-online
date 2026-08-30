@@ -9,7 +9,7 @@ import {
 } from "./effects";
 import { ALL_SLOTS } from "./grid";
 import { abilitiesActive, cardKeywords, power, unitsOf } from "./power";
-import { applyAction, legalActions } from "./reducer";
+import { applyAction, gameIsDecided, legalActions } from "./reducer";
 import { createGame, DEFAULT_CONFIG } from "./setup";
 import { fireBelepo, hasViableCaster } from "./resolve";
 import { boardTotal, locationWinner, visibleCapSpent } from "./totaling";
@@ -277,6 +277,62 @@ describe("kötelező befejezés", () => {
     // One legal move, which is what lets the screen light the button up rather
     // than leaving the player hunting for what they are allowed to do.
     expect(legalActions(after, "p1")).toEqual([{ type: "declareUnitsDone", player: "p1" }]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 1.3.7, the standing that can no longer be turned around
+// ---------------------------------------------------------------------------
+
+/**
+ * Six regular battlefields and A Zóna behind them, with the first `results`
+ * already settled. `locationIndex` sits on the last one that was fought, which
+ * is where `gameIsDecided` is asked the question.
+ */
+function standing(results: ("p1" | "p2" | "void")[]): GameState {
+  const state = blankState();
+  state.locations = [
+    ...Array.from({ length: 6 }, (_, i) => ({
+      cardId: "oppidium",
+      broughtBy: (i % 2 === 0 ? "p1" : "p2") as PlayerId,
+      winner: (results[i] ?? null) as "p1" | "p2" | "void" | null,
+    })),
+    { cardId: "a_zona", broughtBy: "p1" as PlayerId, winner: null },
+  ];
+  state.locationIndex = results.length - 1;
+  return state;
+}
+
+describe("a játék vége (1.3.7)", () => {
+  it("does not stop while the trailing player can still draw level", () => {
+    // 2–1 after three: three fields left, so nothing is settled.
+    expect(gameIsDecided(standing(["p1", "p2", "p1"]))).toBe(false);
+  });
+
+  it("stops at four fields, the plain majority", () => {
+    expect(gameIsDecided(standing(["p1", "p1", "p2", "p1", "p1"]))).toBe(true);
+  });
+
+  it("stops at three once a field has been voided", () => {
+    // 3–1 with one void and one battle left: 3–2 is the best they can reach,
+    // and 1.3.2 gave the voided field to nobody. Best case, 3.2 plus a tie.
+    expect(gameIsDecided(standing(["p1", "void", "p1", "p2", "p1"]))).toBe(true);
+  });
+
+  it("counts a void as a battle nobody can win back, a round earlier", () => {
+    // 3–1 with two voids after four is already over, with two fields unfought.
+    expect(gameIsDecided(standing(["p1", "void", "p1", "void"]))).toBe(false);
+    expect(gameIsDecided(standing(["p1", "void", "p1", "void", "p1"]))).toBe(true);
+  });
+
+  it("never counts A Zóna as a chance to catch up (1.3.4)", () => {
+    // 3–2 with one void, all six fought. The tiebreaker is not a seventh
+    // battle for the loser to win, so this is over.
+    expect(gameIsDecided(standing(["p1", "p2", "void", "p1", "p2", "p1"]))).toBe(true);
+  });
+
+  it("goes to A Zóna only on a tie after the six", () => {
+    expect(gameIsDecided(standing(["p1", "p2", "void", "p1", "p2", "void"]))).toBe(false);
   });
 });
 

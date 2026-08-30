@@ -1,6 +1,6 @@
 # Skart gyorsszabályok
 
-Két játékos, hét csatatér. Ez a leírás arra elég, hogy leüljetek és játsszatok. Vitás helyzetben a teljes szabályzat dönt: az pontokra hivatkozik, ez nem.
+Két játékos, hat csata és mögöttük egy döntő csatatér. Ez a leírás arra elég, hogy leüljetek és játsszatok. Vitás helyzetben a teljes szabályzat dönt: az pontokra hivatkozik, ez nem.
 
 ## Mi kell hozzá
 

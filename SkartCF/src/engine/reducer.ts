@@ -858,17 +858,30 @@ function landPortals(state: GameState): void {
 
 /**
  * 1.3.7: the game ends the moment the standing can no longer be turned around.
- * Taking more than half the regular battlefields does it, and so does running
- * out of them — A Zóna only comes up on a tie.
+ *
+ * "Turned around" is arithmetic, not a majority. Four of the six regular
+ * battlefields settles it when nothing has been voided, but 1.3.2 says a drawn
+ * field counts for nobody, and a field nobody took is a field the player behind
+ * can never win back. So three is enough once one has been voided — 3–2 with a
+ * void is the best the loser can do — and the same reasoning ends a 3–1 with
+ * two fields voided a whole battle earlier.
+ *
+ * The general form is the only one worth writing: the leader is safe as soon as
+ * the gap is wider than the number of regular battles still to be fought. A
+ * Zóna is not one of them (3.5, 1.3.4) — it comes up only on a tie, so it can
+ * never rescue a player who is already behind, and it must not be counted as a
+ * chance to catch up. Running out of the list ends the game whatever the
+ * standing, which is what closes A Zóna itself.
  */
-function gameIsDecided(state: GameState): boolean {
+export function gameIsDecided(state: GameState): boolean {
   const played = state.locationIndex + 1;
   if (played >= state.locations.length) return true;
   const board = scoreboard(state);
   const regularCount = state.locations.filter((l) => !getLocation(l.cardId).tiebreaker).length;
-  const majority = Math.floor(regularCount / 2) + 1;
-  if (board.p1 >= majority || board.p2 >= majority) return true;
-  return played >= regularCount && board.p1 !== board.p2;
+  const remaining = Math.max(0, regularCount - played);
+  const ahead = Math.max(board.p1, board.p2);
+  const behind = Math.min(board.p1, board.p2);
+  return ahead > behind + remaining;
 }
 
 /**
