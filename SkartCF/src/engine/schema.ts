@@ -105,7 +105,7 @@ export const STATIC_SPECS: KindSpec[] = [
         label: "Küszöb (csak graveyardAtLeast)",
         default: 0,
         min: 0,
-        help: "A graveyardAtLeast feltételhez: ennyi lap kell a temetőbe.",
+        help: "A graveyardAtLeast feltételhez: ennyi egység kell a temetőbe. Varázslat nem számít.",
       },
     ],
   },

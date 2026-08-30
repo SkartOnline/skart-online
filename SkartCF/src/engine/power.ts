@@ -1,4 +1,4 @@
-import { getAttachment, getLocation, getUnit } from "./cards";
+import { getAttachment, getCard, getLocation, getUnit } from "./cards";
 import {
   ALL_SLOTS,
   colOfSlot,
@@ -355,8 +355,15 @@ export function conditionHolds(
       return !unitsOf(state, unit.owner).some((other) => other.uid !== unit.uid);
     case "immobile":
       return !canMove(unit, state);
+    // Cassanus counts bodies, not cards. The graveyard takes spent spells too,
+    // and a deck that burns through its spell hand would have been handing him
+    // his threshold for free — his text says egység, so the count says unit.
     case "graveyardAtLeast":
-      return state.players[unit.owner].discard.length >= value;
+      return (
+        state.players[unit.owner].discard.filter(
+          (card) => getCard(card.cardId)?.kind === "unit",
+        ).length >= value
+      );
     case "noPlacedOnMe":
       return unit.placed.length === 0;
     default:

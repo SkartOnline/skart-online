@@ -77,6 +77,10 @@ A single condition enum serves both `powerBonus` and `selfGrant`:
 `isolatedDiagonal`, `aloneInRow`, `aloneInFrontRow`, `aloneOnBoard`, `immobile`,
 `graveyardAtLeast`, `noPlacedOnMe`.
 
+`graveyardAtLeast` counts **units** in the owner's graveyard against
+`value`, not cards: the pile takes spent spells too, and Cassanus reads
+*„legalább 12 egység”*.
+
 Building a new "+X if …" unit is therefore always: `powerBonus` + the right
 condition. If the condition you need is missing, extend the enum — one new
 value serves every future card that wants it, and the editor picks it up from

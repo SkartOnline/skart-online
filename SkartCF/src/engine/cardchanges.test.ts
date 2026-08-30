@@ -3,7 +3,7 @@ import { BASE_CARD_SET, getSpell, loadCardSet } from "./cards";
 import { applyEffect, legalTargets, makeUnitInstance } from "./effects";
 import { fireBelepo } from "./resolve";
 import { ALL_SLOTS, behindOfSlot } from "./grid";
-import { power } from "./power";
+import { grantsOf, power } from "./power";
 import { pendingPrompt } from "./prompts";
 import { answerPrompt } from "./interactions";
 import { applyAction, legalActions } from "./reducer";
@@ -329,5 +329,46 @@ describe("Umbra", () => {
     const after = applyAction(state, play);
     expect(after.board[play.slot]?.cardId).toBe("patkany");
     expect(after.players[state.turn].discard.some((c) => c.uid === "dead-1")).toBe(false);
+  });
+});
+
+describe("Cassanus, a halhatatlan", () => {
+  /**
+   * "Ha legalább 12 egység van a temetődben" — egység, and the graveyard takes
+   * spent spells as well as bodies. Counting cards handed him his threshold off
+   * a burnt spell hand, which is a different card from the one that is printed.
+   */
+  function withGraveyard(units: number, spells: number): GameState {
+    const state = blankState();
+    place(state, "cassanus", "p1.F1");
+    for (let i = 0; i < units; i++) {
+      state.players.p1.discard.push({ uid: `u${i}`, cardId: "patkany" });
+    }
+    for (let i = 0; i < spells; i++) {
+      state.players.p1.discard.push({ uid: `s${i}`, cardId: "sujtas" });
+    }
+    return state;
+  }
+
+  /** The tile is worth what the tile is worth; only the bonus is on trial. */
+  const asleep = () => {
+    const state = withGraveyard(0, 0);
+    return power(state.board["p1.F1"]!, state);
+  };
+
+  it("does not count spent spells towards the twelve", () => {
+    // Twenty cards in the graveyard, only eleven of them bodies.
+    const state = withGraveyard(11, 9);
+    const him = state.board["p1.F1"]!;
+    expect(state.players.p1.discard.length).toBeGreaterThanOrEqual(12);
+    expect(power(him, state)).toBe(asleep());
+    expect(grantsOf(state, him).invulnerable).toBe(false);
+  });
+
+  it("wakes on the twelfth body", () => {
+    const state = withGraveyard(12, 0);
+    const him = state.board["p1.F1"]!;
+    expect(power(him, state)).toBe(asleep() + 3);
+    expect(grantsOf(state, him).invulnerable).toBe(true);
   });
 });
