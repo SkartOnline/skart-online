@@ -325,6 +325,75 @@ describe("kötelező befejezés", () => {
 });
 
 // ---------------------------------------------------------------------------
+// 6.5, the price of hiding
+// ---------------------------------------------------------------------------
+
+describe("a rejtés ára", () => {
+  /** Feketepiac: a non-Csempész costs two unit cards to hide. */
+  function blackMarket(): GameState {
+    const state = blankState("feketepiac");
+    state.players.p1.unitHand = [
+      { uid: "hide", cardId: "felindori_kardforgato" },
+      { uid: "cheap", cardId: "patkany" },
+      { uid: "mid", cardId: "farkas" },
+      { uid: "dear", cardId: "medve" },
+    ];
+    state.players.p1.handLimit.units = 4;
+    return state;
+  }
+
+  it("takes every card the player named, not the cheapest two", () => {
+    const state = blackMarket();
+    const after = applyAction(state, {
+      type: "playUnit",
+      player: "p1",
+      uid: "hide",
+      slot: "p1.F1",
+      faceDown: true,
+      // The two dearest, which is never what "cheapest first" would have taken.
+      discardUids: ["mid", "dear"],
+    });
+    const buried = after.players.p1.discard.map((c) => c.uid);
+    expect(buried).toEqual(expect.arrayContaining(["mid", "dear"]));
+    expect(buried).not.toContain("cheap");
+    expect(after.board["p1.F1"]?.faceDown).toBe(true);
+  });
+
+  it("tops a short list up with the cheapest, so one named card still plays", () => {
+    // What the bot sends: it names one and has no opinion about the second.
+    const after = applyAction(blackMarket(), {
+      type: "playUnit",
+      player: "p1",
+      uid: "hide",
+      slot: "p1.F1",
+      faceDown: true,
+      discardUids: ["dear"],
+    });
+    const buried = after.players.p1.discard.map((c) => c.uid);
+    expect(buried).toContain("dear");
+    expect(buried).toContain("cheap"); // the cheapest makes up the difference
+    expect(buried).toHaveLength(2);
+  });
+
+  it("refuses the placement when the hand cannot pay the toll", () => {
+    const state = blackMarket();
+    state.players.p1.unitHand = [
+      { uid: "hide", cardId: "felindori_kardforgato" },
+      { uid: "only", cardId: "patkany" },
+    ];
+    const after = applyAction(state, {
+      type: "playUnit",
+      player: "p1",
+      uid: "hide",
+      slot: "p1.F1",
+      faceDown: true,
+      discardUids: ["only"],
+    });
+    expect(after.board["p1.F1"]).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 2.4.3 and 12.11, the hand as a level
 // ---------------------------------------------------------------------------
 

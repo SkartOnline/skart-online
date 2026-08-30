@@ -234,6 +234,78 @@ export function GravePortal({
   );
 }
 
+/**
+ * What you are paying to hide this unit.
+ *
+ * 6.5 charges a unit card out of the same hand, and Feketepiac charges two for
+ * anything that is not a Csempész. Which cards go is a real decision — you are
+ * choosing what to lose out of a hand of five — and until now it was only
+ * askable on the slow path: a strip beside the fan that appeared while a card
+ * was held, which a drag never showed, because a drag picks the card up and puts
+ * it down in one gesture. So the fastest way to play a unit was the one way the
+ * question never got asked, and the engine filled in the cheapest cards behind
+ * you.
+ *
+ * The tile is already chosen by the time this opens. That is the right order:
+ * where the unit goes is the big decision and what it costs is the small one,
+ * and asking the small one first is what the old strip did.
+ */
+export function HideToll({
+  unitName,
+  toll,
+  offer,
+  chosen,
+  onToggle,
+  onConfirm,
+  onCancel,
+}: {
+  unitName: string;
+  /** How many cards this costs — one, or two on the Feketepiac. */
+  toll: number;
+  offer: { uid: string; cardId: string }[];
+  chosen: string[];
+  onToggle: (uid: string) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const left = toll - chosen.length;
+  return (
+    <div className="hidetoll timber">
+      <b>{unitName} rejtve</b>
+      <em>
+        {toll === 1
+          ? "Válaszd ki, melyik egységlapot dobod el érte."
+          : `Ez a csatatér ${toll} egységlapba kerül. Válaszd ki, melyeket dobod el.`}
+      </em>
+
+      <div className="hidetoll-cards">
+        {offer.map((card) => {
+          const name = cardFor(card.cardId)?.name ?? card.cardId;
+          const taken = chosen.includes(card.uid);
+          return (
+            <button
+              key={card.uid}
+              className={taken ? "tiny ember" : "tiny"}
+              onClick={() => onToggle(card.uid)}
+            >
+              {name}
+            </button>
+          );
+        })}
+      </div>
+
+      <span className="hidetoll-foot">
+        <button className="ember" disabled={left > 0} onClick={onConfirm}>
+          {left > 0 ? `Még ${left} lap` : "Leteszem"}
+        </button>
+        <button className="tiny" onClick={onCancel}>
+          Mégsem
+        </button>
+      </span>
+    </div>
+  );
+}
+
 export function Disarming({
   kept,
   owed,

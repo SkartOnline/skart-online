@@ -6,6 +6,7 @@ import type {
   PlayerId,
   Prompt,
   Reveal,
+  SlotId,
   SpellCard,
   UnitCard,
 } from "../../engine";
@@ -23,7 +24,21 @@ import type { MutableRefObject } from "react";
 export interface Held {
   uid: string;
   veiled: boolean;
-  tollUid: string | null;
+  /**
+   * The unit cards paying for hiding this one, in the order they were named.
+   *
+   * A list because the toll is not always one: Feketepiac charges two for a
+   * non-Csempész. Empty means nothing has been chosen yet, which is what a drag
+   * looks like — the picker asks once the card is on a tile.
+   */
+  tollUids: string[];
+}
+
+/** A hidden placement waiting on its toll: the card, the tile, and the price. */
+export interface PayingFor extends Held {
+  slot: SlotId;
+  /** How many unit cards this costs — one, or two on the Feketepiac (6.5). */
+  toll: number;
 }
 
 export const SIDE: Record<PlayerId, string> = { p1: "Első", p2: "Második" };
@@ -98,6 +113,16 @@ export interface FieldProps {
   endPrologue: () => void;
   held: Held | null;
   setHeld: (h: Held | null) => void;
+  /**
+   * A hidden unit standing on its tile, waiting to be told what it cost.
+   *
+   * The placement is not sent until the toll is chosen, so this is a move in
+   * mid-air: the tile is settled, the cards that pay for it are not. Held up
+   * here rather than inside the field so an undo or a new game clears it with
+   * everything else.
+   */
+  payingFor: PayingFor | null;
+  setPayingFor: (p: PayingFor | null) => void;
   /**
    * Whether the next unit put down goes face down.
    *

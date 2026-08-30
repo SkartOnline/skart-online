@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   applyAction,
   createGame,
+  getUnit,
+  hideCost,
   legalActions,
   newReveals,
   pendingPrompt,
@@ -35,13 +37,13 @@ import { playAmbience, playSound, preloadSounds, stopAmbience } from "../audio";
 import { installOverlay, readOverlay } from "../cardSet";
 import type { BeatKind, Flight } from "./theatre";
 import { cardFor, handHeld, other } from "./common";
-import type { FieldProps, Held, LiveBeat, LiveReveal } from "./common";
+import type { FieldProps, Held, LiveBeat, LiveReveal, PayingFor } from "./common";
 import Theatre from "./TheatreView";
 import { Battlefield, Annals, Tools, TurnCue } from "./LeftRail";
 import { Counters, Ledger } from "./RightRail";
 import type { Tracking } from "./RightRail";
 import { FarHand, NearHand, Reading } from "./Hands";
-import { Almanac, Coin, Curtain, Disarming, GravePortal } from "./Asking";
+import { Almanac, Coin, Curtain, Disarming, GravePortal, HideToll } from "./Asking";
 import { Beacon, Spotlight } from "./Spotlight";
 import Prologue from "./Prologue";
 import { Chronicle, Aftermath } from "./Overlays";
@@ -58,6 +60,8 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   const [state, setState] = useState<GameState | null>(null);
   const [past, setPast] = useState<GameState[]>([]);
   const [held, setHeld] = useState<Held | null>(null);
+  /** A hidden placement on its tile, waiting to be told what it cost. */
+  const [payingFor, setPayingFor] = useState<PayingFor | null>(null);
   /** The standing "next unit goes face down" choice; see `FieldProps`. */
   const [veilNext, setVeilNext] = useState(false);
   /** Leszerelés: chosen for the discard, not yet thrown; see `FieldProps`. */
@@ -175,6 +179,7 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
     setNow(at);
     setState(next);
     setHeld(null);
+    setPayingFor(null);
     setFault(null);
   }, []);
 
@@ -198,6 +203,7 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   function reset() {
     setPast([]);
     setHeld(null);
+    setPayingFor(null);
     setVeilNext(false);
     setStaged([]);
     setFault(null);
@@ -550,6 +556,8 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       endPrologue={endPrologue}
       held={held}
       setHeld={setHeld}
+      payingFor={payingFor}
+      setPayingFor={setPayingFor}
       veilNext={veilNext}
       setVeilNext={setVeilNext}
       staged={staged}
@@ -583,6 +591,7 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
  */
 function Field(props: FieldProps) {
   const { state, actor, held, setHeld, send, bare, botSide, bot, now, cancelCast } = props;
+  const { payingFor, setPayingFor } = props;
   // Only the beats whose moment has come. A beat that has not started yet is
   // already in the queue — it has to be, the diff that produced it is gone —
   // but nothing on screen may know about it until the clock reaches it.
@@ -928,23 +937,51 @@ function Field(props: FieldProps) {
       for (const m of moves) {
         if (m.type !== "playUnit" || m.uid !== held.uid) continue;
         if ((m.faceDown === true) !== held.veiled) continue;
-        if (held.veiled && m.discardUid !== held.tollUid) continue;
+        // Every payer produces its own action for the same tile, so a hidden
+        // hold lights the union of them. Which card pays is asked after the
+        // tile is chosen, not encoded in which tiles are legal.
         set.add(m.slot);
       }
     }
     return set;
   }, [state, state.phase, asking, pending, held, moves]);
 
+  /**
+   * The unit goes down — unless it is going down hidden and nobody has said
+   * what it costs yet.
+   *
+   * Hiding is paid out of the same hand (6.5), and choosing which card to lose
+   * is a decision the player owns. A drag has no moment to make it in: the card
+   * is picked up and put down in one gesture. So the placement waits here and
+   * `HideToll` asks, with the tile already settled — the big decision first, the
+   * small one second.
+   */
   function commit(slot: SlotId, card: Held) {
     if (!actor) return;
+    if (card.veiled) {
+      const toll = hideCost(state, getUnit(cardIdOf(card.uid) ?? ""));
+      if (card.tollUids.length < toll) {
+        setPayingFor({ ...card, slot, toll });
+        setHeld(null);
+        return;
+      }
+    }
     send({
       type: "playUnit",
       player: actor,
       uid: card.uid,
       slot,
       faceDown: card.veiled,
-      discardUid: card.tollUid ?? undefined,
+      discardUids: card.veiled ? card.tollUids : undefined,
     });
+  }
+
+  /** The card id behind a uid in the acting player's unit hand. */
+  function cardIdOf(uid: string): string | null {
+    if (!actor) return null;
+    const held = state.players[actor].unitHand.find((c) => c.uid === uid);
+    if (held) return held.cardId;
+    return state.players[actor].discard.find((c) => c.uid === uid)?.cardId ?? null;
   }
 
   function pickSlot(slot: SlotId) {
@@ -1218,13 +1255,46 @@ function Field(props: FieldProps) {
             // Same shape a hand card produces, so the tiles light and the drop
             // commits through exactly the same path. A body cannot be buried
             // again on the way in, so it is never veiled.
-            setHeld(held?.uid === uid ? null : { uid, veiled: false, tollUid: null });
+            setHeld(held?.uid === uid ? null : { uid, veiled: false, tollUids: [] });
             setPortalOpen(false);
           }}
           onDrag={(e, uid) => {
             setPortalOpen(false);
-            startDrag(e, { uid, veiled: false, tollUid: null });
+            startDrag(e, { uid, veiled: false, tollUids: [] });
           }}
+        />
+      )}
+
+      {/* The price of hiding, asked once the tile is settled. This is the
+        * panel a drag would otherwise have skipped straight past. */}
+      {payingFor && actor && (
+        <HideToll
+          unitName={cardFor(cardIdOf(payingFor.uid) ?? "")?.name ?? "Egység"}
+          toll={payingFor.toll}
+          offer={state.players[actor].unitHand.filter((c) => c.uid !== payingFor.uid)}
+          chosen={payingFor.tollUids}
+          onToggle={(uid) =>
+            setPayingFor({
+              ...payingFor,
+              tollUids: payingFor.tollUids.includes(uid)
+                ? payingFor.tollUids.filter((u) => u !== uid)
+                : // Naming one more than the toll replaces the oldest, so a
+                  // player correcting a misclick does not have to unpick first.
+                  [...payingFor.tollUids, uid].slice(-payingFor.toll),
+            })
+          }
+          onConfirm={() => {
+            send({
+              type: "playUnit",
+              player: actor,
+              uid: payingFor.uid,
+              slot: payingFor.slot,
+              faceDown: true,
+              discardUids: payingFor.tollUids,
+            });
+            setPayingFor(null);
+          }}
+          onCancel={() => setPayingFor(null)}
         />
       )}
 

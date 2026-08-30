@@ -206,12 +206,12 @@ export function NearHand(
    * before the big one. It stays changeable in the strip while the card is up.
    */
   const lift = (uid: string): Held => {
-    const hide = veilNext && veilable.has(uid);
-    return {
-      uid,
-      veiled: hide,
-      tollUid: hide ? (p.unitHand.find((c) => c.uid !== uid)?.uid ?? null) : null,
-    };
+    // No default toll any more. Picking it up used to name the first other card
+    // in hand, which was fine while the strip was the only way to change it and
+    // wrong the moment a drag could commit without ever showing the strip: the
+    // fastest way to play a card was also the one way you never got asked. The
+    // picker asks instead, once the tile is chosen — see `HideToll`.
+    return { uid, veiled: veilNext && veilable.has(uid), tollUids: [] };
   };
   /** Is there any card in hand this turn that could be hidden at all? */
   const canHideSomething = veilable.size > 0;
@@ -370,7 +370,7 @@ export function NearHand(
               aria-pressed={!veilNext}
               onClick={() => {
                 setVeilNext(false);
-                if (held) setHeld({ ...held, veiled: false, tollUid: null });
+                if (held) setHeld({ ...held, veiled: false, tollUids: [] });
               }}
             >
               nyíltan
@@ -385,10 +385,7 @@ export function NearHand(
               title={canHideSomething ? undefined : "Nincs mivel fizetned a rejtésért"}
               onClick={() => {
                 setVeilNext(true);
-                if (held && veilable.has(held.uid)) {
-                  const toll = p.unitHand.find((x) => x.uid !== held.uid);
-                  setHeld({ ...held, veiled: true, tollUid: held.tollUid ?? toll?.uid ?? null });
-                }
+                if (held && veilable.has(held.uid)) setHeld({ ...held, veiled: true });
               }}
             >
               rejtve
@@ -400,24 +397,9 @@ export function NearHand(
       {mine && unitsPhase && held && heldCard && (
         <div className="toll">
           <span className="label">{heldCard.name}</span>
-          {held.veiled ? (
-            <>
-              <span className="label">rejtve — ezt az egységet dobod el érte:</span>
-              {p.unitHand
-                .filter((c) => c.uid !== held.uid)
-                .map((c) => (
-                  <button
-                    key={c.uid}
-                    className={held.tollUid === c.uid ? "tiny ember" : "tiny"}
-                    onClick={() => setHeld({ ...held, tollUid: c.uid })}
-                  >
-                    {getUnit(c.cardId).name}
-                  </button>
-                ))}
-            </>
-          ) : (
-            <span className="label dim">nyíltan</span>
-          )}
+          <span className={held.veiled ? "label" : "label dim"}>
+            {held.veiled ? "rejtve — a mező kiválasztása után választasz árat" : "nyíltan"}
+          </span>
         </div>
       )}
 

@@ -553,7 +553,7 @@ describe("hiding a unit", () => {
       uid: "a",
       slot: "p1.F2",
       faceDown: true,
-      discardUid: "b",
+      discardUids: ["b"],
     });
     expect(after.players.p1.discard).toHaveLength(2);
 
@@ -593,7 +593,7 @@ describe("hiding a unit", () => {
       uid: "a",
       slot: "p1.F1",
       faceDown: true,
-      discardUid: "b",
+      discardUids: ["b"],
     });
     // Hidden, so nothing happened yet: the Belépő is owed to the Mustra.
     expect(hidden.board["p2.F1"]).not.toBeNull();
@@ -852,7 +852,7 @@ describe("phase flow", () => {
     const first = hiding[0];
     // Every other card in hand can pay for this one, not just the first.
     const payers = new Set(
-      hiding.filter((a) => a.uid === first.uid && a.slot === first.slot).map((a) => a.discardUid),
+      hiding.filter((a) => a.uid === first.uid && a.slot === first.slot).map((a) => a.discardUids),
     );
     expect(payers.size).toBe(hand.length - 1);
   });

@@ -187,7 +187,7 @@ describe("the host as referee", () => {
     );
     expect(play).toBeDefined();
     // `GameView` builds these two fields even when there is nothing in them.
-    side.act({ ...play!, faceDown: false, discardUid: undefined });
+    side.act({ ...play!, faceDown: false, discardUids: undefined });
     await settle();
     expect(host.value.state!.board[play!.slot]).not.toBeNull();
   });

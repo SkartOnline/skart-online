@@ -746,7 +746,25 @@ export interface GameState {
 // ---------------------------------------------------------------------------
 
 export type Action =
-  | { type: "playUnit"; player: PlayerId; uid: string; slot: SlotId; faceDown?: boolean; discardUid?: string }
+  /**
+   * `discardUids` is the price of hiding, and it is a list because the price is
+   * not always one card: Feketepiac charges two for anything that is not a
+   * Csempész (6.5). It used to be a single uid with the engine filling the rest
+   * in from the cheapest, which meant that on the one battlefield where the toll
+   * is two, half of what you paid was chosen for you.
+   *
+   * Short lists are still accepted and topped up the old way — the bot names one
+   * card and does not care about the second, and a hotseat drag that has not
+   * been given a toll yet names none.
+   */
+  | {
+      type: "playUnit";
+      player: PlayerId;
+      uid: string;
+      slot: SlotId;
+      faceDown?: boolean;
+      discardUids?: string[];
+    }
   | { type: "castSpell"; player: PlayerId; uid: string }
   | { type: "finishChannel"; player: PlayerId; discardUid: string }
   | { type: "declareUnitsDone"; player: PlayerId }

@@ -135,6 +135,12 @@ export function hideCost(state: GameState, card: UnitCard): number {
   return cost;
 }
 
+/** For the hide toll: the printed cost of a card sitting in a hand. */
+function costOfUnit(card: HandCard): number {
+  const unit = tryUnit(card.cardId);
+  return unit ? unit.cost : 0;
+}
+
 /** Umbradog refuses to be hidden. */
 function cardForbidsHiding(card: UnitCard): boolean {
   return (card.statics ?? []).some((a) => a.kind === "selfGrant" && a.grant === "cannotHide");
@@ -240,7 +246,7 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
                 uid: card.uid,
                 slot,
                 faceDown: true,
-                discardUid: payment.uid,
+                discardUids: [payment.uid],
               });
             }
           }
@@ -449,9 +455,13 @@ function doPlayUnit(state: GameState, action: Extract<Action, { type: "playUnit"
     const toll = hideCost(state, card);
     const payable = p.unitHand.filter((c) => c.uid !== action.uid);
     if (payable.length < toll) return;
-    // The named card goes first, then the cheapest others make up the difference.
-    const chosen = payable.filter((c) => c.uid === action.discardUid);
-    for (const c of payable) {
+    // Whatever was named, in the order it was named, then the cheapest others
+    // make up any difference. Naming every card is the ordinary case from a
+    // screen; naming one and leaving the rest is what the bot does, and naming
+    // none is a drag that has not been asked yet.
+    const named = new Set(action.discardUids ?? []);
+    const chosen = payable.filter((c) => named.has(c.uid));
+    for (const c of [...payable].sort((a, b) => costOfUnit(a) - costOfUnit(b))) {
       if (chosen.length >= toll) break;
       if (!chosen.includes(c)) chosen.push(c);
     }
