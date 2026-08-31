@@ -339,7 +339,7 @@ Given a chosen bundle, the ordering rules, which mostly agree with each other:
   normally has to buy more than a turn, and normally should not open the phase.
   This is a rule for the generator's ordering, not a rule of the game: some
   movement is worth power on its own, because the destination is worth power.
-  Vízköpő moving into an empty row, a Melee unit stepping into the front row, a
+  Vízköpő moving into an empty row, a Közelharcos unit stepping into the front row, a
   Távolsági one stepping back — those are margin moves and the generator must
   price them as such. The combo graph already says so: `move` writes `slot`, and
   `rowBonus`, positional keywords and `countBonus` all read it.

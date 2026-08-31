@@ -43,7 +43,7 @@ export function kindLabel(card: AnyCard): string {
  * Positional keywords are rules text, not tribes, so they belong in the box
  * rather than on the type line.
  */
-export const MECHANICAL_KEYWORDS = new Set(["Melee", "Távolsági"]);
+export const MECHANICAL_KEYWORDS = new Set(["Közelharcos", "Távolsági"]);
 
 /** The grade a Mesteri spell carries. It reads before the school. */
 const GRADES = new Set(["Mesteri"]);

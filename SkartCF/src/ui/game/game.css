@@ -994,22 +994,6 @@
   scrollbar-color: var(--iron) transparent;
 }
 
-/* Undo, reveal-all and the way out: words in a drawer rather than glyphs beside
-   the board. Pinned to the foot of the panel so they are always in the same
-   place, and separated from the log by a rule so they never read as the last
-   entry in it. */
-.chronicle-tools {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-  padding-top: 8px;
-  border-top: 1px solid var(--iron);
-}
-.chronicle-tools .grow {
-  flex: 1;
-}
 .chronicle li {
   display: flex;
   gap: 6px;

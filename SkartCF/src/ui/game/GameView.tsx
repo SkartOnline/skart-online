@@ -59,7 +59,14 @@ import { Chronicle, Aftermath } from "./Overlays";
 
 export default function GameView({ onLeave }: { onLeave: () => void }) {
   const [state, setState] = useState<GameState | null>(null);
-  const [past, setPast] = useState<GameState[]>([]);
+  /**
+   * Positions this screen has been through, for `cancelCast` to unwind into.
+   *
+   * Write-only: the undo button is gone, and taking a half-aimed spell back is
+   * the only thing left that reads the history — and it reads it inside the
+   * setter, where it also has to prune it.
+   */
+  const [, setPast] = useState<GameState[]>([]);
   const [held, setHeld] = useState<Held | null>(null);
   /** A hidden placement on its tile, waiting to be told what it cost. */
   const [payingFor, setPayingFor] = useState<PayingFor | null>(null);
@@ -67,7 +74,8 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   const [veilNext, setVeilNext] = useState(false);
   /** Leszerelés: chosen for the discard, not yet thrown; see `FieldProps`. */
   const [staged, setStaged] = useState<string[]>([]);
-  const [bare, setBare] = useState(false);
+  /** Reveal face-down units: a debugging flag with no switch on screen. */
+  const [bare] = useState(false);
   const [fault, setFault] = useState<string | null>(null);
   const [botSide, setBotSide] = useState<PlayerId | null>(null);
   const bot = useRef<Opponent | null>(null);
@@ -143,22 +151,36 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
     if (prev) {
       const fresh = beatsBetween(prev, next);
       setBeats((b) => {
-        // A phase turning over waits for the phase it is ending.
+        // Where in time this batch starts, given what is already playing.
         //
         // Batches are independent — each is timed from the moment its action
-        // landed — so a player's last unit could still be settling onto the
-        // board while the banner announcing the end of the gathering came
-        // across the middle of the screen. A step or a pass is a full stop, and
-        // a full stop cannot be said over the top of the sentence it ends, so a
-        // batch carrying one queues up behind whatever is still playing.
+        // landed — so without this a player's last unit is still settling onto
+        // the board while the banner announcing the end of the gathering comes
+        // across the middle of the screen. Two rules, and they are the same
+        // rule seen from either side:
         //
-        // A battlefield turning over is the same kind of thing and was left out
-        // of it, which is why Leszerelés kept being half-said: the next
-        // battlefield arrives in its own batch, timed from now, and took the
-        // banner off the beat that was still using it. There is one banner, so
-        // every batch that wants it queues for it.
-        const closing = fresh.some((beat) => BANNER_KINDS.has(beat.kind));
-        const base = closing ? Math.max(at, ...b.map((live) => live.expiresAt)) : at;
+        //   - A batch that wants the banner waits for everything. A full stop
+        //     cannot be said over the top of the sentence it ends, and that
+        //     includes the battlefield turning over, which is why Leszerelés
+        //     kept being half-said.
+        //   - A batch that does not want the banner still waits for a step or
+        //     a pass that is up. Those two are said at moments when neither
+        //     player can act, so the wait is free — and online the other one
+        //     can still move during it, which is the case this covers.
+        //
+        // Two exemptions, both about not making the screen answer late.
+        // Book-keeping — a hand refilling is a card flying to a pile, not a
+        // turn. And a battlefield turning over, which is the one banner a
+        // player *can* act during: it runs into the start of their gathering,
+        // so blocking on it would mean up to four seconds of a click doing
+        // visibly nothing. A card landing under a banner nobody is reading is
+        // the better of those two.
+        const wantsBanner = fresh.some((beat) => BANNER_KINDS.has(beat.kind));
+        const blocks = (live: LiveBeat) =>
+          wantsBanner
+            ? live.kind !== "draw" && live.kind !== "toss"
+            : live.kind === "step" || live.kind === "done";
+        const base = Math.max(at, ...b.filter(blocks).map((live) => live.expiresAt));
         return [
           ...b,
           ...fresh.map((beat) => ({
@@ -471,17 +493,6 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
   // new identity every render would restart the act it is in the middle of.
   const endPrologue = useCallback(() => setPrologue(false), []);
 
-  function stepBack() {
-    setPast((h) => {
-      if (h.length === 0) return h;
-      setState(h[h.length - 1]);
-      setHeld(null);
-      setBeats([]);
-      setShows([]);
-      return h.slice(0, -1);
-    });
-  }
-
   /**
    * Taking a spell back, up to the moment it becomes real.
    *
@@ -584,12 +595,10 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       staged={staged}
       setStaged={setStaged}
       send={send}
-      stepBack={stepBack}
       // Undo is a hotseat courtesy, and it does not survive a second player.
       // Rewinding here would leave the other screen showing a move that this
       // one has decided never happened, and the position they are looking at is
       // the host's, not ours to edit.
-      canStepBack={!match && past.length > 0}
       cancelCast={match ? () => match.rewind() : cancelCast}
       // Reveal-all is a hotseat and workshop tool, and online it is not merely
       // impolite but impossible: it renders the far hand face up, and the far
@@ -597,7 +606,6 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       // resolve. Forced off rather than only hidden, so no stale `true` from
       // before the room was opened can reach the hand rail.
       bare={match ? false : bare}
-      setBare={setBare}
       onQuit={match ? leaveRoom : () => setState(null)}
       onLeave={onLeave}
       fault={fault ?? net?.notice ?? net?.ended ?? null}
@@ -1086,6 +1094,16 @@ function Field(props: FieldProps) {
 
   // Which tiles are mid-animation, and what to hold in the panel. Both are read
   // off the beats, never off the board, so they fade on their own.
+  /**
+   * Which tiles are mid-flourish, and which one.
+   *
+   * `march` was missing from this list, and `game.css` has had a `.stir-march`
+   * rule the whole time — so a unit that walked did not slide, it appeared. The
+   * beat was generated, queued, sounded and used to hold the board back; the one
+   * thing it never did was animate. Szarvas advancing at the Mustra is the card
+   * that shows it, because a unit arriving somewhere it was not, with no
+   * movement between, reads as nothing happening at all.
+   */
   const stirring = useMemo(() => {
     const out = new Map<SlotId, BeatKind>();
     for (const beat of beats) {
@@ -1094,6 +1112,7 @@ function Field(props: FieldProps) {
         beat.kind === "land" ||
         beat.kind === "veil" ||
         beat.kind === "reveal" ||
+        beat.kind === "march" ||
         beat.kind === "strike"
       ) {
         out.set(beat.slot, beat.kind);
@@ -1384,18 +1403,7 @@ function Field(props: FieldProps) {
 
       {props.prologue && <Prologue state={state} botSide={botSide} onDone={props.endPrologue} />}
 
-      {logOpen && (
-        <Chronicle
-          state={state}
-          onClose={() => setLogOpen(false)}
-          bare={bare}
-          setBare={props.setBare}
-          stepBack={props.stepBack}
-          canStepBack={props.canStepBack}
-          online={props.online}
-          onQuit={props.onQuit}
-        />
-      )}
+      {logOpen && <Chronicle state={state} onClose={() => setLogOpen(false)} />}
       {over && (
         <Aftermath
           state={state}

@@ -9,7 +9,7 @@ import {
   makeUnitInstance,
 } from "./effects";
 import { ALL_SLOTS } from "./grid";
-import { abilitiesActive, cardKeywords, power, unitsOf } from "./power";
+import { abilitiesActive, cardKeywords, POSITIONAL_KEYWORDS, power, unitsOf } from "./power";
 import { applyAction, gameIsDecided, legalActions, remainingCap } from "./reducer";
 import { answerPrompt, finishPrompt } from "./interactions";
 import { pendingPrompt, promptOptions } from "./prompts";
@@ -1046,6 +1046,36 @@ describe("költségkeret nyilvánossága", () => {
     // Once Mustra has turned it over the whole board is public (7.9).
     state.board["p1.F2"]!.faceDown = false;
     expect(visibleCapSpent(state, "p1")).toBe(18);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 9.3.1, the front-row keyword is the word the rulebook prints
+// ---------------------------------------------------------------------------
+
+describe("sor szerinti bónusz", () => {
+  it("pays Közelharcos in the front row and Távolsági in the back", () => {
+    // The keyword lived in the engine as the English "Melee" against a rulebook
+    // that says Közelharcos, and no card in the set carries either — so 9.3.1
+    // was unreachable and nothing failed to notice. Pinned against the table
+    // rather than a card, because the card that will one day carry it does not
+    // exist yet and this is the promise made to whoever writes it.
+    expect(POSITIONAL_KEYWORDS).toContainEqual({ keyword: "Közelharcos", row: "F", amount: 1 });
+    expect(POSITIONAL_KEYWORDS).toContainEqual({ keyword: "Távolsági", row: "B", amount: 2 });
+
+    // The difference between the two rows, not the absolute number: Oppidium
+    // rings everything that arrives, and what is being measured here is the row.
+    const state = blankState("oppidium");
+    place(state, "felindori_ijasz", "p1.F1");
+    place(state, "felindori_ijasz", "p1.B1");
+    expect(power(state.board["p1.B1"]!, state) - power(state.board["p1.F1"]!, state)).toBe(2);
+  });
+
+  it("lets Ködrét switch the back-row bonus off, which is why the bot stands in front there", () => {
+    const state = blankState("kodret");
+    place(state, "felindori_ijasz", "p1.F1");
+    place(state, "felindori_ijasz", "p1.B1");
+    expect(power(state.board["p1.B1"]!, state) - power(state.board["p1.F1"]!, state)).toBe(0);
   });
 });
 

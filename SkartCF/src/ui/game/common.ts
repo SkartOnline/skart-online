@@ -148,12 +148,15 @@ export interface FieldProps {
   staged: string[];
   setStaged: (uids: string[]) => void;
   send: (a: Action | Action[]) => void;
-  stepBack: () => void;
-  canStepBack: boolean;
   /** Rewind a spell that is still being aimed, back to before it was played. */
   cancelCast: () => void;
+  /**
+   * Reveal face-down units. There is no switch on the screen for it any more —
+   * a whole-board reveal is a debugging affordance, not a control to leave
+   * under somebody's hand mid-game — but every component that draws a hidden
+   * card still reads it, so turning it back on is one line in `GameView`.
+   */
   bare: boolean;
-  setBare: (v: boolean) => void;
   onQuit: () => void;
   onLeave: () => void;
   fault: string | null;

@@ -182,16 +182,16 @@ export const BEAT_LEAD: Record<BeatKind, number> = {
  * deaths, but a board wipe is one event and must not take six seconds.
  */
 const BEAT_GAP: Record<BeatKind, number> = {
-  battlefield: 0,
-  step: 0,
-  // Long enough to read. A pass used to get 900 ms here and 420 ms when a step
-  // was queued behind it, against a 2400 ms lifetime and a 2800 ms animation —
-  // so the banner announcing that somebody had finished gathering was wiped off
-  // the screen a fifth of the way into its own fade-in. `stagger` now trims the
-  // *lifetime* to the gap rather than letting the next banner talk over it, so
-  // this number is what the sentence actually gets, and it has to be a number
-  // somebody can read a sentence in.
-  done: 1300,
+  // The three banners hold the queue for their whole life, so their gap is
+  // their length — see `stagger`. They used to hold it for nothing at all,
+  // which is the bug that made the Mustra unwatchable: the step banner claimed
+  // 1100–3700 ms and the four reveals claimed 1100–5900, so three of the four
+  // hidden units turned over behind a lit box across the middle of the board
+  // and the fourth was the only one anybody ever saw. A banner is a full stop.
+  // Nothing plays underneath it.
+  battlefield: 4400,
+  step: 2600,
+  done: 2400,
   // A spell is four things in a row — the card, who threw it, what it hit, and
   // what that did — and they only read as an order if the last of them waits.
   cast: 1000,
@@ -400,6 +400,18 @@ const CLEANUP_STEP_MS = 1800;
  */
 const PASS_GAP_BEFORE_STEP = 1100;
 
+/**
+ * The two beats that own the card panel down the side of the screen.
+ *
+ * A second channel with the same one-at-a-time problem as the banner: the view
+ * shows whichever of these started last, so a `land` 260 ms behind another one
+ * replaces a panel that had claimed 2200. It does not hold up the queue the way
+ * a banner does — a card being played and the board reacting to it are
+ * *supposed* to happen together — but its lifetime is trimmed to the truth so
+ * the animation is never cut off half-done.
+ */
+const PLAYBILL_KINDS: ReadonlySet<BeatKind> = new Set<BeatKind>(["land", "cast", "veil"]);
+
 let sequence = 0;
 const nextId = () => ++sequence;
 
@@ -539,6 +551,26 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
     const after = next.board[slot];
     if (after && (!before || before.uid !== after.uid)) {
       const walked = wasAt.get(after.uid);
+      // A hidden unit that turns over *and* walks in the same step owes two
+      // beats, not one.
+      //
+      // Szarvas is the card that found this: it is played face down and its
+      // Mustra trigger marches it up the column, so the diff saw a unit at a
+      // tile it had not been at before, called it a walk, and drew a face-down
+      // card sliding forward and arriving face up. The turn was never shown at
+      // all. It gets its own beat on the tile it was standing on, and the walk
+      // that follows holds it there face up, because by then it has turned.
+      const turnedOnTheWay = !!walked && !!prev.board[walked]?.faceDown && !after.faceDown;
+      if (turnedOnTheWay && walked) {
+        out.push({
+          id: nextId(),
+          kind: "reveal",
+          player: after.owner,
+          cardId: after.cardId,
+          slot: walked,
+          hold: [{ slot: walked, unit: prev.board[walked] }],
+        });
+      }
       out.push({
         id: nextId(),
         // Only a card coming from outside the board is a play worth showing in
@@ -554,7 +586,12 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
         hold: walked
           ? [
               { slot, unit: before ?? null },
-              { slot: walked, unit: prev.board[walked] },
+              {
+                slot: walked,
+                unit: turnedOnTheWay
+                  ? { ...prev.board[walked]!, faceDown: false }
+                  : prev.board[walked],
+              },
             ]
           : [{ slot, unit: before ?? null }],
       });
@@ -646,28 +683,45 @@ function stagger(beats: Omit<Beat, "at">[]): Beat[] {
     // A death still cannot play before the move that caused it, and no beat can
     // play on top of the one in front of it.
     const at = Math.max(BEAT_LEAD[beat.kind], clock);
-    clock = at + (beat.gap ?? BEAT_GAP[beat.kind]);
-    return { ...beat, at };
+
+    // How long this beat holds the queue up.
+    //
+    // For a banner that is its whole lifetime, because a banner is a lit box
+    // across the middle of the board and anything that plays while it is up is
+    // a thing nobody saw. For everything else it is the short gap that makes
+    // three deaths read as three deaths instead of one flicker — those are
+    // *supposed* to overlap, they are on different tiles.
+    const banner = BANNER_KINDS.has(beat.kind);
+    const hold = banner
+      ? (beat.gap ?? beat.linger ?? BEAT_GAP[beat.kind])
+      : (beat.gap ?? BEAT_GAP[beat.kind]);
+    clock = at + hold;
+
+    // A banner's claimed lifetime and its real one are now the same number by
+    // construction — it is on screen for exactly as long as it holds the queue,
+    // and `TheatreView` runs its animation for exactly that long.
+    return banner ? { ...beat, at, linger: hold } : { ...beat, at };
   });
 
-  // A banner's lifetime is however long it is actually on screen.
-  //
-  // There is one banner, and the view shows whichever beat claimed it last, so
-  // a second banner starting is the first one's last moment whatever its beat
-  // says. Two numbers disagreed about that: the beat claimed `BEAT_MS`, and the
-  // stylesheet ran an animation of its own length, and the pass beats — 2400 ms
-  // of lifetime and 2800 ms of animation, replaced after 420 — were cut off
-  // twice over. So the lifetime is trimmed to the truth here, and the animation
-  // is driven from the lifetime in `TheatreView`. Nothing is cut off because
-  // nothing claims time it does not have.
-  const bannerAts = timed.filter((b) => BANNER_KINDS.has(b.kind)).map((b) => b.at);
-  return timed.map((beat) => {
-    if (!BANNER_KINDS.has(beat.kind)) return beat;
-    const next = bannerAts.find((at) => at > beat.at);
+  return trimToChannel(timed, PLAYBILL_KINDS);
+}
+
+/**
+ * One panel, one beat at a time: nothing in `channel` may claim time that the
+ * next beat in the same channel has already taken.
+ *
+ * The banner does not need this — holding the queue for its lifetime already
+ * guarantees it — but the playbill does, because it deliberately lets the board
+ * carry on underneath it.
+ */
+function trimToChannel(beats: Beat[], channel: ReadonlySet<BeatKind>): Beat[] {
+  const ats = beats.filter((b) => channel.has(b.kind)).map((b) => b.at);
+  return beats.map((beat) => {
+    if (!channel.has(beat.kind)) return beat;
+    const next = ats.find((at) => at > beat.at);
+    if (next === undefined) return beat;
     const natural = beat.linger ?? BEAT_MS[beat.kind];
-    return next === undefined
-      ? beat
-      : { ...beat, linger: Math.min(natural, next - beat.at) };
+    return { ...beat, linger: Math.min(natural, next - beat.at) };
   });
 }
 

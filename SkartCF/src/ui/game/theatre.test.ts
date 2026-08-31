@@ -150,6 +150,35 @@ describe("the Mustra, one card at a time", () => {
   });
 
   /**
+   * The invariant the Mustra actually needed, and the one three passes at this
+   * missed: a banner is not just first in the queue, it *is* the queue.
+   *
+   * The step banner is a lit box across the middle of the board. It used to
+   * claim 1100–3700 ms while the four reveals under it claimed 1100–5900, so
+   * three of the four hidden units turned over behind it and a Szarvas marching
+   * out of the back row went with them. Nothing was cut off and nothing was
+   * dropped; it was all simply shown somewhere nobody could see it.
+   */
+  it("plays nothing on the board while a banner is over it", () => {
+    const { before, after } = mustra();
+    const beats = beatsBetween(before, after);
+    const banners = beats.filter((b) => BANNER_KINDS.has(b.kind));
+    const board = beats.filter((b) => !BANNER_KINDS.has(b.kind));
+
+    expect(banners.length).toBeGreaterThan(0);
+    expect(board.length).toBeGreaterThan(0);
+    for (const banner of banners) {
+      const ends = banner.at + (banner.linger ?? BEAT_MS[banner.kind]);
+      for (const beat of board) {
+        // Either it is over before the banner starts, or it waits for the end
+        // of it. What it may not do is happen underneath.
+        const overlaps = beat.at < ends && beat.at + BEAT_MS[beat.kind] > banner.at;
+        expect(overlaps, `${beat.kind} at ${beat.at} under ${banner.kind}`).toBe(false);
+      }
+    }
+  });
+
+  /**
    * The one invariant the whole banner channel rests on.
    *
    * There is a single banner across the middle of the screen and the view shows

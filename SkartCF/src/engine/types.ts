@@ -33,7 +33,7 @@ export type SlotId = string;
  */
 export type School = string;
 
-/** Free-form unit keyword: origin, order, race, or a mechanical tag like `"Melee"`. */
+/** Free-form unit keyword: origin, order, race, or a mechanical tag like `"Közelharcos"`. */
 export type Keyword = string;
 
 // ---------------------------------------------------------------------------

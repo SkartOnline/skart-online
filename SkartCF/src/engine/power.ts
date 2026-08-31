@@ -47,7 +47,11 @@ import type {
 
 /** Positional keywords, as a table rather than a chain of ifs. */
 export const POSITIONAL_KEYWORDS: { keyword: string; row: "F" | "B"; amount: number }[] = [
-  { keyword: "Melee", row: "F", amount: 1 },
+  // Hungarian, like every other word a card can carry. It was `"Melee"` here
+  // and `Közelharcos` in 9.3.1, which made the rule unreachable: no card in the
+  // set has either word, so tagging one with the word the rulebook prints would
+  // have bought it nothing at all.
+  { keyword: "Közelharcos", row: "F", amount: 1 },
   { keyword: "Távolsági", row: "B", amount: 2 },
 ];
 

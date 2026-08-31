@@ -371,7 +371,7 @@ function UnitFields({ draft, set }: { draft: Record<string, unknown>; set: SetFn
             }
           />
           <small>
-            A Melee az első sorban +1-et kap, a Távolsági a hátsóban +2-t. A többi
+            A Közelharcos az első sorban +1-et kap, a Távolsági a hátsóban +2-t. A többi
             kulcsszó szabad szöveg, és az Eredet meg a Rend automatikusan hozzáadódik.
           </small>
         </label>
