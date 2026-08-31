@@ -58,7 +58,7 @@ A 3. fejezet kivételével a szabályok nem időrendben állnak, hanem tárgykö
 
 1.5.2 Rejtett a kézben tartott lapok, a paklik sorrendje, a rejtett egységek azonossága, a fókuszban álló varázslat azonossága, és a csatatérlapok sorrendje a felfordításig.
 
-1.5.3 Az elköltött és a maradék költségkeret nem nyilvános adat, mert a rejtett egységek költsége is beleszámít. Mindkét játékos maga tartja számon a sajátját.
+1.5.3 Az elköltött és a maradék költségkeret nem nyilvános adat, mert a rejtett egységek költsége is beleszámít. Mindkét játékos maga tartja számon a sajátját. Amit az ellenfeled keretéről leolvashatsz, az mindig alsó becslés: a felfordítva letett egységek költsége, azoké is, amelyek már elestek (6.4.3).
 
 1.5.4 A temetőt mindkét játékos bármikor átnézheti.
 
@@ -368,9 +368,11 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 6.4.1 A költségkeret játékosonként külön értendő, és kizárólag az egységek költségét méri. A varázslatokat varázserőből fizetik, nem a keretből.
 
-6.4.2 A keret betartását a Mustrán ellenőrizzük, a rejtett egységek felfedése után. Addig mindkét játékos maga tartja számon, mennyit költött.
+6.4.2 A keret fogyó készlet, nem egy pillanatnyi összeg. Amikor leteszel egy egységet, a költsége azonnal és véglegesen leíródik a keretedből, és annyi marad, amennyi marad. Addig, amíg a Mustra fel nem fedi a rejtett egységeket, mindkét játékos maga tartja számon a sajátját.
 
-6.4.3 Az ellenőrzéskor azoknak az egységeknek a költsége számít, amelyek abban a pillanatban a csatatéren állnak. Ha egy egység a gyülekezés alatt elesett vagy lekerült a csatatérről, a költsége már nem terheli a keretet.
+6.4.3 Ami elfogyott, elfogyott. Ha egy egység a gyülekezés alatt elesett vagy bármi módon lekerült a csatatérről, a költsége akkor is terheli a keretedet: a helye nem szabadul fel, és nem tehetsz le helyette másikat a költségén felül. A keret azt méri, mennyit állítottál ki a csatatérre, nem azt, mennyi maradt belőle életben.
+
+6.4.3.1 Ez a szabály adja az Azmán, a Carnifex és a Bérgyilkos fajta lapok árát is: aki a gyülekezés alatt öl, nem csak egy egységet vesz el az ellenfelétől, hanem a keretét is elköltette vele.
 
 6.4.4 A keret túllépésének következményeit a 7.4 írja le.
 
@@ -422,7 +424,7 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 7.2 Először minden rejtett egység felfordul.
 
-7.3 Ezután következik a költségkeret ellenőrzése. Mindkét játékos összeadja a csatatéren álló egységeinek költségét, és összeveti a csatatérlap keretével.
+7.3 Ezután következik a költségkeret ellenőrzése. Mindkét játékos összeadja mindannak a költségét, amit ezen a csatatéren letett — a most felfedett rejtett egységekkel együtt, és azokkal együtt, amelyek már nem állnak (6.4.3) —, és összeveti a csatatérlap keretével.
 
 7.4 Ha az egyik játékos túllépte a keretet, a csata azonnal véget ér, és a csatateret az ellenfele szerzi meg. Ha mindketten túllépték, a csatateret egyik játékos sem szerzi meg. Mindkét esetben elmarad a csatafázis és az összesítés, egyetlen képesség sem sül el, és a leszerelés következik.
 

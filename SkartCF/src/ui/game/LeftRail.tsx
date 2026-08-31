@@ -156,22 +156,17 @@ export function Annals({
 }
 
 /**
- * The tools, as marks rather than sentences.
+ * The one tool that belongs beside the board.
  *
- * Four labelled buttons stacked down the rail read as a settings page, and they
- * were competing for attention with the only two things in that column that
- * matter while you are playing: the battlefield and whose turn it is. None of
- * them is used often enough to earn a word. They are a row of glyphs now, each
- * with its name on hover and for assistive tech, which is the same trade every
- * toolbar makes.
+ * There were four glyphs in this corner and three of them were housekeeping —
+ * undo, reveal-all, and the way out. None of the three is used during a turn,
+ * all three are one misclick from throwing away the game being played, and they
+ * were sitting under the near hand where the cards are. They live in the
+ * chronicle panel now, which is the screen's drawer for everything that is
+ * about the match rather than about the position. What stays here is the handle
+ * that opens it.
  */
 export function Tools({
-  bare,
-  setBare,
-  stepBack,
-  canStepBack,
-  online,
-  onQuit,
   onLog,
   logOpen,
 }: FieldProps & { onLog: () => void; logOpen: boolean }) {
@@ -185,40 +180,6 @@ export function Tools({
         aria-pressed={logOpen}
       >
         ☰
-      </button>
-      {/* Neither of these means anything with a second player watching: undo
-          would rewind a move they have already seen, and reveal-all has nothing
-          to show that this screen was sent. A disabled button invites the
-          question; an absent one does not. */}
-      {!online && (
-        <>
-          <button
-            className="glyph"
-            onClick={stepBack}
-            disabled={!canStepBack}
-            title="Vissza"
-            aria-label="Vissza"
-          >
-            ↺
-          </button>
-          <button
-            className={`glyph${bare ? " on" : ""}`}
-            onClick={() => setBare(!bare)}
-            title="Mindent mutat"
-            aria-label="Mindent mutat"
-            aria-pressed={bare}
-          >
-            {bare ? "◉" : "◎"}
-          </button>
-        </>
-      )}
-      <button
-        className="glyph"
-        onClick={onQuit}
-        title={online ? "Kilépés" : "Új parti"}
-        aria-label={online ? "Kilépés" : "Új parti"}
-      >
-        ⟲
       </button>
     </div>
   );

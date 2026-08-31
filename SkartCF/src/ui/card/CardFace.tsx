@@ -27,10 +27,20 @@ interface Props {
   card: AnyCard;
   /** Board power, when it differs from the printed value. */
   livePower?: number;
+  /**
+   * Spellpower this unit has *left*, per school, as against the printed pool.
+   *
+   * A caster is a resource that is spent during the battle, and the printed
+   * number stops being the answer to "can this pay for that spell?" the moment
+   * it casts once. So the corner shows what is left, and marks itself when that
+   * is less than the pool it is drawn from. Only the board hands this in — in
+   * the collection and the editor a card has no game to have spent anything in.
+   */
+  pools?: Record<string, { left: number; max: number }>;
   className?: string;
 }
 
-export default function CardFace({ card, livePower, className }: Props) {
+export default function CardFace({ card, livePower, pools, className }: Props) {
   const art = artFor(card.id);
   const pips = castingPips(card);
   const keywords = mechanicalKeywords(card);
@@ -78,12 +88,18 @@ export default function CardFace({ card, livePower, className }: Props) {
 
       <footer className="cf-foot">
         <span className="cf-pips">
-          {pips.map((pip) => (
-            <span key={pip.school} className={`pip ${schoolSlug(pip.school)}`}>
-              <b className="num">{pip.value}</b>
-              <em>{pip.school}</em>
-            </span>
-          ))}
+          {pips.map((pip) => {
+            const live = pools?.[pip.school];
+            return (
+              <span
+                key={pip.school}
+                className={`pip ${schoolSlug(pip.school)}${live && live.left < live.max ? " spent" : ""}`}
+              >
+                <b className="num">{live ? live.left : pip.value}</b>
+                <em>{pip.school}</em>
+              </span>
+            );
+          })}
         </span>
         {isUnit(card) && (
           <span className="cf-power num">
@@ -110,11 +126,14 @@ export default function CardFace({ card, livePower, className }: Props) {
 export function CardTile({
   card,
   power,
+  pools,
   status,
   children,
 }: {
   card: AnyCard;
   power?: number;
+  /** Spellpower left per school, when there is a board to have spent it on. */
+  pools?: Record<string, { left: number; max: number }>;
   /**
    * What is currently true of this unit that no number on the card says:
    * asleep, unmovable, untargetable, sheltered. Handed in rather than worked
@@ -135,11 +154,17 @@ export function CardTile({
       </span>
       <span className="tile-foot">
         <span className="cf-pips">
-          {pips.map((pip) => (
-            <span key={pip.school} className={`pip ${schoolSlug(pip.school)}`}>
-              <b className="num">{pip.value}</b>
-            </span>
-          ))}
+          {pips.map((pip) => {
+            const live = pools?.[pip.school];
+            return (
+              <span
+                key={pip.school}
+                className={`pip ${schoolSlug(pip.school)}${live && live.left < live.max ? " spent" : ""}`}
+              >
+                <b className="num">{live ? live.left : pip.value}</b>
+              </span>
+            );
+          })}
         </span>
         {/* Between the casting pips and the power, which is the order the eye
             already reads the foot in: what it can do, what is being done to

@@ -286,3 +286,22 @@
 .pip.egyeb > b {
   --pip: #4b4038;
 }
+
+/* A pool that has been drawn on.
+ *
+ * The number in the corner is the spellpower this caster has *left*, so on a
+ * board mid-Csata it is usually not the number printed on the card, and a
+ * player reading it has to be told which of the two they are looking at. A wash
+ * over the school colour rather than a colour of its own: the silhouette and
+ * the hue still have to say Feketemágus at a glance, and only the tint says
+ * that some of it is gone. */
+.pip.spent > b {
+  background:
+    linear-gradient(rgba(150, 44, 32, 0.62), rgba(150, 44, 32, 0.62)),
+    var(--pip);
+  border-color: rgba(150, 44, 32, 0.85);
+  color: #ffdcd4;
+}
+.pip.spent > em {
+  color: #b6705f;
+}

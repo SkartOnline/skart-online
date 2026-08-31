@@ -28,6 +28,13 @@ export function visibleTotal(state: GameState, player: PlayerId): number {
  * `capSpent`. Each player keeps their own tally; nobody gets to audit the other
  * one mid-gathering. Overshooting the cap is simply illegal, which is the whole
  * of what has to be enforced and the whole of what a player needs to see.
+ *
+ * It is a *floor*, not the tally, and the gap is wider than the hidden units:
+ * 6.4.3 charges a unit's cost for the whole battle, so what a Bérgyilkos killed
+ * during gathering is still weighing on its owner's cap and is no longer on the
+ * board for this to count. After the Mustra the whole position is public (7.9)
+ * and the screen reads `capSpent` directly, so this only ever answers for the
+ * gathering, where 1.5.3 says the true number is nobody else's business.
  */
 export function visibleCapSpent(state: GameState, player: PlayerId): number {
   return unitsOf(state, player)

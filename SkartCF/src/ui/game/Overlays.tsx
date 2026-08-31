@@ -5,7 +5,26 @@ import type { GameState, PlayerId } from "../../engine";
  * The two full-screen overlays: the chronicle panel and the end-of-game casket.
  */
 
-export function Chronicle({ state, onClose }: { state: GameState; onClose: () => void }) {
+export function Chronicle({
+  state,
+  onClose,
+  bare,
+  setBare,
+  stepBack,
+  canStepBack,
+  online,
+  onQuit,
+}: {
+  state: GameState;
+  onClose: () => void;
+  /** Reveal face-down units: the hotseat testing switch. */
+  bare: boolean;
+  setBare: (on: boolean) => void;
+  stepBack: () => void;
+  canStepBack: boolean;
+  online: boolean;
+  onQuit: () => void;
+}) {
   const lines = state.log.filter((l) => l.location === state.locationIndex).slice(-80);
   return (
     <div className="chronicle-panel timber">
@@ -25,6 +44,37 @@ export function Chronicle({ state, onClose }: { state: GameState; onClose: () =>
           </li>
         ))}
       </ul>
+
+      {/* The three controls that are about the match rather than the position.
+        *
+        * They used to be glyphs in the corner of the board, under the near
+        * hand, where none of them was ever wanted mid-turn and all three were
+        * one slip from ending the game. Here they are words, behind a panel you
+        * have to open, which is the right amount of friction for "start over".
+        *
+        * Neither of the first two means anything with a second player watching:
+        * undo would rewind a move they have already seen, and reveal-all has
+        * nothing to show that this screen was sent. */}
+      <div className="chronicle-tools">
+        {!online && (
+          <>
+            <button className="tiny" onClick={stepBack} disabled={!canStepBack}>
+              Vissza
+            </button>
+            <button
+              className={bare ? "tiny ember" : "tiny"}
+              onClick={() => setBare(!bare)}
+              aria-pressed={bare}
+            >
+              Mindent mutat
+            </button>
+          </>
+        )}
+        <span className="grow" />
+        <button className="tiny grim" onClick={onQuit}>
+          {online ? "Kilépés" : "Új parti"}
+        </button>
+      </div>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { BASE_CARD_SET, getSpell, getUnit, loadCardSet, validateCardSet } from "./cards";
+import { BASE_CARD_SET, getLocation, getSpell, getUnit, loadCardSet, validateCardSet } from "./cards";
 import { copyLimit } from "./schema";
 import {
   applyEffect,
@@ -10,7 +10,7 @@ import {
 } from "./effects";
 import { ALL_SLOTS } from "./grid";
 import { abilitiesActive, cardKeywords, power, unitsOf } from "./power";
-import { applyAction, gameIsDecided, legalActions } from "./reducer";
+import { applyAction, gameIsDecided, legalActions, remainingCap } from "./reducer";
 import { answerPrompt, finishPrompt } from "./interactions";
 import { pendingPrompt, promptOptions } from "./prompts";
 import { applyLocationStart } from "./reducer";
@@ -1046,6 +1046,48 @@ describe("költségkeret nyilvánossága", () => {
     // Once Mustra has turned it over the whole board is public (7.9).
     state.board["p1.F2"]!.faceDown = false;
     expect(visibleCapSpent(state, "p1")).toBe(18);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 6.4.3, the cap is a stock, not a headcount
+// ---------------------------------------------------------------------------
+
+describe("költségkeret a gyülekezés alatt", () => {
+  it("keeps charging for a unit that has already fallen", () => {
+    const state = blankState("oppidium");
+    const cap = getLocation("oppidium").cap!;
+    const card = getUnit("ogre");
+    state.players.p1.unitHand = [
+      { uid: "u1", cardId: "ogre" },
+      { uid: "u2", cardId: "ogre" },
+    ];
+
+    const down = applyAction(state, {
+      type: "playUnit",
+      player: "p1",
+      uid: "u1",
+      slot: "p1.F1",
+    });
+    expect(down.players.p1.capSpent).toBe(card.cost);
+
+    // Whatever a Bérgyilkos does to it afterwards, the keret does not get it
+    // back. The tile frees up; the cost does not.
+    down.board["p1.F1"] = null;
+    expect(down.players.p1.capSpent).toBe(card.cost);
+    expect(remainingCap(down, "p1")).toBe(cap - card.cost);
+
+    // And the second copy is paid for out of what is left, not out of the whole
+    // cap the empty board would suggest.
+    down.turnActions.unitPlayed = false;
+    down.turn = "p1";
+    const again = applyAction(down, {
+      type: "playUnit",
+      player: "p1",
+      uid: "u2",
+      slot: "p1.F1",
+    });
+    expect(again.players.p1.capSpent).toBe(card.cost * 2);
   });
 });
 

@@ -504,7 +504,11 @@ export function Curtain({
   if (cards.length === 0) return null;
 
   return (
-    <div key={shown.id} className={`curtain ${shown.kind}${shown.verdict ? ` ${shown.verdict}` : ""}`}>
+    <div
+      key={shown.id}
+      className={`curtain ${shown.kind}${shown.verdict ? ` ${shown.verdict}` : ""}`}
+      style={{ "--beat-ms": `${shown.expiresAt - shown.startsAt}ms` } as React.CSSProperties}
+    >
       <span className="curtain-note">{curtainNote(shown)}</span>
       <div className="curtain-cards">
         {cards.slice(0, 7).map((card, i) => (

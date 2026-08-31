@@ -113,10 +113,13 @@ describe("card data", () => {
    * Állatot vagy Bestiát" from needing to know which column the word came from.
    */
   it("folds origin, order and race into the keyword list", () => {
-    const keywords = cardKeywords(getUnit("varju"));
-    expect(keywords).toContain("Felindori"); // Eredet
-    expect(keywords).toContain("Garabonciás"); // Rend
-    expect(keywords).toContain("Élettelen"); // Faj
+    const varju = cardKeywords(getUnit("varju"));
+    expect(varju).toContain("Felindori"); // Eredet
+    expect(varju).toContain("Garabonciás"); // Rend
+    // Varj is a Garabonciás who happens to be alive, so the Faj half of the
+    // same fold is pinned on a card that has one.
+    expect(cardKeywords(getUnit("husgolem"))).toContain("Élettelen"); // Faj
+    expect(varju).not.toContain("Élettelen");
   });
 });
 

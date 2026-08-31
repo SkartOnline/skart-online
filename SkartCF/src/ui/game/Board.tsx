@@ -11,6 +11,8 @@ import {
   isBlocked,
   power,
   powerBreakdown,
+  printedSpellpower,
+  remainingSpellpower,
   rowOfSlot,
   trapAt,
 } from "../../engine";
@@ -247,10 +249,37 @@ function Cell({
       <CardTile
         card={card}
         power={power(unit, state)}
+        pools={poolsOf(unit, state)}
         status={<Status unit={unit} state={state} />}
       />
     </button>
   );
+}
+
+/**
+ * What each of this unit's pools is worth *now*, against what it is worth at
+ * full.
+ *
+ * The printed pip answers "what kind of caster is this", which is the question
+ * you ask while building a deck. On a board mid-Csata the question is "can this
+ * one still pay for that spell", and the printed number has been the wrong
+ * answer ever since it cast for the first time. Both halves travel, because the
+ * corner marks itself only when they differ — and they differ downwards for a
+ * spent pool and upwards for a battlefield handing out spellpower, which is not
+ * a loss and must not be coloured like one.
+ */
+function poolsOf(
+  unit: UnitInstance,
+  state: GameState,
+): Record<string, { left: number; max: number }> {
+  const out: Record<string, { left: number; max: number }> = {};
+  for (const school of Object.keys(cardOf(unit).spellpower ?? {})) {
+    out[school] = {
+      left: remainingSpellpower(unit, school as never, state),
+      max: printedSpellpower(unit, school as never, state),
+    };
+  }
+  return out;
 }
 
 /**
@@ -271,12 +300,12 @@ export function Loaded({ unit, state }: { unit: UnitInstance; state: GameState }
   const explain = lines.length > 1 || unit.damage > 0;
 
   if (unit.placed.length === 0 && !explain) {
-    return <CardFace card={card} livePower={live} />;
+    return <CardFace card={card} livePower={live} pools={poolsOf(unit, state)} />;
   }
 
   return (
     <span className="card-with-fan">
-      <CardFace card={card} livePower={live} />
+      <CardFace card={card} livePower={live} pools={poolsOf(unit, state)} />
 
       {unit.placed.length > 0 && (
         <ul className="laden-fan">

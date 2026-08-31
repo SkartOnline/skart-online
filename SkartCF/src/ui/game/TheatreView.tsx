@@ -2,6 +2,7 @@ import { getLocation } from "../../engine";
 import type { PlayerId } from "../../engine";
 import CardFace from "../card/CardFace";
 import { cardFor } from "./common";
+import { BANNER_KINDS } from "./theatre";
 import type { LiveBeat } from "./common";
 
 /**
@@ -25,9 +26,7 @@ export default function Theatre({
   viewer: PlayerId;
   bare: boolean;
 }) {
-  const frame = [...beats]
-    .reverse()
-    .find((b) => b.kind === "battlefield" || b.kind === "step" || b.kind === "done");
+  const frame = [...beats].reverse().find((b) => BANNER_KINDS.has(b.kind));
   const shown = [...beats]
     .reverse()
     .find((b) => b.kind === "land" || b.kind === "cast" || b.kind === "veil");
@@ -35,7 +34,18 @@ export default function Theatre({
   return (
     <>
       {frame && (
-        <div key={frame.id} className={`herald ${frame.kind}`}>
+        // The animation is exactly as long as the beat is on screen, handed
+        // down as a custom property rather than written into the stylesheet.
+        // Three kinds of banner have three lifetimes, `stagger` trims them
+        // again when one banner is following another, and a fixed duration in
+        // CSS could only ever match one of the results — which is how a pass
+        // came to run a 2800 ms fade over a 420 ms slot and be cut off before
+        // it had finished arriving.
+        <div
+          key={frame.id}
+          className={`herald ${frame.kind}`}
+          style={{ "--beat-ms": `${frame.expiresAt - frame.startsAt}ms` } as React.CSSProperties}
+        >
           {frame.kind === "battlefield" ? (
             <>
               <b>{tryLocationName(frame.cardId)}</b>
@@ -79,6 +89,7 @@ export default function Theatre({
         <div
           key={shown.id}
           className={`playbill ${shown.player === viewer ? "mine" : "theirs"} ${shown.kind}`}
+          style={{ "--beat-ms": `${shown.expiresAt - shown.startsAt}ms` } as React.CSSProperties}
         >
           {shown.cardId ? (
             <CardFace

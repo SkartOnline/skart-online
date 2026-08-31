@@ -45,7 +45,10 @@ export default function NewGame({
 
   return (
     <div className="veilcloth">
-      <div className="casket timber">
+      {/* `picking`: the deck lists scroll, everything under them does not. Eight
+          decks already ran the two tails off the bottom of a short window, and
+          the button they ran off with was Kezdjük. */}
+      <div className="casket timber picking">
         <h2>Ki áll ki ellen</h2>
 
         <div className="pair">

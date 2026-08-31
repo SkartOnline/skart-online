@@ -51,7 +51,12 @@ export function Counters({
   const p = state.players[side];
   const left = remainingCap(state, side);
   const cap = left === Infinity ? null : p.capSpent + left;
-  const spent = mine ? p.capSpent : visibleCapSpent(state, side);
+  // Same `veiled` rule as the total above, and for the same reason: after the
+  // Mustra the position is public (7.9), so the far side's cap is read off the
+  // real tally. Reading the board instead went on understating it for the rest
+  // of the battle, because 6.4.3 keeps charging for a unit that has fallen and
+  // the board has nothing left to count.
+  const spent = veiled ? visibleCapSpent(state, side) : p.capSpent;
 
   // Has anything moved the level off the printed one? Worth marking, because a
   // hand of four is either "I threw a card at a Varj" or "we are on the Malom",

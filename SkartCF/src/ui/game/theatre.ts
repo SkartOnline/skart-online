@@ -184,7 +184,14 @@ export const BEAT_LEAD: Record<BeatKind, number> = {
 const BEAT_GAP: Record<BeatKind, number> = {
   battlefield: 0,
   step: 0,
-  done: 900,
+  // Long enough to read. A pass used to get 900 ms here and 420 ms when a step
+  // was queued behind it, against a 2400 ms lifetime and a 2800 ms animation —
+  // so the banner announcing that somebody had finished gathering was wiped off
+  // the screen a fifth of the way into its own fade-in. `stagger` now trims the
+  // *lifetime* to the gap rather than letting the next banner talk over it, so
+  // this number is what the sentence actually gets, and it has to be a number
+  // somebody can read a sentence in.
+  done: 1300,
   // A spell is four things in a row — the card, who threw it, what it hit, and
   // what that did — and they only read as an order if the last of them waits.
   cast: 1000,
@@ -242,6 +249,21 @@ const BEAT_ORDER: Record<BeatKind, number> = {
  * read the cost and find out whether it beat him.
  */
 export const REVEAL_MS = 3600;
+
+/**
+ * The three kinds that take the banner across the middle of the screen.
+ *
+ * They are one channel, not three: `TheatreView` shows the last of them that
+ * has started, so a second one arriving is not a second banner but the end of
+ * the first. Everything that keeps them from cutting each other off — the
+ * lifetime trim in `stagger`, the batch queue in `GameView` — is written
+ * against this set.
+ */
+export const BANNER_KINDS: ReadonlySet<BeatKind> = new Set<BeatKind>([
+  "battlefield",
+  "step",
+  "done",
+]);
 
 // --------------------------------------------------------------------- sound
 //
@@ -369,11 +391,14 @@ const STEP_TEXT: Partial<Record<GameState["phase"], string>> = {
 const CLEANUP_STEP_MS = 1800;
 
 /**
- * How long a pass holds the queue when a step is coming up behind it, against
- * the 900 ms it gets on its own. Two of them is the whole preamble to
- * Összesítés, and the preamble must not be longer than the announcement.
+ * How long a pass holds the queue when a step is coming up behind it.
+ *
+ * Two of them is the whole preamble to Összesítés, and the preamble must not be
+ * longer than the announcement — but it still has to be long enough to be a
+ * sentence rather than a flash, because "az ellenfeled végzett a csatával" is
+ * the moment you find out nothing else is coming.
  */
-const PASS_GAP_BEFORE_STEP = 420;
+const PASS_GAP_BEFORE_STEP = 1100;
 
 let sequence = 0;
 const nextId = () => ++sequence;
@@ -616,13 +641,33 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
 function stagger(beats: Omit<Beat, "at">[]): Beat[] {
   const queue = [...beats].sort((a, b) => BEAT_ORDER[a.kind] - BEAT_ORDER[b.kind]);
   let clock = 0;
-  return queue.map((beat) => {
+  const timed = queue.map((beat) => {
     // The lead is a floor and the clock is a queue; the later of the two wins.
     // A death still cannot play before the move that caused it, and no beat can
     // play on top of the one in front of it.
     const at = Math.max(BEAT_LEAD[beat.kind], clock);
     clock = at + (beat.gap ?? BEAT_GAP[beat.kind]);
     return { ...beat, at };
+  });
+
+  // A banner's lifetime is however long it is actually on screen.
+  //
+  // There is one banner, and the view shows whichever beat claimed it last, so
+  // a second banner starting is the first one's last moment whatever its beat
+  // says. Two numbers disagreed about that: the beat claimed `BEAT_MS`, and the
+  // stylesheet ran an animation of its own length, and the pass beats — 2400 ms
+  // of lifetime and 2800 ms of animation, replaced after 420 — were cut off
+  // twice over. So the lifetime is trimmed to the truth here, and the animation
+  // is driven from the lifetime in `TheatreView`. Nothing is cut off because
+  // nothing claims time it does not have.
+  const bannerAts = timed.filter((b) => BANNER_KINDS.has(b.kind)).map((b) => b.at);
+  return timed.map((beat) => {
+    if (!BANNER_KINDS.has(beat.kind)) return beat;
+    const next = bannerAts.find((at) => at > beat.at);
+    const natural = beat.linger ?? BEAT_MS[beat.kind];
+    return next === undefined
+      ? beat
+      : { ...beat, linger: Math.min(natural, next - beat.at) };
   });
 }
 

@@ -4,6 +4,7 @@ import type { GameState, SlotId } from "../../engine";
 import { allLocations, allSpells } from "../../engine";
 import {
   ambienceFor,
+  BANNER_KINDS,
   BEAT_MS,
   BEAT_SOUND,
   beatsBetween,
@@ -146,6 +147,36 @@ describe("the Mustra, one card at a time", () => {
     expect(cleanupMs).toBeLessThan(scoredMs);
     // Still long enough to be a banner rather than a flicker.
     expect(cleanupMs).toBeGreaterThanOrEqual(1500);
+  });
+
+  /**
+   * The one invariant the whole banner channel rests on.
+   *
+   * There is a single banner across the middle of the screen and the view shows
+   * whichever beat claimed it last, so a banner's real life is over the moment
+   * the next one starts — whatever `BEAT_MS` says. Both numbers have to agree,
+   * because the stylesheet now runs the animation for exactly the lifetime the
+   * beat claims: a beat claiming more time than it has is a fade-out that never
+   * finishes, which is precisely how "Végeztél a gyülekezéssel" came to be
+   * wiped off the screen a fifth of a second into a 2.8 s arrival.
+   */
+  it("never lets one banner claim time the next one has already taken", () => {
+    const { before, after } = mustra();
+    const beats = beatsBetween(before, after);
+    const banners = beats
+      .filter((b) => BANNER_KINDS.has(b.kind))
+      .sort((a, b) => a.at - b.at);
+
+    // The Mustra is the batch that has more than one of them: whoever 6.6.2
+    // closed, then the step their closing caused.
+    expect(banners.length).toBeGreaterThan(1);
+    for (const [i, banner] of banners.entries()) {
+      const ms = banner.linger ?? BEAT_MS[banner.kind];
+      // Long enough to read, and never longer than it is actually up for.
+      expect(ms).toBeGreaterThanOrEqual(1000);
+      const next = banners[i + 1];
+      if (next) expect(banner.at + ms).toBeLessThanOrEqual(next.at);
+    }
   });
 });
 

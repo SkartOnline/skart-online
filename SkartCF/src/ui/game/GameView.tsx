@@ -21,6 +21,7 @@ import type { Opponent } from "./bot";
 import {
   ambienceFor,
   anchorRect,
+  BANNER_KINDS,
   BEAT_MS,
   beatsBetween,
   beginCardDrag,
@@ -150,7 +151,13 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
         // across the middle of the screen. A step or a pass is a full stop, and
         // a full stop cannot be said over the top of the sentence it ends, so a
         // batch carrying one queues up behind whatever is still playing.
-        const closing = fresh.some((beat) => beat.kind === "step" || beat.kind === "done");
+        //
+        // A battlefield turning over is the same kind of thing and was left out
+        // of it, which is why Leszerelés kept being half-said: the next
+        // battlefield arrives in its own batch, timed from now, and took the
+        // banner off the beat that was still using it. There is one banner, so
+        // every batch that wants it queues for it.
+        const closing = fresh.some((beat) => BANNER_KINDS.has(beat.kind));
         const base = closing ? Math.max(at, ...b.map((live) => live.expiresAt)) : at;
         return [
           ...b,
@@ -166,14 +173,28 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       });
       // A reveal waits for the card that caused it to be on screen: Fejvadász
       // has to be down and readable before the hand he is going through opens.
-      setShows((s) => [
-        ...s,
-        ...newReveals(prev, next).map((reveal, i) => ({
-          ...reveal,
-          startsAt: at + 520 + i * 220,
-          expiresAt: at + 520 + i * 220 + REVEAL_MS,
-        })),
-      ]);
+      //
+      // And then they queue, for the same reason the banners do. There is one
+      // curtain and it shows the newest reveal, so two of them 220 ms apart was
+      // not two cards held up — it was the first one wiped off a fifth of a
+      // second into a 3.6 s animation, and a reveal is the only time that card
+      // will ever be on screen. A coin is not on the curtain and does not wait
+      // for it: it has a panel of its own, and it is usually the answer to a
+      // question somebody is being asked right now.
+      setShows((s) => {
+        let clock = Math.max(at + 520, ...s.filter((x) => x.kind !== "coin").map((x) => x.expiresAt));
+        return [
+          ...s,
+          ...newReveals(prev, next).map((reveal) => {
+            if (reveal.kind === "coin") {
+              return { ...reveal, startsAt: at + 520, expiresAt: at + 520 + REVEAL_MS };
+            }
+            const startsAt = clock;
+            clock = startsAt + REVEAL_MS;
+            return { ...reveal, startsAt, expiresAt: startsAt + REVEAL_MS };
+          }),
+        ];
+      });
     }
     shownState.current = next;
     setNow(at);
@@ -907,6 +928,20 @@ function Field(props: FieldProps) {
     if (risen.length === 0 && portalOpen) setPortalOpen(false);
   }, [risen.length, portalOpen]);
 
+  /**
+   * A body picked up out of the pile, carrying the standing hide choice — the
+   * same one the hand obeys, and checked against the same list of moves, so a
+   * card that cannot be hidden here comes up face up rather than producing an
+   * action the engine will refuse.
+   */
+  const liftRisen = (uid: string): Held => ({
+    uid,
+    veiled:
+      props.veilNext &&
+      moves.some((m) => m.type === "playUnit" && m.uid === uid && m.faceDown === true),
+    tollUids: [],
+  });
+
   const open = useMemo(() => {
     const set = new Set<SlotId>();
     // Fuedrax naming the tile his trap watches. Same mechanism as a spell's
@@ -1253,14 +1288,21 @@ function Field(props: FieldProps) {
           held={held?.uid ?? null}
           onPick={(uid) => {
             // Same shape a hand card produces, so the tiles light and the drop
-            // commits through exactly the same path. A body cannot be buried
-            // again on the way in, so it is never veiled.
-            setHeld(held?.uid === uid ? null : { uid, veiled: false, tollUids: [] });
+            // commits through exactly the same path — including the hiding.
+            //
+            // A body used to come up out of the pile face up whatever the
+            // switch said, on the theory that it could not be buried twice.
+            // The rules do not say that: 6.5 charges unit cards out of the
+            // hand, and Umbra says the graveyard is somewhere you may play
+            // *from*, not a way of playing. `legalActions` has offered the
+            // face-down version of these moves all along; this screen was the
+            // only thing refusing to ask for one.
+            setHeld(held?.uid === uid ? null : liftRisen(uid));
             setPortalOpen(false);
           }}
           onDrag={(e, uid) => {
             setPortalOpen(false);
-            startDrag(e, { uid, veiled: false, tollUids: [] });
+            startDrag(e, liftRisen(uid));
           }}
         />
       )}
@@ -1342,7 +1384,18 @@ function Field(props: FieldProps) {
 
       {props.prologue && <Prologue state={state} botSide={botSide} onDone={props.endPrologue} />}
 
-      {logOpen && <Chronicle state={state} onClose={() => setLogOpen(false)} />}
+      {logOpen && (
+        <Chronicle
+          state={state}
+          onClose={() => setLogOpen(false)}
+          bare={bare}
+          setBare={props.setBare}
+          stepBack={props.stepBack}
+          canStepBack={props.canStepBack}
+          online={props.online}
+          onQuit={props.onQuit}
+        />
+      )}
       {over && (
         <Aftermath
           state={state}
