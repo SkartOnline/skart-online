@@ -60,20 +60,45 @@ export default function App() {
 
   const home = () => setRoom("menu");
 
-  if (room === "menu") return <MainMenu onEnter={setRoom} />;
-  if (room === "play") return <GameView key={revision} onLeave={home} />;
-  if (room === "rules") return <Rulebook onLeave={home} />;
-  if (room === "collection") {
+  // A phone held sideways, asked to turn back. The board is three tiles wide
+  // and four deep, so it is a portrait shape; landscape on a phone leaves the
+  // four rows about 375px to share and the result is not a smaller board but an
+  // unreadable one. Always in the tree, shown by one media query in `theme.css`
+  // that no desktop window can satisfy.
+  const gate = (
+    <div className="rotate-gate" role="alertdialog" aria-live="polite">
+      <span className="rotate-glyph" aria-hidden="true">
+        ⟳
+      </span>
+      <b>Fordítsd állóra a telefont</b>
+      <em>A csatatér állva fekszik: három oszlop, négy sor.</em>
+    </div>
+  );
+
+  const screen = pick();
+  return (
+    <>
+      {screen}
+      {gate}
+    </>
+  );
+
+  function pick() {
+    if (room === "menu") return <MainMenu onEnter={setRoom} />;
+    if (room === "play") return <GameView key={revision} onLeave={home} />;
+    if (room === "rules") return <Rulebook onLeave={home} />;
+    if (room === "collection") {
+      return (
+        <CollectionManager
+          cardSet={cardSet}
+          overlay={overlay}
+          onChange={setOverlay}
+          onLeave={home}
+        />
+      );
+    }
     return (
-      <CollectionManager
-        cardSet={cardSet}
-        overlay={overlay}
-        onChange={setOverlay}
-        onLeave={home}
-      />
+      <CardEditor cardSet={cardSet} overlay={overlay} onChange={setOverlay} onLeave={home} />
     );
   }
-  return (
-    <CardEditor cardSet={cardSet} overlay={overlay} onChange={setOverlay} onLeave={home} />
-  );
 }

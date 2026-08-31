@@ -3593,3 +3593,665 @@ body.dragging-card {
   --bf-glow: rgba(225, 205, 165, 0.13);
   --bf-metal: #b3a289;
 }
+
+/* ---------------------------------------------------------- phone furniture
+
+   Three elements the game screen renders unconditionally and that only a phone
+   has any use for: the dock along the bottom, the scrim that closes a drawer,
+   and the button that takes back a half-aimed spell where there is no right
+   mouse button to do it with. Off by default and switched on inside the narrow
+   breakpoint, so a desktop tree carries three elements that draw nothing. */
+.phone-dock,
+.sheet-scrim,
+.phone-cancel {
+  display: none;
+}
+
+/* ================================================================= the phone
+
+   The desktop layout is three columns — rail, board, rail — and the board is
+   three tiles wide. On a 375px screen the two rails alone are 264 of it, which
+   left the board 115px of the 358 it needs and clipped two thirds of the
+   battlefield off the side. So on a phone the rails stop being columns.
+
+   What replaces them:
+
+     - the LEFT rail becomes a strip fixed along the top edge: the way out, the
+       score, the battlefield as a thumbnail, and the pips saying which battle
+       this is;
+     - the TURN CUE comes out of that rail and is fixed just above the dock,
+       because it holds the button that ends the phase and that is the one
+       control a thumb must always reach;
+     - the RIGHT rail and the ANNALS become drawers that slide up over the
+       board when the dock asks for them;
+     - the BATTLEFIELD CARD is the same element in both places: a thumbnail in
+       the strip, and — when the dock says so — printed big in the middle of
+       the screen. Its rule decides every power on the board, so it has to be
+       readable; it is fixed for the whole battle, so it does not have to be
+       readable at all times.
+
+   Nothing here is reachable above 700px, so the desktop cascade is untouched
+   by construction rather than by care. */
+
+@media (max-width: 700px) {
+  /* ------------------------------------------------------ the play area */
+
+  .field {
+    /* No rails to leave room for. The name stays because a dozen rules across
+       this file offset things by it — the hands, the annals, the loupe — and
+       they should all now offset by nothing. */
+    --rail: 0px;
+
+    /* The board's height budget, rebuilt for this screen.
+     *
+     * Same shape as the desktop term — three tiles plus chrome — and, like the
+     * desktop one, measured rather than guessed. Four rows of tiles come to
+     * `3 · tile + 134` including their feet, the gaps and the frontline rule;
+     * the arena reserves 52px above the board and 226 below it, for the dock,
+     * the turn cue and a whole hand card standing clear of both. So three
+     * tiles have `100dvh - 412` to share.
+     *
+     * This was 300 to begin with, which is what the board appears to need on
+     * an 812px screen — where the width term binds and the height term is
+     * never consulted at all. On a 667px one (an SE, the shortest phone worth
+     * caring about) the height term does bind, and 300 drove the bottom row
+     * 40px into the hand and 31px out through the arena's clipped edge.
+     *
+     * The width term still binds on any phone taller than about 720px: a
+     * 375px screen gives a tile of 121, which is a readable piece of art and
+     * about as much as three columns can be. Below that the tiles get small —
+     * 89px on an SE — but the board stays whole, and the card under the
+     * finger is printed at full size above the hand regardless. */
+    --tile: clamp(
+      86px,
+      min(
+        calc((100vw - 18px) / 3),
+        calc((100dvh - 412px - var(--safe-t) - var(--safe-b)) / 3)
+      ),
+      190px
+    );
+    --board-w: calc(3 * var(--tile) + 10px);
+    /* There is no empty column beside the board any more, so nothing may be
+       sized to fill one. The loupe is dealt with below. */
+    --sidegap: 0px;
+
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    /* The board never scrolls or bounces, and a two-finger pinch must not zoom
+       it out from under a card being dragged. */
+    touch-action: none;
+  }
+
+  /* --------------------------------------------- the strip along the top */
+
+  .rail-left {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    height: calc(44px + var(--safe-t));
+    padding: var(--safe-t) 10px 0;
+    border-right: none;
+    border-bottom: 1px solid rgba(116, 82, 44, 0.5);
+    /* Opaque, and deliberately not blurred. `backdrop-filter` makes an element
+       the containing block for every `position: fixed` descendant it has, and
+       two of this rail's children — the turn cue and the battlefield card held
+       up to be read — are fixed against the viewport. Blurring here pinned the
+       cue inside a 46px strip and threw it off the top of the screen. */
+    background: #170f08;
+  }
+  /* The rail's own spacer and its glyph column have no work left: the tools
+     column held one button, the chronicle, and that is a tab on the dock now. */
+  .rail-left .rail-gap,
+  .rail-left .rail-tools {
+    display: none;
+  }
+  .rail-top {
+    flex: none;
+    padding-bottom: 0;
+    border-bottom: none;
+    gap: 10px;
+  }
+  .rail-top .score {
+    font-size: 19px;
+  }
+  .rail-progress {
+    /* Pushed to the far end of the strip, away from the score, so the two
+       numbers on this bar are not read as one. */
+    margin-left: auto;
+    padding: 0;
+  }
+
+  /* The battlefield, riding in the strip at the size of a stamp. Enough to say
+     which room this is; the reading copy is a tap away. */
+  .cardface.battlefield {
+    --card-w: 30px;
+    flex: none;
+    align-self: center;
+  }
+
+  /* ...and the same element, printed to be read, when the dock asks. Nothing
+     is rendered twice: this is the thumbnail, re-posed. */
+  .field[data-sheet="field"] .cardface.battlefield {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    z-index: 45;
+    --card-w: min(250px, 68vw);
+    transform: translate(-50%, -50%);
+    box-shadow:
+      0 0 0 1px var(--brass),
+      0 0 40px rgba(232, 129, 31, 0.28),
+      0 26px 60px rgba(0, 0, 0, 0.85);
+    animation: sheet-rises 220ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+  }
+
+  /* ------------------------------------------------------- the turn cue */
+
+  /* Out of the rail and onto the bottom edge, above the dock. It carries the
+     button that ends the phase, which is the only control wanted on every
+     single turn, and a thumb reaches the bottom of a phone and not the top. */
+  .turn-cue {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: calc(var(--dock-h) + var(--safe-b) + 6px);
+    z-index: 28;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    padding: 6px 10px;
+    border-left: 1px solid var(--iron);
+    border-top: 3px solid var(--iron-bright);
+    background: rgba(23, 15, 8, 0.9);
+    backdrop-filter: blur(6px);
+    pointer-events: auto;
+  }
+  /* The declaration is the point of the panel, so it takes the end of the row
+     and a finger-sized target. */
+  .turn-cue .ember {
+    margin-left: auto;
+    min-height: 34px;
+    padding-inline: 12px;
+  }
+  /* A mouse instruction on a screen that has no mouse. The Megsem button below
+     says the same thing in a way a thumb can use. */
+  .turn-cue .faint {
+    display: none;
+  }
+
+  .phone-cancel {
+    display: block;
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--dock-h) + var(--safe-b) + 62px);
+    z-index: 34;
+    transform: translateX(-50%);
+    min-height: 36px;
+    padding: 6px 20px;
+    background: rgba(23, 15, 8, 0.94);
+    border: 1px solid var(--rot);
+    color: var(--parchment);
+  }
+
+  /* ----------------------------------------------------------- the board */
+
+  .arena {
+    /* Clear of the strip above and of the cue, dock and hand below. The desktop
+       padding reserved 86/158 for hands that hung off both edges; here the top
+       is a 44px bar and the bottom has to hold the dock, the 68px the turn cue
+       is lifted by, and the whole 103px of a hand card that no longer hangs
+       off anything — 180 over the dock, not 150. At 150 the arena's content
+       box ended 20px below the top of the hand, and since it clips, the bottom
+       rank of tiles was cut off rather than merely covered. */
+    padding: calc(52px + var(--safe-t)) 4px calc(var(--dock-h) + var(--safe-b) + 180px);
+  }
+  .grids {
+    gap: 4px;
+  }
+  .side,
+  .rank {
+    gap: 4px;
+  }
+
+  /* A tile is a drop target for a finger, so it must not also be a thing the
+     page scrolls by. */
+  .cell {
+    touch-action: none;
+  }
+
+  /* The loupe printed beside the board has no column to sit in — there is no
+     room either side of a full-width board. It becomes a card held up over the
+     board instead, the way every other reading on this screen is. */
+  .loupe,
+  .loupe.mine,
+  .loupe.theirs {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    z-index: 44;
+    transform: translate(-50%, -50%);
+    --loupe-w: min(230px, 64vw);
+  }
+
+  /* ----------------------------------------------------------- the hands */
+
+  .hand-rail {
+    left: 0;
+    right: 0;
+    /* Ten cards — five units and five spells — have to cross 375px, so the
+       channel between the two fans gives up most of its width. */
+    gap: 14px;
+  }
+  /* The near hand rests on the turn cue rather than on the bottom of the
+     screen, and hangs less far off: what the desktop hides below the edge is
+     recovered by a pointer that can leave the window, and a finger cannot. */
+  .hand-rail.near {
+    /* Clear of the turn cue, not merely of the dock: the cue is drawn over the
+       hand and was taking 21px off the bottom of every card. */
+    bottom: calc(var(--dock-h) + var(--safe-b) + 68px);
+  }
+  /* And the hand does not hang off anything. The desktop tucks the arc into
+     the bottom edge of the window, which works because a mouse can keep
+     travelling past it; here the edge is 114px away behind the cue and the
+     dock, so there is nothing to tuck into and the whole card is worth
+     showing. */
+  .hand-rail.near .hand-group {
+    transform: none;
+  }
+  .hand-rail.far {
+    top: calc(44px + var(--safe-t));
+    transform: translateY(-64%);
+  }
+  .hand-slot {
+    /* Narrower cards and a tighter overlap. Both hands are on screen at once —
+       ten cards — and at the desktop's 110px on a -32px pitch the fan ran from
+       x=-46 to x=421 on a 382px screen. 74px on a 29px pitch brings the whole
+       span to about 350. The fan is an index, not the reading: the card under
+       the finger is printed at full size above it. */
+    --hand-card-w: 74px;
+    margin: 0 -22.5px;
+    touch-action: none;
+  }
+  /* There is no hover on a phone, so nothing may depend on one: the card under
+     the finger has to take the press it is already receiving. */
+  .hand-card {
+    pointer-events: auto;
+  }
+
+  /* The card being read, printed above the hand. Sized so it clears the fan
+     and still fits between the strip and the cue. */
+  .reading {
+    bottom: calc(var(--dock-h) + var(--safe-b) + 96px);
+  }
+  .reading .cardface {
+    --card-w: min(168px, 46vw);
+  }
+
+  /* ------------------------------------------------------------ the dock */
+
+  .phone-dock {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    display: flex;
+    height: calc(var(--dock-h) + var(--safe-b));
+    padding-bottom: var(--safe-b);
+    background: rgba(18, 12, 6, 0.96);
+    border-top: 1px solid var(--iron);
+    backdrop-filter: blur(8px);
+  }
+  .dock-tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    color: var(--ash-dim);
+  }
+  .dock-tab.on {
+    color: var(--flame);
+    background: rgba(232, 129, 31, 0.12);
+    box-shadow: inset 0 2px 0 var(--ember);
+  }
+  .dock-glyph {
+    font-size: 15px;
+    line-height: 1;
+  }
+  .dock-label {
+    font-size: 9.5px;
+    letter-spacing: 0.04em;
+    font-variant-caps: small-caps;
+  }
+
+  /* --------------------------------------------------------- the drawers */
+
+  /* What closes a drawer by being tapped. Under the drawers and over
+     everything else, so the board cannot be played through a panel covering
+     it. */
+  .sheet-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 38;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    background: rgba(0, 0, 0, 0.45);
+    animation: scrim-fades 180ms ease-out both;
+  }
+
+  /* The right rail and the annals, as sheets that come up from the dock.
+     Off-screen rather than hidden, so they slide rather than blink. */
+  .rail-right,
+  .annals {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--dock-h) + var(--safe-b));
+    top: auto;
+    z-index: 40;
+    max-height: 58dvh;
+    padding: 10px 10px 12px;
+    overflow-y: auto;
+    background: rgba(23, 15, 8, 0.97);
+    border-top: 1px solid var(--brass);
+    box-shadow: 0 -18px 40px rgba(0, 0, 0, 0.7);
+    transform: translateY(110%);
+    visibility: hidden;
+    transition: transform 240ms cubic-bezier(0.2, 0.9, 0.25, 1), visibility 240ms;
+  }
+
+  /* The ledger has a whole drawer rather than a third of a rail, so it may
+     breathe; the two counter blocks sit side by side above it. */
+  .rail-right {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 8px;
+  }
+  .rail-right .ledger {
+    grid-column: 1 / -1;
+    margin: 0;
+    max-height: 34dvh;
+  }
+  .counters {
+    font-size: 11.5px;
+  }
+
+  /* The annals were a column of stamps pinned to the side of the board; in a
+     drawer they are a tray, and they wrap. `.annals` is positioned absolutely
+     and centred by a transform on the desktop, both of which the sheet rule
+     above has already replaced. */
+  .annals {
+    display: block;
+    max-height: 44dvh;
+  }
+  .annals-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 5px;
+    max-height: none;
+    padding: 0;
+    background: none;
+    border: none;
+    box-shadow: none;
+  }
+  .annal {
+    width: 46px;
+    height: 34px;
+  }
+  /* The card a stamp prints when pointed at has no room beside the tray. */
+  .annal-card {
+    display: none;
+  }
+
+  .field[data-sheet="ledger"] .rail-right,
+  .field[data-sheet="annals"] .annals {
+    transform: translateY(0);
+    visibility: visible;
+  }
+
+  @keyframes sheet-rises {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -46%) scale(0.94);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+  @keyframes scrim-fades {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+}
+
+/* --------------------------------------------------------- the short phone
+
+   An SE is 667px tall, and four rows of tiles plus two hands is more than that
+   comfortably holds: at the shared 74px the hand's top edge came 9px over the
+   bottom rank of tiles, which is a drop target and should not have anything
+   lying across it. The board is already at its floor there, so it is the hand
+   that gives way — 66px cards stand 92 rather than 103, which is the 11px the
+   overlap needed. */
+@media (max-width: 700px) and (max-height: 720px) {
+  .hand-slot {
+    --hand-card-w: 66px;
+    margin: 0 -20px;
+  }
+  .reading .cardface {
+    --card-w: min(150px, 42vw);
+  }
+}
+
+/* ------------------------------------------------ the panels, on a phone
+
+   Everything that opens over the board. None of these were wrong so much as
+   drawn for a window twice this wide: cards printed at 196px two abreast, a
+   chronicle sized at 34vw, a reading copy anchored into a margin that no
+   longer exists. The rule throughout is the same — a panel is at most the
+   screen less its gutters, and a row of cards wraps or shrinks rather than
+   running off the side. */
+
+@media (max-width: 700px) {
+  /* The pile a tutor is searching. The panel itself fits; the card it prints
+     for the row under the finger was anchored into the empty column beside the
+     board, and there is no such column here. It goes above the list instead —
+     still never under the finger, which is the only thing that mattered. */
+  .almanac {
+    width: min(292px, calc(100vw - 24px));
+    max-height: 66dvh;
+  }
+  .almanac-card {
+    top: auto;
+    right: auto;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .almanac-card .cardface {
+    --card-w: 148px;
+  }
+  .almanac.tucked {
+    transform: translate(calc(50vw - 30px), -50%);
+  }
+
+  /* What somebody has just been shown. A whole hand is six cards, and six at
+     196px is four screens wide. */
+  .curtain {
+    padding: 12px 10px;
+    width: 100vw;
+  }
+  .curtain-cards {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+  }
+  .curtain-card .cardface {
+    --card-w: min(150px, 42vw);
+  }
+  /* Four or more — a hand being read — and they go to a third of the width
+     each, two rows of three. */
+  .curtain-cards:has(.curtain-card:nth-child(4)) .cardface {
+    --card-w: 27vw;
+  }
+
+  /* The card just played, held up beside the board. The rails it measured its
+     inset from are gone, so it would otherwise sit against the very edge. */
+  .playbill .cardface {
+    --card-w: 132px;
+  }
+  .playbill .cardback {
+    width: 132px;
+    height: calc(132px * 88 / 63);
+  }
+  .playbill.mine {
+    right: 8px;
+  }
+  .playbill.theirs {
+    left: 8px;
+  }
+
+  /* Umbra's graveyard. It sat 128px off the bottom edge, which on a phone is
+     inside the dock, the cue and the hand. Under the top strip instead, where
+     it covers a corner of the board and nothing that is ever dropped on. */
+  .portal {
+    left: 6px;
+    top: calc(50px + var(--safe-t));
+    bottom: auto;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  /* The chronicle was a column 34vw wide beside a board that no longer leaves
+     room for one. It takes the screen. */
+  .chronicle-panel {
+    left: 8px;
+    right: 8px;
+    top: calc(50px + var(--safe-t));
+    bottom: calc(var(--dock-h) + var(--safe-b) + 8px);
+    width: auto;
+  }
+
+  /* The questions. Both already size themselves against the viewport; what
+     they need is for the row of cards being chosen from to wrap. */
+  .hidetoll,
+  .disarming {
+    max-width: calc(100vw - 20px);
+    padding: 14px 12px;
+  }
+  /* The hide-cost strip, which is pinned above the near hand and measured its
+     clearance from a hand that hung off the bottom of the window. This one does
+     not hang, so the old 132px lifted it into the board. */
+  .toll {
+    bottom: calc(100% + 6px);
+    max-width: calc(100vw - 20px);
+  }
+
+  /* The coin, and the note saying the other side is searching a pile. */
+  .coin-panel {
+    padding: 14px 18px 12px;
+    max-width: calc(100vw - 24px);
+  }
+  .searching {
+    max-width: calc(100vw - 24px);
+  }
+
+  /* The way back out from under a question. Clear of the dock. */
+  .tuck-handle {
+    bottom: calc(var(--dock-h) + var(--safe-b) + 8px);
+  }
+
+  /* ------------------------------------------------------ the ceremony */
+
+  /* The opening. Two decks fanned side by side is the widest thing in the
+     game: two fans of 168px cards with 48px between them. They stack. */
+  .prologue-sides {
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+  .prologue-side b {
+    font-size: 19px;
+  }
+  .prologue-brings {
+    margin-bottom: 3px;
+  }
+  .prologue-fan {
+    gap: 4px;
+  }
+  .prologue-fan .cardface {
+    --card-w: 26vw;
+  }
+  .prologue-monte li .cardface,
+  .prologue-crown .cardface {
+    --card-w: min(180px, 50vw);
+  }
+  .prologue-writ {
+    max-width: calc(100vw - 32px);
+  }
+  .prologue-writ b {
+    font-size: 22px;
+  }
+  .prologue-word {
+    font-size: 26px;
+  }
+  .prologue-skip {
+    min-height: 36px;
+  }
+
+  /* ---------------------------------------------------- the deck picker */
+
+  /* Who plays whom: two columns of decks, 211px each inside a casket that is
+     94vw. They stack, and the row of controls under them wraps rather than
+     pushing the start button off the edge. */
+  .pair {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .tail {
+    flex-wrap: wrap;
+    margin-top: 12px;
+    padding-top: 10px;
+  }
+  .pick {
+    padding: 8px 10px;
+  }
+  .pick .pick-name {
+    font-size: 15px;
+  }
+  .pick .pick-note {
+    font-size: 12px;
+  }
+
+  /* ------------------------------------------------------- the aftermath */
+
+  .casket {
+    padding: 18px 14px;
+  }
+  .aftermath-verdict {
+    font-size: 38px;
+  }
+}

@@ -2,7 +2,11 @@
 <html lang="hu">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- `viewport-fit=cover` is what makes `env(safe-area-inset-*)` report
+         anything but zero on a notched phone. The game screen pins a dock to
+         the bottom edge and a strip to the top, and both pad themselves by
+         those insets; without this they would sit under the home indicator. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
     <title>Skart: Harc Felindorért</title>
     <meta name="description" content="Kétszemélyes taktikai kártyajáték. Gyülekezz, rejts, varázsolj — és tudd, mikor kell megállni." />

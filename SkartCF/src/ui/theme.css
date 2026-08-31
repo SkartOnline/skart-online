@@ -438,3 +438,121 @@ code {
   }
 }
 
+
+/* ============================================================ small screens
+
+   One breakpoint, `max-width: 700px`, and everything under it is a phone.
+
+   Every phone rule in this codebase lives at the foot of the stylesheet it
+   belongs to, inside that query and nowhere else — so the desktop cascade is
+   untouched by construction rather than by care. Nothing above 700px can reach
+   these rules, which is why no component asks how wide the window is: a layout
+   question belongs to the stylesheet, and a component re-rendering on resize
+   would fight the beat clock.
+
+   The two structural facts the game screen's section builds on:
+
+     - the board is a portrait shape (three columns, four rows), so the phone
+       layout is portrait and landscape is refused rather than squeezed;
+     - the rails do not fit beside it, so they become drawers. */
+
+@media (max-width: 700px) {
+  :root {
+    /* The bar along the bottom, and the notch/home-bar insets under it. Named
+       here because the hands, the drawers and the board's height budget all
+       have to clear the same bar. */
+    --dock-h: 46px;
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-t: env(safe-area-inset-top, 0px);
+  }
+
+  /* The bar across the top of every room that is not the menu. Its title and
+     its row of buttons were laid out on one line that came to 455px. */
+  .crossbar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 7px 10px;
+  }
+  .crossbar h2 {
+    font-size: 17px;
+  }
+  .crossbar .right {
+    gap: 6px;
+  }
+
+  html,
+  body {
+    /* A game screen is not a document. Nothing scrolls, nothing bounces, and a
+       double tap does not zoom the board out from under a drag. */
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* A tap should feel like a card being touched, not like a link being hit. */
+  button,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Fingers are not pointers: 44px is the smallest thing worth aiming at, and
+     the chrome buttons were drawn for a mouse. */
+  button.tiny,
+  button.quiet,
+  button.glyph {
+    min-height: 34px;
+  }
+}
+
+/* ------------------------------------------------------- held sideways
+
+   Not keyed on `orientation: landscape` alone — a desktop window is landscape
+   too. The height is what makes it a phone: below 520px there is no room for
+   four rows of tiles and two hands however wide the window is, and no desktop
+   browser window is that short. */
+.rotate-gate {
+  display: none;
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .rotate-gate {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 24px;
+    text-align: center;
+    background: var(--oak-pitch);
+    background-image: var(--grain);
+  }
+  .rotate-gate b {
+    font-size: 17px;
+    color: var(--flame);
+    font-variant-caps: small-caps;
+    letter-spacing: 0.05em;
+  }
+  .rotate-gate em {
+    font-size: 13px;
+    font-style: normal;
+    color: var(--ash);
+    max-width: 30ch;
+  }
+  .rotate-glyph {
+    font-size: 40px;
+    line-height: 1;
+    color: var(--iron-bright);
+    animation: rotate-hint 2.4s ease-in-out infinite;
+  }
+  @keyframes rotate-hint {
+    0%,
+    60%,
+    100% {
+      transform: rotate(0deg);
+    }
+    30% {
+      transform: rotate(-90deg);
+    }
+  }
+}

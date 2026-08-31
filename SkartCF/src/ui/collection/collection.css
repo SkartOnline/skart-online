@@ -279,3 +279,69 @@
     grid-template-columns: minmax(0, 1fr) 280px;
   }
 }
+
+/* ------------------------------------------------------------- the phone
+
+   The vault is a gallery beside a deck rail, and 322px of rail does not fit
+   next to anything on a 375px screen: the body measured 455px and the rail ran
+   off the right-hand edge with the open deck's card list on it.
+
+   So the two stack. The gallery keeps the top of the screen, because browsing
+   is what this room is for; the deck being built sits under it at a capped
+   height and scrolls, which is enough to see what you are adding to and to
+   take a card back out of it. */
+
+@media (max-width: 700px) {
+  .vault-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 8px;
+  }
+  /* The gallery's own column is implicit, so it sized itself to the widest
+     thing in it — the sieve's min-content, 368px — and carried the grid off
+     the right edge with it. An explicit track that may shrink to nothing is
+     what stops a grid child from voting on its parent's width. */
+  .gallery {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Three across, not four. The desktop floor of 104px put four cards and
+     their gaps at 416px before the screen had said anything. */
+  .gallery-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: auto;
+    gap: 8px;
+    overflow-y: auto;
+    align-content: start;
+  }
+  .gallery-grid .cardface {
+    --card-w: calc((100vw - 48px) / 3);
+  }
+
+  .sieve {
+    gap: 6px;
+    padding: 6px 8px;
+  }
+  .sieve .grow {
+    /* The search box takes a whole line of its own rather than squeezing the
+       cost buttons off the end of theirs. */
+    flex: 1 0 100%;
+    min-width: 0;
+    order: -1;
+  }
+  .sieve .costs button {
+    min-width: 30px;
+    min-height: 30px;
+  }
+
+  /* The deck under the gallery rather than beside it. Its own scroll, so the
+     page never grows past the screen. */
+  .rail-deck {
+    max-height: 38dvh;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+  }
+  .rail-head h3 {
+    font-size: 15px;
+  }
+}

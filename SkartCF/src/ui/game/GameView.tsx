@@ -48,6 +48,8 @@ import { Almanac, Coin, Curtain, Disarming, GravePortal, HideToll } from "./Aski
 import { Beacon, Spotlight } from "./Spotlight";
 import Prologue from "./Prologue";
 import { Chronicle, Aftermath } from "./Overlays";
+import PhoneDock from "./PhoneDock";
+import type { Sheet } from "./PhoneDock";
 
 /**
  * The game screen's orchestrator: game state, undo history, the beat and
@@ -638,6 +640,13 @@ function Field(props: FieldProps) {
   const asking = pendingPrompt(state);
   const pending = state.resolution?.pending ?? null;
   const [logOpen, setLogOpen] = useState(false);
+  /**
+   * Which rail is up, on a phone. Both rails are columns beside the board on a
+   * desktop and drawers over it here; `null` — nothing open — is the only value
+   * a desktop ever sees, because only the dock can change it and the dock is
+   * not drawn above the narrow breakpoint.
+   */
+  const [sheet, setSheet] = useState<Sheet>(null);
   /** The tile being read. Never a rule, only what the loupe beside the board shows. */
   const [inspect, setInspect] = useState<SlotId | null>(null);
   const inspected = inspect ? shown.board[inspect] : null;
@@ -1175,6 +1184,9 @@ function Field(props: FieldProps) {
       // frame's one accent colour off it, so a battlefield changes the light
       // in here without any component knowing it happened.
       data-bf={state.locations[state.locationIndex]?.cardId}
+      // Which rail a phone has slid up over the board. Unset on a desktop,
+      // where both rails are columns and nothing can open a drawer.
+      data-sheet={sheet ?? undefined}
       // Right click takes back a spell that has not finished being declared.
       // Anywhere on the screen, because there is no one place a player would
       // think to aim at — the card is in a panel, the picks are on the board,
@@ -1253,6 +1265,28 @@ function Field(props: FieldProps) {
           lifted={liftedStillHeld}
         />
       )}
+
+      {/* The way out of a half-aimed spell on a phone, where the right click
+          that cancels one on a desktop cannot be made. Only while there is
+          something to take back, and only where there is no mouse. */}
+      {castInFlight && (
+        <button className="phone-cancel" onClick={cancelCast}>
+          Mégsem
+        </button>
+      )}
+
+      {/* The bar along the bottom of a phone, and the drawers it opens. Drawn
+          nowhere else: the stylesheet hides it above the narrow breakpoint. */}
+      <PhoneDock
+        sheet={sheet}
+        onSheet={setSheet}
+        onLog={() => setLogOpen((v) => !v)}
+        logOpen={logOpen}
+      />
+
+      {/* Tapping the board behind an open drawer closes it rather than playing
+          through it — the drawer covers the tiles it would otherwise hit. */}
+      {sheet && <button className="sheet-scrim" onClick={() => setSheet(null)} aria-label="Bezár" />}
 
       {/* The card under the pointer, printed at full size above its own place in
           the fan. Nothing in the hand moves to make this happen. */}
