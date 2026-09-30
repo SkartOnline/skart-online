@@ -257,8 +257,12 @@ function shifterOf(spell: SpellCard): Effect | undefined {
  * to be measured from where the caster ends up, not from where it started —
  * otherwise stepping forward could never bring a new enemy into reach, which is
  * the entire point of stepping forward.
+ *
+ * Exported because the screen needs the same answer: a spell that steps first
+ * was thrown from the tile the caster stepped *to*, and the theatre has to ring
+ * that one rather than the tile it left.
  */
-function movesFirst(spell: SpellCard): boolean {
+export function movesFirst(spell: SpellCard): boolean {
   const first = spell.effects[0];
   return !!first && first.kind === "move" && (first.on ?? "target") === "caster";
 }

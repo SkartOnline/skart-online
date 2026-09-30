@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyAction, createGame } from "../../engine";
-import type { GameState, SlotId } from "../../engine";
+import type { CastEntry, GameState, SlotId } from "../../engine";
 import { allLocations, allSpells } from "../../engine";
 import {
   ambienceFor,
@@ -330,6 +330,60 @@ describe("boardAsOf", () => {
   it("hands back the state untouched when nothing is pending", () => {
     const { before, after } = mustraPair();
     expect(boardAsOf(after, live(before, after, -99999), 0)).toBe(after);
+  });
+});
+
+/**
+ * A spell that moves its own caster.
+ *
+ * `destinationSlot` is set for anything a spell shoves anywhere, so the beat
+ * needs a second field to say the *caster* was the thing that moved — which is
+ * the difference between a ring the damage came out of and a ring on an empty
+ * tile a step behind it.
+ */
+describe("a spell that steps before it strikes", () => {
+  /** A settled cast, as the engine leaves it behind for the screen to read. */
+  function cast(cardId: string, over: Partial<CastEntry>): { before: GameState; after: GameState } {
+    const before = opening();
+    const after: GameState = {
+      ...before,
+      spellsCast: [...before.spellsCast, { uid: "c1", owner: "p1", cardId, order: 0, ...over }],
+    };
+    return { before, after };
+  }
+
+  const castBeat = (before: GameState, after: GameState) =>
+    beatsBetween(before, after).find((b) => b.kind === "cast");
+
+  it("names the tile Kitörés struck from, not the one it left", () => {
+    const { before, after } = cast("kitores", {
+      casterSlot: "p1.F1",
+      targetSlot: "p2.F1",
+      destinationSlot: "p1.F2",
+    });
+    const beat = castBeat(before, after);
+    expect(beat?.slot).toBe("p1.F1");
+    expect(beat?.stepTo).toBe("p1.F2");
+  });
+
+  it("has nothing to move when the optional step was declined", () => {
+    const { before, after } = cast("kitores", {
+      casterSlot: "p1.F1",
+      targetSlot: "p2.F1",
+      destinationSlot: "p1.F1",
+    });
+    expect(castBeat(before, after)?.stepTo).toBeUndefined();
+  });
+
+  it("leaves the caster where it stood when the spell shoves its target", () => {
+    const { before, after } = cast("szellokes", {
+      casterSlot: "p1.F1",
+      targetSlot: "p2.F1",
+      destinationSlot: "p2.F2",
+    });
+    const beat = castBeat(before, after);
+    expect(beat?.destinationSlot).toBe("p2.F2");
+    expect(beat?.stepTo).toBeUndefined();
   });
 });
 

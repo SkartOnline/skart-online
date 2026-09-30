@@ -22,6 +22,7 @@ import {
   ambienceFor,
   anchorRect,
   BANNER_KINDS,
+  BEAT_GAP,
   BEAT_MS,
   beatsBetween,
   beginCardDrag,
@@ -1176,16 +1177,24 @@ function Field(props: FieldProps) {
     // one. The target waits, because naming both ends at once is the thing that
     // made a spell unreadable — you cannot follow an arrow whose two ends
     // appear in the same frame.
-    out.set(cast.slot, "caster");
     const since = now - cast.startsAt;
+    // Which tile the spell was thrown from.
+    //
+    // Kitörés steps and then strikes, so the damage comes from the tile the
+    // caster stepped *to* — a ring left burning on the tile behind it says the
+    // hit came from there, and it did not. It moves when the unit does: the
+    // walk plays when the cast beat lets go of the queue, which is the same
+    // number `stagger` gives the march.
+    const from = cast.stepTo && since >= BEAT_GAP.cast ? cast.stepTo : cast.slot;
+    out.set(from, "caster");
     // Where it is going, before it goes. A spell that moves its caster reads as
     // three things in sequence — this unit, that tile, then the walk — and the
     // tile has to be named while the unit is still standing where it started.
-    if (since >= 320 && cast.destinationSlot && cast.destinationSlot !== cast.slot) {
+    if (since >= 320 && cast.destinationSlot && cast.destinationSlot !== from) {
       out.set(cast.destinationSlot, "step");
     }
-    if (since >= 620 && cast.targetSlot && cast.targetSlot !== cast.slot) {
-      const caster = shown.board[cast.slot];
+    if (since >= 620 && cast.targetSlot && cast.targetSlot !== from) {
+      const caster = shown.board[from];
       const target = shown.board[cast.targetSlot];
       // Whose tile it is, when the unit that was standing there has already
       // been killed by the very spell being shown.

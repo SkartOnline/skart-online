@@ -1276,6 +1276,14 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
       cardIds: [drawn.cardId],
       verdict: beats ? "yes" : "no",
       sourceCardId: ctx.source ? cardOf(ctx.source).id : undefined,
+      // Both players watch this one. The card came out of the victim's own
+      // hand, so holding it up tells them nothing they did not already know —
+      // and what they are owed is the half of the ability that is about them:
+      // which of their cards was dragged into the light, and whether it paid
+      // the hunter a ring. Closed, the card's whole animation happened
+      // offscreen for the player it happened to. Reading a *whole* hand stays
+      // shut, because there the reveal is the peeker's private notes.
+      open: true,
     });
     if (beats && ctx.source) grantRings(ctx.source, ring, ctx);
   },

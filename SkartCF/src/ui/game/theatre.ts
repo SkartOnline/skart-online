@@ -1,4 +1,4 @@
-import { ALL_SLOTS, getSpell, newReveals } from "../../engine";
+import { ALL_SLOTS, getSpell, movesFirst, newReveals } from "../../engine";
 import type { GameState, PlayerId, SlotId } from "../../engine";
 
 /**
@@ -59,6 +59,15 @@ export interface Beat {
   targetSlot?: SlotId;
   /** For a cast that moves something: where it is going. */
   destinationSlot?: SlotId;
+  /**
+   * For a cast whose *caster* steps before it strikes: the tile it stepped to.
+   *
+   * Not the same question as `destinationSlot`, which is set for anything a
+   * spell shoves anywhere — Széllökés pushes its target, and the caster stays
+   * where it was. Only this one says the spell was thrown from somewhere other
+   * than `slot`.
+   */
+  stepTo?: SlotId;
   /**
    * Scores as they stood before this beat. The tally is the point of the
    * scored step, so it may not appear before the step announcing it does.
@@ -181,7 +190,7 @@ export const BEAT_LEAD: Record<BeatKind, number> = {
  * Consequences stay tight against each other. Three units dying is still three
  * deaths, but a board wipe is one event and must not take six seconds.
  */
-const BEAT_GAP: Record<BeatKind, number> = {
+export const BEAT_GAP: Record<BeatKind, number> = {
   // The three banners hold the queue for their whole life, so their gap is
   // their length — see `stagger`. They used to hold it for nothing at all,
   // which is the bug that made the Mustra unwatchable: the step banner claimed
@@ -635,6 +644,15 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
   // at, no target to colour, and the whole declaration can still be taken back.
   // So the diff counts what the resolution machine has *finished* with.
   for (const entry of next.spellsCast.slice(settledCasts(prev), settledCasts(next))) {
+    const spell = getSpell(entry.cardId);
+    // The engine writes down where the caster was standing when the spell went
+    // off, which for Kitörés is one tile short of where it struck from. The
+    // step is optional, so a declined one lands the caster back on its own tile
+    // and there is nothing to move.
+    const stepTo =
+      movesFirst(spell) && entry.destinationSlot !== entry.casterSlot
+        ? entry.destinationSlot
+        : undefined;
     out.push({
       id: nextId(),
       kind: "cast",
@@ -643,6 +661,7 @@ export function beatsBetween(prev: GameState, next: GameState): Beat[] {
       slot: entry.casterSlot,
       targetSlot: entry.targetSlot,
       destinationSlot: entry.destinationSlot,
+      stepTo,
     });
   }
 

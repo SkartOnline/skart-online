@@ -6,6 +6,7 @@ import { answerPrompt, finishPrompt, settlePrompts, springTraps } from "./intera
 import { pendingPrompt } from "./prompts";
 import { applyAction, legalActions, settle } from "./reducer";
 import { DEFAULT_CONFIG } from "./setup";
+import { redact } from "./view";
 import type { GameState, PlayerId, SlotId } from "./types";
 
 /**
@@ -131,6 +132,25 @@ describe("Fejvadász", () => {
     fireBelepo(state, hunter);
     expect(state.reveals.at(-1)?.verdict).toBe("yes");
     expect(hunter.rings).toBe(2);
+  });
+
+  it("plays for the player it was used against as well as the one who cast it", () => {
+    const state = blankState();
+    state.players.p2.unitHand = [{ uid: "h1", cardId: "patkany" }];
+    fireBelepo(state, put(state, "fejvadasz", "p1", "p1.F1"));
+    // The card came out of p2's own hand, so holding it up in front of them
+    // leaks nothing — and the half of the ability that is about them is which
+    // of their cards was dragged out and what it cost the hunter.
+    expect(redact(state, "p2").reveals.at(-1)?.cardIds).toEqual(["patkany"]);
+    expect(redact(state, "p1").reveals.at(-1)?.cardIds).toEqual(["patkany"]);
+  });
+
+  it("keeps a whole-hand read to the player who paid for it", () => {
+    const state = blankState();
+    state.players.p2.spellHand = [{ uid: "s1", cardId: "kitores" }];
+    fireBelepo(state, put(state, "magusinkvizitor", "p1", "p1.F1"));
+    expect(state.reveals.at(-1)?.player).toBe("p1");
+    expect(redact(state, "p2").reveals).toHaveLength(0);
   });
 });
 
