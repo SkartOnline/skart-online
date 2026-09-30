@@ -73,31 +73,62 @@ the green/red power blush comes along for free.
 - **Desktop-first, phone at the foot.** Same rule as the stylesheets: the phone
   quality tier is a separate branch, never a compromise to the desktop scene.
 
-## 4. Stack
+## 4. Stack and the art pipeline
 
-- `three` + **`@react-three/fiber` v8** + `@react-three/drei` v9. Fiber v9
-  needs React 19; the project is on 18, and upgrading React is not part of
-  this job.
-- `postprocessing` (through `@react-three/postprocessing`) for bloom on spells.
-  Desktop only.
+- `three` + **`@react-three/fiber` v8**. Fiber v9 needs React 19; the project
+  is on 18. drei was never needed.
 - **Lazy-loaded.** `Stage` is a `React.lazy` chunk, so the 2D game, the editor,
-  the collection and the rulebook never download three.js. Expect roughly
-  200–300 KB gzipped in that chunk, which GitHub Pages serves fine.
-- Models are **glTF (`.glb`)**, flat-shaded, coloured from one shared palette
-  texture. Palette swap per unit is then a UV offset, not a new model.
+  the collection and the rulebook never download three.js (~233 KB gzipped).
+- **Models and their animations are made in Blender and shipped as `.glb`.**
+  The alternative was building bodies in code, which is what phase 1 did.
+  Blender wins on everything that matters here: rigging, keyframed clips, and
+  the speed of editing a shape by hand instead of a number. It is also no
+  slower at runtime. A `.glb` is parsed once and then the GPU just draws, and
+  a dozen low-poly rigs animating is nothing. Code keeps what code is good at:
+  the moves the game decides (sliding to a tile, the drop, the knock-back) and
+  the effects (puffs, shards, bolts). All models are fetched when the stage
+  mounts, so the first board takes a moment longer and nothing pops in
+  mid-game.
+- **Card art is rendered from the same models** (`blender/portraits.py`) into
+  `src/ui/art/<cardId>.webp`, the slot every card face already reads. So a
+  card's portrait and its figure on the board can't disagree. It is rendered
+  offline, not drawn live: a hand or the collection shows dozens of cards at
+  once, and a live 3D canvas per card would cost more than the whole board.
 
-New code lives in `src/ui/stage/`:
+**The asset contract** (the header of `blender/models.py` is the working copy):
+
+- One `.glb` per body (`models/caster.glb`) or per card (`models/felix.glb`,
+  which wins). Drop it into `src/ui/stage/models/` and it is used, with no code
+  change, the same drop-in convention as the card art.
+- Blender: Z up, the model faces -Y, feet on the origin. A person is about
+  1.6 tall, and the model fits in a circle of radius ~0.5. **The game decides
+  how big a unit stands on the board** (`BODY_SCALE` × the look's `scale`), so
+  unit size stays a game parameter, not a property of the file.
+- One armature and one action per clip, named exactly `idle` (loops), `walk`,
+  `land`, `hit`, `attack`, `cast`, `die` (ends lying still). A missing clip is
+  skipped. A missing model falls back to the primitive body.
+- Materials named by role are repainted per card by the game: `cloth`,
+  `trim`, `skin`, `hair`, `metal`, `glow` (emissive), `legs`. Any other name
+  keeps its own colour. That is how ten bodies dress 89 cards; a per-card
+  model can use its own colours by naming its materials anything else.
+- Flat shading, low poly: a few hundred to ~1500 triangles.
+
+The files in `src/ui/stage/`:
 
 | File | Job |
 |---|---|
-| `Stage.tsx` | Canvas + tile layer; same props as `Board` |
-| `TileLayer.tsx` | The projected DOM buttons and HUD (§2) |
-| `layout.ts` | Slot → world position, camera, projection. Pure |
-| `looks.ts` + `looks.json` | Unit → archetype, palette, prop, scale. Pure, tested |
-| `motion.ts` | Beat → timeline of model animations. Pure, tested |
-| `vfx.ts` | Effect kind → spell motif, school → colour. Pure, tested |
-| `Unit.tsx`, `Spell.tsx`, `Ground.tsx` | Scene pieces |
-| `models/<archetype>.glb`, `models/<cardId>.glb` | Drop-in art, same convention as `src/ui/art/` |
+| `Surface.tsx` | 2D or 3D, lazy, falls back to 2D |
+| `Stage.tsx` | Canvas + the DOM tile layer and HUD; same props as `Board` |
+| `layout.ts` | Slot → world position, camera fit, projection. Pure, tested |
+| `looks.ts` | Card data → body, colours, size; `LOOKS` for per-card overrides. Pure, tested |
+| `paint.ts` | A look → the colour of each material role |
+| `assets.ts` | Which `.glb` a unit stands in |
+| `Figure.tsx` | Loads, dresses and animates a model; the primitive body until it loads |
+| `models.tsx` | The primitive bodies and scenery (the fallback, and the teaser's vocabulary) |
+| `ground.ts` | Battlefield palettes and the seeded prop scatter. Pure, tested |
+| `fx.tsx` | Puffs, shards, bolts |
+| `looksdump.ts` | `npm run looks`: every unit's look as JSON for the Blender scripts |
+| `models/*.glb` | The models, from `blender/models.py` or by hand |
 
 ## 5. Camera and layout
 
@@ -108,7 +139,12 @@ a slow sweep when a battlefield turns over (`battlefield` beat), and a small
 push-in on a `cast`. Both run inside the beat window.
 
 The grid is the real one: two sides × two ranks (F, B) × three columns, twelve
-tiles, the arcvonal between the front ranks. Szakadék (`isBlocked`) tiles are a
+tiles, the arcvonal between the front ranks. **The grid and unit sizes are
+open**: the designers want to try other unit sizes and battlefield shapes, so
+nothing may assume 3 × 2 outside `layout.ts` (`slotWorld`, `COLUMNS`, `RANKS`,
+`TILE`, `PITCH`, `LINE`) and `fitCamera` fits whatever that module says the
+board spans. Unit size is `BODY_SCALE` and the look's `scale`, never a
+property of a model file. Szakadék (`isBlocked`) tiles are a
 missing ground chunk, and traps are a marked tile, with the spell name shown to
 the owner only, exactly as `Cell` does.
 
@@ -305,10 +341,34 @@ tells you too.
   by foe/friend, not by school (school tints are phase 3). The 3D board is
   still off by default.
 
-**2 — Art direction and archetypes.** One style sheet (palette, silhouette
-rules, poly budget ~300–1500 tris a unit), the palette texture, the 8–10
-archetype `.glb`s, `looks.json` filled in for all 89 units. *Exit:* no unit on
-the board is a placeholder.
+**2 — The model pipeline.** Blender to `.glb` to the board, and the card art
+rendered from the same models. *Exit:* every unit on the board is a model,
+and every unit card has art.
+
+*Built so far:*
+
+- `blender/models.py` writes the ten starter bodies: the phase 1 primitives,
+  rigged, with all seven clips, and materials named by role. Its pose sheets
+  (`-- --stills`) were checked by eye for every body. Two rotation
+  conventions carry every clip: an upright bone leans forward on +X, and a
+  hanging limb swings forward on -X. A beast's cast is a howl; a caster's
+  levels the staff, because raising the arm overhead turns a hand-held staff
+  crystal-down.
+- `Figure.tsx` loads every model up front, clones and repaints one per unit,
+  and plays clips off the theatre's beats (land, veil and reveal → `land`,
+  march → `walk`, strike → `hit`, the caster of the spell on screen → `cast`,
+  a death → `die` before the shards). `idle` loops on desktop only: a phone
+  and reduced motion come to rest. The primitive body stands in while a model
+  loads.
+- `blender/portraits.py` renders each unit's card art from its model, in its
+  card's colours from `npm run looks`, posed for its class, on a slab under a
+  warm sky. It never overwrites art it did not make without `--force`.
+- Measured: on a quiet board the idle loops keep the canvas drawing, at about
+  240 draw calls a frame. That's fine on a desktop. Merging the static scenery
+  into one mesh is the obvious saving when it matters.
+- Still open: the starter bodies are the primitives: the real models are
+  yours to make in Blender, one file at a time, and each replaces its starter
+  without a code change. Per-card looks wait for the card art brief.
 
 **3 — Spell VFX.** The ten motifs, school tints, projectile arcs, the mass
 variants, bloom on desktop.
@@ -339,7 +399,33 @@ before anyone has to.
 - Whether the unit's *card* still appears on the tile somewhere (a small
   banner or plinth) or only in the loupe.
 
+- How big units stand, and what shape a battlefield is: both are being
+  experimented with, so both stay parameters (§5).
+
 Settled: **models are made in Blender** and exported as `.glb`. The teaser in
 `trailer/build.py` (repo root) is the first sketch of the look: every piece
 there is a scripted primitive, so its units, portal and tiles are a reference
 for proportions and palette, not assets to ship.
+
+## 15. The other track: the whole UI in the same style
+
+The low-poly look is not only the board. The main menu, the collection, the
+in-game rails and the cards themselves (borders, numbers, symbols) are all to
+be remade in the same cozy, lo-fi, low-poly style, with card art from the 3D
+models (§4). That is its own track, not a phase of this one: it touches every
+stylesheet and `CardFace`, and none of the engine or the stage.
+
+What the stage work already gives it:
+
+- **The art**: `blender/portraits.py` fills `src/ui/art/` for every unit.
+  Spells, battlefields and attachments need their own renders once spells
+  have models or animations to show.
+- **The palette**: the teaser and the stage share one warm, flat vocabulary
+  (`ground.ts`, `looks.ts`, `trailer/build.py`). The UI's tokens in
+  `theme.css` should be drawn from it rather than invented beside it.
+- **Where it plugs in**: every screen's stylesheet sits next to its component
+  and `theme.css` holds the tokens (see the CLAUDE.md map). A restyle is those
+  files, `src/ui/card/CardFace.tsx` and `card.css`, with the phone rules at the
+  foot of each.
+
+Until it starts, nothing in the old parchment-and-oak look gets polished.

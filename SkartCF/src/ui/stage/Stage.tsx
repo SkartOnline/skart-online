@@ -7,13 +7,16 @@ import { cardOf, coordLabel, getSpell, getUnit, isBlocked, power, trapAt } from 
 import type { GameState, PlayerId, SlotId, UnitInstance } from "../../engine";
 import Board, { Marks, Status, poolsOf } from "../game/Board";
 import { castingPips, schoolSlug } from "../card/model";
+import { allModels } from "./assets";
+import { Figure, preloadModels } from "./Figure";
+import type { Clip } from "./Figure";
 import { Bolt, Burst, Shards } from "./fx";
 import { groundOf, scatter } from "./ground";
 import type { Ground } from "./ground";
 import { LINE, PITCH, TILE, TILE_TOP, fitCamera, projectAbove, projectTile, slotWorld, slotsOf } from "./layout";
 import { VEILED, hash, lookOf } from "./looks";
 import type { Body as BodyKind, Look } from "./looks";
-import { BODY_SCALE, Body, Scenery, flat } from "./models";
+import { BODY_SCALE, Scenery, flat } from "./models";
 import "./stage.css";
 
 /**
@@ -75,6 +78,19 @@ const reduced = (): boolean =>
 /** A phone draws less: no shadows, a lower pixel ratio, half the scenery. */
 const lite = (): boolean =>
   typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 700px)").matches;
+
+// Every model up front: the first board takes a moment longer, and nothing
+// pops in from a primitive body halfway through a game.
+preloadModels(allModels());
+
+/** Which clip each of the theatre's beats plays on the unit it happened to. */
+const CLIP_FOR: Partial<Record<string, Clip>> = {
+  land: "land",
+  veil: "land",
+  reveal: "land",
+  march: "walk",
+  strike: "hit",
+};
 
 /** Whose look a board unit wears. A hidden one wears the shared cloak, whoever owns it. */
 function lookFor(unit: UnitInstance, bare: boolean): Look {
@@ -207,6 +223,7 @@ function Scene({
           viewer={viewer}
           look={lookFor(unit, bare)}
           stir={stirring?.get(slot)}
+          casting={marks?.get(slot) === "caster"}
           small={small}
         />
       ))}
@@ -391,6 +408,7 @@ function Piece({
   viewer,
   look,
   stir,
+  casting,
   small,
 }: {
   slot: SlotId;
@@ -399,6 +417,8 @@ function Piece({
   viewer: PlayerId;
   look: Look;
   stir?: string;
+  /** This unit threw the spell on screen right now. */
+  casting: boolean;
   small: boolean;
 }) {
   void state;
@@ -486,7 +506,13 @@ function Piece({
       <group ref={body}>
         {/* Facing the other side: the viewer's units turn their backs to the camera. */}
         <group rotation={[0, mine ? Math.PI : 0, 0]}>
-          <Body look={look} />
+          <Figure
+            look={look}
+            cardId={look.body === "veiled" ? undefined : unit.cardId}
+            clip={casting ? "cast" : flourish ? CLIP_FOR[flourish.kind] : undefined}
+            cue={casting ? -1 : (flourish?.id ?? 0)}
+            idle={!small && !reduced()}
+          />
         </group>
         {unit.locked && (
           // Jéghegy: frozen at the power it had, in a shell of ice.
@@ -541,12 +567,12 @@ function Ghost({ slot, cardId, viewer }: { slot: SlotId; cardId?: string; viewer
     const g = group.current;
     if (!g) return;
     const t = (performance.now() - born.current) / 1000;
-    const k = Math.min(1, t / 0.28);
-    g.visible = t < 0.3;
-    g.position.y = TILE_TOP + Math.sin(k * Math.PI * 0.8) * 0.25;
-    g.rotation.x = (mine ? 1 : -1) * k * 0.9;
-    g.scale.setScalar(1 + 0.2 * Math.sin(k * Math.PI));
-    if (t < 0.3) invalidate();
+    // The model plays its own fall; this is only the knock that starts it.
+    const k = Math.min(1, t / 0.45);
+    g.visible = t < 0.48;
+    g.position.y = TILE_TOP + Math.sin(k * Math.PI * 0.8) * 0.12;
+    g.rotation.x = (mine ? 1 : -1) * k * 0.3;
+    if (t < 0.48) invalidate();
   });
 
   const away: V3 = [0, 0, mine ? 1 : -1];
@@ -554,14 +580,14 @@ function Ghost({ slot, cardId, viewer }: { slot: SlotId; cardId?: string; viewer
     <group position={[x, 0, z]}>
       <group ref={group}>
         <group rotation={[0, mine ? Math.PI : 0, 0]}>
-          <Body look={look} />
+          <Figure look={look} cardId={look.body === "veiled" ? undefined : cardId} clip="die" cue={1} idle={false} />
         </group>
       </group>
       {!reduced() && (
         <>
-          <Burst at={[0, top * 0.55, 0]} color="#ffd6a0" count={6} spread={0.18} rise={0.1} size={0.14} life={0.35} delay={260} glow={3} />
-          <Shards at={[0, top * 0.5, 0]} colors={[look.cloth, look.trim, look.skin, look.metal]} away={away} delay={280} seed={hash(slot)} />
-          <Burst at={[0, top * 0.4, 0]} color="#2b1a3a" count={8} spread={0.4} rise={0.6} size={0.09} life={1.1} delay={300} glow={0.5} />
+          <Burst at={[0, top * 0.45, 0]} color="#ffd6a0" count={6} spread={0.18} rise={0.1} size={0.14} life={0.35} delay={430} glow={3} />
+          <Shards at={[0, top * 0.35, 0]} colors={[look.cloth, look.trim, look.skin, look.metal]} away={away} delay={450} seed={hash(slot)} />
+          <Burst at={[0, top * 0.3, 0]} color="#2b1a3a" count={8} spread={0.4} rise={0.6} size={0.09} life={1.1} delay={470} glow={0.5} />
         </>
       )}
     </group>
