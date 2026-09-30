@@ -47,9 +47,12 @@ export default function CardFace({ card, livePower, pools, className }: Props) {
   const cost = "cost" in card ? card.cost : null;
   const rarity = (card as { rarity?: string }).rarity;
   const traits = traitsOf(card);
+  const kind = isUnit(card) ? "unit" : isSpell(card) ? "spell" : "location";
 
   return (
-    <article className={`cardface${className ? ` ${className}` : ""}`}>
+    // The card says what it is, so its frame is coloured the same wherever it is
+    // mounted, whether or not the caller remembered to say "spell".
+    <article className={`cardface kind-${kind}${className ? ` ${className}` : ""}`}>
       <header className="cf-head">
         {cost !== null && <span className="cf-cost num">{cost}</span>}
         <h4 className="cf-name">{card.name}</h4>

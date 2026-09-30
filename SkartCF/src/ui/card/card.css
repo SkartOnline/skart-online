@@ -1,25 +1,26 @@
 /*
  * The printed card, and the pips that go with it.
  *
- * Proportions are the paper ones: a 63x88 card, a frame margin of about 4%, an
- * art window at 4:3, a type line the width of the frame, and a rules box that
- * takes whatever height is left. Everything is sized in `em` off the card's own
- * font size, so one `--card-w` scales the whole thing.
+ * Proportions are the paper ones: a 63x88 card, an art window at 4:3, a type
+ * line the width of the frame, and a rules box that takes whatever height is
+ * left. Everything is sized in `em` off the card's own font size, so one
+ * `--card-w` scales the whole thing.
+ *
+ * The look is a low-poly token: the card is a faceted frame cut with chamfered
+ * corners and coloured by what it is (warm timber for a unit, violet for a
+ * spell, meadow green for a battlefield), and the things you read sit on it as
+ * cream plates. Numbers are gems: the cost an amber hexagon, power a coral
+ * shield, range a blue marker, each cut into a lit and a shadowed half.
  */
 
 /* A card face reads as printed, wherever it is mounted.
  *
  * All four of these have to be stated rather than left to inherit, and the
  * reason is the Gyűjtemény: each card there sits *inside* a button, and the
- * button rule in `theme.css` sets small capitals, `letter-spacing: 0.07em` and
- * `font-weight: 600` — every one of them an inherited property, every one of
- * them landing on the whole card face. So the same card was set wider, heavier
- * and in small capitals in the gallery than it was in a hand, which is why it
- * never quite matched the game.
- *
- * A card is a printed object. It should not pick up type settings from whatever
- * it happens to be sitting in, so it declares its own and the tag field opts
- * back into small caps below. Nothing else does. */
+ * button rule in `theme.css` sets small capitals, letter-spacing and weight —
+ * every one of them inherited, every one of them landing on the whole card
+ * face. A card is a printed object; it declares its own type settings and the
+ * tag field opts back into small caps below. */
 .cardface {
   font-variant-caps: normal;
   letter-spacing: normal;
@@ -27,8 +28,11 @@
   font-style: normal;
 
   --card-w: 208px;
+  --frame: #7a5a44;
+  --frame-hi: #9a7658;
+  --cut-card: 0.55em;
   /* The corner gems are laid out against the frame, so the frame is the
-     containing block. At hand scale they overhang it deliberately. */
+     containing block. */
   position: relative;
   width: var(--card-w);
   /* Height is derived rather than left to aspect-ratio: the rules box would
@@ -39,16 +43,36 @@
   display: flex;
   flex-direction: column;
   gap: 0.28em;
-  padding: 0.5em;
-  background: linear-gradient(168deg, var(--vellum), var(--vellum-deep));
-  border: 1px solid var(--ink-edge);
+  padding: 0.45em;
+  background-color: var(--frame);
+  background-image:
+    linear-gradient(152deg, var(--frame-hi) 0 30%, rgba(255, 255, 255, 0) 30% 68%, rgba(0, 0, 0, 0.14) 68%),
+    var(--facets);
+  background-size: auto, 9em 9em;
+  border: none;
+  clip-path: polygon(
+    var(--cut-card) 0,
+    calc(100% - var(--cut-card)) 0,
+    100% var(--cut-card),
+    100% calc(100% - var(--cut-card)),
+    calc(100% - var(--cut-card)) 100%,
+    var(--cut-card) 100%,
+    0 calc(100% - var(--cut-card)),
+    0 var(--cut-card)
+  );
   color: var(--ink);
   text-align: left;
   overflow: hidden;
 }
 
-.cardface.spell {
-  background: linear-gradient(168deg, var(--rune), var(--rune-deep));
+.cardface.spell,
+.cardface.kind-spell {
+  --frame: #5d4d8a;
+  --frame-hi: #7a69a8;
+}
+.cardface.kind-location {
+  --frame: #4e7a4c;
+  --frame-hi: #6a9a62;
 }
 
 /* ------------------------------------------------------------------- head */
@@ -64,19 +88,21 @@
   display: block;
   height: 100%;
 }
+/* The cost: an amber gem, a hexagon cut into a lit top and a shadowed foot. */
 .cf-cost {
   flex: none;
-  width: 1.5em;
-  height: 1.5em;
+  width: 1.6em;
+  height: 1.6em;
   display: grid;
   place-items: center;
   font-weight: 600;
   font-size: 1em;
-  color: var(--vellum);
-  background: var(--ink);
-  border: 1px solid var(--ink-edge);
-  border-radius: 50%;
+  color: var(--ink);
+  background-color: var(--ember);
+  background-image: linear-gradient(160deg, var(--flame) 0 46%, rgba(255, 255, 255, 0) 46%);
+  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
 }
+/* The name is stamped on the frame, cream on timber. */
 .cf-name {
   flex: 1;
   margin: 0;
@@ -84,6 +110,8 @@
   font-size: 0.94em;
   font-weight: 600;
   line-height: 1.1;
+  color: var(--tallow);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
   overflow-wrap: anywhere;
   align-self: center;
 }
@@ -94,12 +122,10 @@
   position: relative;
   flex: none;
   aspect-ratio: 4 / 3;
-  border: 1px solid var(--ink-edge);
-  background: repeating-linear-gradient(
-    135deg,
-    rgba(60, 44, 26, 0.09) 0 6px,
-    rgba(60, 44, 26, 0.02) 6px 12px
-  );
+  background-color: #9cc3dc;
+  background-image: var(--facets);
+  clip-path: polygon(0.35em 0, calc(100% - 0.35em) 0, 100% 0.35em, 100% 100%, 0 100%, 0 0.35em);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
   overflow: hidden;
 }
 .cf-art img {
@@ -111,6 +137,7 @@
 
 /* -------------------------------------------------------------- type line */
 
+/* A cream ribbon across the frame. */
 .cf-type {
   flex: none;
   display: flex;
@@ -118,15 +145,15 @@
   justify-content: space-between;
   gap: 0.5em;
   margin: 0;
-  padding: 0.06em 0.3em;
-  font-size: 0.62em;
-  letter-spacing: 0.03em;
-  background: rgba(60, 44, 26, 0.14);
-  border-top: 1px solid var(--ink-edge);
-  border-bottom: 1px solid var(--ink-edge);
+  padding: 0.08em 0.4em;
+  font-size: 0.6em;
+  letter-spacing: 0.02em;
+  background: var(--vellum-deep);
+  color: var(--ink);
+  clip-path: polygon(0.4em 0, calc(100% - 0.4em) 0, 100% 50%, calc(100% - 0.4em) 100%, 0.4em 100%, 0 50%);
 }
 .cf-kind {
-  font-weight: 600;
+  font-weight: 700;
   flex: none;
   display: flex;
   gap: 0.4em;
@@ -142,8 +169,7 @@
 }
 /* The tag field keeps its small capitals — it is a row of labels (Faj, Rend,
    Tipus), not something anyone reads as a sentence, and the filters read the
-   same words. Everything else on the face is set as written: card text in small
-   caps is a card you decipher rather than read, which is the whole complaint. */
+   same words. */
 .cf-traits {
   font-variant-caps: small-caps;
   text-align: right;
@@ -165,19 +191,26 @@
 
 /* -------------------------------------------------------------- rules box */
 
+/* The rules on a cream plate, cut at the top corners like the art above it. */
 .cf-box {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 0.2em;
-  padding: 0.3em 0.35em;
-  font-size: 0.66em;
-  line-height: 1.28;
+  padding: 0.35em 0.45em;
+  font-size: 0.62em;
+  line-height: 1.24;
+  background: var(--vellum);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 0.6em), calc(100% - 0.6em) 100%, 0.6em 100%, 0 calc(100% - 0.6em));
   overflow: hidden;
 }
+.cardface.spell .cf-box,
+.cardface.kind-spell .cf-box {
+  background: var(--rune);
+}
 .cf-keywords {
-  font-weight: 600;
+  font-weight: 800;
 }
 .cf-rules {
   overflow-wrap: anywhere;
@@ -198,30 +231,35 @@
 .cf-cap {
   flex: none;
   min-width: 1.6em;
-  height: 1.5em;
+  height: 1.55em;
   padding: 0 0.25em;
   display: grid;
   place-items: center;
   font-size: 1em;
   font-weight: 600;
-  color: var(--vellum);
+  color: var(--tallow);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
 }
 /* Power is a shield, range is a notched marker: two silhouettes, so the corner
-   reads without a caption. */
+   reads without a caption. Each is cut into a lit and a shadowed half. */
 .cf-power {
-  background: var(--might);
+  background-color: var(--might);
+  background-image: linear-gradient(150deg, rgba(255, 255, 255, 0.24) 0 48%, rgba(255, 255, 255, 0) 48%);
   clip-path: polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%);
   padding-bottom: 0.35em;
 }
 .cf-range {
-  background: var(--reach);
+  background-color: var(--reach);
+  background-image: linear-gradient(150deg, rgba(255, 255, 255, 0.22) 0 48%, rgba(255, 255, 255, 0) 48%);
   clip-path: polygon(50% 0, 100% 28%, 100% 100%, 0 100%, 0 28%);
 }
 /* A battlefield's cost cap: a purse rather than a shield or a notch, because it
    is neither a threat nor a reach — it is what you are allowed to spend here. */
 .cf-cap {
-  background: var(--iron-bright);
+  background-color: var(--ember);
+  background-image: linear-gradient(150deg, var(--flame) 0 48%, rgba(255, 255, 255, 0) 48%);
   color: var(--ink);
+  text-shadow: none;
   clip-path: polygon(14% 0, 86% 0, 100% 100%, 0 100%);
   padding: 0 0.4em;
 }
@@ -247,44 +285,45 @@
   display: grid;
   place-items: center;
   font-weight: 600;
-  color: #f6ecd8;
-  background: var(--pip);
-  border: 1px solid rgba(0, 0, 0, 0.35);
+  color: #fbefdc;
+  background-color: var(--pip);
+  background-image: linear-gradient(150deg, rgba(255, 255, 255, 0.22) 0 48%, rgba(255, 255, 255, 0) 48%);
+  border: none;
 }
 .pip > em {
   font-style: normal;
   font-variant-caps: small-caps;
   letter-spacing: 0.02em;
-  color: var(--ink-soft);
+  color: var(--tallow);
 }
 
 /* Six schools, six silhouettes. Colour alone would fail in a screenshot. */
 .pip.magus > b {
-  --pip: #3c6790;
-  border-radius: 50%;
+  --pip: #3f73a8;
+  clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
 }
 .pip.fekete > b {
-  --pip: #4a3358;
+  --pip: #5a3c70;
   clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
 }
 .pip.harcos > b {
-  --pip: #94402f;
+  --pip: #b04a36;
   clip-path: polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%);
 }
 .pip.zsivany > b {
-  --pip: #5a5a3a;
+  --pip: #6e6a3e;
   clip-path: polygon(50% 0, 100% 38%, 82% 100%, 18% 100%, 0 38%);
 }
 .pip.druida > b {
-  --pip: #3f6b46;
+  --pip: #4a8052;
   clip-path: polygon(50% 0, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
 }
 .pip.bestia > b {
-  --pip: #7a5220;
+  --pip: #946226;
   clip-path: polygon(12% 0, 88% 0, 100% 100%, 0 100%);
 }
 .pip.egyeb > b {
-  --pip: #4b4038;
+  --pip: #5e5168;
 }
 
 /* A pool that has been drawn on.

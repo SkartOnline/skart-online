@@ -1,109 +1,102 @@
 /*
- * SkartCF — oiled oak by firelight.
+ * SkartCF — a low-poly valley at dusk, lit by lamps.
  *
- * Every surface is timber and iron. The ground is planked rather than flat, so
- * panels sit on a table instead of floating on a colour. Nothing is rounded:
- * panels are cut boards with chamfered corners, buttons are plain rectangles.
+ * The board is daylight: grass, stone slabs, a river (see `src/ui/stage/`).
+ * Everything around it is the same world an hour later — dusky blue-violet
+ * panels cut into facets, warm cream type, amber lamplight for anything you can
+ * press. The frame is evening so the board reads as the window it is.
  *
- * The palette commits to a single lit-interior world, so there is no light
- * theme, but every colour is painted explicitly, including the body background.
+ * Low poly in a stylesheet means three things, and every surface uses them:
+ * chamfered corners (`--edge`), a hard two-tone split across a face instead of
+ * a smooth gradient, and `--facets`, a seamless triangulated tile laid over flat
+ * colour. No rounded rectangles, no soft blur for its own sake.
+ *
+ * The token names are the ones the old oak-and-iron theme used, so every screen
+ * that reads them moved to dusk at once; the names describe roles now, not
+ * wood. There is no light theme — the palette commits to one world — but every
+ * colour is painted explicitly, including the body background.
  */
 
 /* ------------------------------------------------------------------ tokens */
 
 :root {
-  /* Oak, warm and red-shifted, from the shadowed corners out to the lit top. */
-  --oak-pitch: #170f08;
-  --oak-deep: #26180e;
-  --oak: #382312;
-  --oak-lit: #4a2f18;
-  --oak-raised: #5e3c1e;
+  /* Dusk, from the deepest shadow out to a lit face. */
+  --oak-pitch: #141726;
+  --oak-deep: #1c2034;
+  --oak: #252a43;
+  --oak-lit: #30365a;
+  --oak-raised: #3d446d;
 
-  /* Iron banding and hairlines. */
-  --iron: #74522c;
-  --iron-bright: #9c6d36;
+  /* Hairlines and banding: slate lavender. */
+  --iron: #555a86;
+  --iron-bright: #8388bb;
 
-  /* Candlelight on parchment. */
-  --tallow: #f8ead0;
-  --parchment: #e5d0a8;
-  --ash: #b09472;
-  --ash-dim: #856d50;
+  /* Lamplight on paper. */
+  --tallow: #fbefdc;
+  --parchment: #f1dcbf;
+  --ash: #b9abcb;
+  --ash-dim: #8a7fa6;
 
-  /* Fire. The accent, and the only thing allowed to glow. */
-  --ember: #e8811f;
-  --flame: #ffc55c;
-  --ember-dim: #934c12;
+  /* The lamp. The accent, and the only thing allowed to glow. */
+  --ember: #f39c4a;
+  --flame: #ffd27d;
+  --ember-dim: #a85d2c;
 
-  /* The two sides. */
-  --brass: #d0a03c;
-  --blood: #b03c2b;
+  /* The two sides: gold for you, coral for them. */
+  --brass: #f2c25b;
+  --blood: #e2645a;
 
-  /* Magic reads cold: the one cool hue, and it earns its place. */
-  --frost: #86a9bd;
-  --frost-deep: #304654;
+  /* Magic reads cold: the one cool accent. */
+  --frost: #93cbe4;
+  --frost-deep: #2c4a6a;
 
   /* Semantic. */
-  --rot: #bb4a30;
-  --sprout: #8ba55e;
+  --rot: #e8705c;
+  --sprout: #a3d273;
 
-  /* Card stock. */
-  --vellum: #eddcb7;
-  --vellum-deep: #d0b98a;
-  --rune: #ded1e7;
-  --rune-deep: #bda8c8;
-  --ink: #2b1d11;
-  --ink-soft: #6b5735;
-  --ink-edge: #8d7248;
-  --might: #8e3617;
-  --reach: #33566b;
+  /* Card stock: cream paper, plum ink. */
+  --vellum: #f7ead3;
+  --vellum-deep: #e4caa1;
+  --rune: #e7e0f2;
+  --rune-deep: #c3b4dc;
+  --ink: #2f2335;
+  --ink-soft: #6e5b73;
+  --ink-edge: #9e88a3;
+  --might: #b8452a;
+  --reach: #33607c;
 
-  --edge: 8px; /* chamfer size for cut-timber corners */
+  --edge: 8px; /* the chamfer every panel and button is cut with */
 
   /* ---------------------------------------------------------------- chrome
    *
-   * The interface is not made of wood any more.
-   *
-   * Oak panels on an oak table meant every surface competed with every other
-   * one, and the thing that actually needs to carry a mood — the battlefield —
-   * was the one surface that could not, because it was the same brown as the
-   * buttons in front of it. So the chrome went neutral and metallic: near-black
-   * glass, a thin cold hairline, and no colour of its own worth noticing.
-   *
-   * `--metal` is the one accent, and it is a *variable* accent: each
-   * battlefield sets it from its own palette (see `--bf-metal` in game.css), so
-   * the frame quietly picks up the room it is standing in without any panel
-   * having to know which room that is. Everything below is the fallback for
-   * screens with no battlefield — menu, collection, editor.
+   * Panels are dusk glass: a violet-blue face, a pale lavender hairline, the
+   * facet tile over it. `--metal` is still the one variable accent, which each
+   * battlefield may set from its own palette (`--bf-metal` in game.css); this
+   * is the fallback for the menu, the collection and the editor.
    */
-  --panel: rgba(14, 15, 17, 0.86);
-  --panel-lit: rgba(28, 30, 34, 0.9);
-  --panel-edge: rgba(198, 208, 214, 0.16);
-  --panel-edge-lit: rgba(212, 222, 228, 0.32);
-  --metal: #9aa3aa;
-  --metal-dim: #626b72;
+  --panel: rgba(29, 33, 58, 0.92);
+  --panel-lit: rgba(43, 49, 84, 0.94);
+  --panel-edge: rgba(196, 184, 240, 0.2);
+  --panel-edge-lit: rgba(226, 214, 255, 0.38);
+  --metal: #c7b8ee;
+  --metal-dim: #7f75a8;
 
-  /* Grain for a single board. */
-  --grain: repeating-linear-gradient(
-    92deg,
-    rgba(0, 0, 0, 0) 0 3px,
-    rgba(0, 0, 0, 0.15) 3px 4px,
-    rgba(255, 226, 178, 0.014) 4px 7px
+  /* One face cut in two: light from the top left, shadow to the bottom right.
+     Laid over a flat colour, this is what makes a panel a facet. */
+  --facet-split: linear-gradient(
+    152deg,
+    rgba(255, 255, 255, 0.07) 0 34%,
+    rgba(255, 255, 255, 0) 34% 70%,
+    rgba(0, 0, 0, 0.1) 70%
   );
 
-  /* A planked floor: seams every 140px, grain across them. */
-  --planks:
-    repeating-linear-gradient(
-      90deg,
-      rgba(0, 0, 0, 0.42) 0 2px,
-      rgba(255, 214, 160, 0.03) 2px 4px,
-      rgba(0, 0, 0, 0) 4px 148px
-    ),
-    repeating-linear-gradient(
-      91deg,
-      rgba(255, 226, 178, 0.022) 0 2px,
-      rgba(0, 0, 0, 0.11) 2px 5px,
-      rgba(0, 0, 0, 0) 5px 13px
-    );
+  /* The triangulated tile: seamless, 180px, a few percent of light and shadow
+     per triangle. Generated once; it is data, not decoration logic. */
+  --facets: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cpath d='M-0.9 1.1 L38.1 -0.7 L33.7 21.2 Z' fill='#fff' fill-opacity='0.057'/%3E%3Cpath d='M-0.9 1.1 L33.7 21.2 L-7.9 35.9 Z' fill='#fff' fill-opacity='0.053'/%3E%3Cpath d='M38.1 -0.7 L60.2 1.7 L33.7 21.2 Z' fill='#000' fill-opacity='0.051'/%3E%3Cpath d='M60.2 1.7 L69.3 38.9 L33.7 21.2 Z' fill='#000' fill-opacity='0.060'/%3E%3Cpath d='M60.2 1.7 L83.9 0.2 L93.0 32.2 Z' fill='#fff' fill-opacity='0.049'/%3E%3Cpath d='M60.2 1.7 L93.0 32.2 L69.3 38.9 Z' fill='#fff' fill-opacity='0.059'/%3E%3Cpath d='M83.9 0.2 L122.5 5.6 L93.0 32.2 Z' fill='#000' fill-opacity='0.059'/%3E%3Cpath d='M122.5 5.6 L113.4 20.7 L93.0 32.2 Z' fill='#fff' fill-opacity='0.060'/%3E%3Cpath d='M122.5 5.6 L142.2 -3.8 L150.5 21.5 Z' fill='#fff' fill-opacity='0.056'/%3E%3Cpath d='M122.5 5.6 L150.5 21.5 L113.4 20.7 Z' fill='#fff' fill-opacity='0.042'/%3E%3Cpath d='M142.2 -3.8 L179.1 1.1 L172.1 35.9 Z' fill='#000' fill-opacity='0.024'/%3E%3Cpath d='M142.2 -3.8 L172.1 35.9 L150.5 21.5 Z' fill='#000' fill-opacity='0.074'/%3E%3Cpath d='M-7.9 35.9 L33.7 21.2 L21.0 59.3 Z' fill='#000' fill-opacity='0.084'/%3E%3Cpath d='M-7.9 35.9 L21.0 59.3 L-5.9 55.0 Z' fill='#fff' fill-opacity='0.060'/%3E%3Cpath d='M33.7 21.2 L69.3 38.9 L58.9 66.6 Z' fill='#000' fill-opacity='0.053'/%3E%3Cpath d='M33.7 21.2 L58.9 66.6 L21.0 59.3 Z' fill='#fff' fill-opacity='0.047'/%3E%3Cpath d='M69.3 38.9 L93.0 32.2 L58.9 66.6 Z' fill='#000' fill-opacity='0.050'/%3E%3Cpath d='M93.0 32.2 L90.4 62.7 L58.9 66.6 Z' fill='#fff' fill-opacity='0.053'/%3E%3Cpath d='M93.0 32.2 L113.4 20.7 L90.4 62.7 Z' fill='#fff' fill-opacity='0.042'/%3E%3Cpath d='M113.4 20.7 L120.0 63.1 L90.4 62.7 Z' fill='#000' fill-opacity='0.044'/%3E%3Cpath d='M113.4 20.7 L150.5 21.5 L149.2 55.7 Z' fill='#000' fill-opacity='0.063'/%3E%3Cpath d='M113.4 20.7 L149.2 55.7 L120.0 63.1 Z' fill='#fff' fill-opacity='0.048'/%3E%3Cpath d='M150.5 21.5 L172.1 35.9 L149.2 55.7 Z' fill='#000' fill-opacity='0.079'/%3E%3Cpath d='M172.1 35.9 L174.1 55.0 L149.2 55.7 Z' fill='#000' fill-opacity='0.054'/%3E%3Cpath d='M-5.9 55.0 L21.0 59.3 L36.5 94.0 Z' fill='#fff' fill-opacity='0.040'/%3E%3Cpath d='M-5.9 55.0 L36.5 94.0 L9.6 99.5 Z' fill='#fff' fill-opacity='0.055'/%3E%3Cpath d='M21.0 59.3 L58.9 66.6 L56.5 84.8 Z' fill='#fff' fill-opacity='0.043'/%3E%3Cpath d='M21.0 59.3 L56.5 84.8 L36.5 94.0 Z' fill='#000' fill-opacity='0.046'/%3E%3Cpath d='M58.9 66.6 L90.4 62.7 L56.5 84.8 Z' fill='#fff' fill-opacity='0.058'/%3E%3Cpath d='M90.4 62.7 L85.9 81.7 L56.5 84.8 Z' fill='#000' fill-opacity='0.058'/%3E%3Cpath d='M90.4 62.7 L120.0 63.1 L85.9 81.7 Z' fill='#000' fill-opacity='0.087'/%3E%3Cpath d='M120.0 63.1 L125.1 88.1 L85.9 81.7 Z' fill='#000' fill-opacity='0.048'/%3E%3Cpath d='M120.0 63.1 L149.2 55.7 L156.7 87.8 Z' fill='#000' fill-opacity='0.021'/%3E%3Cpath d='M120.0 63.1 L156.7 87.8 L125.1 88.1 Z' fill='#000' fill-opacity='0.081'/%3E%3Cpath d='M149.2 55.7 L174.1 55.0 L156.7 87.8 Z' fill='#000' fill-opacity='0.063'/%3E%3Cpath d='M174.1 55.0 L189.6 99.5 L156.7 87.8 Z' fill='#000' fill-opacity='0.033'/%3E%3Cpath d='M9.6 99.5 L36.5 94.0 L20.4 114.4 Z' fill='#fff' fill-opacity='0.041'/%3E%3Cpath d='M9.6 99.5 L20.4 114.4 L8.8 126.7 Z' fill='#000' fill-opacity='0.070'/%3E%3Cpath d='M36.5 94.0 L56.5 84.8 L67.9 119.4 Z' fill='#000' fill-opacity='0.034'/%3E%3Cpath d='M36.5 94.0 L67.9 119.4 L20.4 114.4 Z' fill='#fff' fill-opacity='0.057'/%3E%3Cpath d='M56.5 84.8 L85.9 81.7 L67.9 119.4 Z' fill='#fff' fill-opacity='0.061'/%3E%3Cpath d='M85.9 81.7 L99.2 118.0 L67.9 119.4 Z' fill='#fff' fill-opacity='0.045'/%3E%3Cpath d='M85.9 81.7 L125.1 88.1 L111.8 122.5 Z' fill='#fff' fill-opacity='0.047'/%3E%3Cpath d='M85.9 81.7 L111.8 122.5 L99.2 118.0 Z' fill='#fff' fill-opacity='0.041'/%3E%3Cpath d='M125.1 88.1 L156.7 87.8 L155.3 115.6 Z' fill='#000' fill-opacity='0.068'/%3E%3Cpath d='M125.1 88.1 L155.3 115.6 L111.8 122.5 Z' fill='#000' fill-opacity='0.085'/%3E%3Cpath d='M156.7 87.8 L189.6 99.5 L188.8 126.7 Z' fill='#000' fill-opacity='0.087'/%3E%3Cpath d='M156.7 87.8 L188.8 126.7 L155.3 115.6 Z' fill='#fff' fill-opacity='0.058'/%3E%3Cpath d='M8.8 126.7 L20.4 114.4 L38.9 155.0 Z' fill='#fff' fill-opacity='0.047'/%3E%3Cpath d='M8.8 126.7 L38.9 155.0 L-7.9 146.8 Z' fill='#fff' fill-opacity='0.060'/%3E%3Cpath d='M20.4 114.4 L67.9 119.4 L38.9 155.0 Z' fill='#000' fill-opacity='0.087'/%3E%3Cpath d='M67.9 119.4 L52.7 145.1 L38.9 155.0 Z' fill='#fff' fill-opacity='0.044'/%3E%3Cpath d='M67.9 119.4 L99.2 118.0 L82.3 141.5 Z' fill='#fff' fill-opacity='0.036'/%3E%3Cpath d='M67.9 119.4 L82.3 141.5 L52.7 145.1 Z' fill='#fff' fill-opacity='0.049'/%3E%3Cpath d='M99.2 118.0 L111.8 122.5 L82.3 141.5 Z' fill='#000' fill-opacity='0.040'/%3E%3Cpath d='M111.8 122.5 L125.7 143.8 L82.3 141.5 Z' fill='#fff' fill-opacity='0.062'/%3E%3Cpath d='M111.8 122.5 L155.3 115.6 L151.1 149.0 Z' fill='#000' fill-opacity='0.078'/%3E%3Cpath d='M111.8 122.5 L151.1 149.0 L125.7 143.8 Z' fill='#fff' fill-opacity='0.039'/%3E%3Cpath d='M155.3 115.6 L188.8 126.7 L172.1 146.8 Z' fill='#fff' fill-opacity='0.049'/%3E%3Cpath d='M155.3 115.6 L172.1 146.8 L151.1 149.0 Z' fill='#fff' fill-opacity='0.057'/%3E%3Cpath d='M-7.9 146.8 L38.9 155.0 L-0.9 181.1 Z' fill='#fff' fill-opacity='0.049'/%3E%3Cpath d='M38.9 155.0 L38.1 179.3 L-0.9 181.1 Z' fill='#fff' fill-opacity='0.047'/%3E%3Cpath d='M38.9 155.0 L52.7 145.1 L60.2 181.7 Z' fill='#fff' fill-opacity='0.052'/%3E%3Cpath d='M38.9 155.0 L60.2 181.7 L38.1 179.3 Z' fill='#fff' fill-opacity='0.058'/%3E%3Cpath d='M52.7 145.1 L82.3 141.5 L60.2 181.7 Z' fill='#000' fill-opacity='0.035'/%3E%3Cpath d='M82.3 141.5 L83.9 180.2 L60.2 181.7 Z' fill='#fff' fill-opacity='0.046'/%3E%3Cpath d='M82.3 141.5 L125.7 143.8 L83.9 180.2 Z' fill='#fff' fill-opacity='0.057'/%3E%3Cpath d='M125.7 143.8 L122.5 185.6 L83.9 180.2 Z' fill='#fff' fill-opacity='0.056'/%3E%3Cpath d='M125.7 143.8 L151.1 149.0 L142.2 176.2 Z' fill='#000' fill-opacity='0.025'/%3E%3Cpath d='M125.7 143.8 L142.2 176.2 L122.5 185.6 Z' fill='#fff' fill-opacity='0.052'/%3E%3Cpath d='M151.1 149.0 L172.1 146.8 L179.1 181.1 Z' fill='#fff' fill-opacity='0.055'/%3E%3Cpath d='M151.1 149.0 L179.1 181.1 L142.2 176.2 Z' fill='#fff' fill-opacity='0.041'/%3E%3C/svg%3E");
+
+  /* Kept for the few rules that still ask for them, now as facets. */
+  --grain: var(--facets);
+  --planks: var(--facets);
 }
 
 /* ------------------------------------------------------------------- reset */
@@ -121,23 +114,29 @@ body,
 
 body {
   background-color: var(--oak-deep);
-  background-image: var(--planks);
+  background-image: var(--facets);
   color: var(--tallow);
-  font-family: Spectral, Georgia, "Times New Roman", serif;
+  font-family: Nunito, "Segoe UI", system-ui, sans-serif;
   font-size: 15px;
   line-height: 1.5;
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
 }
 
+/* Display type and every number worth reading at a glance: rounded, chunky,
+   friendly. Nunito carries the running text. */
 h1,
 h2,
 h3,
 h4 {
+  font-family: Fredoka, Nunito, system-ui, sans-serif;
   font-weight: 600;
   line-height: 1.15;
   margin: 0;
   text-wrap: balance;
+}
+.num {
+  font-family: Fredoka, Nunito, system-ui, sans-serif;
 }
 
 button,
@@ -150,7 +149,7 @@ textarea {
 }
 
 :focus-visible {
-  outline: 2px solid var(--metal);
+  outline: 2px solid var(--flame);
   outline-offset: 1px;
 }
 
@@ -175,7 +174,7 @@ textarea {
   -webkit-user-select: text;
 }
 ::selection {
-  background: rgba(154, 163, 170, 0.3);
+  background: rgba(243, 156, 74, 0.32);
   color: var(--tallow);
 }
 
@@ -190,10 +189,11 @@ textarea {
 
 /* ------------------------------------------------------ shared vocabulary */
 
-/* Cut timber: chamfered corners, grain, an iron hairline. */
+/* A cut panel: chamfered corners, a face split into light and shadow, the facet
+   tile over it, a lavender hairline. The class kept its old name. */
 .timber {
   background-color: var(--panel);
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(0, 0, 0, 0.12));
+  background-image: var(--facet-split), var(--facets);
   backdrop-filter: blur(3px);
   border: 1px solid var(--panel-edge);
   clip-path: polygon(
@@ -209,7 +209,7 @@ textarea {
 }
 
 .label {
-  font-weight: 500;
+  font-weight: 600;
   font-variant-caps: small-caps;
   letter-spacing: 0.04em;
   color: var(--ash);
@@ -232,63 +232,68 @@ textarea {
   color: var(--sprout);
 }
 
-/* Buttons are iron plates: square, banded, pressed rather than clicked. */
-/* Buttons, in the same voice as everything else on a card.
+/* Buttons are cut gems: a chamfered plate, its face split into a lit and a
+ * shadowed half, pressed down rather than clicked.
  *
- * Small caps and spaced letters, because that is the typography the whole game
- * already speaks — the type line, the counters, the banners, the pile headings.
- * A button set in ordinary sentence case was the one thing on screen that read
- * like a web form, and once you notice it on the menu you notice it on every
- * rail in the game.
- *
- * The lit top edge and the shadowed bottom are what make it look pressable
- * without a border radius: this is meant to be an iron-bound wooden plate, and
- * a rounded rectangle would be from a different game. */
+ * Small caps and spaced letters stay, because that is the voice the whole game
+ * speaks in — the type line, the counters, the banners. The chamfer is a small
+ * one of its own (`--cut`) so a tiny button is not all corner. */
 button {
-  background: linear-gradient(180deg, var(--panel-lit), var(--panel));
+  --cut: 6px;
+  background-color: var(--panel-lit);
+  background-image: var(--facet-split);
   border: 1px solid var(--panel-edge);
   border-top-color: var(--panel-edge-lit);
   border-radius: 0;
+  clip-path: polygon(
+    var(--cut) 0,
+    calc(100% - var(--cut)) 0,
+    100% var(--cut),
+    100% calc(100% - var(--cut)),
+    calc(100% - var(--cut)) 100%,
+    var(--cut) 100%,
+    0 calc(100% - var(--cut)),
+    0 var(--cut)
+  );
   padding: 6px 15px;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
   font-variant-caps: small-caps;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   color: var(--parchment);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 233, 196, 0.07),
-    0 1px 2px rgba(0, 0, 0, 0.45);
-  transition: background 120ms, color 120ms, border-color 120ms, box-shadow 120ms;
+  box-shadow: inset 0 1px 0 rgba(255, 240, 220, 0.08);
+  transition: background-color 120ms, color 120ms, border-color 120ms, transform 80ms;
 }
 button:hover:not(:disabled) {
   color: var(--tallow);
+  background-color: var(--oak-raised);
   border-color: var(--metal);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 0 12px rgba(154, 163, 170, 0.18);
 }
 button:active:not(:disabled) {
-  background: linear-gradient(180deg, var(--panel), var(--panel-lit));
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+  transform: translateY(1px);
+  background-image: none;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
 }
 button:disabled {
-  opacity: 0.32;
+  opacity: 0.35;
   cursor: default;
   box-shadow: none;
 }
 
+/* The lamp: amber, cut in two, dark plum lettering. The one button per screen
+   you are meant to press. */
 button.ember {
-  background: linear-gradient(180deg, var(--metal), var(--metal-dim));
-  border-color: var(--panel-edge-lit);
-  color: #0e1013;
-  font-weight: 700;
+  background-color: var(--ember);
+  background-image: linear-gradient(152deg, var(--flame) 0 42%, rgba(255, 255, 255, 0) 42%);
+  border-color: rgba(255, 226, 170, 0.6);
+  color: var(--ink);
+  font-weight: 800;
 }
 button.ember:hover:not(:disabled) {
-  filter: brightness(1.14);
-  color: #0e1013;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.26),
-    0 0 18px rgba(154, 163, 170, 0.3);
+  background-color: #f7aa5c;
+  filter: brightness(1.06);
+  color: var(--ink);
+  border-color: var(--flame);
 }
 button.quiet {
   background: none;
@@ -297,18 +302,19 @@ button.quiet {
   box-shadow: none;
 }
 button.quiet:hover:not(:disabled) {
+  background: none;
   color: var(--tallow);
   border-color: var(--iron);
-  box-shadow: none;
 }
 button.grim {
-  border-color: #7c3527;
-  color: #dd9a8c;
+  border-color: #a4453a;
+  color: #f2a79b;
 }
 button.tiny {
+  --cut: 4px;
   padding: 2px 9px;
   font-size: 13px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
 }
 
 input,
@@ -339,7 +345,8 @@ code {
   gap: 12px;
   padding: 8px 16px;
   border-bottom: 1px solid var(--iron);
-  background: linear-gradient(180deg, var(--oak-lit), var(--oak-deep));
+  background-color: var(--oak-lit);
+  background-image: var(--facet-split), var(--facets);
 }
 .crossbar h2 {
   font-size: 21px;

@@ -27,7 +27,8 @@
     "looks": "tsx src/ui/stage/looksdump.ts"
   },
   "dependencies": {
-    "@fontsource/spectral": "^5.3.0",
+    "@fontsource/fredoka": "^5.3.0",
+    "@fontsource/nunito": "^5.3.0",
     "@react-three/fiber": "^8.18.0",
     "@types/ws": "^8.18.1",
     "react": "^18.3.1",

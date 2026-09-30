@@ -1,68 +1,39 @@
 /* ---------------------------------------------------------------- the menu */
 
-/* The front door, and it is not a table any more.
+/* The front door: A Pék hídja at dusk, the tiles lit like lamps.
  *
- * The chrome went neutral and metallic everywhere else (see `theme.css`), and
- * the menu was the last room still standing on brown planks. Oak behind steel
- * buttons did not read as oak — it read as moulded plastic, because a flat
- * mid-brown plane with a repeating seam in it is exactly what plastic looks
- * like. There was nothing wrong with the buttons.
+ * The painting is a render of the game's own valley (`blender/backdrop.py`),
+ * so the first thing anyone sees is the world the board is set in, an hour
+ * after the battle. Over it, two washes: night pooling at the top so the title
+ * has a dark sky to glow against, and at the bottom so the footer does not sit
+ * on bright grass. The panel of doors is dusk glass in the middle.
  *
- * So the ground is now the same near-black the panels are cut from, lit from
- * one place: a low ember bloom behind the title, as if the room were lit by
- * something off the bottom of the screen. Warmth stays — this is still Skart —
- * but it arrives as light on a dark surface rather than as the colour of the
- * surface itself, which is the difference between a lit room and a brown one.
- *
- * `--title-art` is an empty hook, the same way `--bf-texture` is one in
- * `game.css`: when the painting exists it drops in there, over the ground and
- * under the firelight, and nothing else in this file has to change. */
+ * `--title-art` is still the hook for the painting, so a new render or a
+ * hand-painted one drops in by replacing one file. */
 .hall {
   height: 100%;
   display: grid;
   place-items: center;
   position: relative;
   overflow: hidden;
-  --title-art: none;
-  background-color: #0b0c0e;
+  --title-art: url("./menu-valley.webp");
+  background-color: var(--oak-pitch);
   background-image:
-    /* The crest's own glow, tight and warm, sitting behind the lettering. */
-    radial-gradient(58% 38% at 50% 26%, rgba(232, 129, 31, 0.16), transparent 68%),
-    /* A wider, cooler wash so the middle of the screen is not a black hole. */
-    radial-gradient(120% 82% at 50% 40%, rgba(126, 140, 152, 0.09), transparent 72%),
-    /* Firelight from below, which is what stops the ground reading as a wall. */
-    radial-gradient(90% 46% at 50% 104%, rgba(232, 129, 31, 0.13), transparent 70%),
-    var(--title-art),
-    /* Vignette last of the gradients: it has to sit over the light, not under. */
-    radial-gradient(128% 92% at 50% 46%, transparent 46%, rgba(0, 0, 0, 0.62));
-  background-size: auto, auto, auto, cover, auto;
-  background-position: center, center, center, center, center;
+    linear-gradient(180deg, rgba(20, 23, 38, 0.72) 0%, rgba(20, 23, 38, 0.1) 38%, rgba(20, 23, 38, 0) 60%, rgba(20, 23, 38, 0.55) 100%),
+    var(--title-art);
+  background-size: auto, cover;
+  background-position: center, center 62%;
 }
 
-/* Tooth, not texture.
- *
- * A hair of noise over the whole ground. Large flat gradients band on cheap
- * panels and read as plastic on good ones, and a fine speckle breaks both up
- * for a few bytes. It is a separate layer rather than another background image
- * so the painting can slide in above it without inheriting the grain. */
+/* The facet tile over the whole painting, very faint: the render is already
+   low poly, and this ties it to the panels cut from the same pattern. */
 .hall::before {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.4;
-  background-image:
-    repeating-linear-gradient(
-      37deg,
-      rgba(255, 255, 255, 0.012) 0 1px,
-      rgba(0, 0, 0, 0.02) 1px 2px,
-      transparent 2px 5px
-    ),
-    repeating-linear-gradient(
-      -51deg,
-      rgba(255, 255, 255, 0.01) 0 1px,
-      transparent 1px 4px
-    );
+  opacity: 0.5;
+  background-image: var(--facets);
 }
 
 .hall-inner {
@@ -75,66 +46,78 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 46px;
+  margin-bottom: 40px;
   text-align: center;
 }
 .crest-main {
-  font-size: clamp(60px, 13vw, 108px);
+  font-size: clamp(64px, 14vw, 116px);
   font-weight: 600;
   line-height: 1;
-  letter-spacing: 0.06em;
-  font-variant-caps: small-caps;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--tallow);
-  /* Two shadows: a tight one that gives the letters an edge against the dark,
-     and the wide bloom that makes them the light source for the room. */
+  /* The letters are the lamp: a tight shadow to cut them out of the sky, and
+     a wide amber bloom around them. */
   text-shadow:
-    0 2px 1px rgba(0, 0, 0, 0.55),
-    0 0 52px rgba(232, 129, 31, 0.4);
+    0 3px 0 rgba(20, 23, 38, 0.6),
+    0 0 42px rgba(243, 156, 74, 0.55);
 }
 .crest-sub {
-  margin-top: 6px;
-  font-size: clamp(17px, 3.4vw, 24px);
+  margin-top: 8px;
+  padding: 3px 16px 4px;
+  font-family: Fredoka, Nunito, system-ui, sans-serif;
+  font-size: clamp(17px, 3.4vw, 23px);
   font-weight: 500;
-  font-variant-caps: small-caps;
-  letter-spacing: 0.09em;
-  color: var(--ember);
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  /* A gem-cut ribbon under the title: amber, cut in two. */
+  background-color: var(--ember);
+  background-image: linear-gradient(152deg, var(--flame) 0 45%, rgba(255, 255, 255, 0) 45%);
+  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0 50%);
 }
 
 .gates {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 14px;
-  /* The doors sit on their own plate, and the plate now has to hold its own
-     against a dark ground rather than against oak, so it is lit a shade more
-     than a plain `.timber` panel and carries a real shadow under it. */
-  background-color: var(--panel-lit);
-  box-shadow:
-    0 18px 44px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  gap: 9px;
+  padding: 16px;
+  --edge: 12px;
+  box-shadow: 0 18px 44px rgba(10, 12, 24, 0.55);
 }
-/* Size and rhythm only. The lit top edge, the metal hairline, the hover and the
-   press all come from the one `button` rule in `theme.css` — which is the whole
-   point of the migration, and why this block is now shorter than what it
-   replaced rather than longer. */
+/* Size and rhythm only: the cut, the split face, the hover and the press all
+   come from the one `button` rule in `theme.css`. */
 .gate {
+  --cut: 9px;
   width: 100%;
-  padding: 14px 18px;
+  padding: 13px 18px;
   font-size: 20px;
 }
+.gate:first-child {
+  /* The way into a game is the lamp. */
+  background-color: var(--ember);
+  background-image: linear-gradient(152deg, var(--flame) 0 42%, rgba(255, 255, 255, 0) 42%);
+  border-color: rgba(255, 226, 170, 0.6);
+  color: var(--ink);
+  font-weight: 800;
+}
+.gate:first-child:hover:not(:disabled) {
+  background-color: #f7aa5c;
+  color: var(--ink);
+  border-color: var(--flame);
+}
 
-/* The line nobody reads and everybody would miss. Dim enough to be furniture,
-   present enough to say this is a released thing with a number on it. */
+/* The line nobody reads and everybody would miss. */
 .hall-foot {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin: 18px 2px 0;
+  margin: 16px 4px 0;
   font-size: 12px;
   font-variant-caps: small-caps;
   letter-spacing: 0.09em;
-  color: var(--ash-dim);
+  color: var(--parchment);
+  text-shadow: 0 1px 2px rgba(20, 23, 38, 0.8);
 }
 .hall-version {
-  color: var(--metal-dim);
+  color: var(--ash);
 }

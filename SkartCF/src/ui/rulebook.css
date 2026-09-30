@@ -13,10 +13,26 @@
   scrollbar-width: thin;
   scrollbar-color: var(--metal-dim) transparent;
 }
+/* The book lies open on a dusk panel, cut like every other one. */
 .prose {
+  --edge: 14px;
   width: min(78ch, 92vw);
   margin: 0 auto;
+  padding: 28px 34px 34px;
   color: var(--parchment);
+  background-color: var(--panel);
+  background-image: var(--facet-split), var(--facets);
+  border: 1px solid var(--panel-edge);
+  clip-path: polygon(
+    var(--edge) 0,
+    calc(100% - var(--edge)) 0,
+    100% var(--edge),
+    100% calc(100% - var(--edge)),
+    calc(100% - var(--edge)) 100%,
+    var(--edge) 100%,
+    0 calc(100% - var(--edge)),
+    0 var(--edge)
+  );
 }
 .prose h1 {
   font-size: 34px;
@@ -94,3 +110,10 @@
   color: var(--tallow);
 }
 
+/* ------------------------------------------------------------------ phone */
+
+@media (max-width: 700px) {
+  .prose {
+    padding: 18px 16px 22px;
+  }
+}

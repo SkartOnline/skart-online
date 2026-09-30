@@ -77,7 +77,7 @@
   font-size: 13px;
   font-weight: 600;
   text-align: center;
-  color: #1c0e03;
+  color: #2f2335;
   background: var(--brass);
   border: 1px solid var(--oak-pitch);
 }
@@ -106,7 +106,7 @@
 .sieve button.here {
   background: linear-gradient(180deg, var(--ember), var(--ember-dim));
   border-color: var(--flame);
-  color: #1c0e03;
+  color: #2f2335;
 }
 .sieve .grow {
   flex: 1;
