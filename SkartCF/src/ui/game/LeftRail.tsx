@@ -169,9 +169,21 @@ export function Annals({
 export function Tools({
   onLog,
   logOpen,
-}: FieldProps & { onLog: () => void; logOpen: boolean }) {
+  threeD,
+  onThreeD,
+}: FieldProps & { onLog: () => void; logOpen: boolean; threeD: boolean; onThreeD: () => void }) {
   return (
     <div className="rail-tools">
+      {/* How the board is drawn on this device. Never what is on it. */}
+      <button
+        className={`glyph${threeD ? " on" : ""}`}
+        onClick={onThreeD}
+        title={threeD ? "Sík tábla" : "Térbeli tábla"}
+        aria-label="Térbeli tábla"
+        aria-pressed={threeD}
+      >
+        3D
+      </button>
       <button
         className={`glyph${logOpen ? " on" : ""}`}
         onClick={onLog}

@@ -12,7 +12,9 @@ import {
 } from "../../engine";
 import type { Action, GameState, PlayerId, SlotId } from "../../engine";
 import type { GuestMatch, HostMatch, MatchState } from "../../net";
-import Board, { Loaded } from "./Board";
+import { Loaded } from "./Board";
+import Surface from "../stage/Surface";
+import { readStage, writeStage } from "../stage/setting";
 import NewGame from "./NewGame";
 import type { Sides } from "./NewGame";
 import Lobby from "./Lobby";
@@ -641,6 +643,13 @@ function Field(props: FieldProps) {
   const asking = pendingPrompt(state);
   const pending = state.resolution?.pending ?? null;
   const [logOpen, setLogOpen] = useState(false);
+  /** Whether this device draws the board as a 3D table. A preference, not game state. */
+  const [threeD, setThreeD] = useState(readStage);
+  const toggleThreeD = () =>
+    setThreeD((on) => {
+      writeStage(!on);
+      return !on;
+    });
   /**
    * Which rail is up, on a phone. Both rails are columns beside the board on a
    * desktop and drawers over it here; `null` — nothing open — is the only value
@@ -1240,7 +1249,13 @@ function Field(props: FieldProps) {
         <Battlefield {...props} onLog={() => setLogOpen((v) => !v)} logOpen={logOpen} />
         <TurnCue {...props} moves={moves} viewer={viewer} />
         <span className="rail-gap" />
-        <Tools {...props} onLog={() => setLogOpen((v) => !v)} logOpen={logOpen} />
+        <Tools
+          {...props}
+          onLog={() => setLogOpen((v) => !v)}
+          logOpen={logOpen}
+          threeD={threeD}
+          onThreeD={toggleThreeD}
+        />
       </aside>
 
       {/* A thin strip of pictures beside the left rail, clear of everything the
@@ -1248,7 +1263,8 @@ function Field(props: FieldProps) {
       <Annals state={state} viewer={viewer} bare={bare} />
 
       <div className="arena">
-        <Board
+        <Surface
+          threeD={threeD}
           state={shown}
           open={open}
           onPick={pickSlot}

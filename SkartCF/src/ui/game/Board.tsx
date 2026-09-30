@@ -360,7 +360,7 @@ export function Loaded({ unit, state }: { unit: UnitInstance; state: GameState }
  * The counters a tile has to carry that are not on the printed card: damage,
  * modifiers, rings, shields and the count of spells lying on the unit.
  */
-function Marks({ unit, state }: { unit: UnitInstance; state: GameState }) {
+export function Marks({ unit, state }: { unit: UnitInstance; state: GameState }) {
   void state;
   const rings =
     unit.rings + attachmentsOn(unit).reduce((n, a) => n + (a.ring ? (a.powerDelta ?? 0) : 0), 0);
@@ -410,7 +410,7 @@ function Marks({ unit, state }: { unit: UnitInstance; state: GameState }) {
  * Ordered by how much they change your plan, not alphabetically. `locked` is
  * first because it is all three at once.
  */
-function Status({ unit, state }: { unit: UnitInstance; state: GameState }) {
+export function Status({ unit, state }: { unit: UnitInstance; state: GameState }) {
   const grants = grantsOf(state, unit);
   const rooted = !canMove(unit, state);
   const silenced = !canCast(unit, state);

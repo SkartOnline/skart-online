@@ -1,0 +1,124 @@
+/* ------------------------------------------------------------ the 3D stage */
+
+/* Stands where the 2D board would have: the arena lays it out exactly as it
+   lays out `.grids`, and the stage fits its camera to the rectangle it gets.
+   The height is the 2D board's — four tiles, three gaps and the line. */
+.stage-probe {
+  width: var(--board-w);
+  height: calc(var(--tile) * 3 + 134px);
+  max-height: 100%;
+  pointer-events: none;
+}
+
+/* The canvas fills the whole arena, not just the board's rectangle, so the
+   table runs on under the hands instead of stopping at a box edge. */
+.stage {
+  position: absolute;
+  inset: 0;
+}
+.stage-canvas {
+  position: absolute !important;
+  inset: 0;
+}
+
+.stage-tiles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Real buttons, clipped to the shape of each tile's top face. They are the
+   drop targets and the loupe's triggers; the canvas behind never is. So they
+   refuse all of the shared button chrome and show only a tint. */
+.stage-tile,
+.stage-tile:hover:not(:disabled),
+.stage-tile:active:not(:disabled) {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  pointer-events: auto;
+  cursor: default;
+}
+.stage-tile.open,
+.stage-tile.open:hover:not(:disabled) {
+  cursor: pointer;
+  background: rgba(232, 129, 31, 0.2);
+}
+.stage-tile.open:hover:not(:disabled),
+.stage-tile.open.hot {
+  background: rgba(255, 197, 92, 0.42);
+}
+.stage-tile:focus-visible {
+  outline: none;
+  background: rgba(248, 234, 208, 0.18);
+}
+.stage-tile.chasm {
+  cursor: not-allowed;
+}
+
+/* A unit's numbers, hung over its block. Never a target: the tile under it is. */
+.stage-hud {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px;
+  background: rgba(23, 15, 8, 0.84);
+  border: 1px solid var(--iron);
+  color: var(--tallow);
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.stage-hud.mine {
+  border-color: var(--brass);
+}
+.stage-hud.theirs {
+  border-color: var(--blood);
+}
+.stage-hud.veiled {
+  color: var(--ash-dim);
+  font-variant-caps: small-caps;
+}
+.stage-hud-name {
+  max-width: 9em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stage-hud .tile-power {
+  font-weight: 600;
+  font-size: 13px;
+}
+/* On the 2D tile these float in its corners; here they sit in the chip's row. */
+.stage-hud .marks {
+  position: static;
+  max-width: none;
+  flex-wrap: nowrap;
+}
+.stage-hud .tile-status {
+  flex: none;
+}
+.stage-hud .tile-status .status {
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------------------ phone */
+
+@media (max-width: 700px) {
+  /* A tile is a drop target for a finger, so it must not also scroll the page. */
+  .stage-tile {
+    touch-action: none;
+  }
+  .stage-hud {
+    font-size: 10px;
+    padding: 1px 4px;
+  }
+  .stage-hud-name {
+    max-width: 6em;
+  }
+}

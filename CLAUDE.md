@@ -56,7 +56,7 @@ public site.
 | Measuring the bot | `npm run mirror` — same deck both seats, so the matchup cancels; `--against baseline\|legacy`, `--no-secure` and friends ablate one change at a time, and it reports fields won **by position in the six**, which is the column that found the last real bug. Cross-deck win rates measure the card set, not the policy |
 | Reading the bot's play | `npm run replay -- --seed 7 --decks magus,felindori --seat p1` prints one game from one seat, every decision with the board and hand it was taken from. `npm run planner` reports **wasted casts** — the play-quality number a weak opponent cannot flatter. §13 of `docs/bot-algorithm.md` is what reading a trace found that six scans had not |
 | Card art | drop `src/ui/art/<cardId>.webp` — nothing else to change |
-| 3D board (planned, not built) | `docs/stage-3d.md` — a second renderer behind `Board`'s props, DOM tile layer over a canvas; no engine change |
+| 3D board | `docs/stage-3d.md` (plan + what each phase found) → `src/ui/stage/`: `Surface.tsx` (2D or 3D, lazy, falls back to 2D), `Stage.tsx` (canvas + clipped `[data-slot]` tile layer, same props as `Board`), `layout.ts` (slot → world, camera fit, projection; pure and tested), `setting.ts` (per-device toggle). Phase 0 built; no engine change, ever |
 
 ## Invariants — do not break
 

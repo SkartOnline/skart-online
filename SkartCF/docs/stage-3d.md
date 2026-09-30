@@ -5,7 +5,8 @@ models standing on the twelve tiles, spells that fly across the arcvonal. **No
 rule changes.** The engine, the simulator, the bot, online play and the card
 data stay exactly as they are; this is a second way of drawing `GameState`.
 
-Nothing here is built yet. This document is the plan and the seams it hangs on.
+**Phase 0 is built** (`src/ui/stage/`, the *3D* button in the tools rail);
+phases 1–4 are still plan. See §12 for what phase 0 found.
 
 ---
 
@@ -225,6 +226,33 @@ Each phase ends playable, with the 2D board one toggle away.
 camera, the projected tile layer, units as coloured boxes. *Exit:* a whole
 hotseat game can be played on it by drag and by tap, and online as the guest.
 **This is the go/no-go on the idea.**
+
+*Built.* What it is and what it found:
+
+- `layout.ts` is the pure core: slot → world, `fitCamera` (bisects the
+  distance, then slides the view with `setViewOffset` so the board sits
+  between the hands without being seen from a different angle), and
+  `projectTile`. `layout.test.ts` pins the viewer-near rule, column order, the
+  fit, and that no two tiles' hit areas share a point.
+- The camera is fitted to `.stage-probe`, an empty box sized like the 2D board
+  and laid out in the arena's own flow. So the 3D board lands exactly where
+  the 2D one would, clear of both hands, with the loupe's column free, and it
+  inherits the phone padding for nothing.
+- The tile layer is twelve `<button data-slot>`s clipped (`clip-path`) to
+  each tile's projected top face. `beginCardDrag`, `flyTo` and the loupe
+  worked unchanged. Checked in the browser: drag-to-play, clicking an open
+  tile, the loupe on hover, a hidden play, three battles against the bot
+  through scoring and leszerelés, and an online room played from both seats.
+  The guest draws the host's face-down unit as a blank block without falling
+  back to 2D.
+- Pieces are keyed by `uid`, so a march slides instead of popping. Flourishes
+  read the same `stirring` / `fallen` / `marks` the 2D board does.
+  `frameloop="demand"` means an idle board draws nothing.
+- drei was not needed yet; the stack is `three` + `@react-three/fiber` v8.
+- Left for phase 1: the phone has no way to reach the toggle (the tools rail
+  is not on the phone strip), so it follows whatever the desktop chose. Trap
+  names and status icons have no hover titles on the 3D board yet, because the
+  HUD is `pointer-events: none`.
 
 **1 — Parity with placeholders.** Primitive archetype stand-ins (capsule-and-cone
 people, box beasts), the HUD reused from `Board`, every beat in §7 with
