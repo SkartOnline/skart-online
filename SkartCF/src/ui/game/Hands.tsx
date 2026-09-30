@@ -152,6 +152,8 @@ export function NearHand(
     onDrag: (event: React.PointerEvent, held: Held) => void;
     /** Only for Fuedrax's trap, where the drop tile is the second answer. */
     onDragTrap: (event: React.PointerEvent, uid: string) => void;
+    /** Leszerelés: carry a card to the discard box. */
+    onDragToss: (event: React.PointerEvent, uid: string) => void;
     onRead: (uid: string | null) => void;
     /** The card currently in the air, drawn as a gap in the fan. */
     lifted: string | null;
@@ -167,6 +169,7 @@ export function NearHand(
     viewer,
     onDrag,
     onDragTrap,
+    onDragToss,
     onRead,
     lifted,
     veilNext,
@@ -438,7 +441,13 @@ export function NearHand(
                 // Pick the card up and drop it on a tile. Selecting the card is
                 // the same thing a click does, so the tiles light up either way
                 // and the two ways of playing share one code path.
-                onDragStart={live ? (e) => onDrag(e, lift(c.uid)) : undefined}
+                onDragStart={
+                  live
+                    ? (e) => onDrag(e, lift(c.uid))
+                    : toss
+                      ? (e) => onDragToss(e, c.uid)
+                      : undefined
+                }
               >
                 <CardFace card={card} />
               </Slot>
@@ -470,6 +479,7 @@ export function NearHand(
                         ? () => send({ type: "castSpell", player: viewer, uid: c.uid })
                         : undefined
                 }
+                onDragStart={drop ? (e) => onDragToss(e, c.uid) : undefined}
               >
                 <CardFace card={card} className="spell" />
                 {isMasterSpell(card) && <span className="master-tag">Mesteri</span>}

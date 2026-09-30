@@ -811,6 +811,19 @@
 .tile-range {
   color: var(--frost);
 }
+/* Power above or below what is printed. */
+.tile-power.up,
+.cf-power.up {
+  color: #6fe07a;
+}
+.tile-power.down,
+.cf-power.down {
+  color: #ff5b4a;
+}
+.disarming.hot .disarming-box {
+  border-color: var(--ember);
+  background: rgba(232, 129, 31, 0.14);
+}
 
 .marks {
   position: absolute;

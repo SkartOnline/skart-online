@@ -1096,6 +1096,30 @@ function Field(props: FieldProps) {
     setReading(null);
   }
 
+  /**
+   * Leszerelés by hand: carry the card to the box. A tap still stages it, as the
+   * click did, because the drag swallows the click it would have been.
+   */
+  function startTossDrag(event: React.PointerEvent, uid: string) {
+    if (event.button !== 0 || state.phase !== "cleanup") return;
+    const stage = () => props.setStaged(props.staged.includes(uid) ? props.staged : [...props.staged, uid]);
+    const session = beginCardDrag(uid, event.nativeEvent, {
+      onDrop: () => setLifted(null),
+      onZone: () => {
+        setLifted(null);
+        stage();
+      },
+      onEnd: (moved) => {
+        setLifted(null);
+        if (!moved) stage();
+      },
+    });
+    if (!session) return;
+    event.preventDefault();
+    setLifted(uid);
+    setReading(null);
+  }
+
   const over = state.phase === "gameOver";
   const inHand = [...state.players[viewer].unitHand, ...state.players[viewer].spellHand];
   const liftedStillHeld = lifted && inHand.some((c) => c.uid === lifted) ? lifted : null;
@@ -1261,6 +1285,7 @@ function Field(props: FieldProps) {
           viewer={viewer}
           onDrag={startDrag}
           onDragTrap={startTrapDrag}
+          onDragToss={startTossDrag}
           onRead={setReading}
           lifted={liftedStillHeld}
         />

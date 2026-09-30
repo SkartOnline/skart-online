@@ -330,7 +330,7 @@ export function Disarming({
   onDone: () => void;
 }) {
   return (
-    <div className="disarming timber">
+    <div className="disarming timber" data-drop="discard">
       <b>Leszerelés</b>
       <em>
         {owed > 0
@@ -353,7 +353,7 @@ export function Disarming({
       <div className={`disarming-box${staged.length === 0 ? " empty" : ""}`}>
         {staged.length === 0 ? (
           <span className="disarming-empty">
-            Kattints a kezedben arra a lapra, amit eldobnál, és ide kerül.
+            Kattints a kezedben arra a lapra, amit eldobnál — vagy húzd ide.
           </span>
         ) : (
           staged.map((card) => {

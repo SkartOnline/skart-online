@@ -914,7 +914,13 @@ export interface DragSession {
 export function beginCardDrag(
   uid: string,
   event: PointerEvent,
-  handlers: { onDrop: (slot: SlotId) => void; onEnd: () => void },
+  handlers: {
+    onDrop: (slot: SlotId) => void;
+    /** `moved` is false for a press that never left the card: a tap, not a drag. */
+    onEnd: (moved: boolean) => void;
+    /** Leszerelés: a drop on `[data-drop]` instead of a tile. */
+    onZone?: () => void;
+  },
 ): DragSession | null {
   const layer = document.querySelector<HTMLElement>(".flight-layer");
   const flight = captureHandCard(uid);
@@ -933,6 +939,11 @@ export function beginCardDrag(
   document.body.classList.add("dragging-card");
 
   let hot: Element | null = null;
+  let moved = false;
+  let zone: Element | null = null;
+
+  const zoneUnder = (x: number, y: number): Element | null =>
+    handlers.onZone ? (document.elementFromPoint(x, y)?.closest("[data-drop]") ?? null) : null;
 
   const place = (x: number, y: number) => {
     node.style.left = `${x - grabX}px`;
@@ -953,8 +964,15 @@ export function beginCardDrag(
   };
 
   const move = (e: PointerEvent) => {
+    if (Math.hypot(e.clientX - event.clientX, e.clientY - event.clientY) > 6) moved = true;
     place(e.clientX, e.clientY);
     markHot(tileUnder(e.clientX, e.clientY));
+    const z = zoneUnder(e.clientX, e.clientY);
+    if (z !== zone) {
+      zone?.classList.remove("hot");
+      z?.classList.add("hot");
+      zone = z;
+    }
   };
 
   const finish = (e: PointerEvent | null) => {
@@ -963,11 +981,15 @@ export function beginCardDrag(
     window.removeEventListener("pointercancel", stop);
     document.body.classList.remove("dragging-card");
     const tile = e ? tileUnder(e.clientX, e.clientY) : null;
+    const inZone = e && moved ? zoneUnder(e.clientX, e.clientY) : null;
     markHot(null);
+    zone?.classList.remove("hot");
+    zone = null;
     node.remove();
     const slot = tile?.getAttribute("data-slot");
     if (slot) handlers.onDrop(slot);
-    else handlers.onEnd();
+    else if (inZone) handlers.onZone?.();
+    else handlers.onEnd(moved);
   };
 
   const stop = () => finish(null);

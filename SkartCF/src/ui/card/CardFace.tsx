@@ -102,7 +102,15 @@ export default function CardFace({ card, livePower, pools, className }: Props) {
           })}
         </span>
         {isUnit(card) && (
-          <span className="cf-power num">
+          <span
+            className={`cf-power num${
+              livePower === undefined || livePower === card.power
+                ? ""
+                : livePower > card.power
+                  ? " up"
+                  : " down"
+            }`}
+          >
             {livePower !== undefined && livePower !== card.power ? livePower : card.power}
           </span>
         )}
@@ -170,7 +178,15 @@ export function CardTile({
             already reads the foot in: what it can do, what is being done to
             it, what it is worth. */}
         {status}
-        {isUnit(card) && <span className="tile-power num">{power ?? card.power}</span>}
+        {isUnit(card) && (
+          <span
+            className={`tile-power num${
+              power === undefined || power === card.power ? "" : power > card.power ? " up" : " down"
+            }`}
+          >
+            {power ?? card.power}
+          </span>
+        )}
         {isSpell(card) && card.target && <span className="tile-range num">{card.target.range}</span>}
       </span>
       {children}
