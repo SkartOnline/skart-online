@@ -134,10 +134,10 @@
   );
 }
 .annal.unit {
-  background-color: #533317;
+  background-color: #7a5a44;
 }
 .annal.spell {
-  background-color: #3b2f4e;
+  background-color: #5d4d8a;
 }
 .annal.mine {
   border-left-color: var(--brass);
@@ -159,7 +159,7 @@
    picture and refuses the hover the others answer. */
 .annal.veiled {
   cursor: default;
-  background-color: #2a1c0e;
+  background-color: var(--oak);
 }
 .annal.veiled:hover {
   border-color: var(--ink-edge);
@@ -634,9 +634,11 @@
   padding: 0;
   text-align: left;
   border-radius: 0;
-  background-color: rgba(20, 23, 38, 0.66);
-  background-image: var(--grain);
-  border: 1px solid rgba(85, 90, 134, 0.6);
+  /* A slab of dusk, faceted like every other surface; the 3D board draws the
+     same tile as stone. */
+  background-color: var(--oak);
+  background-image: var(--facet-split), var(--facets);
+  border: 1px solid var(--panel-edge);
   color: var(--tallow);
   font-weight: 400;
   overflow: visible;
@@ -692,20 +694,18 @@
   display: grid;
   place-items: center;
 }
+/* The one cloak every hidden unit wears on the 3D board, in violet. */
 .cell.veiled {
-  background-image: repeating-linear-gradient(
-    45deg,
-    rgba(85, 90, 134, 0.3) 0 6px,
-    rgba(20, 23, 38, 0.44) 6px 12px
-  );
+  background-color: #3b3040;
+  background-image: var(--facet-split), var(--facets);
 }
+/* A szakadék: deep water where the slab was, as the 3D board draws it. */
 .cell.chasm {
-  background-image: repeating-linear-gradient(
-    -45deg,
-    rgba(12, 14, 26, 0.86) 0 7px,
-    rgba(28, 32, 52, 0.86) 7px 14px
-  );
-  color: var(--ash-dim);
+  background-color: #1f3a55;
+  background-image:
+    linear-gradient(152deg, rgba(147, 203, 228, 0.12) 0 30%, rgba(0, 0, 0, 0) 30% 70%, rgba(0, 0, 0, 0.18) 70%),
+    var(--facets);
+  color: var(--frost);
   cursor: not-allowed;
 }
 
@@ -953,8 +953,8 @@
   display: block;
   width: max-content;
   max-width: 260px;
-  background: #180f08;
-  background-image: var(--grain);
+  background-color: var(--oak-deep);
+  background-image: var(--facet-split), var(--facets);
   border: 1px solid var(--iron);
   padding: 6px;
 }
@@ -3939,7 +3939,8 @@ body.dragging-card {
     display: flex;
     height: calc(var(--dock-h) + var(--safe-b));
     padding-bottom: var(--safe-b);
-    background: rgba(18, 12, 6, 0.96);
+    background-color: var(--oak-deep);
+    background-image: var(--facet-split), var(--facets);
     border-top: 1px solid var(--iron);
     backdrop-filter: blur(8px);
   }

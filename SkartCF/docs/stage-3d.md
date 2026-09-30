@@ -428,4 +428,22 @@ What the stage work already gives it:
   files, `src/ui/card/CardFace.tsx` and `card.css`, with the phone rules at the
   foot of each.
 
-Until it starts, nothing in the old parchment-and-oak look gets polished.
+**Started (2026-09-30), in the dusk, lamp-lit mood**:
+
+- `theme.css` carries the dusk tokens under the old token names, so every
+  screen moved at once. The low-poly look is three things: `--edge`
+  chamfers, `--facet-split` (a face cut into light and shadow) and `--facets`
+  (a seamless triangulated tile). Nunito for text, Fredoka for display and
+  numbers (`fonts.css`, both with latin-ext for ő and ű).
+- The menu stands on `menu-valley.webp`, the teaser's valley re-lit at dusk
+  by `blender/backdrop.py`.
+- Cards (`card.css`): a faceted frame by kind (`kind-*`, which `CardFace` now
+  sets itself), cream plates, and gem-cut cost, power, range and pips. Backs
+  match the fronts.
+- Rails, dock, rulebook, editor, collection and the 2D board tiles are all in
+  dusk. About 100 oak-era colour literals in `game.css` were remapped.
+- Battlefield art: `blender/battlefields.py` renders each battlefield's
+  ground, from the same data as the 3D board.
+- Still to come: spell art (once spells have something to render), a pass over
+  the smaller in-game panels (the almanac, the aftermath, the hide toll) at
+  full size, and per-battlefield room tints for the 2D board.
