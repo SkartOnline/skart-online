@@ -1,0 +1,6 @@
+frames/
+stills/
+*.blend
+*.blend1
+*.mp4
+render.log
