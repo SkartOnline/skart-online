@@ -268,7 +268,7 @@ function Cell({
  * spent pool and upwards for a battlefield handing out spellpower, which is not
  * a loss and must not be coloured like one.
  */
-function poolsOf(
+export function poolsOf(
   unit: UnitInstance,
   state: GameState,
 ): Record<string, { left: number; max: number }> {

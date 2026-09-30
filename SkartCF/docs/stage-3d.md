@@ -5,8 +5,9 @@ models standing on the twelve tiles, spells that fly across the arcvonal. **No
 rule changes.** The engine, the simulator, the bot, online play and the card
 data stay exactly as they are; this is a second way of drawing `GameState`.
 
-**Phase 0 is built** (`src/ui/stage/`, the *3D* button in the tools rail);
-phases 1–4 are still plan. See §12 for what phase 0 found.
+**Phases 0 and 1 are built** (`src/ui/stage/`, the *3D* button in the tools
+rail or the chronicle panel); phases 2–4 are still plan. See §12 for what
+each phase found.
 
 ---
 
@@ -260,6 +261,49 @@ procedural motion, fallen ghosts, cast rings, traps, szakadék, veiled units,
 battlefield colour per location, the toggle, the WebGL and reduced-motion
 fallbacks, the phone tier. *Exit:* everything the 2D board tells you, the 3D one
 tells you too.
+
+*Built.* What it is and what it found:
+
+- **Looks come from card data, not card names** (`looks.ts`). `race` picks a
+  creature body (Állat → beast, Bestia → brute, Sárkány → dragon, Élettelen →
+  construct), then Keleti origin → eastern, then `order`, the Rend (Harcos →
+  soldier, Mágus/Druida/Garabonciás… → caster, Orgyilkos/Csempész/Kalóz →
+  rogue, Polgár → commoner). Order picks the cloth, origin picks the trim, so
+  every Felindori unit wears the same gold. `LOOKS` is the per-card override,
+  empty until the card art brief arrives. The data was already good enough:
+  every one of the 89 units resolves, and `looks.test.ts` pins it.
+- **Bodies are the teaser's primitives** (`models.tsx`): flat-shaded cones,
+  icospheres and boxes in person units, scaled onto the tile. Geometry and
+  materials are cached and shared. A face-down unit wears one cloak for
+  everyone, with no size or colour of its own, and a hidden unit that dies
+  bursts in the cloak's colours.
+- **Grounds come from the 2D board's own battlefield descriptions**
+  (`ground.ts`): all 15 have a faceted ground palette, sky, fog distance, light
+  and a seeded prop scatter (pine, round and dead trees, rocks, crates,
+  columns). Ködrét closes the fog right in, Kesergő and Umbra go dark.
+- **The szakadék** is dark water with the broken slab tipped into it, plus a
+  DOM label.
+- **Every beat has motion and an effect** (`fx.tsx`):
+  - land: drop, squash, dust
+  - veil: rises out of dark smoke
+  - reveal: a pop and a burst in the unit's trim colour
+  - march: slides and hops
+  - strike: flinch, sparks, chips
+  - fall: thrown back, a flash, shards in the unit's colours, smoke, and the name fading as the pyre
+  - cast: a bolt arcing from caster to target in the mark's colour
+- **HUD parity:** spellpower pools as the tile's pips, coordinates, trap
+  labels and titles (the spell name only for its owner), pyre names, and
+  status glyphs you can point at.
+- **The phone:** the chronicle panel carries a 3D switch, since the tools rail
+  is not on the phone strip. The phone tier draws no shadows, a lower pixel
+  ratio and half the scenery.
+- Checked in the browser: a full match against the bot to game over across
+  four battlefields (Máguskör, A Pék hídja, Akáczos, Faloda), the szakadék, the
+  chronicle toggle both ways, no runtime errors. The cast bolt ran without
+  errors but was never caught on screen in a screenshot.
+- Still open: the battlefield change has no camera move yet. Bolts are tinted
+  by foe/friend, not by school (school tints are phase 3). The 3D board is
+  still off by default.
 
 **2 — Art direction and archetypes.** One style sheet (palette, silhouette
 rules, poly budget ~300–1500 tris a unit), the palette texture, the 8–10

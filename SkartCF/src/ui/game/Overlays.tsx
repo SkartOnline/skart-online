@@ -5,12 +5,28 @@ import type { GameState, PlayerId } from "../../engine";
  * The two full-screen overlays: the chronicle panel and the end-of-game casket.
  */
 
-export function Chronicle({ state, onClose }: { state: GameState; onClose: () => void }) {
+export function Chronicle({
+  state,
+  onClose,
+  threeD,
+  onThreeD,
+}: {
+  state: GameState;
+  onClose: () => void;
+  threeD: boolean;
+  onThreeD: () => void;
+}) {
   const lines = state.log.filter((l) => l.location === state.locationIndex).slice(-80);
   return (
     <div className="chronicle-panel timber">
       <div className="rail-top">
         <b>Krónika</b>
+        {/* How this device draws the board. Here as well as in the tools rail,
+            because on a phone the rail is a strip and this panel is the drawer
+            for everything about the match rather than the position. */}
+        <button className={`quiet tiny${threeD ? " on" : ""}`} onClick={onThreeD} aria-pressed={threeD}>
+          3D
+        </button>
         <button className="quiet tiny" onClick={onClose}>
           ✕
         </button>

@@ -25,8 +25,8 @@ export const PITCH = 1.12;
 export const LINE = 0.72;
 /** The tiles are slabs; their tops are at this height. */
 export const TILE_TOP = 0.06;
-/** Tallest a unit piece can stand, for fitting the camera around the board. */
-export const REACH = 0.95;
+/** Tallest a unit body can stand, for fitting the camera around the board. */
+export const REACH = 1.1;
 
 /** How far the camera looks down, from the horizontal. Steep reads like a board game. */
 export const ELEVATION = (54 * Math.PI) / 180;
@@ -181,9 +181,4 @@ export function projectAbove(
 ) {
   const { x, z } = slotWorld(slot, viewer);
   return toScreen(new Vector3(x, lift, z), camera, width, height);
-}
-
-/** How tall a unit piece stands, by power: taller is stronger, within reason. */
-export function pieceHeight(power: number): number {
-  return Math.min(REACH - 0.05, 0.28 + 0.055 * Math.max(0, power));
 }

@@ -1487,7 +1487,9 @@ function Field(props: FieldProps) {
 
       {props.prologue && <Prologue state={state} botSide={botSide} onDone={props.endPrologue} />}
 
-      {logOpen && <Chronicle state={state} onClose={() => setLogOpen(false)} />}
+      {logOpen && (
+        <Chronicle state={state} onClose={() => setLogOpen(false)} threeD={threeD} onThreeD={toggleThreeD} />
+      )}
       {over && (
         <Aftermath
           state={state}
