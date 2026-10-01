@@ -28,8 +28,12 @@ export const TILE_TOP = 0.06;
 /** Tallest a unit body can stand, for fitting the camera around the board. */
 export const REACH = 1.1;
 
-/** How far the camera looks down, from the horizontal. Steep reads like a board game. */
-export const ELEVATION = (54 * Math.PI) / 180;
+/**
+ * How far the camera looks down, from the horizontal. 54° read like a board
+ * game and hid every face under a hat brim; 40° still shows all twelve tiles
+ * plainly and lets the two sides look at each other.
+ */
+export const ELEVATION = (40 * Math.PI) / 180;
 /** Vertical field of view. Narrow, so the far rank is not much smaller than the near. */
 export const FOV = 30;
 
@@ -90,11 +94,85 @@ function boardBox(camera: PerspectiveCamera, width: number, height: number): Rec
   return { left: minX, top: minY, width: maxX - minX, height: maxY - minY };
 }
 
-function place(camera: PerspectiveCamera, distance: number) {
-  camera.position.set(0, Math.sin(ELEVATION) * distance, Math.cos(ELEVATION) * distance);
+/**
+ * How the player has turned the table: an orbit around a point on it.
+ *
+ * `yaw` turns round the vertical (0 is the viewer's own side), `pitch` is the
+ * angle down from the horizontal, `zoom` scales the fitted distance, and `x`,
+ * `z` is the point on the table the camera orbits and looks at. `HOME` is the
+ * fitted view every game starts in, and the one the reset button goes back to.
+ */
+export interface View {
+  yaw: number;
+  pitch: number;
+  zoom: number;
+  x: number;
+  z: number;
+}
+
+export const HOME: View = { yaw: 0, pitch: ELEVATION, zoom: 1, x: 0, z: 0 };
+
+/**
+ * How far the camera may be taken. Low enough to see faces, never under the
+ * table or past the edge of the ground, and never so far the board is a stamp.
+ */
+export const LIMITS = {
+  pitch: [(22 * Math.PI) / 180, (86 * Math.PI) / 180],
+  zoom: [0.4, 1.6],
+  x: PITCH * 1.5 + TILE,
+  z: LINE / 2 + PITCH + TILE * 1.5,
+} as const;
+
+export function clampView(view: View): View {
+  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+  return {
+    yaw: view.yaw,
+    pitch: clamp(view.pitch, LIMITS.pitch[0], LIMITS.pitch[1]),
+    zoom: clamp(view.zoom, LIMITS.zoom[0], LIMITS.zoom[1]),
+    x: clamp(view.x, -LIMITS.x, LIMITS.x),
+    z: clamp(view.z, -LIMITS.z, LIMITS.z),
+  };
+}
+
+/** Whether a view is, to the eye, the fitted one. */
+export function isHome(view: View): boolean {
+  const turn = Math.abs(Math.atan2(Math.sin(view.yaw), Math.cos(view.yaw)));
+  return (
+    turn < 0.01 &&
+    Math.abs(view.pitch - HOME.pitch) < 0.01 &&
+    Math.abs(view.zoom - 1) < 0.01 &&
+    Math.abs(view.x) < 0.01 &&
+    Math.abs(view.z) < 0.01
+  );
+}
+
+/** Which way "forward" and "right" point on the table, for a camera turned by `yaw`. */
+export function groundAxes(yaw: number) {
+  return {
+    forward: { x: -Math.sin(yaw), z: -Math.cos(yaw) },
+    right: { x: Math.cos(yaw), z: -Math.sin(yaw) },
+  };
+}
+
+function place(camera: PerspectiveCamera, distance: number, view: View = HOME) {
+  const flat = Math.cos(view.pitch) * distance;
+  camera.position.set(
+    view.x + Math.sin(view.yaw) * flat,
+    Math.sin(view.pitch) * distance,
+    view.z + Math.cos(view.yaw) * flat,
+  );
   camera.up.set(0, 1, 0);
-  camera.lookAt(0, 0, 0);
+  camera.lookAt(view.x, 0, view.z);
   camera.updateMatrixWorld(true);
+}
+
+/** What `fitCamera` worked out: the home distance, and the lens shift that centres the board. */
+export interface Fit {
+  distance: number;
+  width: number;
+  height: number;
+  dx: number;
+  dy: number;
 }
 
 /**
@@ -111,7 +189,7 @@ function place(camera: PerspectiveCamera, distance: number) {
  * `setViewOffset` shift keeps every angle the same, so the board is never
  * seen from a different side just because a hand is taller than the other.
  */
-export function fitCamera(camera: PerspectiveCamera, width: number, height: number, safe: Rect): void {
+export function fitCamera(camera: PerspectiveCamera, width: number, height: number, safe: Rect): Fit {
   camera.fov = FOV;
   camera.aspect = width / Math.max(1, height);
   camera.near = 0.1;
@@ -134,6 +212,18 @@ export function fitCamera(camera: PerspectiveCamera, width: number, height: numb
   const dx = box.left + box.width / 2 - (safe.left + safe.width / 2);
   const dy = box.top + box.height / 2 - (safe.top + safe.height / 2);
   camera.setViewOffset(width, height, dx, dy, width, height);
+  camera.updateProjectionMatrix();
+  return { distance: far, width, height, dx, dy };
+}
+
+/**
+ * Stand the camera for a view, keeping the fit's lens shift: whatever point
+ * the player orbits stays where the board's centre was on the screen, between
+ * the hands, and only the angle and the distance change.
+ */
+export function aimCamera(camera: PerspectiveCamera, fit: Fit, view: View): void {
+  place(camera, fit.distance * view.zoom, view);
+  camera.setViewOffset(fit.width, fit.height, fit.dx, fit.dy, fit.width, fit.height);
   camera.updateProjectionMatrix();
 }
 

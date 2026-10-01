@@ -131,16 +131,49 @@ The files in `src/ui/stage/`:
 | `vfx.ts` | Spell card → motif, colour, mass reach. Pure, tested |
 | `preload.ts` | Fetches the chunk and the models in the background; `useStageLoad` says how far |
 | `Loading.tsx` | The curtain a game waits behind until the canvas has drawn |
+| `Controls.tsx` | The player's camera: right-drag turns, arrows slide, wheel zooms |
 | `looksdump.ts` | `npm run looks`: every unit's look as JSON for the Blender scripts |
 | `models/*.glb` | The models, from `blender/models.py` or by hand |
 
 ## 5. Camera and layout
 
-A fixed three-quarter view from the viewer's side, the viewer's half near,
-mirrored for `p2`, the same rule `Board` follows. No orbit. A free camera is
-where legibility dies and the DOM tile layer stops being cheap. Allowed motion:
-a slow sweep when a battlefield turns over (`battlefield` beat), and a small
-push-in on a `cast`. Both run inside the beat window.
+Every game starts in a fitted three-quarter view from the viewer's side, the
+viewer's half near, mirrored for `p2`, the same rule `Board` follows (`HOME`
+in `layout.ts`). From there **the player moves it** (`Controls.tsx`, since
+2026-10-01; the plan said "no orbit", and that was overruled):
+
+- **right-drag** anywhere on the game screen turns the table round its centre
+  and tilts it (22°–86° down from the horizontal; there is no browser menu on
+  the game screen at all);
+- **the arrow keys** slide the point it orbits across the table, in the
+  direction the camera faces;
+- **the wheel**, over the board, zooms (0.4×–1.6× the fitted distance);
+- **⟲ Nézet** appears once the view has moved and glides it home;
+- **on a touch screen**, over the board: one finger dragged turns and tilts,
+  two fingers pinch to zoom, twist to turn, and move together to slide. A
+  touch that never travelled past `DRAG_SLOP` is a tap and reaches the tile
+  under it, so tap-to-play is unchanged; one that did is a camera gesture and
+  its click is swallowed. `.stage` is `touch-action: none`.
+
+The home view looks down at 40° (`ELEVATION`). It was 54°, which read like a
+board game and hid every caster's face under the hat brim, so both sides
+seemed to be looking away; the brims were narrowed at the same time
+(`blender/models.py`, `models.tsx`, and the 40 portraits re-rendered).
+
+A right *click* still takes back a half-declared spell. The field judges it on
+release: a press that wandered more than `DRAG_SLOP` pixels was a turn of the
+table, not a cancel. The camera keeps the fit's lens shift, so whatever point
+is orbited stays where the board's centre was, between the hands. The DOM
+tile layer is re-projected on every camera step, which was the cost the plan
+was afraid of. It turned out to be twelve rectangles and a few labels, and
+`Scene` is memoised so only the tile layer redraws, synchronously
+(`flushSync`) so the buttons and labels never trail the canvas by a frame. Fog is measured from the
+camera each frame, so zooming neither buries the board nor clears the mist.
+
+Automatic motion, still to come (phase 4): a slow sweep when a battlefield
+turns over (`battlefield` beat), and a small push-in on a `cast`. Both run
+inside the beat window, and neither may fight a player who is holding the
+camera.
 
 The grid is the real one: two sides × two ranks (F, B) × three columns, twelve
 tiles, the arcvonal between the front ranks. **The grid and unit sizes are
@@ -503,7 +536,7 @@ What the stage work already gives it:
 - `theme.css` carries the dusk tokens under the old token names, so every
   screen moved at once. The low-poly look is three things: `--edge`
   chamfers, `--facet-split` (a face cut into light and shadow) and `--facets`
-  (a seamless triangulated tile). Nunito for text, Fredoka for display and
+  (a seamless triangulated tile). Nunito for text, Baloo 2 for display and
   numbers (`fonts.css`, both with latin-ext for ő and ű).
 - The menu stands on `menu-valley.webp`, the teaser's valley re-lit at dusk
   by `blender/backdrop.py`.

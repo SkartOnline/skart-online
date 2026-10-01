@@ -67,6 +67,9 @@
 
   --edge: 8px; /* the chamfer every panel and button is cut with */
 
+  /* The display face: titles, buttons' small caps, and every number. */
+  --display: "Baloo 2", Nunito, system-ui, sans-serif;
+
   /* ---------------------------------------------------------------- chrome
    *
    * Panels are dusk glass: a violet-blue face, a pale lavender hairline, the
@@ -129,14 +132,14 @@ h1,
 h2,
 h3,
 h4 {
-  font-family: Fredoka, Nunito, system-ui, sans-serif;
+  font-family: var(--display);
   font-weight: 600;
   line-height: 1.15;
   margin: 0;
   text-wrap: balance;
 }
 .num {
-  font-family: Fredoka, Nunito, system-ui, sans-serif;
+  font-family: var(--display);
 }
 
 button,

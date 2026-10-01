@@ -1,13 +1,39 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { ComponentProps, ReactNode } from "react";
-import { BufferAttribute, Color, HalfFloatType, PerspectiveCamera, PlaneGeometry, Vector2, Vector3, WebGLRenderTarget } from "three";
+import { flushSync } from "react-dom";
+import {
+  BufferAttribute,
+  Color,
+  HalfFloatType,
+  PerspectiveCamera,
+  PlaneGeometry,
+  Vector2,
+  Vector3,
+  WebGLRenderTarget,
+} from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import type { Group } from "three";
-import { cardOf, coordLabel, getSpell, getUnit, isBlocked, power, trapAt } from "../../engine";
+import {
+  cardOf,
+  coordLabel,
+  getSpell,
+  getUnit,
+  isBlocked,
+  power,
+  trapAt,
+} from "../../engine";
 import type { GameState, PlayerId, SlotId, UnitInstance } from "../../engine";
 import Board, { Marks, Status, poolsOf } from "../game/Board";
 import { castingPips, schoolSlug } from "../card/model";
@@ -19,7 +45,21 @@ import type { Clip } from "./Figure";
 import { Burst, Gather, Shards, Spell } from "./fx";
 import { groundOf, scatter } from "./ground";
 import type { Ground } from "./ground";
-import { LINE, PITCH, TILE, TILE_TOP, fitCamera, projectAbove, projectTile, slotWorld, slotsOf } from "./layout";
+import { Controls } from "./Controls";
+import {
+  HOME,
+  LINE,
+  PITCH,
+  TILE,
+  TILE_TOP,
+  aimCamera,
+  fitCamera,
+  projectAbove,
+  projectTile,
+  slotWorld,
+  slotsOf,
+} from "./layout";
+import type { Fit, View } from "./layout";
 import { VEILED, hash, lookOf } from "./looks";
 import type { Body as BodyKind, Look } from "./looks";
 import { BODY_SCALE, Scenery, flat } from "./models";
@@ -86,11 +126,13 @@ const TOP: Record<BodyKind, number> = {
 const topOf = (look: Look) => TOP[look.body] * BODY_SCALE * look.scale;
 
 const reduced = (): boolean =>
-  typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  typeof window !== "undefined" &&
+  !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 /** A phone draws less: no shadows, a lower pixel ratio, half the scenery. */
 const lite = (): boolean =>
-  typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 700px)").matches;
+  typeof window !== "undefined" &&
+  !!window.matchMedia?.("(max-width: 700px)").matches;
 
 // Every model up front: the first board takes a moment longer, and nothing
 // pops in from a primitive body halfway through a game. `preload.ts` usually
@@ -98,7 +140,9 @@ const lite = (): boolean =>
 void preloadModels(allModels());
 
 /** Every model there is, ticking as each lands: what `preload.ts` waits on. */
-export function loadAssets(onEach?: (done: number, total: number) => void): Promise<void> {
+export function loadAssets(
+  onEach?: (done: number, total: number) => void,
+): Promise<void> {
   return preloadModels(allModels(), onEach);
 }
 
@@ -126,21 +170,53 @@ export default function Stage(props: Props) {
     (c as PerspectiveCamera & { manual: boolean }).manual = true;
     return c;
   }, []);
-  const [frame, setFrame] = useState<{ width: number; height: number; version: number } | null>(null);
+  const [frame, setFrame] = useState<{
+    width: number;
+    height: number;
+    version: number;
+  } | null>(null);
   const small = useMemo(lite, []);
+  // The player's camera (`Controls`): where the fit put it, where it is now,
+  // and where it is gliding to. Refs, because it moves every frame and only the
+  // tile layer has to hear about it.
+  const fit = useRef<Fit | null>(null);
+  const view = useRef<View>({ ...HOME });
+  const goal = useRef<View>({ ...HOME });
+  const kick = useRef<(() => void) | null>(null);
+  const [moved, setMoved] = useState(0);
+  const [away, setAway] = useState(false);
+  const onMove = useCallback((home: boolean) => {
+    // Synchronously, inside the frame the camera moved in: the tile buttons and
+    // labels are painted in the same frame as the canvas, never one behind it.
+    flushSync(() => {
+      setMoved((m) => m + 1);
+      setAway(!home);
+    });
+  }, []);
+  const goHome = useCallback(() => {
+    // The nearest whole turn, so the way home is never the long way round.
+    const turns = Math.round(view.current.yaw / (Math.PI * 2));
+    goal.current = { ...HOME, yaw: turns * Math.PI * 2 };
+    kick.current?.();
+  }, []);
 
   useLayoutEffect(() => {
     const measure = () => {
       const a = host.current?.getBoundingClientRect();
       const b = probe.current?.getBoundingClientRect();
       if (!a || !b || a.width === 0 || a.height === 0) return;
-      fitCamera(camera, a.width, a.height, {
+      fit.current = fitCamera(camera, a.width, a.height, {
         left: b.left - a.left,
         top: b.top - a.top,
         width: b.width,
         height: b.height,
       });
-      setFrame((f) => ({ width: a.width, height: a.height, version: (f?.version ?? 0) + 1 }));
+      aimCamera(camera, fit.current, view.current);
+      setFrame((f) => ({
+        width: a.width,
+        height: a.height,
+        version: (f?.version ?? 0) + 1,
+      }));
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -166,8 +242,32 @@ export default function Stage(props: Props) {
           gl={{ antialias: true }}
         >
           <Scene {...props} version={frame?.version ?? 0} small={small} />
+          <Controls
+            fit={fit}
+            view={view}
+            goal={goal}
+            kick={kick}
+            onMove={onMove}
+          />
         </Canvas>
-        {frame && <TileLayer {...props} camera={camera} width={frame.width} height={frame.height} />}
+        {frame && (
+          <TileLayer
+            {...props}
+            camera={camera}
+            width={frame.width}
+            height={frame.height}
+            moved={moved}
+          />
+        )}
+        {away && (
+          <button
+            className="stage-home quiet tiny"
+            onClick={goHome}
+            title="Vissza a kiinduló nézetbe"
+          >
+            ⟲ Nézet
+          </button>
+        )}
       </div>
     </>
   );
@@ -177,7 +277,10 @@ export default function Stage(props: Props) {
 // The canvas
 // ---------------------------------------------------------------------------
 
-function Scene({
+// Memoised: the player's camera re-renders the stage every frame it moves, for
+// the tile layer's sake, and the scene has nothing to redo when only the camera
+// did.
+const Scene = memo(function Scene({
   state,
   viewer,
   bare,
@@ -216,7 +319,15 @@ function Scene({
   return (
     <>
       <color attach="background" args={[ground.sky]} />
-      <fog attach="fog" args={[ground.sky, dist + 3 + (ground.fog - 6) * 0.35, dist + 4 + ground.fog * 1.3]} />
+      <fog
+        attach="fog"
+        args={[
+          ground.sky,
+          dist + 3 + (ground.fog - 6) * 0.35,
+          dist + 4 + ground.fog * 1.3,
+        ]}
+      />
+      <FogFollows fog={ground.fog} />
       <hemisphereLight args={[ground.sky, "#3a2a1a", 0.8]} />
       <directionalLight
         position={[-3.5, 7, 4.5]}
@@ -259,15 +370,46 @@ function Scene({
         />
       ))}
 
-      {(fallen ?? []).map((f) => f.slot && <Ghost key={f.id} slot={f.slot} cardId={f.cardId} viewer={viewer} />)}
+      {(fallen ?? []).map(
+        (f) =>
+          f.slot && (
+            <Ghost key={f.id} slot={f.slot} cardId={f.cardId} viewer={viewer} />
+          ),
+      )}
 
-      <Casting spell={spell} marks={marks} state={state} viewer={viewer} small={small} />
+      <Casting
+        spell={spell}
+        marks={marks}
+        state={state}
+        viewer={viewer}
+        small={small}
+      />
 
-      {rehearsing && <Rehearsal small={small} onDone={() => setRehearsing(false)} />}
+      {rehearsing && (
+        <Rehearsal small={small} onDone={() => setRehearsing(false)} />
+      )}
 
       {!small && <Bloom />}
     </>
   );
+});
+
+/**
+ * Keeps the fog where it was meant to be as the camera moves. It is set as a
+ * distance from the camera, and the player's zoom changes that distance: left
+ * alone, zooming out would bury the board in Ködrét and zooming in would
+ * clear it. Measured against the point the camera looks at, it does neither.
+ */
+function FogFollows({ fog }: { fog: number }) {
+  const scene = useThree((s) => s.scene);
+  useFrame(({ camera }) => {
+    const f = scene.fog as { near: number; far: number } | null;
+    if (!f) return;
+    const dist = camera.position.length();
+    f.near = dist + 3 + (fog - 6) * 0.35;
+    f.far = dist + 4 + fog * 1.3;
+  });
+  return null;
 }
 
 /**
@@ -275,7 +417,15 @@ function Scene({
  * colours, flat under the board and rolling away from it, with the scenery
  * standing on it. Built once per battlefield.
  */
-function Land({ ground, locationId, small }: { ground: Ground; locationId: string; small: boolean }) {
+function Land({
+  ground,
+  locationId,
+  small,
+}: {
+  ground: Ground;
+  locationId: string;
+  small: boolean;
+}) {
   const keepOut = { x: PITCH * 1.5 + 0.35, z: LINE / 2 + PITCH + TILE + 0.3 };
   const seed = hash(locationId || "neutral");
   const heightAt = useMemo(() => {
@@ -286,7 +436,12 @@ function Land({ ground, locationId, small }: { ground: Ground; locationId: strin
       const dz = Math.max(0, Math.abs(z) - keepOut.z);
       const d = Math.hypot(dx, dz);
       const fall = Math.min(1, d / 5);
-      return fall * fall * 0.9 * (0.5 + 0.5 * Math.sin(x * 0.7 + a) * Math.cos(z * 0.6 + b));
+      return (
+        fall *
+        fall *
+        0.9 *
+        (0.5 + 0.5 * Math.sin(x * 0.7 + a) * Math.cos(z * 0.6 + b))
+      );
     };
   }, [seed, keepOut.x, keepOut.z]);
 
@@ -313,7 +468,9 @@ function Land({ ground, locationId, small }: { ground: Ground; locationId: strin
 
   const placed = useMemo(() => {
     const all = scatter(locationId || "neutral", ground, keepOut);
-    return (small ? all.filter((_, i) => i % 2 === 0) : all).map((p) => ({ ...p }));
+    return (small ? all.filter((_, i) => i % 2 === 0) : all).map((p) => ({
+      ...p,
+    }));
   }, [locationId, ground, small, keepOut.x, keepOut.z]);
 
   return (
@@ -322,7 +479,11 @@ function Land({ ground, locationId, small }: { ground: Ground; locationId: strin
         <meshStandardMaterial vertexColors flatShading roughness={1} />
       </mesh>
       {/* The arcvonal: a strip of beaten earth between the two front ranks. */}
-      <mesh position={[0, 0.004, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <mesh
+        position={[0, 0.004, 0]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        receiveShadow
+      >
         <planeGeometry args={[3 * PITCH + 0.6, LINE * 0.55]} />
         <meshStandardMaterial color={ground.path} roughness={1} />
       </mesh>
@@ -365,7 +526,11 @@ function Tile({
         {[0, 1].map((k) => (
           <mesh
             key={k}
-            position={[(k ? 0.22 : -0.2) + ((h >> (k * 3)) % 5) * 0.02, 0.03, (k ? -0.18 : 0.2) - ((h >> 5) % 3) * 0.03]}
+            position={[
+              (k ? 0.22 : -0.2) + ((h >> (k * 3)) % 5) * 0.02,
+              0.03,
+              (k ? -0.18 : 0.2) - ((h >> 5) % 3) * 0.03,
+            ]}
             rotation={[0.4 - k * 0.7, ((h >> 7) % 6) * 0.5, 0.3 + k * 0.4]}
             scale={[0.34 - k * 0.06, 0.07, 0.26]}
             material={flat(STONES[(h + k) % STONES.length], 0, 0.9)}
@@ -386,7 +551,12 @@ function Tile({
   return (
     <group position={[x, 0, z]}>
       {/* A square frustum: a four-sided cylinder turned 45°, the cheapest bevel there is. */}
-      <mesh position={[0, TILE_TOP / 2 - 0.02, 0]} rotation={[0, Math.PI / 4, 0]} receiveShadow castShadow>
+      <mesh
+        position={[0, TILE_TOP / 2 - 0.02, 0]}
+        rotation={[0, Math.PI / 4, 0]}
+        receiveShadow
+        castShadow
+      >
         <cylinderGeometry args={[diag * 0.93, diag, TILE_TOP + 0.04, 4]} />
         <meshStandardMaterial
           color={STONES[h % STONES.length]}
@@ -402,7 +572,12 @@ function Tile({
         [-half, 0, 0.035, 0.93],
         [half, 0, 0.035, 0.93],
       ].map(([px, pz, sx, sz], i) => (
-        <mesh key={i} position={[px * 0.93, TILE_TOP + 0.008, pz * 0.93]} scale={[sx, 0.016, sz]} material={rimMat}>
+        <mesh
+          key={i}
+          position={[px * 0.93, TILE_TOP + 0.008, pz * 0.93]}
+          scale={[sx, 0.016, sz]}
+          material={rimMat}
+        >
           <boxGeometry />
         </mesh>
       ))}
@@ -411,7 +586,12 @@ function Tile({
         // says which spell is lying in it.
         <group position={[0, TILE_TOP + 0.006, 0]}>
           {[Math.PI / 4, -Math.PI / 4].map((r) => (
-            <mesh key={r} rotation={[0, r, 0]} scale={[0.62, 0.012, 0.05]} material={flat(INK.ember, 1.2)}>
+            <mesh
+              key={r}
+              rotation={[0, r, 0]}
+              scale={[0.62, 0.012, 0.05]}
+              material={flat(INK.ember, 1.2)}
+            >
               <boxGeometry />
             </mesh>
           ))}
@@ -503,7 +683,10 @@ function Piece({
         const k = Math.min(1, t / 0.42);
         lift = (1 - k) * (1 - k) * 1.6;
         const after = t - 0.42;
-        squash = after > 0 && after < 0.3 ? 1 - 0.22 * Math.sin((after / 0.3) * Math.PI) : 1;
+        squash =
+          after > 0 && after < 0.3
+            ? 1 - 0.22 * Math.sin((after / 0.3) * Math.PI)
+            : 1;
         busy = busy || t < 0.75;
       } else if (flourish.kind === "veil") {
         grow = Math.min(1, t / 0.45);
@@ -535,7 +718,10 @@ function Piece({
   return (
     <group ref={group}>
       {/* Whose it is, under its feet: a hidden unit's owner is public. */}
-      <mesh position={[0, TILE_TOP + 0.012, 0]} material={flat(mine ? INK.mine : INK.theirs, 0.12, 0.6)}>
+      <mesh
+        position={[0, TILE_TOP + 0.012, 0]}
+        material={flat(mine ? INK.mine : INK.theirs, 0.12, 0.6)}
+      >
         <cylinderGeometry args={[0.26, 0.28, 0.02, 10]} />
       </mesh>
       <group ref={body}>
@@ -544,7 +730,9 @@ function Piece({
           <Figure
             look={look}
             cardId={look.body === "veiled" ? undefined : unit.cardId}
-            clip={casting ? "cast" : flourish ? CLIP_FOR[flourish.kind] : undefined}
+            clip={
+              casting ? "cast" : flourish ? CLIP_FOR[flourish.kind] : undefined
+            }
             cue={casting ? -1 : (flourish?.id ?? 0)}
             idle={!small && !reduced()}
           />
@@ -553,24 +741,67 @@ function Piece({
           // Jéghegy: frozen at the power it had, in a shell of ice.
           <mesh position={[0, top / 2, 0]} scale={[0.5, top + 0.08, 0.5]}>
             <boxGeometry />
-            <meshStandardMaterial color={INK.frost} transparent opacity={0.35} flatShading roughness={0.2} />
+            <meshStandardMaterial
+              color={INK.frost}
+              transparent
+              opacity={0.35}
+              flatShading
+              roughness={0.2}
+            />
           </mesh>
         )}
       </group>
       {flourish && !small && flourish.kind === "land" && (
-        <Burst key={flourish.id} at={[0, TILE_TOP + 0.02, 0]} color="#d8c7a0" delay={420} seed={flourish.id} />
+        <Burst
+          key={flourish.id}
+          at={[0, TILE_TOP + 0.02, 0]}
+          color="#d8c7a0"
+          delay={420}
+          seed={flourish.id}
+        />
       )}
       {flourish && flourish.kind === "veil" && (
-        <Burst key={flourish.id} at={[0, TILE_TOP + 0.05, 0]} color="#3b2a4a" count={10} rise={0.5} glow={0.4} />
+        <Burst
+          key={flourish.id}
+          at={[0, TILE_TOP + 0.05, 0]}
+          color="#3b2a4a"
+          count={10}
+          rise={0.5}
+          glow={0.4}
+        />
       )}
       {flourish && flourish.kind === "reveal" && (
-        <Burst key={flourish.id} at={[0, top * 0.5, 0]} color={look.trim} count={12} spread={0.5} rise={0.4} glow={0.8} />
+        <Burst
+          key={flourish.id}
+          at={[0, top * 0.5, 0]}
+          color={look.trim}
+          count={12}
+          spread={0.5}
+          rise={0.4}
+          glow={0.8}
+        />
       )}
       {flourish && flourish.kind === "strike" && (
-        <Burst key={flourish.id} at={[0, top * 0.6, 0]} color="#ff6a3a" count={7} spread={0.3} size={0.05} life={0.45} glow={2} />
+        <Burst
+          key={flourish.id}
+          at={[0, top * 0.6, 0]}
+          color="#ff6a3a"
+          count={7}
+          spread={0.3}
+          size={0.05}
+          life={0.45}
+          glow={2}
+        />
       )}
       {flourish && flourish.kind === "strike" && !small && (
-        <Shards key={`s${flourish.id}`} at={[0, top * 0.6, 0]} colors={colors} count={4} life={0.8} seed={flourish.id} />
+        <Shards
+          key={`s${flourish.id}`}
+          at={[0, top * 0.6, 0]}
+          colors={colors}
+          count={4}
+          life={0.8}
+          seed={flourish.id}
+        />
       )}
     </group>
   );
@@ -581,7 +812,15 @@ function Piece({
  * into its own colours, for the length of the fall beat. A hidden unit that
  * dies still says nothing about what it was — it bursts in the cloak's colours.
  */
-function Ghost({ slot, cardId, viewer }: { slot: SlotId; cardId?: string; viewer: PlayerId }) {
+function Ghost({
+  slot,
+  cardId,
+  viewer,
+}: {
+  slot: SlotId;
+  cardId?: string;
+  viewer: PlayerId;
+}) {
   const group = useRef<Group>(null);
   const born = useRef(performance.now());
   const invalidate = useThree((s) => s.invalidate);
@@ -615,14 +854,46 @@ function Ghost({ slot, cardId, viewer }: { slot: SlotId; cardId?: string; viewer
     <group position={[x, 0, z]}>
       <group ref={group}>
         <group rotation={[0, mine ? Math.PI : 0, 0]}>
-          <Figure look={look} cardId={look.body === "veiled" ? undefined : cardId} clip="die" cue={1} idle={false} />
+          <Figure
+            look={look}
+            cardId={look.body === "veiled" ? undefined : cardId}
+            clip="die"
+            cue={1}
+            idle={false}
+          />
         </group>
       </group>
       {!reduced() && (
         <>
-          <Burst at={[0, top * 0.45, 0]} color="#ffd6a0" count={6} spread={0.18} rise={0.1} size={0.14} life={0.35} delay={430} glow={3} />
-          <Shards at={[0, top * 0.35, 0]} colors={[look.cloth, look.trim, look.skin, look.metal]} away={away} delay={450} seed={hash(slot)} />
-          <Burst at={[0, top * 0.3, 0]} color="#2b1a3a" count={8} spread={0.4} rise={0.6} size={0.09} life={1.1} delay={470} glow={0.5} />
+          <Burst
+            at={[0, top * 0.45, 0]}
+            color="#ffd6a0"
+            count={6}
+            spread={0.18}
+            rise={0.1}
+            size={0.14}
+            life={0.35}
+            delay={430}
+            glow={3}
+          />
+          <Shards
+            at={[0, top * 0.35, 0]}
+            colors={[look.cloth, look.trim, look.skin, look.metal]}
+            away={away}
+            delay={450}
+            seed={hash(slot)}
+          />
+          <Burst
+            at={[0, top * 0.3, 0]}
+            color="#2b1a3a"
+            count={8}
+            spread={0.4}
+            rise={0.6}
+            size={0.09}
+            life={1.1}
+            delay={470}
+            glow={0.5}
+          />
         </>
       )}
     </group>
@@ -680,10 +951,32 @@ function Casting({
 
   let act: ReactNode = null;
   if (look.reach) {
-    const swept = sweptTiles(look.reach, state.board, spell.player, fromSlot, look.sparesCaster);
-    act = <Spell key={`m${spell.id}`} look={look} from={from} swept={swept.map(ground)} {...timing} />;
+    const swept = sweptTiles(
+      look.reach,
+      state.board,
+      spell.player,
+      fromSlot,
+      look.sparesCaster,
+    );
+    act = (
+      <Spell
+        key={`m${spell.id}`}
+        look={look}
+        from={from}
+        swept={swept.map(ground)}
+        {...timing}
+      />
+    );
   } else if (hit) {
-    act = <Spell key={`${spell.id}>${hit}`} look={look} from={from} to={ground(hit)} {...timing} />;
+    act = (
+      <Spell
+        key={`${spell.id}>${hit}`}
+        look={look}
+        from={from}
+        to={ground(hit)}
+        {...timing}
+      />
+    );
   } else if (!spell.targetSlot || spell.targetSlot === fromSlot) {
     act = <Spell key={`s${spell.id}`} look={look} from={from} {...timing} />;
   }
@@ -721,16 +1014,43 @@ function Rehearsal({ small, onDone }: { small: boolean; onDone: () => void }) {
   return (
     <group>
       {bodies.map((body, i) => (
-        <group key={body} position={[(i - bodies.length / 2) * 0.4, TILE_TOP, 0]}>
+        <group
+          key={body}
+          position={[(i - bodies.length / 2) * 0.4, TILE_TOP, 0]}
+        >
           <Figure look={{ ...VEILED, body }} clip="idle" idle={false} />
         </group>
       ))}
       {motifs.map((motif, i) => {
-        const look: SpellLook = { motif, tint: ["#6a5a8a", "#ffe6b0"], travels: TRAVELS[motif], reach: null, sparesCaster: false };
+        const look: SpellLook = {
+          motif,
+          tint: ["#6a5a8a", "#ffe6b0"],
+          travels: TRAVELS[motif],
+          reach: null,
+          sparesCaster: false,
+        };
         const x = (i - motifs.length / 2) * 0.4;
-        return <Spell key={motif} look={look} from={[x, TILE_TOP, 1]} to={[x, TILE_TOP, -1]} small={small} />;
+        return (
+          <Spell
+            key={motif}
+            look={look}
+            from={[x, TILE_TOP, 1]}
+            to={[x, TILE_TOP, -1]}
+            small={small}
+          />
+        );
       })}
-      <Gather at={[0, TILE_TOP, 0]} look={{ motif: "bolt", tint: ["#6a5a8a", "#ffe6b0"], travels: true, reach: null, sparesCaster: false }} small={small} />
+      <Gather
+        at={[0, TILE_TOP, 0]}
+        look={{
+          motif: "bolt",
+          tint: ["#6a5a8a", "#ffe6b0"],
+          travels: true,
+          reach: null,
+          sparesCaster: false,
+        }}
+        small={small}
+      />
     </group>
   );
 }
@@ -753,7 +1073,10 @@ function Bloom() {
   const composer = useMemo(() => {
     // Half-float, so the brighter-than-white survives to the bloom pass, and
     // multisampled, because a composer's targets otherwise lose the antialias.
-    const target = new WebGLRenderTarget(1, 1, { type: HalfFloatType, samples: 4 });
+    const target = new WebGLRenderTarget(1, 1, {
+      type: HalfFloatType,
+      samples: 4,
+    });
     const c = new EffectComposer(gl, target);
     c.addPass(new RenderPass(scene, camera));
     c.addPass(new UnrealBloomPass(new Vector2(1, 1), 0.45, 0.3, 1));
@@ -788,19 +1111,35 @@ function TileLayer({
   camera,
   width,
   height,
-}: Props & { camera: PerspectiveCamera; width: number; height: number }) {
+}: Props & {
+  camera: PerspectiveCamera;
+  width: number;
+  height: number;
+  /** Bumped whenever the camera moves, which moves every projection with it. */
+  moved: number;
+}) {
   const slots = [...slotsOf(viewer === "p1" ? "p2" : "p1"), ...slotsOf(viewer)];
   return (
     <div className="stage-tiles">
       {slots.map((slot) => {
-        const { box, corners } = projectTile(slot, viewer, camera, width, height);
+        const { box, corners } = projectTile(
+          slot,
+          viewer,
+          camera,
+          width,
+          height,
+        );
         const unit = state.board[slot];
         const blocked = isBlocked(state, slot);
         const veiled = !!unit && unit.faceDown && !bare;
         const isOpen = open.has(slot) && !blocked;
         const trap = trapAt(state, slot);
         const trapMine = !!trap && (trap.owner === viewer || bare);
-        const trapName = trap ? (trapMine ? (trySpellName(trap.cardId) ?? "varázslat") : "ismeretlen") : null;
+        const trapName = trap
+          ? trapMine
+            ? (trySpellName(trap.cardId) ?? "varázslat")
+            : "ismeretlen"
+          : null;
         // Only a unit you may read hands itself up to the loupe: a hidden one
         // telling the loupe its slot would be a free "Mindent mutat" (1.5.2).
         const readable = !!unit && !veiled;
@@ -837,18 +1176,30 @@ function TileLayer({
               onFocus={readable ? () => onInspect?.(slot) : undefined}
               onBlur={readable ? () => onInspect?.(null) : undefined}
             />
-            <span className="stage-coord" style={{ left: box.left + near.x, top: box.top + near.y }}>
+            <span
+              className="stage-coord"
+              style={{ left: box.left + near.x, top: box.top + near.y }}
+            >
               {coordLabel(slot)}
             </span>
             {blocked && (
-              <span className="stage-note" style={{ left: box.left + box.width / 2, top: box.top + box.height / 2 }}>
+              <span
+                className="stage-note"
+                style={{
+                  left: box.left + box.width / 2,
+                  top: box.top + box.height / 2,
+                }}
+              >
                 szakadék
               </span>
             )}
             {trap && !unit && (
               <span
                 className="stage-note snare"
-                style={{ left: box.left + box.width / 2, top: box.top + box.height / 2 }}
+                style={{
+                  left: box.left + box.width / 2,
+                  top: box.top + box.height / 2,
+                }}
               >
                 <b>csapda</b> <em>{trapName}</em>
               </span>
@@ -861,17 +1212,29 @@ function TileLayer({
         const unit = state.board[slot];
         if (!unit || isBlocked(state, slot)) return null;
         const look = lookFor(unit, bare);
-        const at = projectAbove(slot, viewer, TILE_TOP + topOf(look) + 0.08, camera, width, height);
+        const at = projectAbove(
+          slot,
+          viewer,
+          TILE_TOP + topOf(look) + 0.08,
+          camera,
+          width,
+          height,
+        );
         if (unit.faceDown && !bare) {
           return (
-            <div key={`hud-${slot}`} className="stage-hud veiled" style={{ left: at.x, top: at.y }}>
+            <div
+              key={`hud-${slot}`}
+              className="stage-hud veiled"
+              style={{ left: at.x, top: at.y }}
+            >
               lefordítva
             </div>
           );
         }
         const card = cardOf(unit);
         const live = power(unit, state);
-        const tone = live === card.power ? "" : live > card.power ? " up" : " down";
+        const tone =
+          live === card.power ? "" : live > card.power ? " up" : " down";
         const pools = poolsOf(unit, state);
         const pips = castingPips(card);
         return (
@@ -908,7 +1271,11 @@ function TileLayer({
         if (!f.slot) return null;
         const at = projectAbove(f.slot, viewer, 0.45, camera, width, height);
         return (
-          <span key={`pyre-${f.id}`} className="stage-pyre" style={{ left: at.x, top: at.y }}>
+          <span
+            key={`pyre-${f.id}`}
+            className="stage-pyre"
+            style={{ left: at.x, top: at.y }}
+          >
             {f.cardId ? tryUnitName(f.cardId) : "rejtett egység"}
           </span>
         );

@@ -14,7 +14,7 @@ import type { Action, GameState, PlayerId, SlotId } from "../../engine";
 import type { GuestMatch, HostMatch, MatchState } from "../../net";
 import { Loaded } from "./Board";
 import Surface from "../stage/Surface";
-import { hasWebGL, readStage, writeStage } from "../stage/setting";
+import { DRAG_SLOP, hasWebGL, readStage, writeStage } from "../stage/setting";
 import { warmStage, useStageLoad } from "../stage/preload";
 import Loading from "../stage/Loading";
 import NewGame from "./NewGame";
@@ -45,13 +45,26 @@ import { playAmbience, playSound, preloadSounds, stopAmbience } from "../audio";
 import { installOverlay, readOverlay } from "../cardSet";
 import type { BeatKind, Flight } from "./theatre";
 import { cardFor, handHeld, other } from "./common";
-import type { FieldProps, Held, LiveBeat, LiveReveal, PayingFor } from "./common";
+import type {
+  FieldProps,
+  Held,
+  LiveBeat,
+  LiveReveal,
+  PayingFor,
+} from "./common";
 import Theatre from "./TheatreView";
 import { Battlefield, Annals, Tools, TurnCue } from "./LeftRail";
 import { Counters, Ledger } from "./RightRail";
 import type { Tracking } from "./RightRail";
 import { FarHand, NearHand, Reading } from "./Hands";
-import { Almanac, Coin, Curtain, Disarming, GravePortal, HideToll } from "./Asking";
+import {
+  Almanac,
+  Coin,
+  Curtain,
+  Disarming,
+  GravePortal,
+  HideToll,
+} from "./Asking";
 import { Beacon, Spotlight } from "./Spotlight";
 import Prologue from "./Prologue";
 import { Chronicle, Aftermath } from "./Overlays";
@@ -189,7 +202,10 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
           wantsBanner
             ? live.kind !== "draw" && live.kind !== "toss"
             : live.kind === "step" || live.kind === "done";
-        const base = Math.max(at, ...b.filter(blocks).map((live) => live.expiresAt));
+        const base = Math.max(
+          at,
+          ...b.filter(blocks).map((live) => live.expiresAt),
+        );
         return [
           ...b,
           ...fresh.map((beat) => ({
@@ -213,12 +229,19 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       // for it: it has a panel of its own, and it is usually the answer to a
       // question somebody is being asked right now.
       setShows((s) => {
-        let clock = Math.max(at + 520, ...s.filter((x) => x.kind !== "coin").map((x) => x.expiresAt));
+        let clock = Math.max(
+          at + 520,
+          ...s.filter((x) => x.kind !== "coin").map((x) => x.expiresAt),
+        );
         return [
           ...s,
           ...newReveals(prev, next).map((reveal) => {
             if (reveal.kind === "coin") {
-              return { ...reveal, startsAt: at + 520, expiresAt: at + 520 + REVEAL_MS };
+              return {
+                ...reveal,
+                startsAt: at + 520,
+                expiresAt: at + 520 + REVEAL_MS,
+              };
             }
             const startsAt = clock;
             clock = startsAt + REVEAL_MS;
@@ -267,7 +290,10 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
 
   function begin(sides: Sides) {
     try {
-      const fresh = createGame({ seed: sides.seed, decks: { p1: sides.p1, p2: sides.p2 } });
+      const fresh = createGame({
+        seed: sides.seed,
+        decks: { p1: sides.p1, p2: sides.p2 },
+      });
       bot.current?.dispose();
       bot.current = sides.bot ? makeBot() : null;
       setBotSide(bot.current ? sides.bot : null);
@@ -337,7 +363,8 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
     if (!match) return;
     const take = (snapshot: MatchState) => {
       setNet(snapshot);
-      if (snapshot.state && snapshot.state !== shownState.current) absorb(snapshot.state);
+      if (snapshot.state && snapshot.state !== shownState.current)
+        absorb(snapshot.state);
     };
     // Taken once up front as well as on every change: a match handed over with
     // a position already in it — the host pressing start, a guest arriving to a
@@ -555,7 +582,8 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
     );
   }
 
-  if (!state) return <NewGame onStart={begin} onOnline={openLobby} onLeave={onLeave} />;
+  if (!state)
+    return <NewGame onStart={begin} onOnline={openLobby} onLeave={onLeave} />;
 
   const asking = pendingPrompt(state);
   const pending = state.resolution?.pending ?? null;
@@ -628,7 +656,18 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
  * costs a row of tiles, a column down the side costs nothing the board wanted.
  */
 function Field(props: FieldProps) {
-  const { state, actor, held, setHeld, send, bare, botSide, bot, now, cancelCast } = props;
+  const {
+    state,
+    actor,
+    held,
+    setHeld,
+    send,
+    bare,
+    botSide,
+    bot,
+    now,
+    cancelCast,
+  } = props;
   const { payingFor, setPayingFor } = props;
   // Only the beats whose moment has come. A beat that has not started yet is
   // already in the queue — it has to be, the diff that produced it is gone —
@@ -642,7 +681,10 @@ function Field(props: FieldProps) {
     [props.shows, now],
   );
   /** The position the screen is showing, which trails the real one by a beat. */
-  const shown = useMemo(() => boardAsOf(state, props.beats, now), [state, props.beats, now]);
+  const shown = useMemo(
+    () => boardAsOf(state, props.beats, now),
+    [state, props.beats, now],
+  );
 
   const asking = pendingPrompt(state);
   const pending = state.resolution?.pending ?? null;
@@ -662,6 +704,8 @@ function Field(props: FieldProps) {
    * Latched: switching boards mid-game never brings the curtain back.
    */
   const [stageReady, setStageReady] = useState(() => !(threeD && hasWebGL()));
+  /** Where a right press began, to tell a click (cancel) from a drag (turn the table). */
+  const rightPress = useRef<{ x: number; y: number } | null>(null);
   const markReady = useCallback(() => setStageReady(true), []);
   const stageLoad = useStageLoad();
   useEffect(() => {
@@ -696,7 +740,10 @@ function Field(props: FieldProps) {
   /** The card in hand being read, and the one currently in the air. */
   const [reading, setReading] = useState<string | null>(null);
   /** The same, for a card in the enemy's fan this player has peeked at. */
-  const [farReading, setFarReading] = useState<{ uid: string; cardId: string } | null>(null);
+  const [farReading, setFarReading] = useState<{
+    uid: string;
+    cardId: string;
+  } | null>(null);
   const [lifted, setLifted] = useState<string | null>(null);
   /**
    * Which pile the ledger is holding open.
@@ -735,7 +782,8 @@ function Field(props: FieldProps) {
   // A live question outranks a fading reveal: whoever is being asked something
   // has to be looking at their own half while they answer it.
   const peeking = shows.length > 0 ? shows[shows.length - 1].player : null;
-  const viewer: PlayerId = human ?? asking?.player ?? peeking ?? actor ?? state.turn;
+  const viewer: PlayerId =
+    human ?? asking?.player ?? peeking ?? actor ?? state.turn;
   const far = other(viewer);
 
   // What, if anything, the screen should be looking at rather than the board.
@@ -752,7 +800,8 @@ function Field(props: FieldProps) {
   // handed the machine's whole library to the person playing against it. The
   // panel belongs to the player being asked; everyone else is told only that a
   // search is happening, which is what they would see across a table.
-  const searching = !!asking && !handHeld(asking, state) && asking.picking === "card";
+  const searching =
+    !!asking && !handHeld(asking, state) && asking.picking === "card";
   const almanacUp = searching && (asking!.player === viewer || bare);
   const enemySearching = searching && !almanacUp;
   // A question that is about neither a card nor a tile. Only the coin so far,
@@ -767,7 +816,9 @@ function Field(props: FieldProps) {
   const curtainUp = shows.some(
     (s) => s.kind !== "coin" && (s.open || s.player === viewer || bare),
   );
-  const heldUp = beats.some((b) => b.kind === "land" || b.kind === "cast" || b.kind === "veil");
+  const heldUp = beats.some(
+    (b) => b.kind === "land" || b.kind === "cast" || b.kind === "veil",
+  );
   // Leszerelés belongs to whoever is doing it, and only while they still can —
   // and never over the top of its own announcement.
   //
@@ -781,7 +832,9 @@ function Field(props: FieldProps) {
   // Watching the beat rather than a timer of our own, so this cannot drift out
   // of step with the theatre — the beat is pruned on the clock that plays it,
   // and the pruning is what re-renders us.
-  const cleanupBannerUp = beats.some((b) => b.kind === "step" && b.text === "Leszerelés");
+  const cleanupBannerUp = beats.some(
+    (b) => b.kind === "step" && b.text === "Leszerelés",
+  );
   const disarming =
     state.phase === "cleanup" &&
     !cleanupBannerUp &&
@@ -792,12 +845,14 @@ function Field(props: FieldProps) {
   // Their search still dims the board — something is happening and it is not
   // your turn to do anything about it — but there is nothing to read.
   const spotlitQuietly = enemySearching;
-  const spotlit = panelUp || curtainUp || heldUp || coinShowing || spotlitQuietly;
+  const spotlit =
+    panelUp || curtainUp || heldUp || coinShowing || spotlitQuietly;
 
   // A spell that has been played but is still being aimed. Nothing about it has
   // touched the board yet, so it can still be taken back, and until it cannot
   // it is not public either.
-  const castInFlight = !!state.resolution?.pending && state.resolution.pending.player === viewer;
+  const castInFlight =
+    !!state.resolution?.pending && state.resolution.pending.player === viewer;
 
   useEffect(() => {
     setTucked(false);
@@ -806,7 +861,10 @@ function Field(props: FieldProps) {
   // The machine moves on a timer rather than instantly, so its turn is something
   // you watch happen instead of a board that has already changed.
   const botToMove =
-    botSide !== null && actor === botSide && state.phase !== "gameOver" && !props.prologue;
+    botSide !== null &&
+    actor === botSide &&
+    state.phase !== "gameOver" &&
+    !props.prologue;
   useEffect(() => {
     if (!botToMove || !bot.current) return;
     // Leszerelés is book-keeping, not a move worth watching: the machine says it
@@ -865,7 +923,8 @@ function Field(props: FieldProps) {
   // computed against this rather than against "now", which is what lets the
   // effect re-run on every beat without the step running away from us.
   const scoredAt = useRef(0);
-  if (state.phase === "scored" && scoredAt.current === 0) scoredAt.current = Date.now();
+  if (state.phase === "scored" && scoredAt.current === 0)
+    scoredAt.current = Date.now();
   if (state.phase !== "scored" && scoredAt.current !== 0) scoredAt.current = 0;
   /**
    * When the Összesítés banner will actually be finished with the screen.
@@ -884,12 +943,16 @@ function Field(props: FieldProps) {
    * we know when it ends, whether or not it is still in the queue.
    */
   const scoredBannerEnds = useRef(0);
-  if (state.phase !== "scored" && scoredBannerEnds.current !== 0) scoredBannerEnds.current = 0;
+  if (state.phase !== "scored" && scoredBannerEnds.current !== 0)
+    scoredBannerEnds.current = 0;
   useEffect(() => {
     if (state.phase !== "scored") return;
     for (const beat of props.beats) {
       if (beat.kind !== "step" || !beat.totals) continue;
-      scoredBannerEnds.current = Math.max(scoredBannerEnds.current, beat.expiresAt);
+      scoredBannerEnds.current = Math.max(
+        scoredBannerEnds.current,
+        beat.expiresAt,
+      );
     }
   }, [state.phase, props.beats]);
   useEffect(() => {
@@ -943,7 +1006,15 @@ function Field(props: FieldProps) {
       Math.max(0, Math.max(readAt, settledAt) - Date.now()),
     );
     return () => clearTimeout(timer);
-  }, [state.phase, state.locationIndex, props.beats, props.shows, props.online, actor, viewer]);
+  }, [
+    state.phase,
+    state.locationIndex,
+    props.beats,
+    props.shows,
+    props.online,
+    actor,
+    viewer,
+  ]);
 
   /**
    * What the actor may do — and only ever when the actor is us.
@@ -958,7 +1029,10 @@ function Field(props: FieldProps) {
    * on somebody else's turn.
    */
   const moves = useMemo(
-    () => (actor && (!props.online || actor === viewer) ? legalActions(state, actor) : []),
+    () =>
+      actor && (!props.online || actor === viewer)
+        ? legalActions(state, actor)
+        : [],
     [state, actor, props.online, viewer],
   );
 
@@ -973,7 +1047,9 @@ function Field(props: FieldProps) {
   const risen = useMemo(() => {
     if (state.phase !== "units" || actor !== viewer) return [];
     const playable = new Set(
-      moves.filter((m) => m.type === "playUnit").map((m) => (m as { uid: string }).uid),
+      moves
+        .filter((m) => m.type === "playUnit")
+        .map((m) => (m as { uid: string }).uid),
     );
     const seen = new Set<string>();
     return state.players[viewer].discard.filter((c) => {
@@ -998,7 +1074,9 @@ function Field(props: FieldProps) {
     uid,
     veiled:
       props.veilNext &&
-      moves.some((m) => m.type === "playUnit" && m.uid === uid && m.faceDown === true),
+      moves.some(
+        (m) => m.type === "playUnit" && m.uid === uid && m.faceDown === true,
+      ),
     tollUids: [],
   });
 
@@ -1076,7 +1154,9 @@ function Field(props: FieldProps) {
     if (!actor) return null;
     const held = state.players[actor].unitHand.find((c) => c.uid === uid);
     if (held) return held.cardId;
-    return state.players[actor].discard.find((c) => c.uid === uid)?.cardId ?? null;
+    return (
+      state.players[actor].discard.find((c) => c.uid === uid)?.cardId ?? null
+    );
   }
 
   function pickSlot(slot: SlotId) {
@@ -1145,7 +1225,10 @@ function Field(props: FieldProps) {
    */
   function startTossDrag(event: React.PointerEvent, uid: string) {
     if (event.button !== 0 || state.phase !== "cleanup") return;
-    const stage = () => props.setStaged(props.staged.includes(uid) ? props.staged : [...props.staged, uid]);
+    const stage = () =>
+      props.setStaged(
+        props.staged.includes(uid) ? props.staged : [...props.staged, uid],
+      );
     const session = beginCardDrag(uid, event.nativeEvent, {
       onDrop: () => setLifted(null),
       onZone: () => {
@@ -1164,8 +1247,12 @@ function Field(props: FieldProps) {
   }
 
   const over = state.phase === "gameOver";
-  const inHand = [...state.players[viewer].unitHand, ...state.players[viewer].spellHand];
-  const liftedStillHeld = lifted && inHand.some((c) => c.uid === lifted) ? lifted : null;
+  const inHand = [
+    ...state.players[viewer].unitHand,
+    ...state.players[viewer].spellHand,
+  ];
+  const liftedStillHeld =
+    lifted && inHand.some((c) => c.uid === lifted) ? lifted : null;
   const readCard = reading ? inHand.find((c) => c.uid === reading) : undefined;
 
   // Which tiles are mid-animation, and what to hold in the panel. Both are read
@@ -1198,7 +1285,8 @@ function Field(props: FieldProps) {
   }, [beats]);
 
   const fallen = useMemo(
-    () => beats.filter((b) => b.kind === "fall" && b.slot && !shown.board[b.slot]),
+    () =>
+      beats.filter((b) => b.kind === "fall" && b.slot && !shown.board[b.slot]),
     [beats, shown.board],
   );
 
@@ -1227,20 +1315,30 @@ function Field(props: FieldProps) {
     // hit came from there, and it did not. It moves when the unit does: the
     // walk plays when the cast beat lets go of the queue, which is the same
     // number `stagger` gives the march.
-    const from = cast.stepTo && since >= BEAT_GAP.cast ? cast.stepTo : cast.slot;
+    const from =
+      cast.stepTo && since >= BEAT_GAP.cast ? cast.stepTo : cast.slot;
     out.set(from, "caster");
     // Where it is going, before it goes. A spell that moves its caster reads as
     // three things in sequence — this unit, that tile, then the walk — and the
     // tile has to be named while the unit is still standing where it started.
-    if (since >= CAST_STEP_MS && cast.destinationSlot && cast.destinationSlot !== from) {
+    if (
+      since >= CAST_STEP_MS &&
+      cast.destinationSlot &&
+      cast.destinationSlot !== from
+    ) {
       out.set(cast.destinationSlot, "step");
     }
-    if (since >= CAST_TARGET_MS && cast.targetSlot && cast.targetSlot !== from) {
+    if (
+      since >= CAST_TARGET_MS &&
+      cast.targetSlot &&
+      cast.targetSlot !== from
+    ) {
       const caster = shown.board[from];
       const target = shown.board[cast.targetSlot];
       // Whose tile it is, when the unit that was standing there has already
       // been killed by the very spell being shown.
-      const targetOwner = target?.owner ?? (cast.targetSlot.slice(0, 2) as PlayerId);
+      const targetOwner =
+        target?.owner ?? (cast.targetSlot.slice(0, 2) as PlayerId);
       const friendly = (caster?.owner ?? cast.player) === targetOwner;
       out.set(cast.targetSlot, friendly ? "friend" : "foe");
     }
@@ -1248,7 +1346,10 @@ function Field(props: FieldProps) {
   }, [beats, shown.board, now]);
 
   /** The cast on screen, for a board that draws the spell itself and not only its two tiles. */
-  const spell = useMemo(() => [...beats].reverse().find((b) => b.kind === "cast" && b.slot), [beats]);
+  const spell = useMemo(
+    () => [...beats].reverse().find((b) => b.kind === "cast" && b.slot),
+    [beats],
+  );
 
   const classes = ["field"];
   if (!over) classes.push("opening");
@@ -1265,24 +1366,37 @@ function Field(props: FieldProps) {
       // Which rail a phone has slid up over the board. Unset on a desktop,
       // where both rails are columns and nothing can open a drawer.
       data-sheet={sheet ?? undefined}
-      // Right click takes back a spell that has not finished being declared.
-      // Anywhere on the screen, because there is no one place a player would
-      // think to aim at — the card is in a panel, the picks are on the board,
-      // and the gesture means "no, forget it" rather than "not that tile".
-      onContextMenu={
-        castInFlight
-          ? (e) => {
-              e.preventDefault();
-              cancelCast();
-            }
-          : undefined
-      }
+      // The right button is the game's, never the browser's. A right *click*
+      // takes back a spell that has not finished being declared — anywhere on
+      // the screen, because there is no one place a player would think to aim
+      // at, and the gesture means "no, forget it" rather than "not that tile".
+      // A right *drag* turns the 3D table (`stage/Controls.tsx`), so the click
+      // is judged on release, by how far the pointer travelled: the menu event
+      // comes on press on some systems and on release on others.
+      onContextMenu={(e) => e.preventDefault()}
+      onPointerDown={(e) => {
+        if (e.button === 2) rightPress.current = { x: e.clientX, y: e.clientY };
+      }}
+      onPointerUp={(e) => {
+        const from = rightPress.current;
+        if (e.button !== 2 || !from) return;
+        rightPress.current = null;
+        if (
+          Math.hypot(e.clientX - from.x, e.clientY - from.y) <= DRAG_SLOP &&
+          castInFlight
+        )
+          cancelCast();
+      }}
     >
       <span className="flight-layer" />
       {spotlit && !tucked && <Spotlight />}
       <Theatre beats={beats} viewer={viewer} bare={bare} />
       <aside className="rail-left">
-        <Battlefield {...props} onLog={() => setLogOpen((v) => !v)} logOpen={logOpen} />
+        <Battlefield
+          {...props}
+          onLog={() => setLogOpen((v) => !v)}
+          logOpen={logOpen}
+        />
         <TurnCue {...props} moves={moves} viewer={viewer} />
         <span className="rail-gap" />
         <Tools
@@ -1319,7 +1433,9 @@ function Field(props: FieldProps) {
           board rather than a child of the tile, so nothing on the board can clip
           it and it never covers the units it is being compared against. */}
       {inspected && (
-        <div className={`loupe ${inspected.owner === viewer ? "mine" : "theirs"}`}>
+        <div
+          className={`loupe ${inspected.owner === viewer ? "mine" : "theirs"}`}
+        >
           <Loaded unit={inspected} state={shown} />
         </div>
       )}
@@ -1327,9 +1443,23 @@ function Field(props: FieldProps) {
       {/* The far player's piles, the ledger, then yours. The ledger sits between
           them because that is where both sets of piles can reach it. */}
       <aside className="rail-right">
-        <Counters state={state} side={far} viewer={viewer} botSide={botSide} bare={bare} onTrack={setTracking} />
+        <Counters
+          state={state}
+          side={far}
+          viewer={viewer}
+          botSide={botSide}
+          bare={bare}
+          onTrack={setTracking}
+        />
         <Ledger state={state} tracking={tracking} />
-        <Counters state={state} side={viewer} viewer={viewer} botSide={botSide} bare={bare} onTrack={setTracking} />
+        <Counters
+          state={state}
+          side={viewer}
+          viewer={viewer}
+          botSide={botSide}
+          bare={bare}
+          onTrack={setTracking}
+        />
       </aside>
 
       {!over && (
@@ -1374,22 +1504,35 @@ function Field(props: FieldProps) {
 
       {/* Tapping the board behind an open drawer closes it rather than playing
           through it — the drawer covers the tiles it would otherwise hit. */}
-      {sheet && <button className="sheet-scrim" onClick={() => setSheet(null)} aria-label="Bezár" />}
+      {sheet && (
+        <button
+          className="sheet-scrim"
+          onClick={() => setSheet(null)}
+          aria-label="Bezár"
+        />
+      )}
 
       {/* The card under the pointer, printed at full size above its own place in
           the fan. Nothing in the hand moves to make this happen. */}
-      {readCard && !liftedStillHeld && <Reading uid={readCard.uid} cardId={readCard.cardId} />}
+      {readCard && !liftedStillHeld && (
+        <Reading uid={readCard.uid} cardId={readCard.cardId} />
+      )}
 
       {/* A card in the enemy's fan that this player has looked at, printed
           downwards from the top edge the way your own is printed upwards. */}
-      {farReading && <Reading uid={farReading.uid} cardId={farReading.cardId} far />}
+      {farReading && (
+        <Reading uid={farReading.uid} cardId={farReading.cardId} far />
+      )}
 
       {/* The tile a card has just arrived on, ringed so the panel holding the
           card up says where as well as what. */}
       {spotlit &&
         !tucked &&
         [...stirring.entries()]
-          .filter(([, kind]) => kind === "land" || kind === "veil" || kind === "reveal")
+          .filter(
+            ([, kind]) =>
+              kind === "land" || kind === "veil" || kind === "reveal",
+          )
           .map(([slot, kind]) => <Beacon key={slot} slot={slot} kind={kind} />)}
 
       {/* An ability going through a pile: the deck a tutor is searching, the
@@ -1402,14 +1545,21 @@ function Field(props: FieldProps) {
       {enemySearching && (
         <div className="searching timber">
           <b>Az ellenfeled keresgél</b>
-          <em>{asking!.sourceCardId ? (cardFor(asking!.sourceCardId)?.name ?? "") : ""}</em>
+          <em>
+            {asking!.sourceCardId
+              ? (cardFor(asking!.sourceCardId)?.name ?? "")
+              : ""}
+          </em>
         </div>
       )}
 
       {/* The way back out from under a panel. It stays on screen while the
           panel is tucked, which is the only thing that could bring it back. */}
       {panelUp && (
-        <button className="tuck-handle tiny" onClick={() => setTucked((v) => !v)}>
+        <button
+          className="tuck-handle tiny"
+          onClick={() => setTucked((v) => !v)}
+        >
           {tucked ? "Vissza a kérdéshez" : "Mutasd a csatateret"}
         </button>
       )}
@@ -1449,12 +1599,14 @@ function Field(props: FieldProps) {
       )}
 
       {/* The price of hiding, asked once the tile is settled. This is the
-        * panel a drag would otherwise have skipped straight past. */}
+       * panel a drag would otherwise have skipped straight past. */}
       {payingFor && actor && (
         <HideToll
           unitName={cardFor(cardIdOf(payingFor.uid) ?? "")?.name ?? "Egység"}
           toll={payingFor.toll}
-          offer={state.players[actor].unitHand.filter((c) => c.uid !== payingFor.uid)}
+          offer={state.players[actor].unitHand.filter(
+            (c) => c.uid !== payingFor.uid,
+          )}
           chosen={payingFor.tollUids}
           onToggle={(uid) =>
             setPayingFor({
@@ -1499,36 +1651,51 @@ function Field(props: FieldProps) {
             const over = (hand: { uid: string }[], limit: number) =>
               Math.max(0, hand.length - stagedIn(hand) - limit);
             return (
-              over(p.unitHand, p.handLimit.units) + over(p.spellHand, p.handLimit.spells)
+              over(p.unitHand, p.handLimit.units) +
+              over(p.spellHand, p.handLimit.spells)
             );
           })()}
           staged={props.staged
             .map((uid) =>
-              [...state.players[actor].unitHand, ...state.players[actor].spellHand].find(
-                (c) => c.uid === uid,
-              ),
+              [
+                ...state.players[actor].unitHand,
+                ...state.players[actor].spellHand,
+              ].find((c) => c.uid === uid),
             )
             .filter((c): c is { uid: string; cardId: string } => !!c)}
-          onReturn={(uid) => props.setStaged(props.staged.filter((u) => u !== uid))}
+          onReturn={(uid) =>
+            props.setStaged(props.staged.filter((u) => u !== uid))
+          }
           // One gesture, one run of actions: every throw, then the declaration
           // that ends the step. `send` already folds a run into a single visible
           // beat, and across a room the host validates each one against the
           // position the one before it produced.
           onDone={() =>
             send([
-              ...props.staged.map((uid) => ({ type: "toss" as const, player: actor, uid })),
+              ...props.staged.map((uid) => ({
+                type: "toss" as const,
+                player: actor,
+                uid,
+              })),
               { type: "declareTossDone" as const, player: actor },
             ])
           }
         />
       )}
 
-      {props.prologue && stageReady && <Prologue state={state} botSide={botSide} onDone={props.endPrologue} />}
+      {props.prologue && stageReady && (
+        <Prologue state={state} botSide={botSide} onDone={props.endPrologue} />
+      )}
 
       <Loading done={stageReady} onFlat={playFlat} />
 
       {logOpen && (
-        <Chronicle state={state} onClose={() => setLogOpen(false)} threeD={threeD} onThreeD={toggleThreeD} />
+        <Chronicle
+          state={state}
+          onClose={() => setLogOpen(false)}
+          threeD={threeD}
+          onThreeD={toggleThreeD}
+        />
       )}
       {over && (
         <Aftermath

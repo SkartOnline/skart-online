@@ -1,7 +1,7 @@
 import { PerspectiveCamera } from "three";
 import { describe, expect, it } from "vitest";
 import type { PlayerId } from "../../engine";
-import { fitCamera, projectTile, slotWorld, slotsOf } from "./layout";
+import { HOME, LIMITS, aimCamera, clampView, fitCamera, groundAxes, isHome, projectTile, slotWorld, slotsOf } from "./layout";
 
 const W = 1200;
 const H = 800;
@@ -72,6 +72,58 @@ describe("stage layout", () => {
       const cx = t.box.left + t.box.width / 2;
       const cy = t.box.top + t.box.height / 2;
       expect(all.filter((u) => inside(u, cx, cy))).toHaveLength(1);
+    }
+  });
+});
+
+describe("the movable camera", () => {
+  it("stands exactly where the fit put it when the view is home", () => {
+    const camera = new PerspectiveCamera();
+    const fit = fitCamera(camera, W, H, SAFE);
+    const fitted = camera.position.clone();
+    aimCamera(camera, fit, HOME);
+    expect(camera.position.distanceTo(fitted)).toBeLessThan(1e-9);
+  });
+
+  it("turned half round, sees the far half nearest", () => {
+    const camera = new PerspectiveCamera();
+    const fit = fitCamera(camera, W, H, SAFE);
+    aimCamera(camera, fit, { ...HOME, yaw: Math.PI });
+    const mine = projectTile("p1.F2", "p1", camera, W, H).box;
+    const theirs = projectTile("p2.F2", "p1", camera, W, H).box;
+    expect(theirs.top).toBeGreaterThan(mine.top);
+  });
+
+  it("orbits the point it was moved to, at the distance it was zoomed to", () => {
+    const camera = new PerspectiveCamera();
+    const fit = fitCamera(camera, W, H, SAFE);
+    const view = { ...HOME, zoom: 0.5, x: 1, z: -1 };
+    aimCamera(camera, fit, view);
+    const dx = camera.position.x - 1;
+    const dz = camera.position.z + 1;
+    expect(Math.hypot(dx, camera.position.y, dz)).toBeCloseTo(fit.distance * 0.5, 6);
+  });
+
+  it("keeps a view above the table, near the board, and within zoom", () => {
+    const wild = clampView({ yaw: 9, pitch: -1, zoom: 50, x: 99, z: -99 });
+    expect(wild.pitch).toBe(LIMITS.pitch[0]);
+    expect(wild.zoom).toBe(LIMITS.zoom[1]);
+    expect(wild.x).toBe(LIMITS.x);
+    expect(wild.z).toBe(-LIMITS.z);
+    expect(wild.yaw).toBe(9);
+  });
+
+  it("knows home when it sees it, a full turn included", () => {
+    expect(isHome(HOME)).toBe(true);
+    expect(isHome({ ...HOME, yaw: Math.PI * 2 })).toBe(true);
+    expect(isHome({ ...HOME, zoom: 0.8 })).toBe(false);
+  });
+
+  it("moves forward away from the camera, whichever way it is turned", () => {
+    for (const yaw of [0, 1, Math.PI, -2]) {
+      const { forward } = groundAxes(yaw);
+      // The camera sits at +(sin yaw, cos yaw) from its target; forward is the other way.
+      expect(forward.x * Math.sin(yaw) + forward.z * Math.cos(yaw)).toBeCloseTo(-1, 9);
     }
   });
 });

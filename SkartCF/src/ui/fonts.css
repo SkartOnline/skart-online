@@ -1,27 +1,27 @@
 /*
- * Self-hosted type. Latin plus latin-ext for both: Hungarian needs ő and ű,
- * which live in the ext subset, so importing latin alone silently falls back on
- * those two letters and nothing else.
+ * Self-hosted type, every face checked for ő and ű.
+ *
+ * Imported per weight (`400.css`, not `latin-400.css`): those files declare each
+ * subset with its own `unicode-range`, so latin and latin-ext join into one
+ * face. The per-subset files declare no range at all, and two faces of the same
+ * weight without ranges do not combine — one of them simply wins, and Hungarian
+ * lost its two letters to the fallback font that way. Fredoka had a second
+ * problem on top: its latin-ext file has 22 glyphs and neither ő nor ű, so it
+ * could never set Hungarian and is gone.
  *
  * Nunito carries the running text: rounded, warm, easy at card size. 400 body,
  * 400 italic for the cards' own voice, 600 and 700 for labels and buttons, 800
  * for the lamp button.
  *
- * Fredoka is the display face and the numbers: chunky and friendly, the type a
- * low-poly world would stamp on a coin. 500 and 600.
+ * Baloo 2 is the display face and the numbers (`--display` in theme.css):
+ * chunky and friendly like Fredoka was, and whole in Hungarian. 500 to 700.
  */
 
-@import "@fontsource/nunito/latin-400.css";
-@import "@fontsource/nunito/latin-ext-400.css";
-@import "@fontsource/nunito/latin-400-italic.css";
-@import "@fontsource/nunito/latin-ext-400-italic.css";
-@import "@fontsource/nunito/latin-600.css";
-@import "@fontsource/nunito/latin-ext-600.css";
-@import "@fontsource/nunito/latin-700.css";
-@import "@fontsource/nunito/latin-ext-700.css";
-@import "@fontsource/nunito/latin-800.css";
-@import "@fontsource/nunito/latin-ext-800.css";
-@import "@fontsource/fredoka/latin-500.css";
-@import "@fontsource/fredoka/latin-ext-500.css";
-@import "@fontsource/fredoka/latin-600.css";
-@import "@fontsource/fredoka/latin-ext-600.css";
+@import "@fontsource/nunito/400.css";
+@import "@fontsource/nunito/400-italic.css";
+@import "@fontsource/nunito/600.css";
+@import "@fontsource/nunito/700.css";
+@import "@fontsource/nunito/800.css";
+@import "@fontsource/baloo-2/500.css";
+@import "@fontsource/baloo-2/600.css";
+@import "@fontsource/baloo-2/700.css";

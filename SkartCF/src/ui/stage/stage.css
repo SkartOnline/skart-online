@@ -15,6 +15,9 @@
 .stage {
   position: absolute;
   inset: 0;
+  /* Every finger on the board is the camera's (Controls.tsx): no page scroll,
+     no browser pinch-zoom of the whole interface. */
+  touch-action: none;
 }
 .stage-canvas {
   position: absolute !important;
@@ -185,9 +188,26 @@
   }
 }
 
+/* Back to the view the game started in, offered only once the camera has been
+   moved: right-drag turns the table, the arrows slide it, the wheel zooms. */
+.stage-home {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 5;
+  pointer-events: auto;
+}
+
 /* ------------------------------------------------------------------ phone */
 
 @media (max-width: 700px) {
+  /* Under the fixed top strip, and above the far hand's fan of backs, which
+     both cover the stage's top edge on a phone. */
+  .stage-home {
+    top: 54px;
+    right: 10px;
+    z-index: 60;
+  }
   /* A tile is a drop target for a finger, so it must not also scroll the page. */
   .stage-tile {
     touch-action: none;

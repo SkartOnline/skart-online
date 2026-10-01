@@ -35,6 +35,14 @@ export function wantsStage(): boolean {
   return readStage() && hasWebGL();
 }
 
+/**
+ * Pixels a right press may wander and still be a click. The field reads a click
+ * as "take that spell back" and `Controls` reads a drag as "turn the table", so
+ * both have to draw the line in the same place. Here, because the field is in
+ * the main bundle and must not import the 3D chunk to learn a number.
+ */
+export const DRAG_SLOP = 5;
+
 let webgl: boolean | null = null;
 
 /** Can this browser draw the stage at all. Asked once; the answer does not change. */

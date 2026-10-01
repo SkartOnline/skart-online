@@ -262,10 +262,37 @@
   flex-direction: column;
   gap: 4px;
 }
-.bf-picks select {
-  width: 100%;
-  font-size: 13px;
-  padding: 3px 6px;
+.deck-lines.fields {
+  margin: 4px 0 0;
+}
+/* An empty battlefield slot: a dashed line that turns the gallery to the fields. */
+.deck-line.empty {
+  background: transparent;
+  border: 1px dashed var(--panel-edge-lit);
+}
+.deck-line.empty .name {
+  color: var(--ash-dim);
+  font-style: italic;
+}
+.deck-line.empty .cost {
+  color: var(--ash-dim);
+}
+
+/* The tie-break battlefield is shown for reading; no deck brings it. */
+.gallery-slot .tiebreak {
+  position: absolute;
+  left: 50%;
+  bottom: -8px;
+  transform: translateX(-50%);
+  z-index: 3;
+  padding: 1px 8px;
+  font-size: 12px;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  color: var(--flame);
+  background: var(--oak-deep);
+  border: 1px solid var(--panel-edge-lit);
 }
 
 
