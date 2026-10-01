@@ -9,6 +9,7 @@ import Rulebook from "./Rulebook";
 import { installOverlay, readOverlay, writeOverlay } from "./cardSet";
 import type { CardOverlay } from "./cardSet";
 import { playSound, resumeAudio } from "./audio";
+import { warmStageWhenIdle } from "./stage/preload";
 
 export default function App() {
   // `#muhely` opens the card workshop, which the menu no longer advertises. Read
@@ -57,6 +58,10 @@ export default function App() {
     document.addEventListener("pointerdown", onPress, { capture: true });
     return () => document.removeEventListener("pointerdown", onPress, { capture: true });
   }, []);
+
+  // The 3D board downloads behind the menu, so the first game does not wait
+  // for it: the code and every model, once the menu has painted (`preload.ts`).
+  useEffect(() => warmStageWhenIdle(), []);
 
   const home = () => setRoom("menu");
 

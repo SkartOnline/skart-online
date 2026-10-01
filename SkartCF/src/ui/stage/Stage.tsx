@@ -23,7 +23,8 @@ import { LINE, PITCH, TILE, TILE_TOP, fitCamera, projectAbove, projectTile, slot
 import { VEILED, hash, lookOf } from "./looks";
 import type { Body as BodyKind, Look } from "./looks";
 import { BODY_SCALE, Scenery, flat } from "./models";
-import { spellLook, sweptTiles } from "./vfx";
+import { TRAVELS, spellLook, sweptTiles } from "./vfx";
+import type { Motif, SpellLook } from "./vfx";
 import "./stage.css";
 
 /**
@@ -46,6 +47,8 @@ import "./stage.css";
 type Props = ComponentProps<typeof Board> & {
   /** The cast beat on screen, which `Board` reads only as the two rings in `marks`. */
   spell?: LiveBeat;
+  /** Called once the canvas has drawn everything it will ever draw at least once. */
+  onReady?: () => void;
 };
 type V3 = [number, number, number];
 
@@ -90,8 +93,14 @@ const lite = (): boolean =>
   typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 700px)").matches;
 
 // Every model up front: the first board takes a moment longer, and nothing
-// pops in from a primitive body halfway through a game.
-preloadModels(allModels());
+// pops in from a primitive body halfway through a game. `preload.ts` usually
+// got here first, from the menu; this is for anyone who did not.
+void preloadModels(allModels());
+
+/** Every model there is, ticking as each lands: what `preload.ts` waits on. */
+export function loadAssets(onEach?: (done: number, total: number) => void): Promise<void> {
+  return preloadModels(allModels(), onEach);
+}
 
 /** Which clip each of the theatre's beats plays on the unit it happened to. */
 const CLIP_FOR: Partial<Record<string, Clip>> = {
@@ -176,10 +185,21 @@ function Scene({
   fallen,
   marks,
   spell,
+  onReady,
   version,
   small,
 }: Props & { version: number; small: boolean }) {
   const invalidate = useThree((s) => s.invalidate);
+  const [rehearsing, setRehearsing] = useState(true);
+  const ready = useRef(onReady);
+  ready.current = onReady;
+  useEffect(() => {
+    if (rehearsing) return;
+    // One more frame, so the rehearsal is gone from the picture as well as the tree.
+    invalidate();
+    const id = requestAnimationFrame(() => ready.current?.());
+    return () => cancelAnimationFrame(id);
+  }, [rehearsing, invalidate]);
   const camera = useThree((s) => s.camera);
   // A refit, or a new battlefield, changes the picture without React knowing.
   useEffect(() => invalidate(), [version, invalidate]);
@@ -242,6 +262,8 @@ function Scene({
       {(fallen ?? []).map((f) => f.slot && <Ghost key={f.id} slot={f.slot} cardId={f.cardId} viewer={viewer} />)}
 
       <Casting spell={spell} marks={marks} state={state} viewer={viewer} small={small} />
+
+      {rehearsing && <Rehearsal small={small} onDone={() => setRehearsing(false)} />}
 
       {!small && <Bloom />}
     </>
@@ -671,6 +693,45 @@ function Casting({
       <Gather key={`g${spell.id}`} at={from} look={look} small={small} />
       {act}
     </>
+  );
+}
+
+/**
+ * Everything the game will ever draw, drawn once, under the loading curtain.
+ *
+ * A WebGL program is compiled the first time a material of its kind is drawn,
+ * and on a slow GPU that is a visible hitch: the first unit landing, the first
+ * spell, each new motif. So the stage draws every body and every motif for a
+ * couple of frames before the curtain lifts, and none of those firsts happen in
+ * front of anybody. Programs belong to the canvas, so this runs on every mount.
+ */
+function Rehearsal({ small, onDone }: { small: boolean; onDone: () => void }) {
+  const invalidate = useThree((s) => s.invalidate);
+  const frames = useRef(0);
+  const done = useRef(onDone);
+  done.current = onDone;
+  useFrame(() => {
+    frames.current += 1;
+    // Two frames drawn, every program in them compiled.
+    if (frames.current === 3) done.current();
+    else if (frames.current < 3) invalidate();
+  });
+  const bodies = Object.keys(TOP) as BodyKind[];
+  const motifs = Object.keys(TRAVELS) as Motif[];
+  return (
+    <group>
+      {bodies.map((body, i) => (
+        <group key={body} position={[(i - bodies.length / 2) * 0.4, TILE_TOP, 0]}>
+          <Figure look={{ ...VEILED, body }} clip="idle" idle={false} />
+        </group>
+      ))}
+      {motifs.map((motif, i) => {
+        const look: SpellLook = { motif, tint: ["#6a5a8a", "#ffe6b0"], travels: TRAVELS[motif], reach: null, sparesCaster: false };
+        const x = (i - motifs.length / 2) * 0.4;
+        return <Spell key={motif} look={look} from={[x, TILE_TOP, 1]} to={[x, TILE_TOP, -1]} small={small} />;
+      })}
+      <Gather at={[0, TILE_TOP, 0]} look={{ motif: "bolt", tint: ["#6a5a8a", "#ffe6b0"], travels: true, reach: null, sparesCaster: false }} small={small} />
+    </group>
   );
 }
 

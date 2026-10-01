@@ -14,7 +14,9 @@ import type { Action, GameState, PlayerId, SlotId } from "../../engine";
 import type { GuestMatch, HostMatch, MatchState } from "../../net";
 import { Loaded } from "./Board";
 import Surface from "../stage/Surface";
-import { readStage, writeStage } from "../stage/setting";
+import { hasWebGL, readStage, writeStage } from "../stage/setting";
+import { warmStage, useStageLoad } from "../stage/preload";
+import Loading from "../stage/Loading";
 import NewGame from "./NewGame";
 import type { Sides } from "./NewGame";
 import Lobby from "./Lobby";
@@ -653,6 +655,35 @@ function Field(props: FieldProps) {
       return !on;
     });
   /**
+   * Whether the board is ready to be looked at. The 3D board is not until its
+   * code and models are in and its canvas has drawn a rehearsal of everything it
+   * will ever draw (`Stage`'s `Rehearsal`); until then the game waits behind
+   * `Loading`, and the prologue — the first thing anybody sees — has not begun.
+   * Latched: switching boards mid-game never brings the curtain back.
+   */
+  const [stageReady, setStageReady] = useState(() => !(threeD && hasWebGL()));
+  const markReady = useCallback(() => setStageReady(true), []);
+  const stageLoad = useStageLoad();
+  useEffect(() => {
+    if (stageReady) return;
+    // Usually long since done from the menu; this is for a game started first.
+    void warmStage().then((ok) => {
+      if (!ok) markReady();
+    });
+  }, [stageReady, markReady]);
+  useEffect(() => {
+    // Everything is in and the canvas still has not drawn: a hidden tab, or a
+    // GPU that is not going to. The flat board under it is a whole game.
+    if (stageReady || stageLoad.phase !== "ready") return;
+    const t = window.setTimeout(markReady, 8000);
+    return () => window.clearTimeout(t);
+  }, [stageReady, stageLoad.phase, markReady]);
+  const playFlat = useCallback(() => {
+    // For this game only: the preference stays 3D, and the next game will have it.
+    setThreeD(false);
+    setStageReady(true);
+  }, []);
+  /**
    * Which rail is up, on a phone. Both rails are columns beside the board on a
    * desktop and drawers over it here; `null` — nothing open — is the only value
    * a desktop ever sees, because only the dock can change it and the dock is
@@ -1279,6 +1310,7 @@ function Field(props: FieldProps) {
           fallen={fallen}
           marks={marks}
           spell={spell}
+          onReady={markReady}
           onInspect={setInspect}
         />
       </div>
@@ -1491,7 +1523,9 @@ function Field(props: FieldProps) {
         />
       )}
 
-      {props.prologue && <Prologue state={state} botSide={botSide} onDone={props.endPrologue} />}
+      {props.prologue && stageReady && <Prologue state={state} botSide={botSide} onDone={props.endPrologue} />}
+
+      <Loading done={stageReady} onFlat={playFlat} />
 
       {logOpen && (
         <Chronicle state={state} onClose={() => setLogOpen(false)} threeD={threeD} onThreeD={toggleThreeD} />

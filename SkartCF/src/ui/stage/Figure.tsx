@@ -1,8 +1,9 @@
-import { useFrame, useLoader, useThree } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { AnimationMixer, LoopOnce, LoopRepeat, MeshStandardMaterial } from "three";
 import type { AnimationAction, Material, Mesh, Object3D } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import type { GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { modelFor } from "./assets";
 import type { Look } from "./looks";
@@ -80,7 +81,12 @@ function dress(root: Object3D, look: Look) {
 }
 
 function Model({ url, look, clip, cue, idle }: { url: string; look: Look; clip?: Clip; cue: number; idle: boolean }) {
-  const gltf = useLoader(GLTFLoader, url);
+  const gltf = useModel(url);
+  if (!gltf) return <Body look={look} />;
+  return <Dressed gltf={gltf} look={look} clip={clip} cue={cue} idle={idle} />;
+}
+
+function Dressed({ gltf, look, clip, cue, idle }: { gltf: GLTF; look: Look; clip?: Clip; cue: number; idle: boolean }) {
   const invalidate = useThree((s) => s.invalidate);
   const colors = JSON.stringify(paint(look));
   const scene = useMemo(() => {
@@ -161,6 +167,58 @@ function Model({ url, look, clip, cue, idle }: { url: string; look: Look; clip?:
   );
 }
 
-export function preloadModels(urls: string[]) {
-  for (const url of urls) useLoader.preload(GLTFLoader, url);
+// ---------------------------------------------------------------------------
+// Loading
+//
+// Our own cache rather than fiber's `useLoader`, because the game has to be able
+// to *wait* for it: every model is fetched and parsed in the background while
+// the menu is up, and the game screen holds its curtain until they are all in
+// (`preload.ts`). `useLoader.preload` starts a load but can only be waited on by
+// suspending a component.
+// ---------------------------------------------------------------------------
+
+const loader = new GLTFLoader();
+const parsed = new Map<string, GLTF>();
+const pending = new Map<string, Promise<GLTF | null>>();
+const broken = new Set<string>();
+
+/** Fetch and parse one model, once. Never rejects: a broken file is a primitive body. */
+export function loadModel(url: string): Promise<GLTF | null> {
+  let p = pending.get(url);
+  if (!p) {
+    p = loader.loadAsync(url).then(
+      (gltf) => {
+        parsed.set(url, gltf);
+        return gltf;
+      },
+      (e) => {
+        console.warn(`Model ${url} failed to load; standing in the primitive body.`, e);
+        broken.add(url);
+        return null;
+      },
+    );
+    pending.set(url, p);
+  }
+  return p;
+}
+
+/** The parsed model, suspending until it is; `null` for a file that would not load. */
+function useModel(url: string): GLTF | null {
+  const gltf = parsed.get(url);
+  if (gltf) return gltf;
+  if (broken.has(url)) return null;
+  throw loadModel(url);
+}
+
+/** Every model, ticking `onEach` as each one lands. Resolves when all have, broken or not. */
+export async function preloadModels(urls: string[], onEach?: (done: number, total: number) => void) {
+  let done = 0;
+  await Promise.all(
+    urls.map((url) =>
+      loadModel(url).then(() => {
+        done += 1;
+        onEach?.(done, urls.length);
+      }),
+    ),
+  );
 }

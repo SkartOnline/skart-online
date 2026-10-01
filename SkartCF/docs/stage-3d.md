@@ -129,6 +129,8 @@ The files in `src/ui/stage/`:
 | `ground.ts` | Battlefield palettes and the seeded prop scatter. Pure, tested |
 | `fx.tsx` | Puffs, shards, bolts, and the shapes the spell motifs are built from (`Spell`) |
 | `vfx.ts` | Spell card → motif, colour, mass reach. Pure, tested |
+| `preload.ts` | Fetches the chunk and the models in the background; `useStageLoad` says how far |
+| `Loading.tsx` | The curtain a game waits behind until the canvas has drawn |
 | `looksdump.ts` | `npm run looks`: every unit's look as JSON for the Blender scripts |
 | `models/*.glb` | The models, from `blender/models.py` or by hand |
 
@@ -245,7 +247,17 @@ start as colour only.
 - `prefers-reduced-motion` → models snap, VFX shrink to the ring decals the 2D
   board already uses.
 - The setting: a *3D board* toggle in the tools, stored in `localStorage` as a
-  per-device convenience. It defaults to off until phase 1 reaches parity.
+  per-device convenience. **3D is the default** (since 2026-10-01; the key
+  moved to `skartcf.stage.v2` so nobody stays on a choice made against the
+  placeholders).
+- **Nothing loads in front of a game.** `preload.ts` fetches the stage chunk
+  and every model while the menu is up (`warmStageWhenIdle` in `App`). A game
+  holds `Loading.tsx`, a curtain of twelve slabs that land as the download
+  does, until the canvas has drawn its `Rehearsal`: every body and every spell
+  motif once, so no shader compiles mid-game. Then the prologue starts. With
+  everything already fetched the curtain is up for a few frames and shows
+  only dusk lifting; after nine seconds it offers *Kezdés sík táblán*, and a
+  canvas that never draws (a hidden tab) releases it after eight.
 
 ## 11. Testing and verification
 
@@ -348,7 +360,7 @@ tells you too.
   errors but was never caught on screen in a screenshot.
 - Still open: the battlefield change has no camera move yet. Bolts are tinted
   by foe/friend, not by school (school tints are phase 3). The 3D board is
-  still off by default.
+  off by default until phase 3 (it is the default now; see §10).
 
 **2 — The model pipeline.** Blender to `.glb` to the board, and the card art
 rendered from the same models. *Exit:* every unit on the board is a model,

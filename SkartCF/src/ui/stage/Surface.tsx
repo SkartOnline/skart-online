@@ -25,20 +25,26 @@ type BoardProps = ComponentProps<typeof Board>;
 export default function Surface({
   threeD,
   spell,
+  onReady,
   ...props
-}: BoardProps & { threeD: boolean; spell?: LiveBeat }) {
+}: BoardProps & {
+  threeD: boolean;
+  spell?: LiveBeat;
+  /** The stage has drawn its first frames, or given up and left the flat board. */
+  onReady?: () => void;
+}) {
   const flat = <Board {...props} />;
   if (!threeD || !hasWebGL()) return flat;
   return (
-    <Fallback to={flat}>
+    <Fallback to={flat} onFail={onReady}>
       <Suspense fallback={flat}>
-        <Stage {...props} spell={spell} />
+        <Stage {...props} spell={spell} onReady={onReady} />
       </Suspense>
     </Fallback>
   );
 }
 
-class Fallback extends Component<{ to: ReactNode; children: ReactNode }, { failed: boolean }> {
+class Fallback extends Component<{ to: ReactNode; onFail?: () => void; children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
 
   static getDerivedStateFromError() {
@@ -47,6 +53,8 @@ class Fallback extends Component<{ to: ReactNode; children: ReactNode }, { faile
 
   componentDidCatch(error: unknown) {
     console.warn("3D stage failed; drawing the 2D board instead.", error);
+    // Whoever is holding a curtain up for the stage must not wait for it.
+    this.props.onFail?.();
   }
 
   render() {

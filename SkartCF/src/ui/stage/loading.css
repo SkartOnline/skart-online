@@ -1,0 +1,196 @@
+/*
+ * The curtain a game waits behind while its 3D board gets ready (Loading.tsx).
+ *
+ * The valley from the menu, an hour darker, and a little battlefield of twelve
+ * slabs in perspective that drop into place as the download lands. The words
+ * and the board wait half a second before they show, so the usual case — the
+ * menu already loaded everything — is only dusk lifting off the table.
+ */
+
+.stage-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--oak-pitch);
+  opacity: 1;
+  transition: opacity 0.6s ease;
+}
+
+/* The valley, out of focus: it has slabs of its own, and they must not read as
+   a second board beside the one that is loading. */
+.stage-curtain::before {
+  content: "";
+  position: absolute;
+  inset: -24px;
+  background: url("../menu-valley.webp") center / cover;
+  filter: blur(10px) saturate(0.8);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.stage-curtain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(55% 45% at 50% 52%, rgba(243, 156, 74, 0.12), transparent 70%),
+    linear-gradient(180deg, rgba(20, 23, 38, 0.55), rgba(20, 23, 38, 0.9)),
+    var(--facets);
+  pointer-events: none;
+}
+
+.stage-curtain.lifting {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.curtain-body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  opacity: 0;
+  animation: curtain-show 0.5s ease 0.45s forwards;
+}
+
+@keyframes curtain-show {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The battlefield: two sides of two ranks, the arcvonal between them. */
+.curtain-board {
+  display: grid;
+  grid-template-columns: repeat(3, 52px);
+  grid-auto-rows: 52px;
+  gap: 7px;
+  margin-bottom: 26px;
+  transform: perspective(520px) rotateX(46deg);
+  transform-origin: 50% 60%;
+}
+
+.curtain-tile:nth-child(n + 7):nth-child(-n + 9) {
+  margin-top: 16px;
+}
+
+.curtain-tile {
+  --cut: 7px;
+  position: relative;
+  clip-path: polygon(
+    var(--cut) 0,
+    calc(100% - var(--cut)) 0,
+    100% var(--cut),
+    100% calc(100% - var(--cut)),
+    calc(100% - var(--cut)) 100%,
+    var(--cut) 100%,
+    0 calc(100% - var(--cut)),
+    0 var(--cut)
+  );
+  background: linear-gradient(135deg, var(--oak-lit) 50%, var(--oak) 50%);
+  opacity: 0.55;
+}
+
+/* Waiting on the code: the empty slabs breathe in a wave, so it is plainly alive. */
+.curtain-board.waiting .curtain-tile:not(.lit) {
+  animation: curtain-breathe 1.6s ease-in-out infinite;
+  animation-delay: calc(var(--i) * 110ms);
+}
+
+@keyframes curtain-breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/* A slab landing: dropped from above, a squash, then still. Stone, with the
+   owner's rim: gold on the near side, coral across the line. */
+.curtain-tile.lit {
+  opacity: 1;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16) 50%, rgba(0, 0, 0, 0.12) 50%),
+    #bdb19a;
+  box-shadow: inset 0 0 0 3px var(--rim);
+  animation: curtain-land 0.45s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+
+.curtain-tile.near {
+  --rim: var(--brass);
+}
+
+.curtain-tile.far {
+  --rim: var(--blood);
+}
+
+@keyframes curtain-land {
+  from {
+    opacity: 0;
+    transform: translateY(-30px) scale(1.15);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(2px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.curtain-line {
+  font-family: Fredoka, Nunito, system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 1.5rem;
+  letter-spacing: 0.02em;
+  color: var(--tallow);
+  text-shadow: 0 2px 12px rgba(243, 156, 74, 0.35);
+}
+
+.curtain-step {
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.14em;
+  color: var(--ash);
+  min-height: 1.2em;
+}
+
+.curtain-flat {
+  margin-top: 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .curtain-body,
+  .curtain-tile.lit,
+  .curtain-board.waiting .curtain-tile:not(.lit) {
+    animation: none;
+  }
+  .curtain-body {
+    opacity: 1;
+  }
+}
+
+/* ------------------------------------------------------------------ phone */
+
+@media (max-width: 700px) {
+  .curtain-board {
+    grid-template-columns: repeat(3, 40px);
+    grid-auto-rows: 40px;
+    gap: 6px;
+  }
+  .curtain-line {
+    font-size: 1.2rem;
+  }
+}
