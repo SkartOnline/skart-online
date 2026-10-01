@@ -1,22 +1,29 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { ComponentProps } from "react";
-import { BufferAttribute, Color, PerspectiveCamera, PlaneGeometry, Vector3 } from "three";
+import type { ComponentProps, ReactNode } from "react";
+import { BufferAttribute, Color, HalfFloatType, PerspectiveCamera, PlaneGeometry, Vector2, Vector3, WebGLRenderTarget } from "three";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import type { Group } from "three";
 import { cardOf, coordLabel, getSpell, getUnit, isBlocked, power, trapAt } from "../../engine";
 import type { GameState, PlayerId, SlotId, UnitInstance } from "../../engine";
 import Board, { Marks, Status, poolsOf } from "../game/Board";
 import { castingPips, schoolSlug } from "../card/model";
+import type { LiveBeat } from "../game/common";
+import { BEAT_GAP, CAST_TARGET_MS } from "../game/theatre";
 import { allModels } from "./assets";
 import { Figure, preloadModels } from "./Figure";
 import type { Clip } from "./Figure";
-import { Bolt, Burst, Shards } from "./fx";
+import { Burst, Gather, Shards, Spell } from "./fx";
 import { groundOf, scatter } from "./ground";
 import type { Ground } from "./ground";
 import { LINE, PITCH, TILE, TILE_TOP, fitCamera, projectAbove, projectTile, slotWorld, slotsOf } from "./layout";
 import { VEILED, hash, lookOf } from "./looks";
 import type { Body as BodyKind, Look } from "./looks";
 import { BODY_SCALE, Scenery, flat } from "./models";
+import { spellLook, sweptTiles } from "./vfx";
 import "./stage.css";
 
 /**
@@ -32,11 +39,14 @@ import "./stage.css";
  *   the 2D tile prints, as DOM. The drag, the card flights, the loupe and
  *   keyboard focus go on finding tiles in the DOM as they do on the 2D board.
  *
- * Bodies are primitives built from card data (`looks.ts`, `models.tsx`) until
- * Blender models replace them in phase 2.
+ * Bodies are Blender models dressed from card data (`looks.ts`, `Figure.tsx`),
+ * and spells are drawn from it the same way (`vfx.ts`, `fx.tsx`).
  */
 
-type Props = ComponentProps<typeof Board>;
+type Props = ComponentProps<typeof Board> & {
+  /** The cast beat on screen, which `Board` reads only as the two rings in `marks`. */
+  spell?: LiveBeat;
+};
 type V3 = [number, number, number];
 
 const INK = {
@@ -165,6 +175,7 @@ function Scene({
   stirring,
   fallen,
   marks,
+  spell,
   version,
   small,
 }: Props & { version: number; small: boolean }) {
@@ -230,7 +241,9 @@ function Scene({
 
       {(fallen ?? []).map((f) => f.slot && <Ghost key={f.id} slot={f.slot} cardId={f.cardId} viewer={viewer} />)}
 
-      <Casting marks={marks} viewer={viewer} />
+      <Casting spell={spell} marks={marks} state={state} viewer={viewer} small={small} />
+
+      {!small && <Bloom />}
     </>
   );
 }
@@ -594,23 +607,109 @@ function Ghost({ slot, cardId, viewer }: { slot: SlotId; cardId?: string; viewer
   );
 }
 
-/** A spell in flight, from the tile that threw it to the tile it hit, while the cast is on screen. */
-function Casting({ marks, viewer }: { marks?: Map<SlotId, string>; viewer: PlayerId }) {
-  if (!marks || reduced()) return null;
+/**
+ * The spell on screen, in the order the 2D board names it: the caster gathers
+ * as the card is announced, and the spell goes off when the target is named —
+ * across the board and into it, or on the caster for a spell with no target,
+ * or over every unit a mass spell sweeps. It lands as `BEAT_GAP.cast` lets the
+ * strike and the fall go, so the hit and the flinch are one moment.
+ *
+ * It reads the same `marks` the rings come from and the card the banner is
+ * already showing, so it tells nobody anything the 2D board does not.
+ */
+function Casting({
+  spell,
+  marks,
+  state,
+  viewer,
+  small,
+}: {
+  spell?: LiveBeat;
+  marks?: Map<SlotId, string>;
+  state: GameState;
+  viewer: PlayerId;
+  small: boolean;
+}) {
+  const look = useMemo(() => {
+    if (!spell?.cardId) return null;
+    try {
+      return spellLook(getSpell(spell.cardId));
+    } catch {
+      return null;
+    }
+  }, [spell?.cardId]);
+  if (!spell || !look || !marks || reduced()) return null;
+
   const entries = [...marks.entries()];
-  const from = entries.find(([, m]) => m === "caster")?.[0];
-  const hit = entries.find(([, m]) => m === "foe" || m === "friend");
-  if (!from || !hit) return null;
-  const a = slotWorld(from, viewer);
-  const b = slotWorld(hit[0], viewer);
+  const fromSlot = entries.find(([, m]) => m === "caster")?.[0];
+  if (!fromSlot) return null;
+  const hit = entries.find(([, m]) => m === "foe" || m === "friend")?.[0];
+  const ground = (slot: SlotId): V3 => {
+    const { x, z } = slotWorld(slot, viewer);
+    return [x, TILE_TOP, z];
+  };
+  const from = ground(fromSlot);
+  const timing = {
+    flight: (BEAT_GAP.cast - CAST_TARGET_MS) / 1000,
+    delay: Math.max(0, spell.startsAt + CAST_TARGET_MS - Date.now()),
+    seed: spell.id,
+    small,
+  };
+
+  let act: ReactNode = null;
+  if (look.reach) {
+    const swept = sweptTiles(look.reach, state.board, spell.player, fromSlot, look.sparesCaster);
+    act = <Spell key={`m${spell.id}`} look={look} from={from} swept={swept.map(ground)} {...timing} />;
+  } else if (hit) {
+    act = <Spell key={`${spell.id}>${hit}`} look={look} from={from} to={ground(hit)} {...timing} />;
+  } else if (!spell.targetSlot || spell.targetSlot === fromSlot) {
+    act = <Spell key={`s${spell.id}`} look={look} from={from} {...timing} />;
+  }
+
   return (
-    <Bolt
-      key={`${from}>${hit[0]}`}
-      from={[a.x, 0.5, a.z]}
-      to={[b.x, 0.35, b.z]}
-      color={MARK[hit[1]]}
-    />
+    <>
+      <Gather key={`g${spell.id}`} at={from} look={look} small={small} />
+      {act}
+    </>
   );
+}
+
+/**
+ * Light that spills: the spells, the marked tiles, a caster's crystal. Desktop
+ * only — the phone tier draws no post-processing at all (docs/stage-3d.md §10).
+ *
+ * Takes over fiber's render at priority 1, which with `frameloop="demand"`
+ * still only runs when something asked for a frame. Only what is brighter than
+ * white blooms, and nothing lit by the sun alone gets there: the effects and
+ * the glow materials are pushed over 1 on purpose.
+ */
+function Bloom() {
+  const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
+  const camera = useThree((s) => s.camera);
+  const size = useThree((s) => s.size);
+  const dpr = useThree((s) => s.viewport.dpr);
+  const composer = useMemo(() => {
+    // Half-float, so the brighter-than-white survives to the bloom pass, and
+    // multisampled, because a composer's targets otherwise lose the antialias.
+    const target = new WebGLRenderTarget(1, 1, { type: HalfFloatType, samples: 4 });
+    const c = new EffectComposer(gl, target);
+    c.addPass(new RenderPass(scene, camera));
+    c.addPass(new UnrealBloomPass(new Vector2(1, 1), 0.45, 0.3, 1));
+    c.addPass(new OutputPass());
+    return c;
+  }, [gl, scene, camera]);
+  const invalidate = useThree((s) => s.invalidate);
+
+  useEffect(() => {
+    composer.setPixelRatio(dpr);
+    composer.setSize(size.width, size.height);
+    invalidate();
+  }, [composer, size.width, size.height, dpr, invalidate]);
+  useEffect(() => () => composer.dispose(), [composer]);
+
+  useFrame(() => composer.render(), 1);
+  return null;
 }
 
 // ---------------------------------------------------------------------------

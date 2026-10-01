@@ -5,8 +5,9 @@ models standing on the twelve tiles, spells that fly across the arcvonal. **No
 rule changes.** The engine, the simulator, the bot, online play and the card
 data stay exactly as they are; this is a second way of drawing `GameState`.
 
-**Phases 0 and 1 are built** (`src/ui/stage/`, the *3D* button in the tools
-rail or the chronicle panel); phases 2–4 are still plan. See §12 for what
+**Phases 0, 1 and 3 are built** (`src/ui/stage/`, the *3D* button in the
+tools rail or the chronicle panel). Phase 2's code is built and its art is
+under way, one Blender file at a time; phase 4 is still plan. See §12 for what
 each phase found.
 
 ---
@@ -126,7 +127,8 @@ The files in `src/ui/stage/`:
 | `Figure.tsx` | Loads, dresses and animates a model; the primitive body until it loads |
 | `models.tsx` | The primitive bodies and scenery (the fallback, and the teaser's vocabulary) |
 | `ground.ts` | Battlefield palettes and the seeded prop scatter. Pure, tested |
-| `fx.tsx` | Puffs, shards, bolts |
+| `fx.tsx` | Puffs, shards, bolts, and the shapes the spell motifs are built from (`Spell`) |
+| `vfx.ts` | Spell card → motif, colour, mass reach. Pure, tested |
 | `looksdump.ts` | `npm run looks`: every unit's look as JSON for the Blender scripts |
 | `models/*.glb` | The models, from `blender/models.py` or by hand |
 
@@ -214,7 +216,9 @@ The 102 spells use 31 effect kinds. Grouped by what they *look* like:
 | Hand and deck | `discard`, `stealCard`, `returnToHand`, `searchDeck`, `peek`, `drawNextLocation`: a small caster flourish; the real feedback is the existing DOM reveal |
 
 **Colour comes from the school**, all six of them (Mágus, Druida, Feketemágus,
-Bestia, Harcos, Zsivány). A multi-school spell blends two. That is 10 motifs ×
+Bestia, Harcos, Zsivány), unless the spell carries an element tag (Tűzmágia,
+Fagymágia, Portálmágia): fire is fire whoever throws it. A multi-school spell
+blends two. That is 10 motifs ×
 6 tints, each motif a particle system plus maybe a mesh, parameterised by
 source, target and colour. `vfx.ts` maps a spell to a motif by reading its
 first effect's `kind` from the card data. A new kind added to `schema.ts` falls
@@ -245,14 +249,19 @@ start as colour only.
 
 ## 11. Testing and verification
 
-- `looks.ts`, `motion.ts`, `vfx.ts` and `layout.ts` are pure and get vitest
-  suites. That is where the logic is.
+- `looks.ts`, `vfx.ts`, `ground.ts` and `layout.ts` are pure and get vitest
+  suites. That is where the logic is. (`motion.ts` was never needed: the
+  pieces read the theatre's `stirring` map directly.)
 - The tile layer is DOM, so its behaviour (the right tiles `open`, drops
   dispatching the right action, hidden units reporting nothing on hover) is
   checkable with the same tools as the 2D board.
-- The canvas can't be verified by the agent: the in-app browser pane renders
-  no frames. The scene graph can be inspected through fiber, but **what it
-  looks like is checked by a human** at the end of each phase.
+- The canvas *can* be looked at now: the in-app browser pane draws WebGL and
+  takes screenshots. A spell lasts about a second, which is shorter than a
+  screenshot round trip, so phase 3 was checked in slow motion: patch
+  `performance.now` and `Date.now` in the page to run at 1/12 speed and the
+  theatre and every effect slow down together. The motifs were each looked at
+  in a scratch canvas that imported `fx.tsx` and `vfx.ts` from the dev server.
+  Taste is still **checked by a human** at the end of each phase.
 - CI stays as is: `npm test` + build. The lazy chunk builds with the rest.
 
 ## 12. Phases
@@ -372,6 +381,55 @@ and every unit card has art.
 
 **3 — Spell VFX.** The ten motifs, school tints, projectile arcs, the mass
 variants, bloom on desktop.
+
+*Built.* What it is and what it found:
+
+- **`vfx.ts` reads a spell the way `looks.ts` reads a unit.** The first
+  effect's `kind` picks the motif (`modifyPower` by its sign), an element tag
+  or else the school picks a `[core, glow]` tint, and a `mass*` kind or
+  `everyUnit` makes it a mass spell with a reach (`all`, `ally`, `enemy`) taken
+  from the effect's `side`. `vfx.test.ts` pins that every kind in today's set
+  has a motif on purpose, so the bolt fallback is only ever for new kinds.
+- **The stage gets the cast beat itself** (`spell`, beside `marks`), through
+  `Surface`; `Board` never sees it. It reads only the card id the banner is
+  already showing.
+- **The timing is the theatre's.** The caster gathers (a ring closing in,
+  motes drawn up) when the beat starts. The spell goes off at
+  `CAST_TARGET_MS`, the moment the 2D board rings the target (now a named
+  constant in `theatre.ts`, read by both), and a travelling motif's flight is
+  `BEAT_GAP.cast − CAST_TARGET_MS`, so it lands exactly as the strike and the
+  fall are let go.
+- **The motifs** (`Spell` and `Impact` at the foot of `fx.tsx`), from six new
+  shapes — `Swirl`, `Ring`, `Dome`, `Beam`, `Spike`, and `Bolt` with a tail,
+  a wobble and an arc:
+  - bolt: an orb with a tail, a burst and a ring
+  - doom: a crystal driven down a dark shaft, smoke and shards
+  - boon: motes spiralling up, a ring
+  - hex: a wavering orb, ash and motes sinking
+  - ward: a faceted cage of light closing with an overshoot
+  - shove: a flat gust, dust where it hits
+  - bind: motes circling in and tightening
+  - rebirth: a column of light out of the tile
+  - snare: a hexagon and a triangle burnt into the tile
+  - flourish: a twist of light over the caster
+- **Mass spells** send one wave out of the caster across the table, and each
+  unit the spell *could* touch takes the motif as the wave reaches it. Who
+  actually died is the fall beat's business; the stage does not work the rules
+  out on its own. A spell's tiles are frozen when it starts, because the
+  caster steps and the victims fall while it is still playing.
+- **Bloom** (`UnrealBloomPass`, desktop only) takes over fiber's render at
+  priority 1, so `frameloop="demand"` still holds. Only what is brighter than
+  white blooms, and only the effects and glow materials are pushed past 1, so
+  sunlit stone does not. Effect light is additive and single-sided: the first
+  ward and beam were double-sided and drew a white lamp where the unit was.
+- The phone tier draws a third of the particles and no bloom; reduced motion
+  draws none of it, as before.
+- Checked in the browser: the gather and the ward in a real game (Jéghegy),
+  every motif and both mass reaches in the scratch canvas, no runtime errors.
+  The lazy chunk grew from ~233 KB to ~256 KB gzipped.
+- Still open: the cast push-in camera (§5) waits for phase 4 with the
+  battlefield sweep. Per-spell overrides (a `vfx` entry per card, like
+  `LOOKS`) were not needed yet.
 
 **4 — Battlefields and polish.** Props per location, lighting, camera moves,
 skeletal clips where procedural motion looks cheap, then deciding whether 3D

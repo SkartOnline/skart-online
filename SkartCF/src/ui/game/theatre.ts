@@ -215,6 +215,16 @@ export const BEAT_GAP: Record<BeatKind, number> = {
 };
 
 /**
+ * When, inside a cast beat, the board names the spell's other ends: where a
+ * spell that moves something is sending it, then what it hit. Both boards key
+ * off these — the 2D one rings the tiles, the 3D one launches the spell at the
+ * target and has it land as `BEAT_GAP.cast` lets the consequences go — so the
+ * two cannot drift apart.
+ */
+export const CAST_STEP_MS = 320;
+export const CAST_TARGET_MS = 620;
+
+/**
  * The order beats read best in, whatever order the diff happened to find them.
  *
  * The frame first, then who announced what, then what arrived or turned over,

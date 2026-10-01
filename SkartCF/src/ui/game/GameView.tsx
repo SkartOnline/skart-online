@@ -27,6 +27,8 @@ import {
   BEAT_GAP,
   BEAT_MS,
   beatsBetween,
+  CAST_STEP_MS,
+  CAST_TARGET_MS,
   beginCardDrag,
   boardAsOf,
   captureHandCard,
@@ -1199,10 +1201,10 @@ function Field(props: FieldProps) {
     // Where it is going, before it goes. A spell that moves its caster reads as
     // three things in sequence — this unit, that tile, then the walk — and the
     // tile has to be named while the unit is still standing where it started.
-    if (since >= 320 && cast.destinationSlot && cast.destinationSlot !== from) {
+    if (since >= CAST_STEP_MS && cast.destinationSlot && cast.destinationSlot !== from) {
       out.set(cast.destinationSlot, "step");
     }
-    if (since >= 620 && cast.targetSlot && cast.targetSlot !== from) {
+    if (since >= CAST_TARGET_MS && cast.targetSlot && cast.targetSlot !== from) {
       const caster = shown.board[from];
       const target = shown.board[cast.targetSlot];
       // Whose tile it is, when the unit that was standing there has already
@@ -1213,6 +1215,9 @@ function Field(props: FieldProps) {
     }
     return out;
   }, [beats, shown.board, now]);
+
+  /** The cast on screen, for a board that draws the spell itself and not only its two tiles. */
+  const spell = useMemo(() => [...beats].reverse().find((b) => b.kind === "cast" && b.slot), [beats]);
 
   const classes = ["field"];
   if (!over) classes.push("opening");
@@ -1273,6 +1278,7 @@ function Field(props: FieldProps) {
           stirring={stirring}
           fallen={fallen}
           marks={marks}
+          spell={spell}
           onInspect={setInspect}
         />
       </div>
