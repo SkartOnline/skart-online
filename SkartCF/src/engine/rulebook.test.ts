@@ -1005,22 +1005,22 @@ describe("Mustra sorrend", () => {
     state.players.p1.spellHand = [];
     state.players.p2.spellHand = [];
 
-    // Two headsmen, revealed one after the other, each taking the strongest
-    // enemy on the board at the moment its own turn comes up.
-    place(state, "carnifex", "p1.F1");
+    // Two assassins in one column, revealed one after the other, each taking
+    // the weakest enemy in that column at the moment its own turn comes up.
+    place(state, "bergyilkos", "p1.F1");
     state.board["p1.F1"]!.faceDown = true;
-    place(state, "carnifex", "p1.F2");
-    state.board["p1.F2"]!.faceDown = true;
-    place(state, "felindori_ijasz", "p2.B3"); // power 3: the first one's mark
-    place(state, "patkany", "p2.F1"); // power 1: what is left for the second
+    place(state, "bergyilkos", "p1.B1");
+    state.board["p1.B1"]!.faceDown = true;
+    place(state, "patkany", "p2.F1"); // power 1: the first one's mark
+    place(state, "felindori_ijasz", "p2.B1"); // power 3: what is left for the second
 
     const after = runMustra(state);
-    // The first Carnifex takes the archer. By the time the second comes up the
-    // archer is gone, so it looks at the board in front of it and takes the rat
-    // instead. Reading a snapshot taken before the reveal would have aimed the
-    // second one at a corpse and wasted it.
-    expect(after.board["p2.B3"]).toBeNull();
+    // The first takes the rat. By the time the second comes up the rat is gone,
+    // so it looks at the column in front of it and takes the archer instead.
+    // Reading a snapshot taken before the reveal would have aimed the second one
+    // at a corpse and wasted it.
     expect(after.board["p2.F1"]).toBeNull();
+    expect(after.board["p2.B1"]).toBeNull();
   });
 });
 

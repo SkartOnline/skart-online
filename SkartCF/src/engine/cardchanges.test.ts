@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { BASE_CARD_SET, getSpell, loadCardSet } from "./cards";
 import { applyEffect, legalTargets, makeUnitInstance } from "./effects";
-import { fireBelepo } from "./resolve";
+import { fireBelepo, fireMustra } from "./resolve";
 import { ALL_SLOTS, behindOfSlot } from "./grid";
 import { grantsOf, power } from "./power";
 import { pendingPrompt } from "./prompts";
@@ -393,6 +393,23 @@ describe("Carnifex", () => {
     expect(asking?.player).toBe("p1");
     expect(asking?.slots).toEqual(expect.arrayContaining(["p2.F1", "p2.F2"]));
     // Nothing has died yet: the ability is parked, not resolved.
+    expect(state.board["p2.F1"]).not.toBeNull();
+    expect(state.board["p2.F2"]).not.toBeNull();
+
+    answerPrompt(state, "p2.F2", () => {});
+    expect(state.board["p2.F2"]).toBeNull();
+    expect(state.board["p2.F1"]).not.toBeNull();
+  });
+
+  it("asks when it is turned over at the Mustra, not just when it is put down", () => {
+    const state = blankState();
+    const carnifex = place(state, "carnifex", "p1.F1");
+    place(state, "patkany", "p2.F1");
+    place(state, "bandita", "p2.F2");
+
+    fireMustra(state, [carnifex]);
+
+    expect(pendingPrompt(state)?.kind).toBe("belepoTarget");
     expect(state.board["p2.F1"]).not.toBeNull();
     expect(state.board["p2.F2"]).not.toBeNull();
 

@@ -85,6 +85,33 @@ function contextFor(
 // ---------------------------------------------------------------------------
 
 /**
+ * Parks a `belepoTarget` prompt when the card asks and there is a real choice.
+ * Shared by the two doors a Belépő can come through — placed face up, or turned
+ * over at the Mustra — so a face-down Carnifex asks too. True if it asked.
+ */
+function askBelepoTarget(
+  state: GameState,
+  unit: UnitInstance,
+  target: { pick?: string },
+  targets: SlotId[],
+): boolean {
+  if (target.pick !== "ask" || targets.length <= 1) return false;
+  const card = cardOf(unit);
+  askPrompt(state, {
+    kind: "belepoTarget",
+    player: unit.owner,
+    prompt: `${card.name}: melyik egységre`,
+    picking: "slot",
+    slots: targets,
+    min: 1,
+    max: 1,
+    data: { sourceUid: unit.uid },
+    sourceCardId: card.id,
+  });
+  return true;
+}
+
+/**
  * Fires the moment the unit is placed, or at reveal for a face-down unit. It is
  * mandatory and resolves live, in front of both players, so a Bérgyilkos landed
  * into a column kills across it right now.
@@ -101,20 +128,7 @@ export function fireBelepo(state: GameState, unit: UnitInstance, deferDeaths = f
   // and stop — `PROMPT_HANDLERS.belepoTarget` runs the effects against whatever
   // comes back, reading them off the card rather than off a closure, so the
   // prompt survives the clone the bot makes of every position it considers.
-  if (belepo.target.pick === "ask" && targets.length > 1) {
-    askPrompt(state, {
-      kind: "belepoTarget",
-      player: unit.owner,
-      prompt: `${card.name}: melyik egységre`,
-      picking: "slot",
-      slots: targets,
-      min: 1,
-      max: 1,
-      data: { sourceUid: unit.uid },
-      sourceCardId: card.id,
-    });
-    return;
-  }
+  if (askBelepoTarget(state, unit, belepo.target, targets)) return;
 
   const ctx = contextFor(state, unit, unit.owner, { deferDeaths });
   for (const effect of belepo.effects) {
@@ -160,9 +174,16 @@ export function fireMustra(state: GameState, revealed: UnitInstance[]): void {
 
   const fired = new Set<string>();
 
-  const fire = (unit: UnitInstance, effects: Effect[], target: unknown, text: string): void => {
+  const fire = (
+    unit: UnitInstance,
+    effects: Effect[],
+    target: unknown,
+    text: string,
+    asks = false,
+  ): void => {
     const targets = resolveAutoTargets(state, unit, target as never);
     log(state, text, unit.owner);
+    if (asks && askBelepoTarget(state, unit, target as { pick?: string }, targets)) return;
     const ctx = contextFor(state, unit, unit.owner);
     for (const effect of effects) {
       const needsTargets = (effect.on ?? "target") === "target";
@@ -186,7 +207,7 @@ export function fireMustra(state: GameState, revealed: UnitInstance[]): void {
     // that was face up already spent it when it was put down.
     const belepo = card.belepo;
     if (owed.has(unit.uid) && belepo?.effects?.length) {
-      fire(unit, belepo.effects, belepo.target, `${card.name} Belépő.`);
+      fire(unit, belepo.effects, belepo.target, `${card.name} Belépő.`, true);
     }
 
     for (const trigger of card.triggers ?? []) {
