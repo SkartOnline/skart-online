@@ -1,9 +1,11 @@
 # The 3D stage — plan
 
 A stylised low-poly battlefield in place of the tile grid: real ground, unit
-models standing on the twelve tiles, spells that fly across the arcvonal. **No
-rule changes.** The engine, the simulator, the bot, online play and the card
-data stay exactly as they are; this is a second way of drawing `GameState`.
+models standing on the available tiles, spells that fly across the arcvonal.
+The renderer reads `GameState`; gameplay remains in the engine and card data.
+The 2026-10-04 town pass also changes Sikátor by explicit design request:
+only the middle column remains, using `blockedSlots` (rule 4.1.5), and its
+former strongest-unit penalty is removed.
 
 **Phases 0, 1 and 3 are built** (`src/ui/stage/`, the *3D* button in the
 tools rail or the chronicle panel). Phase 2's code is built and its art is
@@ -75,6 +77,37 @@ the green/red power blush comes along for free.
   quality tier is a separate branch, never a compromise to the desktop scene.
 
 ## 4. Stack and the art pipeline
+
+**Reusable town kit (2026-10-04).** `blender/town.py` builds separate component
+assets and editable `blender/town/*.blend` scenes for Sikátor, Feketepiac and
+Kikötő. See `blender/town/README.md` for assembly, recoloring and regeneration.
+`stage/battlefields/*.glb` contains their full scenery in world coordinates;
+`Battlefield.tsx` replaces procedural ground, reuses the model cache and plays
+ambient rat clips. Static exports are batched by material, while Blender keeps
+doors, windows, walls and props separate. A dedicated `patkany.glb` shares the
+ambient rat's geometry. Missing scenery still falls back to procedural ground.
+
+The runtime owns the sun and sky; imported non-point lights are hidden to
+prevent Blender preview lighting from doubling them. Oil lamps have a 2.5-unit
+reach and a stable budget of four on desktop, two on phones. Lamps nearest the
+playable rectangle take priority, and lamps beyond that reach stay emissive
+scenery without adding shader lights. Camera movement does not reshuffle them.
+Ambient animation rests on phones and under reduced motion. The camera still
+fits the playable tiles: extended streets and distant roofs surround that fit,
+and terrain extends beyond the existing camera-relative fog rather than
+shrinking the board to fit all the scenery.
+
+**Town, third pass (2026-10-16).** The three town fields became one town at
+three times of day: Kikötő in the afternoon, Feketepiac at dusk, Sikátor at
+night (`ground.ts` for the board, `LIGHT` in `town.py` for renders). The
+background now runs from fenced yards through an irregular roofline that stays
+off the streets, to wooded hills that close the bowl inside the fog. Each field
+has a bell tower on the skyline, and four chimneys smoke on loop (paused where
+the rats pause). The exports dropped their normals (the loader flat-shades), so
+each scene is ~2 MB and ~105k vertices instead of 6 MB and 210k, with ~20% more
+triangles. Card art is a perspective shot of the same scene with a mist pass
+(`town.py -- --cards-only`). The rules behind all of it are in
+`docs/art-bible.md`.
 
 - `three` + **`@react-three/fiber` v8**. Fiber v9 needs React 19; the project
   is on 18. drei was never needed.

@@ -323,10 +323,10 @@ starves between spells collects nobody, which is the point.
 | `flatBonus` | Kesergő (−1) — a bonus recomputed on every read, gone when the battlefield is |
 | `entryRing` | Oppidium (+1) — a ring handed out at the door, and the unit's own from then on (9.4) |
 | `keywordBonus` (`row`, `invert`) | Akáczos |
-| `strongestPenalty` | Sikátor |
+| `strongestPenalty` | none since Sikátor became a one-column alley; kept for the editor |
 | `autoHide` | Feketepiac (Csempész), Ködrét (all) |
 | `hideCostMod` | Feketepiac |
-| `blockedSlots` | A Pék hídja |
+| `blockedSlots` | A Pék hídja (two front corners), Sikátor (both side columns) |
 | `spellCostMod` | Máguskör |
 | `costMod` | Kikötő (Kalóz) |
 | `rangeCap` | Ködrét |

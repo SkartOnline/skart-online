@@ -150,6 +150,8 @@ A 3. fejezet kivételével a szabályok nem időrendben állnak, hanem tárgykö
 
 4.1.4 A két első sor összeér, a két térfél között nincs üres sáv.
 
+4.1.5 A Sikátor két szélső oszlopa hiányzik: ott mindkét játékos csak az E2 és a H2 mezőre helyezhet, mozgathat vagy idézhet egységet.
+
 ### 4.2 Szomszédos mezők
 
 4.2.1 Két mező akkor szomszédos, ha közös élük van.

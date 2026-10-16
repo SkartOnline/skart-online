@@ -149,6 +149,10 @@ function Cell({
 
   // A Pék hídja turns the outer front slots into a chasm.
   if (isBlocked(state, slot)) {
+    // Sikátor's side columns are outside the alley, not targets or chasms.
+    if (state.locations[state.locationIndex]?.cardId === "sikator") {
+      return <div className="cell" aria-hidden="true" style={{ visibility: "hidden" }} />;
+    }
     return (
       <div className="cell chasm" data-slot={slot}>
         <span className="coord">{coordLabel(slot)}</span>

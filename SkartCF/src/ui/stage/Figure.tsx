@@ -203,7 +203,7 @@ export function loadModel(url: string): Promise<GLTF | null> {
 }
 
 /** The parsed model, suspending until it is; `null` for a file that would not load. */
-function useModel(url: string): GLTF | null {
+export function useModel(url: string): GLTF | null {
   const gltf = parsed.get(url);
   if (gltf) return gltf;
   if (broken.has(url)) return null;

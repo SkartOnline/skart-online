@@ -967,7 +967,7 @@ export const LOCATION_EFFECT_SPECS: KindSpec[] = [
   {
     kind: "strongestPenalty",
     label: "A legerősebb bünteti",
-    summary: "A csatatér legerősebb egysége −X-et kap. Azonos erő esetén mindegyikük. Ez a Sikátor.",
+    summary: "A csatatér legerősebb egysége −X-et kap. Azonos erő esetén mindegyikük.",
     fields: [{ name: "amount", type: "number", label: "Mennyiség", default: -1, step: 1 }],
   },
   {

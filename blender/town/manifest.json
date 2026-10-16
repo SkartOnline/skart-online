@@ -1,0 +1,71 @@
+{
+  "components": [
+    "wall",
+    "door_reinforced",
+    "window_barred",
+    "roof",
+    "chimney",
+    "lamp_oil",
+    "crate",
+    "barrel",
+    "sack",
+    "bottle",
+    "dagger",
+    "artifact",
+    "rope_coil",
+    "anchor",
+    "stall_frame",
+    "awning_green",
+    "awning_russet",
+    "awning_grey",
+    "awning_plum",
+    "sign_weapons",
+    "sign_apothecary",
+    "sign_liquor",
+    "sign_relics",
+    "sign_sailor",
+    "sign_inn",
+    "flag",
+    "pirate_emblem",
+    "dock",
+    "ship_hull",
+    "mast_sail",
+    "patkany",
+    "roof_slate",
+    "roof_shingles",
+    "roof_shed",
+    "lean_to",
+    "handcart",
+    "fish_rack",
+    "drain_grate",
+    "notice_board",
+    "net_bundle",
+    "fence",
+    "woodpile",
+    "rubble",
+    "weeds",
+    "tree_pine",
+    "tree_round",
+    "tree_dead",
+    "bell_tower",
+    "jib_crane",
+    "lighthouse"
+  ],
+  "battlefields": {
+    "sikator": {
+      "source": "sikator.blend",
+      "animated_rats": 3,
+      "playable_slots": 4
+    },
+    "feketepiac": {
+      "source": "feketepiac.blend",
+      "animated_rats": 3,
+      "playable_slots": 12
+    },
+    "kikoto": {
+      "source": "kikoto.blend",
+      "animated_rats": 3,
+      "playable_slots": 12
+    }
+  }
+}

@@ -2,3 +2,6 @@ stills/
 looks.json
 grounds.json
 *.log
+town/*.blend1
+town/*.blend
+town/previews/

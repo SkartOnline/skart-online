@@ -32,6 +32,7 @@ SIZE = (480, 360)
 
 ARGS = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
 FORCE = "--force" in ARGS
+CYCLES = "--cpu-render" in ARGS  # CPU fallback when headless EEVEE has no usable graphics context.
 ONLY = [a for a in ARGS if not a.startswith("--")]
 
 ROLES = ("cloth", "trim", "skin", "hair", "metal", "glow", "legs")
@@ -56,8 +57,12 @@ def srgb(h):
 def stage():
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
-    scene.render.engine = "BLENDER_EEVEE"
-    scene.eevee.taa_render_samples = 24
+    scene.render.engine = "CYCLES" if CYCLES else "BLENDER_EEVEE"
+    if CYCLES:
+        scene.cycles.samples = 24
+        scene.cycles.use_denoising = True
+    else:
+        scene.eevee.taa_render_samples = 24
     scene.render.resolution_x, scene.render.resolution_y = SIZE
     scene.render.image_settings.file_format = "WEBP"
     scene.render.image_settings.quality = 88

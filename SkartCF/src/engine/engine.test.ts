@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { BASE_CARD_SET, getSpell, getUnit, loadCardSet, validateCardSet } from "./cards";
-import { applyEffect, fireTrigger, makeUnitInstance, isBlocked } from "./effects";
+import { applyEffect, fireTrigger, makeUnitInstance, isBlocked, legalDestinations } from "./effects";
 
 function other(player: PlayerId): PlayerId {
   return player === "p1" ? "p2" : "p1";
 }
 import { ALL_SLOTS } from "./grid";
 import { basePower, cannotDie, cardKeywords, isDead, power } from "./power";
-import { payingSchool } from "./resolve";
+import { payingSchool, legalTargetsFor } from "./resolve";
 import { boardTotal, locationWinner } from "./totaling";
 import { applyAction, legalActions, remainingCap } from "./reducer";
 import { createGame, DEFAULT_CONFIG } from "./setup";
@@ -169,14 +169,14 @@ describe("power()", () => {
     expect(power(state.board["p1.F3"]!, state)).toBe(6); // 5 +1 diagonal isolation
   });
 
-  it("bites the strongest unit on Sikátor, and every unit tied with it", () => {
+  it("leaves the strongest units at their full power on Sikátor", () => {
     const state = blankState("sikator");
-    place(state, "ikerhidra", "p1.B1"); // 11
-    place(state, "ikerhidra", "p2.B1"); // 11, tied for strongest
-    place(state, "patkany", "p1.B2"); // 1
-    expect(power(state.board["p1.B1"]!, state)).toBe(10);
-    expect(power(state.board["p2.B1"]!, state)).toBe(10);
-    expect(power(state.board["p1.B2"]!, state)).toBe(1);
+    place(state, "ikerhidra", "p1.B2"); // 11
+    place(state, "ikerhidra", "p2.B2"); // 11, tied for strongest
+    place(state, "patkany", "p1.F2"); // 1
+    expect(power(state.board["p1.B2"]!, state)).toBe(11);
+    expect(power(state.board["p2.B2"]!, state)).toBe(11);
+    expect(power(state.board["p1.F2"]!, state)).toBe(1);
   });
 
   it("lets a lock override every other modifier", () => {
@@ -1047,6 +1047,46 @@ describe("Diadal és Vigasz", () => {
 });
 
 // ---------------------------------------------------------------------------
+
+describe("Sikátor", () => {
+  it.each(["p1", "p2"] as const)("keeps only the middle column playable for %s", (player) => {
+    const state = blankState("sikator");
+    state.turn = player;
+    state.players[player].unitHand = [{ uid: "rat", cardId: "patkany" }];
+    const placements = legalActions(state, player).filter((a) => a.type === "playUnit");
+    expect(placements.map((a) => a.slot).sort()).toEqual([`${player}.B2`, `${player}.F2`]);
+    expect(remainingCap(state, player)).toBe(6);
+    for (const slot of ALL_SLOTS) {
+      expect(isBlocked(state, slot)).toBe(!slot.endsWith("2"));
+    }
+  });
+
+  it.each(["p1", "p2"] as const)("requires %s to finish gathering when the middle column is full", (player) => {
+    let state = blankState("sikator");
+    state.turn = player;
+    state.players[player].unitHand = [{ uid: "rat", cardId: "patkany" }];
+    place(state, "patkany", `${player}.F2`);
+    place(state, "patkany", `${player}.B2`);
+    expect(remainingCap(state, player)).toBe(6); // space, rather than cost, closes the alley
+    expect(legalActions(state, player)).toEqual([{ type: "declareUnitsDone", player }]);
+    state = applyAction(state, { type: "declareUnitsDone", player });
+    expect(state.players[player].flags.unitsClosed).toBe(true);
+  });
+
+  it.each(["p1", "p2"] as const)("keeps %s's movement and Idézés out of the side columns", (player) => {
+    const state = blankState("sikator");
+    const casterSlot = `${player}.B2` as SlotId;
+    place(state, "welsing", casterSlot);
+    const mover = state.board[casterSlot]!;
+    expect(legalDestinations(state, mover, "anyEmpty").sort()).toEqual(
+      ALL_SLOTS.filter((slot) => slot.endsWith("2") && slot !== casterSlot).sort(),
+    );
+    expect(legalDestinations(state, mover, "adjacent")).toEqual([`${player}.F2`]);
+    expect(legalTargetsFor(state, getSpell("idezes"), casterSlot)).toEqual([`${player}.F2`]);
+    place(state, "patkany", `${player}.F2`);
+    expect(legalTargetsFor(state, getSpell("idezes"), casterSlot)).toEqual([]);
+  });
+});
 
 describe("Oppidium", () => {
   it("hands every unit a ring at the door rather than a bonus while it stands", () => {

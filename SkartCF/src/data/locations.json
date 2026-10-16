@@ -5,11 +5,11 @@
     "cap": 6,
     "effects": [
       {
-        "kind": "strongestPenalty",
-        "amount": -1
+        "kind": "blockedSlots",
+        "slots": "F1,F3,B1,B3"
       }
     ],
-    "text": "A legerősebb egység -1 erőt kap (azonos erő esetén mindegyikük)."
+    "text": "Szűk vagyok: csak a középső oszlopom járható. Egység csak az E2 és a H2 mezőre kerülhet."
   },
   {
     "id": "feketepiac",

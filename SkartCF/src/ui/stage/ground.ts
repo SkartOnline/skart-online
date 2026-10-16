@@ -25,6 +25,8 @@ export interface Ground {
   sky: string;
   sun: string;
   sunIntensity: number;
+  /** The town's dusk leaves room for its oil lamps; other fields keep the default. */
+  ambientIntensity?: number;
   /** How far the fog starts, in world units. Ködrét closes right in. */
   fog: number;
   props: Partial<Record<Prop, number>>;
@@ -46,27 +48,32 @@ const NEUTRAL: Ground = {
 };
 
 export const GROUNDS: Record<string, Ground> = {
-  // A back alley: wet cobbles and soot.
+  // The town at three times of day (docs/art-bible.md §4). The alley is night:
+  // a weak cold moon, a slate sky, and the oil lamps carry the warmth. The
+  // fill stays high enough that every unit still reads against the stones.
   sikator: {
     ...NEUTRAL,
     grass: ["#5d544b", "#665c52", "#544b43"],
     path: "#3f3833",
-    sky: "#6e6a66",
-    sunIntensity: 1.5,
+    sky: "#3c4357",
+    sun: "#a9b8d8",
+    sunIntensity: 0.95,
+    ambientIntensity: 1.25,
     props: { crate: 10, column: 4, rock: 4 },
     leaf: ["#5a5048"],
     stone: "#7a6f64",
   },
-  // The black market: plum shadow and cold silver, crates everywhere.
+  // The black market at dusk: the alley's stone under a low amber sun.
   feketepiac: {
     ...NEUTRAL,
-    grass: ["#4a3f55", "#53475f", "#43394d"],
-    path: "#6a5a7a",
-    sky: "#5d5470",
-    sun: "#d8ccff",
-    sunIntensity: 1.5,
+    grass: ["#625c53", "#70675b", "#554f48"],
+    path: "#877b68",
+    sky: "#7a6d6e",
+    sun: "#f4bf86",
+    sunIntensity: 1.15,
+    ambientIntensity: 0.7,
     props: { crate: 14, column: 3 },
-    stone: "#8a809a",
+    stone: "#82796d",
   },
   // An acacia stand: dusty olive under hard light.
   akaczos: {
@@ -109,14 +116,17 @@ export const GROUNDS: Record<string, Ground> = {
     props: { crate: 8, column: 6 },
     stone: "#b8a170",
   },
-  // The harbour: brine, verdigris and cargo.
+  // The harbour in late afternoon: the same poor town, opening onto a sunny quay.
   kikoto: {
     ...NEUTRAL,
-    grass: ["#3f6a66", "#467470", "#38605c"],
-    path: "#9a8a6a",
-    sky: "#8ab8b4",
+    grass: ["#898073", "#968b7b", "#7c756b"],
+    path: "#afa18b",
+    sky: "#a5c5ce",
+    sun: "#ffe2b0",
+    sunIntensity: 3.3,
+    ambientIntensity: 1.25,
     props: { crate: 10, rock: 6, column: 3 },
-    stone: "#83a8a4",
+    stone: "#9c9384",
   },
   // A moonlit clearing: silver-green, the brightest ground in the set.
   oppidium: {

@@ -32,5 +32,21 @@ export function modelFor(look: Look, cardId?: string): string | undefined {
 
 /** Every model there is, for loading them all up front: a longer start buys a smooth game. */
 export function allModels(): string[] {
-  return [...BY_NAME.values()];
+  return [...BY_NAME.values(), ...Object.values(BATTLEFIELDS)];
+}
+
+/** Complete Blender scenery, kept apart from the unit bodies and their scale. */
+const BATTLEFIELDS = import.meta.glob("./battlefields/*.glb", {
+  eager: true,
+  query: "?url",
+  import: "default",
+}) as Record<string, string>;
+
+export function battlefieldModelFor(locationId: string): string | undefined {
+  return BATTLEFIELDS[`./battlefields/${locationId}.glb`];
+}
+
+/** These environments have buildings outside the playable footprint, not chasms. */
+export function hasTownFootprint(locationId: string): boolean {
+  return ["sikator", "feketepiac", "kikoto"].includes(locationId);
 }

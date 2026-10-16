@@ -39,7 +39,8 @@ import Board, { Marks, Status, poolsOf } from "../game/Board";
 import { castingPips, schoolSlug } from "../card/model";
 import type { LiveBeat } from "../game/common";
 import { BEAT_GAP, CAST_TARGET_MS } from "../game/theatre";
-import { allModels } from "./assets";
+import { allModels, hasTownFootprint } from "./assets";
+import { Battlefield } from "./Battlefield";
 import { Figure, preloadModels } from "./Figure";
 import type { Clip } from "./Figure";
 import { Burst, Gather, Shards, Spell } from "./fx";
@@ -328,7 +329,7 @@ const Scene = memo(function Scene({
         ]}
       />
       <FogFollows fog={ground.fog} />
-      <hemisphereLight args={[ground.sky, "#3a2a1a", 0.8]} />
+      <hemisphereLight args={[ground.sky, "#3a2a1a", ground.ambientIntensity ?? 0.8]} />
       <directionalLight
         position={[-3.5, 7, 4.5]}
         color={ground.sun}
@@ -343,9 +344,13 @@ const Scene = memo(function Scene({
         shadow-bias={-0.001}
       />
 
-      <Land ground={ground} locationId={locationId} small={small} />
+      <Battlefield
+        locationId={locationId}
+        small={small}
+        fallback={<Land ground={ground} locationId={locationId} small={small} />}
+      />
 
-      {slots.map((slot) => (
+      {slots.filter((slot) => !hasTownFootprint(locationId) || !isBlocked(state, slot)).map((slot) => (
         <Tile
           key={slot}
           slot={slot}
@@ -1119,9 +1124,11 @@ function TileLayer({
   moved: number;
 }) {
   const slots = [...slotsOf(viewer === "p1" ? "p2" : "p1"), ...slotsOf(viewer)];
+  const townFootprint = hasTownFootprint(state.locations[state.locationIndex]?.cardId ?? "");
   return (
     <div className="stage-tiles">
       {slots.map((slot) => {
+        if (townFootprint && isBlocked(state, slot)) return null;
         const { box, corners } = projectTile(
           slot,
           viewer,

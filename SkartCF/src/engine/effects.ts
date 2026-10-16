@@ -1618,7 +1618,7 @@ export function makeUnitInstance(
 // Board rules that live on the location card
 // ---------------------------------------------------------------------------
 
-/** A Pék hídja turns the two outer front slots into a chasm. */
+/** Location-defined unavailable slots, shared by placement, movement and summons. */
 export function isBlocked(state: GameState, slot: SlotId): boolean {
   for (const effect of currentLocation(state).effects ?? []) {
     if (effect.kind !== "blockedSlots") continue;

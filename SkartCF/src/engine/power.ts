@@ -758,7 +758,8 @@ export function cannotDie(state: GameState, unit: UnitInstance): boolean {
 
 /**
  * Everything except `strongestPenalty`, which needs to compare units and would
- * otherwise recurse. Sikátor reads this, then `power()` adds its own bite.
+ * otherwise recurse. A battlefield that bites the strongest reads this, then
+ * `power()` adds the bite.
  */
 function rawPower(unit: UnitInstance, state: GameState): number {
   if (unit.locked) return unit.lockedPower;
