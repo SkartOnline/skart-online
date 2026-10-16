@@ -37,26 +37,34 @@ weapons, apothecary, liquor and relics. The harbor has a cobbled plaza, two
 moored ships, cargo and a sailor outfitter. Both town scenes use warm oil lamps;
 the harbor has stronger daylight.
 
-The surrounding district continues in every landward direction: connected
-lanes, fenced back yards, washing lines and cargo yards lead into a simpler
-distant roofline. That roofline is irregular, with taller tenements and
-groves, and it never sits on a street (`LANES`, `clear()`). Beyond it, wooded
-hills ring the town and sink into the sea on the harbour side. A bell tower
-rises above the roofs behind each board, and smoke curls from four chimneys
-on the far side. Terrain and water extend to 60 world units, beyond the game's fog,
-so turning or pulling back the camera does not reveal the old rectangular
-island edge. The harbor quay continues along the coast with mooring bollards
-and an outer breakwater. Sikátor's miniature harbor and market connect to
-the alley through side streets. The playable clearing remains unobstructed.
-Near buildings use the full component assemblies; distant buildings reuse
-the roof components over simple shells to keep the scenery economical.
+The town goes on in every landward direction, but only the board and what
+stands round it is detailed. Kit houses with lanes, fenced back yards,
+washing lines and cargo yards reach about 10 units out. Then come two cheaper
+tiers, never on a street (`LANES`, `clear()`): a ring of kit roofs over plain
+shells (`roofline_house`), then `backdrop_house` blocks out to `REACH` (21),
+each a plain shell, a plain pitched roof and maybe a chimney, about twenty
+faces each. The board's fog (`fog: 11` in `ground.ts`) closes over them, and
+the camera cannot pull back far enough to reach them. A bell tower stands
+above the roofs behind each board. The harbour quay continues along the coast
+with mooring bollards and an outer breakwater, and Sikátor's miniature harbour
+and market connect to the alley through side streets. The playable clearing
+remains unobstructed.
 
-Small copies of the Patkány follow short looping skitter paths outside the
-playable area. The unit model uses the same geometry. This checkout previously
-only had the generic beast body for that card, so this kit supplies its first
-dedicated rat model. The unit export is static; its game movement still follows
-the stage's normal movement beats. Ambient rat translation clips are in the
-battlefield exports. Ambient animation pauses on phones and for reduced motion.
+Every street and square is paved by one pass, `pave()`: the same worn stone
+everywhere, laid once on a single staggered grid wherever any street or square
+wants it. Street beds share one height and one material, and earth patches
+never overlap, sitting on four levels 3 mm apart. Coplanar surfaces of different
+colours flickered at a distance before, which is why.
+
+Nothing moves. The rats and chimney smoke are gone, and `Battlefield.tsx` ignores
+any clip a file carries: a playing clip redraws the canvas every frame, while the
+stage otherwise draws only when the board changes. The Patkány kit component
+remains, and is the unit's own model (`stage/models/patkany.glb`).
+
+Static meshes are batched by material, and split at 7.5 units from the board
+(`SHADOW_REACH`): far batches are named `batch_far_*`, and the stage neither
+casts nor receives shadows with them. Oil lamps light the board only where the
+field asks (`lampLights` in `ground.ts`: Kikötő's afternoon asks for none).
 
 ## Rebuild
 

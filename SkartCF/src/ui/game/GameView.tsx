@@ -843,6 +843,10 @@ function Field(props: FieldProps) {
   const spotlitQuietly = enemySearching;
   const spotlit =
     panelUp || curtainUp || heldUp || coinShowing || spotlitQuietly;
+  // A card being played is held up and ringed, but the board is not dimmed for
+  // it: on the 3D table the scrim only hid where the card was going. Questions
+  // and reveals still dim, because there the panel is the only thing to read.
+  const scrim = panelUp || curtainUp || coinShowing || spotlitQuietly;
 
   // A spell that has been played but is still being aimed. Nothing about it has
   // touched the board yet, so it can still be taken back, and until it cannot
@@ -1385,7 +1389,7 @@ function Field(props: FieldProps) {
       }}
     >
       <span className="flight-layer" />
-      {spotlit && !tucked && <Spotlight />}
+      {scrim && !tucked && <Spotlight />}
       <Theatre beats={beats} viewer={viewer} bare={bare} />
       <aside className="rail-left">
         <Battlefield

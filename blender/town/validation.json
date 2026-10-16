@@ -1,17 +1,17 @@
 {
   "sikator": {
-    "unique_source_vertices": 102643,
-    "unique_glb_vertices": 102643,
-    "max_vertex_error": 4.915689828521863e-07
+    "unique_source_vertices": 80776,
+    "unique_glb_vertices": 80776,
+    "max_vertex_error": 0.0
   },
   "feketepiac": {
-    "unique_source_vertices": 113810,
-    "unique_glb_vertices": 113810,
-    "max_vertex_error": 4.76837158203125e-07
+    "unique_source_vertices": 96898,
+    "unique_glb_vertices": 96898,
+    "max_vertex_error": 0.0
   },
   "kikoto": {
-    "unique_source_vertices": 90783,
-    "unique_glb_vertices": 90783,
-    "max_vertex_error": 3.3719535963427916e-07
+    "unique_source_vertices": 74626,
+    "unique_glb_vertices": 74626,
+    "max_vertex_error": 0.0
   }
 }

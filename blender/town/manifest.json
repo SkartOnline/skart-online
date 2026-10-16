@@ -54,17 +54,14 @@
   "battlefields": {
     "sikator": {
       "source": "sikator.blend",
-      "animated_rats": 3,
       "playable_slots": 4
     },
     "feketepiac": {
       "source": "feketepiac.blend",
-      "animated_rats": 3,
       "playable_slots": 12
     },
     "kikoto": {
       "source": "kikoto.blend",
-      "animated_rats": 3,
       "playable_slots": 12
     }
   }

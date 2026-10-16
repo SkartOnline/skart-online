@@ -34,8 +34,12 @@ random.seed(17)
 MATS = {}
 KIT = {}
 CURRENT = None
-CHIMNEYS = []  # (house name, chimney root) for the smoke pass
 LANES = []  # (a, b, width) so background blocks keep the streets open
+PAVED = []  # (x0, x1, y0, y1) squares laid with the same stones as the streets
+REACH = 21  # streets and backdrop houses stop here; the fog has closed long before
+SHADOW_REACH = 7.5  # beyond this the stage's shadow camera sees nothing anyway
+EARTH = []  # (x, y, r) of every earth patch laid so far
+SCENE = ''  # the battlefield being built, for the sea test in pave()
 PI = math.pi
 
 
@@ -77,10 +81,10 @@ for args in [
     ('puddle', '#3f5354', 0, 0, .12), ('canvas_patch', '#8c917c'), ('cloth_wash', '#a59888'),
     ('paper', '#c3b596'), ('shutter_blue', '#577774'),
     ('earth', '#766e60'), ('mud', '#5b554b'), ('dust', '#918470'),
-    # Background: hills, trees and chimney smoke, all inside the bible's palette.
+    # Ground cover and trees, inside the bible's palette (hill tones kept for other fields).
     ('hill', '#6a6455'), ('hill_far', '#77705f'), ('scrub', '#5f6447'),
     ('leaf', '#56603f'), ('leaf_dark', '#434c36'), ('bark', '#4a3d33'),
-    ('weed', '#6b7150'), ('smoke', '#6e6a67'), ('string_bulb', '#ffbf70', 1.3),
+    ('weed', '#6b7150'), ('string_bulb', '#ffbf70', 1.3),
 ]:
     mat(*args)
 
@@ -562,7 +566,6 @@ def house(name, x,y,turn=0,scale=1,inn=False,style='patched'):
     instance(roof,name+' repaired roof',(0,0,height-.035))
     chimney=instance('chimney',name+' crooked chimney',(.32,.28,height+.12),scale=.72)
     chimney.rotation_euler.y=.075 if style=='shack' else -.035
-    CHIMNEYS.append((name,chimney))
     # Weeds where wall meets ground, so no house stands on a swept floor.
     for wx,wy in random.sample([(-.58,-.62),(.58,-.62),(.6,.58),(-.6,.6),(.05,.63)],3):
         instance('weeds',name+' foundation weeds',(wx,wy,0),random.uniform(0,PI),random.uniform(.8,1.3))
@@ -661,22 +664,81 @@ def ship(name,x,y,pirate=False,scale=1):
     for ob in roots: ob.parent=root
 
 
-def cobbles(x0,x1,y0,y1,step=.24):
-    for j in range(int((y1-y0)/step)):
-        y=y0+(j+.5)*step
-        for i in range(int((x1-x0)/step)):
-            x=x0+(i+.5)*step+(j%2)*step*.5
-            if x>x1-.07: continue
-            if min(x-x0,x1-x,y-y0,y1-y)<step*.75 and random.random()<.3: continue
+def cobbles(x0,x1,y0,y1,step=None):
+    """Mark a square for paving; `pave()` lays every square and street at once."""
+    PAVED.append((x0,x1,y0,y1))
+
+
+def paved(x,y):
+    if any(x0<=x<=x1 and y0<=y<=y1 for x0,x1,y0,y1 in PAVED): return True
+    p=Vector((x,y,0))
+    for a,b,w in LANES:
+        if w>=3: continue  # a reserved footprint, not a street
+        ab=b-a;t=max(0,min(1,(p-a).dot(ab)/ab.length_squared))
+        if (a+ab*t-p).length<w/2: return True
+    return False
+
+
+def pave(step=.27,reach=13):
+    """The same worn stone on the square and in the streets, in one layer.
+
+    Overlapping street surfaces at nearly the same height flicker against each
+    other at a distance, so nothing is laid twice: one staggered grid, each
+    stone placed once wherever any street or square wants one. Stones are
+    batched into a handful of meshes here rather than thousands of objects,
+    split at the shadow radius so the far ones can skip the shadow pass.
+    """
+    groups={}
+    rows=int(2*reach/step)
+    for j in range(rows):
+        y=-reach+(j+.5)*step
+        for i in range(rows):
+            x=-reach+(i+.5)*step+(j%2)*step*.5
+            if math.hypot(x,y)>reach or not paved(x,y): continue
+            # A street running to the quay stops at the quay wall, not in the water.
+            if any(at_sea(SCENE,x+dx,y) for dx in (-.25,0,.25)): continue
+            # The edge of a street frays: some border stones are missing.
+            d=step*.75
+            if not all(paved(x+dx,y+dy) for dx,dy in [(d,0),(-d,0),(0,d),(0,-d)]) and random.random()<.3: continue
             # Worn, hand-laid stones: chamfered corners, uneven courses, no
             # continuous straight grout lines masquerading as a tiled patio.
-            x+=random.uniform(-.013,.013);y2=y+random.uniform(-.013,.013)
+            cx=x+random.uniform(-.013,.013);cy=y+random.uniform(-.013,.013)
             w=step*random.uniform(.46,.51);h=step*random.uniform(.44,.50)
-            outline=[(-w*.72,-h), (w*.63,-h), (w,-h*.56),(w,h*.58),
-                     (w*.62,h),(-w*.72,h),(-w,h*.48),(-w,-h*.52)]
-            verts=[(x+dx,y2+dy,z) for z in [-.019,.016+random.uniform(-.005,.005)] for dx,dy in outline]
-            mesh('worn cobble',verts,[tuple(range(8,16))]+[(i,(i+1)%8,(i+1)%8+8,i+8) for i in range(8)],
-                 random.choice(['stone','stone','stone_light','stone_dark']))
+            outline=[(-w*.72,-h),(w*.63,-h),(w,-h*.56),(w,h*.58),(w*.62,h),(-w*.72,h),(-w,h*.48),(-w,-h*.52)]
+            top=.016+random.uniform(-.005,.005)
+            material=random.choice(['stone','stone','stone_light','stone_dark'])
+            far=math.hypot(x,y)>SHADOW_REACH
+            # Far stones go in 6-unit chunks, so each chunk's centre is far too
+            # and export() files it with the shadowless batches.
+            cell=(math.floor(x/6),math.floor(y/6)) if far else None
+            verts,faces=groups.setdefault((material,cell),([],[]))
+            base=len(verts)
+            if far:
+                # From across the square a stone is its top: the sides are a
+                # sliver of a pixel, so far stones keep only the face you see.
+                verts.extend((cx+dx,cy+dy,top) for dx,dy in outline)
+                faces.append(tuple(base+k for k in range(8)))
+                continue
+            verts.extend((cx+dx,cy+dy,z) for z in [-.019,top] for dx,dy in outline)
+            # No underside: nothing ever sees it.
+            faces.append(tuple(base+k for k in range(8,16)))
+            faces.extend((base+k,base+(k+1)%8,base+(k+1)%8+8,base+k+8) for k in range(8))
+    for (material,cell),(verts,faces) in sorted(groups.items(),key=lambda kv:(kv[0][0],kv[0][1] or (0,0))):
+        mesh(('far ' if cell else '')+'worn cobbles',verts,faces,material)
+
+
+def earth_patch(x,y,r,materials,squash=.55):
+    """A rubbed-in patch of ground. Patches never overlap one another, and each
+    sits on one of four levels well apart, so none can flicker against another."""
+    for px,py,pr in EARTH:
+        if math.hypot(x-px,y-py)<r*1.3+pr*1.3: return None
+    EARTH.append((x,y,r))
+    z=-.0235+.003*(len(EARTH)%4)
+    verts=[(x+math.cos(j*PI/4)*r*random.uniform(.7,1.3),y+math.sin(j*PI/4)*r*squash,z) for j in range(8)]
+    patch=mesh('weathered earth',verts,[tuple(range(8))],random.choice(materials))
+    # A surface stain should not cast a detached shadow onto its own ground.
+    patch.visible_shadow=False
+    return patch
 
 
 def street_wear(x,y,r=.3,wet=False):
@@ -717,51 +779,21 @@ def sea(x0,x1,y0,y1,step=.85):
         box('water glint',(x,y,-.165),(random.uniform(.1,.4),.012,.006),'water_light')
 
 
-def rat(name,x,y,scale=.23,turn=0):
-    root=instance('patkany',name,(x,y,.024),turn,scale)
-    # Several short bursts with rests, never across the playable clearing.
-    for frame,dy in [(1,0),(30,0),(45,-.30),(58,-.60),(91,-.60),(110,-.24),(145,0)]:
-        root.location=(x+math.sin(dy*5)*.06,y+dy,.024)
-        root.keyframe_insert(data_path='location',frame=frame)
-    root.animation_data.action.name=name+'_skitter'
-
-
 def lane(name,a,b,width=1.6):
-    """Continuous worn streets beneath local cobbles, including junctions."""
+    """A street: its course for `pave()`, a dark bed under the stones, gutters.
+
+    Every bed sits at the same height in the same material, so where streets
+    cross, the overlap is invisible rather than a flicker."""
     a,b=Vector(a),Vector(b)
+    for p in (a,b):
+        p.x=max(-REACH,min(REACH,p.x));p.y=max(-REACH,min(REACH,p.y))
     LANES.append((a.copy(),b.copy(),width))
     mid=(a+b)/2
     angle=math.atan2(b.y-a.y,b.x-a.x)
     normal=Vector((-math.sin(angle),math.cos(angle),0))
-    axis=(b-a).normalized()
-    # Offset crossing surfaces slightly and keep them shadowless, like stains:
-    # two coincident road slabs otherwise create black intersection artifacts.
-    level=-.014+sum('roadbed' in ob.name for ob in CURRENT.objects)*.00045
     corners=[a-normal*width/2,b-normal*width/2,b+normal*width/2,a+normal*width/2]
-    bed=mesh(name+' roadbed',[(p.x,p.y,level) for p in corners],[(0,1,2,3)],'stone_dark')
+    bed=mesh(name+' roadbed',[(p.x,p.y,-.012) for p in corners],[(0,1,2,3)],'stone_dark')
     bed.visible_shadow=False
-    verts=[];faces=[]
-    length=(b-a).length
-    cols=max(1,int(width/.39));cross=width/cols
-    # Flagstones of uneven length in staggered courses, each corner nudged:
-    # a street laid by hand over decades, not a tiled floor.
-    for j in range(cols):
-        t=-random.uniform(0,.35)
-        while t<length:
-            run=random.uniform(.26,.58)
-            t0=max(t,0)+.022;t1=min(t+run,length)-.022
-            t+=run
-            if t1-t0<.08: continue
-            c0=(j*cross-width/2)+.022;c1=((j+1)*cross-width/2)-.022
-            base=len(verts)
-            for along,across in [(t0,c0),(t1,c0),(t1,c1),(t0,c1)]:
-                q=a+axis*(along+random.uniform(-.025,.025))+normal*(across+random.uniform(-.02,.02))
-                verts.append((q.x,q.y,level+.00015))
-            faces.append(tuple(range(base,base+4)))
-    paving=mesh(name+' laid stone',verts,faces,'stone')
-    paving.visible_shadow=False
-    for material in ['stone_light','stone_dark']: paving.data.materials.append(MATS[material])
-    for face in paving.data.polygons: face.material_index=random.choices([0,1,2],[7,1,2])[0]
     for side in [-1,1]:
         p=mid+normal*side*(width/2+.035)
         box(name+' gutter',(p.x,p.y,-.008),((b-a).length,.065,.014),'stone_dark',(0,0,angle))
@@ -800,7 +832,8 @@ def at_sea(name,x,y):
 
 def clear(name,x,y,r,arena=False):
     """Room for scenery: off the streets, out of the water, and off the board."""
-    if at_sea(name,x,y) or on_lane(x,y,r): return False
+    # The whole footprint must be on dry land, not just its centre.
+    if any(at_sea(name,x+dx,y+dy) for dx,dy in [(0,0),(r,0),(-r,0),(0,r),(0,-r)]) or on_lane(x,y,r): return False
     return not (arena and abs(x)<(.75 if name=='sikator' else 1.95)+r and abs(y)<2.75+r)
 
 
@@ -828,70 +861,31 @@ def grove(x,y,n,spread,scale=1.4):
                  random.uniform(0,PI),scale*random.uniform(.8,1.25))
 
 
-def hill_height(name,x,y):
-    """The town sits in a bowl; the hills sink where they meet the sea."""
-    r=math.hypot(x,y)
-    rise=[(22.5,-.03),(25,.2),(28,.9),(32,2.0),(37,3.3),(44,4.6),(54,5.6)]
-    h=rise[-1][1]
-    for (r0,h0),(r1,h1) in zip(rise,rise[1:]):
-        if r<=r1:
-            h=h0+(h1-h0)*max(0,(r-r0)/(r1-r0));break
-    if r<22.5: h=-.03
-    h*=.75+.5*(noise.noise(Vector((x*.07,y*.07,{'sikator':1,'feketepiac':2,'kikoto':3}[name])))+.5)
-    if name=='kikoto' or (name=='sikator' and y>4.4):
-        coast=-2.9 if name=='kikoto' else -2.7
-        fade=max(0,min(1,(x-(coast-9))/7))
-        h=h*fade-.6*(1-fade)
-    return h
+def backdrop_house(name,x,y,width,depth,height,turn=0):
+    """The town past where the camera can go: a plain shell under a plain roof.
 
-
-def hills(name):
-    rings=[22.5,25,28,32,37,44,54];sides=60
-    verts=[];faces=[]
-    for j,r in enumerate(rings):
-        for i in range(sides):
-            a=(i+(j%2)*.5)*2*PI/sides
-            rr=r+(random.uniform(-.8,.8) if j else 0)
-            x,y=math.cos(a)*rr,math.sin(a)*rr
-            verts.append((x,y,hill_height(name,x,y)+(random.uniform(-.15,.15) if j>1 else 0)))
-    for j in range(len(rings)-1):
-        for i in range(sides):
-            a=j*sides+i;b=j*sides+(i+1)%sides
-            faces+=[(a,b,b+sides),(a,b+sides,a+sides)]
-    ob=mesh('hills around the town',verts,faces,'hill')
-    for m in ['scrub','hill_far','earth']: ob.data.materials.append(MATS[m])
-    for f in ob.data.polygons:
-        c=f.center;n=noise.noise(Vector((c.x*.11,c.y*.11,7)))
-        f.material_index=2 if math.hypot(c.x,c.y)>40 else (1 if n>.15 else (3 if n<-.35 else 0))
-    # Trees thicken up the slopes; the fog takes the farthest first.
-    for i in range(170):
-        a=random.uniform(0,2*PI);r=random.uniform(23.5,38)
-        x,y=math.cos(a)*r,math.sin(a)*r
-        h=hill_height(name,x,y)
-        if h<.05: continue
-        instance(random.choice(['tree_pine','tree_pine','tree_round']),'hillside tree',(x,y,h-.12),
-                 random.uniform(0,PI),random.uniform(1.6,2.6))
-
-
-def smoke(name,count=4):
-    """Looping puffs over the chimneys nearest the far side of the board."""
-    bpy.context.view_layer.update()
-    tops=[]
-    for house_name,chimney in CHIMNEYS:
-        if chimney.name not in CURRENT.objects: continue
-        p=chimney.matrix_world.translation
-        if 2.6<p.y<9 and abs(p.x)<7: tops.append(p.copy()+Vector((0,0,.28)))
-    tops.sort(key=lambda p:p.length)
-    for k,top in enumerate(tops[:count]):
-        for i in range(3):
-            puff=primitive(name+' chimney smoke '+str(k)+'.'+str(i),'puff',top,(1,1,1),'smoke')
-            for f in range(1,146,2):
-                t=((f-1)/144+i/3)%1
-                puff.location=top+Vector((t*.45,t*.12,t*1.15))
-                size=.24*math.sin(PI*t)**.6+.001
-                puff.scale=(size,size,size*.85)
-                puff.keyframe_insert('location',frame=f);puff.keyframe_insert('scale',frame=f)
-            puff.animation_data.action.name=puff.name.replace(' ','_')+'_rise'
+    A dozen faces where a kit house has hundreds. From the board these are
+    roofs going into the fog, which is all they need to be."""
+    wall=random.choice(['plaster','plaster_soot','plaster_ochre','plaster_chalk'])
+    roof=random.choice(['slate_blue','roof_umber','roof_rust','roof_umber','slate_faded'])
+    c,sn=math.cos(turn),math.sin(turn)
+    def at(lx,ly,z): return (x+lx*c-ly*sn,y+lx*sn+ly*c,z)
+    w,d=width/2,depth/2
+    base=[at(-w,-d,0),at(w,-d,0),at(w,d,0),at(-w,d,0)]
+    top=[at(-w,-d,height),at(w,-d,height),at(w,d,height),at(-w,d,height)]
+    mesh(name+' shell',base+top,[(0,1,5,4),(1,2,6,5),(2,3,7,6),(3,0,4,7)],wall)
+    # A pitched roof along the house's width, eaves overhanging a little.
+    ridge=height+depth*random.uniform(.32,.45);e=.08
+    mesh(name+' roof',[at(-w-e,-d-e,height-.04),at(w+e,-d-e,height-.04),at(w+e,0,ridge),at(-w-e,0,ridge),
+                       at(w+e,d+e,height-.04),at(-w-e,d+e,height-.04)],
+         [(0,1,2,3),(3,2,4,5)],roof)
+    mesh(name+' gables',[at(-w,-d,height),at(-w,d,height),at(-w,0,ridge-.03),at(w,d,height),at(w,-d,height),at(w,0,ridge-.03)],
+         [(1,0,2),(4,3,5)],wall)
+    if random.random()<.55:
+        box(name+' chimney',at(w*.5,d*.3,ridge-.05),(.18,.2,.42),'stone',(0,0,turn))
+    for k in range(2 if width>2 else 1):
+        lx=(-.25 if k==0 else .25)*width if width>2 else 0
+        box(name+' window',at(lx,-d-.005,height*.55),(.18,.012,.24),'wood_dark',(0,0,turn))
 
 
 def string_lights(name,a,b,poles=True):
@@ -939,9 +933,9 @@ def surroundings(name):
         cobbles(-2.75,3.6,-8,-4.5,.36)
         cobbles(-2.75,3.6,5.1,9,.36)
         # A stone quay continues beyond the close scene instead of ending as a slab.
-        box('continuous quay wall',(-2.96,0,-.13),(.14,100,.38),'stone_dark')
-        box('quay coping',(-2.91,0,.015),(.22,100,.08),'stone')
-        for y in range(-24,25,3):
+        box('continuous quay wall',(-2.96,0,-.13),(.14,40,.38),'stone_dark')
+        box('quay coping',(-2.91,0,.015),(.22,40,.08),'stone')
+        for y in range(-15,16,3):
             if abs(y)<4: continue
             primitive('mooring bollard','cyl',(-2.75,y,.14),(.09,.09,.27),'wood_dark')
         box('outer harbor breakwater',(-7.7,13,-.12),(9.4,.65,.42),'stone_dark')
@@ -949,16 +943,16 @@ def surroundings(name):
         instance('lighthouse','breakwater lighthouse',(-11.9,13,.15),0,1.25)
         for y in [7.0,11.2]:
             instance('jib_crane','quay crane',(-2.5,y,0),-PI/2,1.0)
-        for x,y,pirate,sc in [(-9.5,-6.5,False,.9),(-14,3.5,True,1.0),(-8.4,9.2,False,.8),(-19,-12,False,1.1)]:
+        for x,y,pirate,sc in [(-9.5,-6.5,False,.9),(-14,3.5,True,1.0),(-8.4,9.2,False,.8)]:
             ship('ship at anchor',x,y,pirate,sc)
         near=[(9.1,y,-PI/2) for y in [-9.5,-5.7,-1.5,2.7,6.4,10.4]]
-        near += [(x,y,0 if y>0 else PI) for y in [-10,11] for x in [.2,3.7,13.2]]
+        near += [(x,y,0 if y>0 else PI) for y in [-10,11] for x in [.2,3.7]]
         for x,y in [(4.9,-7.2),(5,8.9),(11.2,-3)]:
             instance('lean_to','warehouse loading shelter',(x,y,0),scale=(1.7,1.2,1.2))
             instance('handcart','freight cart',(x-.8,y-1.1,0),.6)
             for j in range(3): instance('crate','warehouse stock',(x+j*.46-.5,y,.05),.07, .9)
             instance('net_bundle','warehouse net',(x+.6,y-1.1,.02),scale=2)
-    landmark={'sikator':(3.9,16.2,-.2),'feketepiac':(-4.6,15.6,.25),'kikoto':(3.4,15.4,.1)}[name]
+    landmark={'sikator':(3.6,13.4,-.2),'feketepiac':(-4.4,12.9,.25),'kikoto':(3.2,13.2,.1)}[name]
     instance('bell_tower','old bell tower',landmark[:2]+(0,),landmark[2],1.15)
     tower=Vector(landmark[:2]+(0,));LANES.append((tower,tower+Vector((.01,0,0)),3.2))
     grove(landmark[0]+2.2,landmark[1]+.6,3,.8)
@@ -976,13 +970,15 @@ def surroundings(name):
     # Inward-facing blocks leave the streets open. There are no human
     # spectators, and no tall new object enters the playable footprint.
     count=0
-    candidates=[(x,y,0 if y>0 else PI) for y in [-20.4,-16.6,-12.9,12.9,16.6,20.4]
-                for x in [v*3.4 for v in range(-6,7)]]
-    candidates+=[(x,y,-math.copysign(PI/2,x)) for x in [-20.4,-16.6,-12.9,12.9,16.6,20.4]
+    # Past the houses with yards, the town goes on in two cheaper tiers: kit
+    # roofs over plain shells, then plain shells under plain roofs into the fog.
+    candidates=[(x,y,0 if y>0 else PI) for y in [-13.2,13.2]
+                for x in [v*3.4 for v in range(-4,5)]]
+    candidates+=[(x,y,-math.copysign(PI/2,x)) for x in [-13.2,13.2]
                  for y in [v*3.4 for v in range(-3,4)]]
     for x,y,t in candidates:
         x+=random.uniform(-.7,.7);y+=random.uniform(-.7,.7)
-        if math.hypot(x,y)>23 or not clear(name,x,y,1.5): continue
+        if math.hypot(x,y)>15 or not clear(name,x,y,1.5): continue
         if random.random()<.16:
             grove(x,y,random.randint(2,4),1.3)
             continue
@@ -990,41 +986,51 @@ def surroundings(name):
         roofline_house('skyline '+str(count),x,y,random.uniform(1.8,3.0),random.uniform(1.6,2.4),
                        random.uniform(2.1,2.8) if tall else random.uniform(1.0,1.8),t+random.uniform(-.14,.14))
         count+=1
-    hills(name)
+    for gy in [v*2.9 for v in range(-7,8)]:
+        for gx in [v*2.9 for v in range(-7,8)]:
+            x=gx+random.uniform(-.5,.5);y=gy+random.uniform(-.5,.5)
+            if max(abs(x),abs(y))<14.3 or math.hypot(x,y)>REACH or not clear(name,x,y,1.3): continue
+            if random.random()<.12: continue  # a yard, a gap, a burned-out lot
+            # Face the nearer axis, as streets of a town laid out round its square.
+            t=(0 if y>0 else PI) if abs(y)>abs(x) else -math.copysign(PI/2,x)
+            backdrop_house('backdrop '+str(count),x,y,random.uniform(1.7,2.6),random.uniform(1.5,2.1),
+                           random.uniform(1.6,2.4) if random.random()<.2 else random.uniform(.8,1.5),
+                           t+random.uniform(-.12,.12))
+            count+=1
     # Weeds and rubbed-in earth over the whole district, not just the arena.
-    for i in range(240):
-        x=random.uniform(-15,15);y=random.uniform(-15,15)
+    for i in range(140):
+        x=random.uniform(-11,11);y=random.uniform(-11,11)
         if not clear(name,x,y,.15,arena=True): continue
         instance('weeds','district weeds',(x,y,0),random.uniform(0,PI),random.uniform(.8,1.5))
-    for i in range(130):
-        x=random.uniform(-16,16);y=random.uniform(-16,16)
+    for i in range(90):
+        x=random.uniform(-13,13);y=random.uniform(-13,13)
         r=random.uniform(.5,1.4)
         # The whole patch, not only its centre, has to be on dry land.
         if abs(x)<6 and abs(y)<7 or not clear(name,x,y,r*1.3+.1): continue
-        verts=[(x+math.cos(j*PI/4)*r*random.uniform(.7,1.3),y+math.sin(j*PI/4)*r*.6,-.021) for j in range(8)]
-        patch=mesh('weathered earth',verts,[tuple(range(8))],random.choice(['mud','dust','scrub']))
-        patch.visible_shadow=False
+        earth_patch(x,y,r,['mud','dust','scrub'],.6)
     random.setstate(saved)
 
 
 def scene_ground(name):
+    # Each scene starts its own street plan: one scene's lanes must not pave
+    # or block the next one built in the same Blender session.
+    LANES.clear();PAVED.clear();EARTH.clear()
+    global SCENE
+    SCENE=name
     if name=='kikoto':
-        box('earthen district',(28.5,0,-.055),(63,120,.06),'earth')
+        box('earthen district',(18.5,0,-.055),(43,80,.06),'earth')
     elif name=='sikator':
-        box('earthen district',(0,-27.75,-.055),(120,64.5,.06),'earth')
-        box('distant market ground',(28.65,32.25,-.055),(62.7,55.5,.06),'earth')
+        box('earthen district',(0,-17.75,-.055),(80,44.5,.06),'earth')
+        box('distant market ground',(18.65,22.25,-.055),(42.7,35.5,.06),'earth')
     else:
-        box('earthen district',(0,0,-.055),(120,120,.06),'earth')
+        box('earthen district',(0,0,-.055),(80,80,.06),'earth')
     # Broad rubbed-in earth patches tie buildings to a shared place. They sit
     # below the paving, never over a playable tile or over water.
     for i in range(50):
         x=random.uniform(-5.7,5.7);y=random.uniform(-5.8,6.8)
-        if (name=='kikoto' and x<-2.9) or (name=='sikator' and x<-2.7 and y>4.4): continue
         r=random.uniform(.22,.65)
-        verts=[(x+math.cos(j*PI/4)*r*random.uniform(.7,1.3),y+math.sin(j*PI/4)*r*.55,-.021) for j in range(8)]
-        patch=mesh('weathered earth',verts,[tuple(range(8))],random.choice(['mud','dust','earth']))
-        # A surface stain should not cast a detached shadow onto its own ground.
-        patch.visible_shadow=False
+        if any(at_sea(name,x+dx,y+dy) for dx,dy in [(0,0),(r*1.3,0),(-r*1.3,0),(0,r),(0,-r)]): continue
+        earth_patch(x,y,r,['mud','dust','earth'])
     if name=='sikator':
         cobbles(-.78,.78,-5.5,5.0)
         for x in [-.82,.82]:
@@ -1063,7 +1069,7 @@ def scene_ground(name):
         house('back courtyard workshop',-3.35,1.7,.2,(1.6,1.0,.82),False,'shack')
         house('back courtyard lodging',3.65,3.15,-.25,(1.4,1.1,.84),False,'patched')
         # Distant districts, intentionally miniature but composed from the same kit.
-        sea(-60,-2.7,4.5,60,2.5)
+        sea(-40,-2.7,4.5,40,2.5)
         for x in [-6.8,-5.9,-5,-4.1,-3.2]:
             box('distant harbor retaining wall',(x,4.52,-.035),(.89,.16,.23),'stone_dark')
         instance('dock','distant quay',(-3.5,5.6,-.08),PI/2,.65)
@@ -1072,9 +1078,6 @@ def scene_ground(name):
         for i,k in enumerate(['weapons','apothecary','liquor','relics']):
             stall('distant market',2.65+(i%2)*1.25,4.5+(i//2)*1.4,0,k,.76)
         for x,sty in [(-2,'shack'),(1.7,'inn'),(4.9,'patched')]: house('distant tenement',x,6.4,-.08,(1.2,1,.8),sty=='inn',sty)
-        rat('Patkány alley 1',-.67,-1.1)
-        rat('Patkány alley 2',.68,2.2,.20,PI)
-        rat('Patkány alley 3',-.68,-3.3,.18)
     elif name=='feketepiac':
         cobbles(-3.4,3.4,-3.25,4.7)
         for x,y,t,k in [(-2.75,-1.85,1.32,'weapons'),(-2.70,1.5,1.75,'apothecary'),(2.85,-1.2,-1.76,'liquor'),(2.55,2.0,-1.37,'relics')]:
@@ -1093,10 +1096,9 @@ def scene_ground(name):
         for x,y in [(-3.55,-2.6),(3.6,-.2),(-3.5,2.9),(3.6,3.7)]:
             instance('crate','market cargo',(x,y,0),.12)
             instance('barrel','market barrel',(x+.38,y+.23,0),scale=.8)
-        for i,(x,y) in enumerate([(-2,-2.5),(2.02,1.4),(-3.8,.5)]): rat('Patkány market '+str(i),x,y,.21)
     else:
         # Sea to the left in the initial game view; an open sunny plaza to the right.
-        sea(-60,-3.0,-60,60,2.5)
+        sea(-40,-3.0,-40,40,2.5)
         cobbles(-2.8,3.6,-4.5,5.1)
         for y in [-2.0,2.0]:
             instance('dock','wooden finger pier',(-3.72,y,-.025),PI/2)
@@ -1123,9 +1125,8 @@ def scene_ground(name):
             instance('crate','stacked cargo',(x+.05,y,.4),.08,.70)
             instance('barrel','dock barrel',(x,y+.49,0),scale=.9)
             instance('rope_coil','dock rope',(x+.46,y+.48,0))
-        for i,(x,y) in enumerate([(-2.05,1.1),(2.35,-3.4),(3.5,1.8)]): rat('Patkány harbor '+str(i),x,y,.22)
     surroundings(name)
-    smoke(name)
+    pave()
 
 
 # One poor harbour town at three times of day (docs/art-bible.md §4): the quay
@@ -1238,9 +1239,6 @@ def render_card(name):
     cam.data.type='PERSP';cam.data.lens=lens;cam.data.clip_end=200
     previous=scene.camera;scene.camera=cam
     mist(scene,look)
-    # A still frame catches the smoke mid-loop as loose floating lumps.
-    for ob in scene.objects:
-        if 'chimney smoke' in ob.name: ob.hide_render=True
     scene.cycles.samples=int(os.environ.get('CARD_SAMPLES','64'))
     scene.render.resolution_x,scene.render.resolution_y=CARD_SIZE
     scene.render.image_settings.file_format='WEBP'
@@ -1274,13 +1272,19 @@ def export(path, objects, animate=False, batch=False):
                 world=evaluated.matrix_world.copy()
                 positions=[tuple(world @ vertex.co) for vertex in mesh.vertices]
                 mirrored=world.to_3x3().determinant()<0
+                # Far scenery goes in its own batches, which the stage keeps out
+                # of the shadow pass (Battlefield.tsx reads the batch_far_ name).
+                if positions:
+                    cx=sum(p[0] for p in positions)/len(positions);cy=sum(p[1] for p in positions)/len(positions)
+                    far=math.hypot(cx,cy)>SHADOW_REACH
+                else: far=False
                 # Object-linked material overrides must win over the mesh's slots.
                 materials=[slot.material for slot in evaluated.material_slots]
                 local_maps={}
                 for polygon in mesh.polygons:
                     material=materials[polygon.material_index] if polygon.material_index<len(materials) else None
-                    vertices,faces,smooth=groups.setdefault(material,([],[],[]))
-                    remap=local_maps.setdefault(material,{})
+                    vertices,faces,smooth=groups.setdefault((material,far),([],[],[]))
+                    remap=local_maps.setdefault((material,far),{})
                     face=[]
                     for index in polygon.vertices:
                         if index not in remap:
@@ -1296,8 +1300,8 @@ def export(path, objects, animate=False, batch=False):
         elif not batch or ob.type in ['LIGHT'] or moving:
             keep.append(ob)
     try:
-        for material,(vertices,faces,smooth) in groups.items():
-            name='batch_'+(material.name if material else 'unpainted')
+        for (material,far),(vertices,faces,smooth) in groups.items():
+            name=('batch_far_' if far else 'batch_')+(material.name if material else 'unpainted')
             mesh=bpy.data.meshes.new(name)
             ob=bpy.data.objects.new(name,mesh)
             generated.append((ob,mesh))
@@ -1323,73 +1327,85 @@ def export(path, objects, animate=False, batch=False):
     print('EXPORTED',path,os.path.getsize(path),flush=True)
 
 
-if '--cards-only' in sys.argv:
-    # Re-light and re-render the card art from the saved scenes, without a rebuild.
-    only=[a for a in sys.argv[sys.argv.index('--')+1:] if not a.startswith('--')] if '--' in sys.argv else []
-    for name in only or ['sikator','feketepiac','kikoto']:
-        bpy.ops.wm.open_mainfile(filepath=os.path.join(OUT,name+'.blend'))
-        render_card(name)
-    sys.exit(0)
+def guides(slots):
+    """The playable spaces, for the preview only: the game draws real tile slabs."""
+    global CURRENT
+    held=CURRENT
+    CURRENT=coll('Playable spaces — preview only')
+    CURRENT.hide_render=True
+    for x,y in slots:
+        box('playable space',(x,y,.039),(.99,.99,.034),'stone_light')
+        for dx,dy,w,h in [(0,-.485,.97,.018),(0,.485,.97,.018),(-.485,0,.018,.97),(.485,0,.018,.97)]:
+            box('preview edge',(x+dx,y+dy,.058),(w,h,.004),'brass' if y<0 else 'wood_dark')
+    CURRENT=held
 
-if '--export-existing' in sys.argv:
+
+def main():
+    global CURRENT
+    if '--cards-only' in sys.argv:
+        # Re-light and re-render the card art from the saved scenes, without a rebuild.
+        only=[a for a in sys.argv[sys.argv.index('--')+1:] if not a.startswith('--')] if '--' in sys.argv else []
+        for name in only or ['sikator','feketepiac','kikoto']:
+            bpy.ops.wm.open_mainfile(filepath=os.path.join(OUT,name+'.blend'))
+            render_card(name)
+        sys.exit(0)
+
+    if '--export-existing' in sys.argv:
+        for name in ['sikator','feketepiac','kikoto']:
+            bpy.ops.wm.open_mainfile(filepath=os.path.join(OUT,name+'.blend'))
+            CURRENT=bpy.context.scene.collection.children[name+' assembled kit']
+            bpy.context.scene.frame_set(1)
+            bpy.context.view_layer.update()
+            export(os.path.join(STAGE,'battlefields',name+'.glb'),list(CURRENT.objects),True,True)
+        print('TOWN REEXPORTED',flush=True)
+        sys.exit(0)
+
+    build_kit()
+    # Each item is a named Blender asset collection with its own local origin.
+    for name,c in KIT.items():
+        c.asset_mark()
+        c.asset_data.description='Skart reusable town component: '+name
+        export(os.path.join(OUT,'parts',name+'.glb'),list(c.objects))
+    # Library has exploded display instances in its own scene; templates are unlinked.
+    library_scene=bpy.context.scene
+    library_scene.name='Town component library'
+    CURRENT=coll('Component display')
+    for i,name in enumerate(KIT):
+        instance(name,name+' display',((i%7)*2,(i//7)*2,0))
+    for c in KIT.values(): library_scene.collection.children.unlink(c)
+    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT,'kit.blend'))
+
+    # A dedicated card model, with exactly the same geometry as the small ambient rats.
+    CURRENT=coll('Patkány export')
+    instance('patkany','Patkány')
+    export(os.path.join(STAGE,'models','patkany.glb'),list(CURRENT.objects))
+    library_scene.collection.children.unlink(CURRENT)
+
+    manifest={'components':list(KIT),'battlefields':{}}
     for name in ['sikator','feketepiac','kikoto']:
-        bpy.ops.wm.open_mainfile(filepath=os.path.join(OUT,name+'.blend'))
-        CURRENT=bpy.context.scene.collection.children[name+' assembled kit']
-        bpy.context.scene.frame_set(1)
+        scene=bpy.data.scenes.new(name)
+        bpy.context.window.scene=scene
+        CURRENT=coll(name+' assembled kit')
+        scene_ground(name)
+        setup_preview(name)
         bpy.context.view_layer.update()
-        export(os.path.join(STAGE,'battlefields',name+'.glb'),list(CURRENT.objects),True,True)
-    print('TOWN REEXPORTED',flush=True)
-    sys.exit(0)
+        runtime_objects=list(CURRENT.objects)
+        guides([(0,y) for y in [-1.98,-.86,.86,1.98]] if name=='sikator' else
+               [(x,y) for x in [-1.12,0,1.12] for y in [-1.98,-.86,.86,1.98]])
+        bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT,name+'.blend'))
+        export(os.path.join(STAGE,'battlefields',name+'.glb'),runtime_objects,True,True)
+        manifest['battlefields'][name]={'source':name+'.blend','playable_slots':4 if name=='sikator' else 12}
+        if RENDER:
+            scene.render.filepath=os.path.join(OUT,'previews',name+'.png')
+            bpy.ops.render.render(write_still=True)
+            print('RENDERED',name,flush=True)
+        if CARDS:
+            render_card(name)
+    with open(os.path.join(OUT,'manifest.json'),'w',encoding='utf-8') as f:
+        json.dump(manifest,f,ensure_ascii=False,indent=2)
+    print('TOWN COMPLETE',flush=True)
 
-build_kit()
-# Each item is a named Blender asset collection with its own local origin.
-for name,c in KIT.items():
-    c.asset_mark()
-    c.asset_data.description='Skart reusable town component: '+name
-    export(os.path.join(OUT,'parts',name+'.glb'),list(c.objects))
-# Library has exploded display instances in its own scene; templates are unlinked.
-library_scene=bpy.context.scene
-library_scene.name='Town component library'
-CURRENT=coll('Component display')
-for i,name in enumerate(KIT):
-    instance(name,name+' display',((i%7)*2,(i//7)*2,0))
-for c in KIT.values(): library_scene.collection.children.unlink(c)
-bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT,'kit.blend'))
 
-# A dedicated card model, with exactly the same geometry as the small ambient rats.
-CURRENT=coll('Patkány export')
-unit=instance('patkany','Patkány')
-export(os.path.join(STAGE,'models','patkany.glb'),list(CURRENT.objects))
-library_scene.collection.children.unlink(CURRENT)
-
-manifest={'components':list(KIT),'battlefields':{}}
-for name in ['sikator','feketepiac','kikoto']:
-    scene=bpy.data.scenes.new(name)
-    bpy.context.window.scene=scene
-    CURRENT=coll(name+' assembled kit')
-    scene_ground(name)
-    setup_preview(name)
-    bpy.context.view_layer.update()
-    runtime_objects=list(CURRENT.objects)
-    # Guides are kept separate and excluded from GLB: the game draws real tile slabs.
-    guides=coll('Playable spaces — preview only')
-    guides.hide_render=True
-    CURRENT=guides
-    for x in ([0] if name=='sikator' else [-1.12,0,1.12]):
-        for y in [-1.98,-.86,.86,1.98]:
-            box('E2 / H2' if name=='sikator' else 'playable space',(x,y,.039),(.99,.99,.034),'stone_light')
-            for dx,dy,w,h in [(0,-.485,.97,.018),(0,.485,.97,.018),(-.485,0,.018,.97),(.485,0,.018,.97)]:
-                box('preview edge',(x+dx,y+dy,.058),(w,h,.004),'brass' if y<0 else 'wood_dark')
-    bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT,name+'.blend'))
-    CURRENT=scene.collection.children[0]
-    export(os.path.join(STAGE,'battlefields',name+'.glb'),runtime_objects,True,True)
-    manifest['battlefields'][name]={'source':name+'.blend','animated_rats':3,'playable_slots':4 if name=='sikator' else 12}
-    if RENDER:
-        scene.render.filepath=os.path.join(OUT,'previews',name+'.png')
-        bpy.ops.render.render(write_still=True)
-        print('RENDERED',name,flush=True)
-    if CARDS:
-        render_card(name)
-with open(os.path.join(OUT,'manifest.json'),'w',encoding='utf-8') as f:
-    json.dump(manifest,f,ensure_ascii=False,indent=2)
-print('TOWN COMPLETE',flush=True)
+# blender/realms.py imports this file for its kit and pipeline without building the town.
+if __name__=='__main__':
+    main()

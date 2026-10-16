@@ -60,6 +60,7 @@ public site.
 | 3D models, clips, card portraits | `blender/models.py` (starter bodies → rigged `.glb`; its header is the asset contract), `blender/portraits.py` (card art from the models; `npm run looks` first). Headless: `blender -b --factory-startup -P blender/<script>.py` |
 | Art direction: palette, geometry, light, card-art framing, budgets | `SkartCF/docs/art-bible.md` — read it before modelling, lighting or rendering anything. The three town battlefields (Kikötő, Feketepiac, Sikátor) are one town at afternoon, dusk and night |
 | Town battlefields, their kit and card art | `blender/town.py` (generator: kit → `blender/town/*.blend` → `stage/battlefields/*.glb`; `-- --render --cards` for previews and card art, `-- --cards-only` to re-render art from the saved scenes), `blender/town/README.md`, `blender/town_review.py` (GLB vs source check, kit sheet); `src/ui/stage/Battlefield.tsx` draws them |
+| Umbra, Oppidium, Kesergő (the other realms) | `blender/realms.py` (imports `town.py` for its kit, export and card camera; `-- --render --cards [umbra ...]`), `blender/realms/README.md`; their board light is in `ground.ts` |
 
 ## Invariants — do not break
 

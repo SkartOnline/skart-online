@@ -347,6 +347,7 @@ const Scene = memo(function Scene({
       <Battlefield
         locationId={locationId}
         small={small}
+        lamps={ground.lampLights}
         fallback={<Land ground={ground} locationId={locationId} small={small} />}
       />
 

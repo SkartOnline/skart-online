@@ -46,7 +46,10 @@ export function battlefieldModelFor(locationId: string): string | undefined {
   return BATTLEFIELDS[`./battlefields/${locationId}.glb`];
 }
 
-/** These environments have buildings outside the playable footprint, not chasms. */
+/**
+ * A battlefield built in Blender has walls, houses or trees outside its
+ * playable footprint, not chasms, so a blocked slot is simply not drawn.
+ */
 export function hasTownFootprint(locationId: string): boolean {
-  return ["sikator", "feketepiac", "kikoto"].includes(locationId);
+  return battlefieldModelFor(locationId) !== undefined;
 }

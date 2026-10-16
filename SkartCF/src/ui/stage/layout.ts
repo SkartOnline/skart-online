@@ -118,7 +118,8 @@ export const HOME: View = { yaw: 0, pitch: ELEVATION, zoom: 1, x: 0, z: 0 };
  */
 export const LIMITS = {
   pitch: [(22 * Math.PI) / 180, (86 * Math.PI) / 180],
-  zoom: [0.4, 1.6],
+  // Out only a little past the fit: the scenery is a backdrop, not a map.
+  zoom: [0.4, 1.2],
   x: PITCH * 1.5 + TILE,
   z: LINE / 2 + PITCH + TILE * 1.5,
 } as const;
@@ -192,8 +193,11 @@ export interface Fit {
 export function fitCamera(camera: PerspectiveCamera, width: number, height: number, safe: Rect): Fit {
   camera.fov = FOV;
   camera.aspect = width / Math.max(1, height);
-  camera.near = 0.1;
-  camera.far = 200;
+  // The nearest the camera ever gets is metres away, and the fog is done well
+  // inside 90: a tight range keeps depth precision for flat ground far off,
+  // where 0.1–200 let paving and earth patches fight.
+  camera.near = 0.5;
+  camera.far = 90;
   camera.clearViewOffset();
   camera.updateProjectionMatrix();
 

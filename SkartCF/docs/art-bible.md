@@ -53,12 +53,20 @@ gallows or lurid contraband. The rats are the most menacing thing there.
 | Unit body (`models.py`) | 300–1500 |
 | Kit component (`town.py`, one door or one barrel) | 20–400 |
 | A whole battlefield GLB | ≤ 145k triangles, ≤ 120k vertices, ≤ 64 materials (= draw calls), ≤ 2.5 MB |
-| Animated nodes per battlefield (rats, smoke) | ≤ 16 roots |
+| Animated nodes per battlefield | none, for now (§6) |
 
-Far scenery (more than ~10 units from the board) uses the cheap variants: the
-`roofline_house` shell under a real kit roof, merged hill masses and cone trees.
-The fog hides the rest. Don't spend triangles where the fog has already
-started.
+**Detail where the camera can go, the place itself everywhere.** Model about
+10 units out in full. Past that the place goes on (a town stays a town; no
+hills standing in for it) at lower detail. First the `roofline_house` shell
+under a real kit roof, then `backdrop_house`, a plain shell under a plain roof,
+out to about 21 units. The town fields' fog (`fog: 11`) closes there, and the
+camera cannot pull back further (`LIMITS.zoom` in `layout.ts`). Don't spend
+triangles where the fog has already started.
+
+**Never lay two flat surfaces of different colours at nearly the same height.**
+At a distance they flicker against each other. Pave in one pass, give
+overlapping beds one material, and keep stains at least 3 mm apart vertically,
+or apart in plan.
 
 ## 3. Palette
 
@@ -81,7 +89,9 @@ Rules of thumb:
 
 - **Saturation stays low** except in three places: lamp glass, water, and one
   accent per battlefield (Feketepiac: plum awning; Kikötő: teal sea and the
-  black pirate flag; Sikátor: the amber of its lamps against blue night).
+  black pirate flag; Sikátor: the amber of its lamps against blue night;
+  Umbra: blue fire and poison-green chains; Oppidium: the gold itself;
+  Kesergő: the Undan's red, `#9b4a3c`, on felt and totems).
 - **Values are mid.** Nothing in the scenery is darker than `#2e2a26` or lighter
   than `#dfd2b4`. Pure black and pure white belong to the UI and to emissives.
 - Unit role colours (`cloth`, `trim`, `skin`, `hair`, `metal`, `glow`, `legs`)
@@ -99,13 +109,29 @@ down on the way:
 | Feketepiac | dusk | low amber sun `#f4d2a0`, medium | smoky taupe `#84796b` | lamps under every awning, clearly glowing |
 | Sikátor | night | cold moonlight `#a9b8d8`, weak | deep slate blue | lamps carry the scene, pools of amber on wet stone |
 
+The other realms are not the town, and each has one light that is its own
+(`LIGHT` in `blender/realms.py`, `ground.ts` for the board):
+
+| Battlefield | Key light | Sky / fog | Practicals |
+|---|---|---|---|
+| Umbra | barely any; a cold spirit glow | none: black above the walls | blue-fire torches on the pillars and down every corridor, a ring of green runes round the board, the violet gate |
+| Oppidium | a faint warm glow standing in for torchlight | near-black umber | gold torches on stakes; everything else is gold catching them |
+| Kesergő | plain forest daylight `#fff0cf` | green-grey haze between the trees | campfires, barely visible by day |
+
+The gold of Oppidium keeps metalness low (≤ 0.4): the stage has no
+environment map, so a truly metallic surface would show only black and a
+highlight. Its colour carries it.
+
 - **The key light always comes from the upper left of the home view**
   (`[-3.5, 7, 4.5]` in the stage), so shadows fall away to the right on every
   battlefield and card.
-- **Practicals are `lamp_oil` and nothing else.** A point light lives only in
-  that kit component, so the runtime's lamp budget (4 desktop, 2 phone, nearest
-  to the board, chosen once) stays the one rule about point lights. Lamp glass is
-  emissive, so distant lamps glow without lighting anything.
+- **Practicals are kit components and nothing else**: `lamp_oil` in the town,
+  `torch_blue`, `gold_torch`, `mine_entrance` and `campfire` in the realms. A
+  point light lives only in one of those, so the runtime's lamp budget (per
+  battlefield, `lampLights` in `ground.ts`, 4 by default and 2 on phones,
+  nearest to the board, chosen once) stays the one rule about point lights.
+  Flames and lamp glass are emissive, so distant ones glow without lighting
+  anything.
 - The board stays readable at every time of day. A unit on any tile must
   show its silhouette against the ground. If night costs that, raise the
   hemisphere fill (`ambientIntensity`) before you brighten the moon.
@@ -124,7 +150,9 @@ place.
   view: it reads as a floor plan and turns to noise at card size.
   - One focal subject in the middle third (Sikátor: the lamp-lit mouth of the
     alley; Feketepiac: the stalls under their awnings; Kikötő: the moored ships
-    at the quay).
+    at the quay; Umbra: the north corridor running into the dark between the
+    White Shepherd and the gate; Oppidium: a lady turned to gold on her crag,
+    by her torch; Kesergő: the cave, the fox skull and the pyrite).
   - The brightest value sits on the focal subject, and the frame edges fall
     off into shadow or mist.
   - The background dissolves into atmosphere (world colour plus mist), never a
@@ -142,6 +170,7 @@ place.
 | `blender/models.py` | unit bodies, rigged, with clips | header of the script; `docs/stage-3d.md` §4 |
 | `blender/portraits.py` | unit card art | §5 above |
 | `blender/town.py` | town kit, three town battlefields, their card art | `blender/town/README.md` |
+| `blender/realms.py` | Umbra, Oppidium, Kesergő and their kit, on town.py's pipeline | `blender/realms/README.md` |
 | `blender/battlefields.py` | card art for the procedural battlefields | §5 above |
 
 - **The scripts are the source.** The `.blend` files are generated for
@@ -155,6 +184,7 @@ place.
   facing -Y, origin on the ground) and is placed with `instance()`. Repeated
   parts share mesh data in Blender; the battlefield export batches static
   meshes by material.
-- Things that move (rats, smoke) keep their own hierarchy and an action named
-  `<name>_<verb>`, looping over frames 1–145 at 24 fps. Ambient motion stops on
-  phones and under reduced motion (`Battlefield.tsx`).
+- **No ambient motion for now.** Rats and chimney smoke were tried and cut
+  (2026-10-16). A playing clip redraws the canvas every frame, the stage
+  otherwise draws only on change, and the rats couldn't turn. `Battlefield.tsx`
+  ignores clips. Bring motion back only with a plan for both problems.

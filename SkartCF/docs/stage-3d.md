@@ -109,6 +109,17 @@ triangles. Card art is a perspective shot of the same scene with a mist pass
 (`town.py -- --cards-only`). The rules behind all of it are in
 `docs/art-bible.md`.
 
+**Town, fourth pass (same day).** Playing it said otherwise: laggy, the smoke
+read as orbs, the rats slid without turning, and the far paving shimmered. So
+nothing moves now (`Battlefield.tsx` plays no clips, so the stage is back to
+drawing only on change). Detail ends about 10 units out, and cheap backdrop
+houses carry the town on to 21 units under a fog of 11 (the hills are gone:
+a town stays a town), with `LIMITS.zoom`
+capped at 1.2. Every street is paved by one pass with the
+square's own stones, so there are no coplanar beds left to fight. The camera's
+clip range is 0.5–90 instead of 0.1–200, for depth precision. Batches beyond
+7.5 units skip shadows, and Kikötő's daylight asks for no lamp lights.
+
 - `three` + **`@react-three/fiber` v8**. Fiber v9 needs React 19; the project
   is on 18. drei was never needed.
 - **Lazy-loaded.** `Stage` is a `React.lazy` chunk, so the 2D game, the editor,

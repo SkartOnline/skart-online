@@ -27,6 +27,8 @@ export interface Ground {
   sunIntensity: number;
   /** The town's dusk leaves room for its oil lamps; other fields keep the default. */
   ambientIntensity?: number;
+  /** Oil lamps allowed to light a Blender-built field (desktop; phones get two). Default 4. */
+  lampLights?: number;
   /** How far the fog starts, in world units. Ködrét closes right in. */
   fog: number;
   props: Partial<Record<Prop, number>>;
@@ -59,6 +61,8 @@ export const GROUNDS: Record<string, Ground> = {
     sun: "#a9b8d8",
     sunIntensity: 0.95,
     ambientIntensity: 1.25,
+    // The town is a backdrop past the houses on the square: the fog takes it early.
+    fog: 11,
     props: { crate: 10, column: 4, rock: 4 },
     leaf: ["#5a5048"],
     stone: "#7a6f64",
@@ -72,6 +76,8 @@ export const GROUNDS: Record<string, Ground> = {
     sun: "#f4bf86",
     sunIntensity: 1.15,
     ambientIntensity: 0.7,
+    fog: 11,
+    lampLights: 3,
     props: { crate: 14, column: 3 },
     stone: "#82796d",
   },
@@ -125,18 +131,27 @@ export const GROUNDS: Record<string, Ground> = {
     sun: "#ffe2b0",
     sunIntensity: 3.3,
     ambientIntensity: 1.25,
+    fog: 11,
+    // Afternoon sun: the lamps are glass, not lights.
+    lampLights: 0,
     props: { crate: 10, rock: 6, column: 3 },
     stone: "#9c9384",
   },
-  // A moonlit clearing: silver-green, the brightest ground in the set.
+  // The golden forest: everything is gold, and nothing lights it but torches.
+  // A warm, faint key from the usual corner stands in for torchlight on the
+  // board, so units read; the dark close round it is the point.
   oppidium: {
     ...NEUTRAL,
-    grass: ["#7fa88f", "#88b298", "#769e86"],
-    path: "#c4c8b0",
-    sky: "#b8cfd0",
-    sun: "#e8f4ff",
+    grass: ["#8a6a2c", "#b08a3e", "#6e5524"],
+    path: "#6e5524",
+    sky: "#1a140b",
+    sun: "#ffc978",
+    sunIntensity: 1.5,
+    ambientIntensity: 1.6,
+    fog: 9,
     props: { round: 12, rock: 6 },
-    leaf: ["#6f9e84", "#7fae90"],
+    leaf: ["#b08a3e", "#cfa955"],
+    stone: "#8a6a2c",
   },
   // The mill: flour dust and dun sacking.
   malom: {
@@ -156,17 +171,21 @@ export const GROUNDS: Record<string, Ground> = {
     props: { round: 18, rock: 3 },
     leaf: ["#6fb046", "#9cb84a", "#d2a53c"],
   },
-  // The cursed forest: sick green, almost no light.
+  // The Undan camp in the forest: plain daylight on trampled earth, the
+  // firelight barely showing, a green haze between the trees.
   kesergo: {
     ...NEUTRAL,
-    grass: ["#34452f", "#3b4d35", "#2e3d29"],
-    path: "#4d4a38",
-    sky: "#2e3a2c",
-    sun: "#c8e0b0",
-    sunIntensity: 1.1,
-    fog: 10,
-    props: { dead: 16, rock: 5 },
-    stone: "#5a6454",
+    grass: ["#7a6c58", "#6b5e44", "#4f553c"],
+    path: "#7a6c58",
+    sky: "#9db5ad",
+    sun: "#fff0cf",
+    sunIntensity: 3.2,
+    ambientIntensity: 1.3,
+    lampLights: 3,
+    fog: 11,
+    props: { pine: 12, round: 8, rock: 4 },
+    leaf: ["#4d6a3a", "#3c5230", "#6a7f45"],
+    stone: "#6d6a60",
   },
   // The fog meadow: flat pale grey, nothing to see, which is the point.
   kodret: {
@@ -188,17 +207,19 @@ export const GROUNDS: Record<string, Ground> = {
     sunIntensity: 2.6,
     props: { round: 6, rock: 6 },
   },
-  // Umbra: dark grey, and darker than anything else here.
+  // Umbra, the prison of the dead: no sky, blue fire on the pillars and a
+  // cold fill that keeps the drab flagstones readable under the units.
   umbra: {
     ...NEUTRAL,
-    grass: ["#3a3a3e", "#414145", "#343438"],
-    path: "#56565c",
-    sky: "#2a2a2e",
-    sun: "#c8c8d8",
-    sunIntensity: 1.0,
-    fog: 11,
-    props: { dead: 10, rock: 8, column: 3 },
-    stone: "#6a6a72",
+    grass: ["#605e58", "#6f6c65", "#4c4b47"],
+    path: "#4c4b47",
+    sky: "#161a26",
+    sun: "#a9bde6",
+    sunIntensity: 0.9,
+    ambientIntensity: 2.2,
+    fog: 9,
+    props: { column: 6, rock: 6 },
+    stone: "#6b6a64",
   },
   // The endless waste: bleached sand under a white sky.
   a_zona: {
