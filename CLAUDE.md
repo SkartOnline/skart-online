@@ -135,5 +135,16 @@ public site.
 - **Large files** — search within rather than reading whole: `effects.ts`
   (~45 KB), `engine.test.ts` (~42 KB), `units.json` (~47 KB), `schema.ts`
   (~39 KB), `power.ts` (~35 KB), `game/game.css` (~30 KB).
+- **Line endings: keep each file's own, never mix them.** There is no
+  `.gitattributes` and `core.autocrlf` is off, so git stores exactly what you
+  write. Most files are LF; about thirty are CRLF (this file, `GameView.tsx`,
+  `Stage.tsx`, `layout.ts`, `game.css`, `stage-3d.md`, `package.json`, several
+  `blender/*.py`). New files are LF. A script that rewrites a file must read
+  and write it in binary, or with `newline=''`, and put back the ending it
+  found. A plain Python `open(..., 'w')` on Windows turns `\n` into CRLF, and
+  a `\n` spliced into a CRLF file makes it mixed, so the diff becomes the
+  whole file. That is also why the manifests `town.py` and `realms.py` write
+  with `json.dump` come out CRLF, and they stay that way. Before committing, `git ls-files --eol <files>` must show
+  `i/` and `w/` matching, and never `mixed`.
 - Commit messages here are one wry sentence about what changed and why —
   match the `git log` voice.
