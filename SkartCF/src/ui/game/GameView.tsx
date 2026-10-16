@@ -573,10 +573,6 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
         match={match}
         net={net}
         onRoom={setMatch}
-        onLeave={() => {
-          leaveRoom();
-          onLeave();
-        }}
         onBack={leaveRoom}
       />
     );

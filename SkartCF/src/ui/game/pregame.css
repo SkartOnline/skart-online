@@ -1,0 +1,789 @@
+/* --------------------------------------------------------------- pregame */
+
+/* The way into a game: the choice of mode, the deck shelves, the online room.
+ *
+ * A whole window, not a box floating over one. The valley from the front door
+ * is still behind it, darker, so walking from the menu into the deck shelf
+ * feels like stepping further into the same room rather than opening a dialog.
+ *
+ * Every framed thing here — a mode door, a deck box — is drawn the same way:
+ * the button's own background is the frame colour, and a face inset by
+ * `--rim` is cut with a slightly smaller chamfer inside it. A CSS border on a
+ * clipped element loses its corners; this keeps them. The glow lives on a
+ * wrapper (`.cubby`, `.pg-mode-slot`), because a filter on the clipped element
+ * would be clipped with it. */
+
+.pregame {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--oak-pitch);
+  background-image:
+    linear-gradient(180deg, rgba(20, 23, 38, 0.9) 0%, rgba(20, 23, 38, 0.62) 30%, rgba(20, 23, 38, 0.7) 70%, rgba(20, 23, 38, 0.92) 100%),
+    url("../menu-valley.webp");
+  background-size: auto, cover;
+  background-position: center, center 62%;
+}
+.pregame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.45;
+  background-image: var(--facets);
+}
+.pregame > * {
+  position: relative;
+}
+.pregame .sub {
+  margin: 0;
+  color: var(--ash);
+}
+
+/* ----------------------------------------------------------------- head */
+
+.pg-head {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 22px 6px;
+}
+.pg-back {
+  justify-self: start;
+  font-size: 15px;
+}
+.pg-back span {
+  font-size: 1.3em;
+  line-height: 0;
+  margin-right: 2px;
+}
+.pg-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.pg-kicker {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.14em;
+  color: var(--ember);
+}
+.pg-title h2 {
+  font-size: clamp(24px, 3vw, 34px);
+  letter-spacing: 0.03em;
+  color: var(--tallow);
+  text-shadow: 0 2px 0 rgba(20, 23, 38, 0.6), 0 0 30px rgba(243, 156, 74, 0.25);
+}
+/* Where in the walk this is: two diamonds, the lit one is here. */
+.pg-steps {
+  justify-self: end;
+  display: flex;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.pg-steps li {
+  width: 10px;
+  height: 10px;
+  transform: rotate(45deg);
+  border: 1px solid var(--iron-bright);
+  background: transparent;
+}
+.pg-steps li.done {
+  background: var(--iron-bright);
+}
+.pg-steps li.here {
+  background: var(--ember);
+  border-color: var(--flame);
+  box-shadow: 0 0 10px rgba(243, 156, 74, 0.7);
+}
+
+.pg-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  padding: 8px 22px 22px;
+}
+
+/* ---------------------------------------------------------------- modes */
+
+.pg-modes {
+  display: flex;
+  justify-content: center;
+  gap: clamp(14px, 2.4vw, 30px);
+}
+.pg-mode-slot {
+  transition: transform 160ms ease, filter 160ms ease;
+  animation: pg-rise 420ms cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
+}
+.pg-mode-slot:nth-child(2) {
+  animation-delay: 70ms;
+}
+.pg-mode-slot:nth-child(3) {
+  animation-delay: 140ms;
+}
+.pg-mode-slot:hover {
+  transform: translateY(-6px);
+  filter: drop-shadow(0 0 14px rgba(243, 156, 74, 0.55));
+}
+.pg-mode {
+  --cut: 16px;
+  --rim: 3px;
+  display: block;
+  position: relative;
+  width: clamp(200px, 24vw, 290px);
+  height: min(440px, calc(100dvh - 190px));
+  padding: 0;
+  background: var(--iron);
+  background-image: none;
+  border: none;
+  box-shadow: none;
+}
+.pg-mode:hover:not(:disabled) {
+  background: var(--ember);
+  border: none;
+}
+.pg-mode:active:not(:disabled) {
+  background: var(--flame);
+}
+.pg-mode-face,
+.deckbox-face {
+  position: absolute;
+  inset: var(--rim);
+  overflow: hidden;
+  background: var(--oak-deep);
+  clip-path: polygon(
+    calc(var(--cut) - 1px) 0,
+    calc(100% - var(--cut) + 1px) 0,
+    100% calc(var(--cut) - 1px),
+    100% calc(100% - var(--cut) + 1px),
+    calc(100% - var(--cut) + 1px) 100%,
+    calc(var(--cut) - 1px) 100%,
+    0 calc(100% - var(--cut) + 1px),
+    0 calc(var(--cut) - 1px)
+  );
+}
+.pg-mode-art,
+.deckbox-art {
+  position: absolute;
+  inset: 0;
+  background-color: var(--oak-lit);
+  background-image: var(--cover, var(--facets));
+  background-size: cover;
+  background-position: center 30%;
+  transition: transform 300ms ease;
+}
+.pg-mode:hover .pg-mode-art,
+.deckbox:hover .deckbox-art {
+  transform: scale(1.06);
+}
+.pg-mode-plate {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 60px 18px 22px;
+  text-align: center;
+  background: linear-gradient(0deg, rgba(20, 23, 38, 0.97) 45%, rgba(20, 23, 38, 0));
+}
+.pg-mode-name {
+  font-family: var(--display);
+  font-size: clamp(24px, 2.4vw, 32px);
+  font-weight: 700;
+  font-variant-caps: normal;
+  letter-spacing: 0.04em;
+  line-height: 1.1;
+  color: var(--tallow);
+}
+.pg-mode-note {
+  font-size: 14px;
+  font-weight: 400;
+  font-variant-caps: normal;
+  letter-spacing: normal;
+  line-height: 1.4;
+  color: var(--ash);
+}
+.pg-mode:hover .pg-mode-name {
+  color: var(--flame);
+}
+
+/* ----------------------------------------------------------- deck step */
+
+.pg-deckstep {
+  display: grid;
+  grid-template-columns: auto clamp(270px, 26vw, 330px);
+  align-items: stretch;
+  gap: clamp(16px, 2.6vw, 34px);
+  max-height: 100%;
+}
+
+/* ------------------------------------------------------------------ shelf */
+
+.deckshelf {
+  /* One box's width, from whichever runs out first: the height of three rows
+     under the header, or the width left beside the side panel and arrows. */
+  --tile-w: min(calc((100dvh - 230px) / 3 * 0.8), calc((100vw - 560px) / 3), 178px);
+  --gap: clamp(10px, 1.4vw, 16px);
+  display: grid;
+  grid-template-columns: auto auto auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 10px;
+}
+.deckshelf-grid {
+  display: grid;
+  grid-template-columns: repeat(3, var(--tile-w));
+  gap: var(--gap);
+}
+.deckshelf-arrow {
+  --cut: 10px;
+  width: 46px;
+  height: 128px;
+  padding: 0;
+  font-family: var(--display);
+  font-size: 40px;
+  line-height: 1;
+  color: var(--parchment);
+}
+.deckshelf-arrow:disabled {
+  opacity: 0.25;
+}
+.deckshelf-dots {
+  grid-column: 2;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.deckshelf-dots button {
+  --cut: 0px;
+  width: 11px;
+  height: 11px;
+  padding: 0;
+  transform: rotate(45deg);
+  background: transparent;
+  border: 1px solid var(--iron-bright);
+  box-shadow: none;
+}
+.deckshelf-dots button.here {
+  background: var(--ember);
+  border-color: var(--flame);
+}
+
+.cubby {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  transition: transform 160ms ease, filter 160ms ease;
+  animation: pg-rise 360ms cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
+  animation-delay: calc(var(--order, 0) * 28ms);
+}
+.cubby:hover {
+  transform: translateY(-4px);
+}
+.cubby.lit {
+  filter: drop-shadow(0 0 12px rgba(243, 156, 74, 0.7));
+}
+/* The empty cubby: a slot cut into the shelf, waiting for a deck from the
+   Gyűjtemény. */
+.cubby.empty {
+  animation: none;
+  background: rgba(12, 14, 26, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(196, 184, 240, 0.12);
+  clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
+}
+.cubby.empty:hover {
+  transform: none;
+}
+
+.deckbox {
+  --cut: 12px;
+  --rim: 2px;
+  display: block;
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  background: var(--iron);
+  background-image: none;
+  border: none;
+  box-shadow: none;
+}
+.deckbox:hover:not(:disabled) {
+  background: var(--iron-bright);
+  border: none;
+}
+.cubby.lit .deckbox {
+  --rim: 3px;
+  background: var(--ember);
+}
+.cubby.lit .deckbox:hover:not(:disabled) {
+  background: var(--flame);
+}
+.deckbox-art.bare,
+.pg-mode-art.bare {
+  background-image: var(--facets);
+}
+/* The lid: a darker band across the top of the box, the way a deck box
+   closes. */
+.deckbox-face::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0 0 auto 0;
+  height: 13%;
+  background: linear-gradient(180deg, rgba(20, 23, 38, 0.65), rgba(20, 23, 38, 0.15));
+  border-bottom: 1px solid rgba(255, 240, 220, 0.14);
+  pointer-events: none;
+}
+.deckbox-plate {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 28px 6px 9px;
+  text-align: center;
+  background: linear-gradient(0deg, rgba(20, 23, 38, 0.96) 48%, rgba(20, 23, 38, 0));
+}
+.deckbox-name {
+  font-family: var(--display);
+  max-width: 100%;
+  font-size: clamp(13px, calc(var(--tile-w) / 9.5), 19px);
+  font-weight: 700;
+  font-variant-caps: normal;
+  letter-spacing: 0.01em;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+  color: var(--tallow);
+}
+.deckbox-kind {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--ash);
+}
+.cubby.lit .deckbox-name {
+  color: var(--flame);
+}
+/* Whose box it already is, pinned to the lid. */
+.deckbox-mark {
+  position: absolute;
+  z-index: 2;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 10px 2px;
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  color: var(--ink);
+  background: var(--frost);
+  clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 6px 100%, 0 50%);
+  pointer-events: none;
+}
+
+@keyframes pg-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------- side panel */
+
+.pg-side {
+  --edge: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* The shelf sets the height; the panel fits it and scrolls if it must,
+     rather than growing past the bottom of the window. */
+  height: 0;
+  min-height: 100%;
+  padding: 16px;
+  overflow: hidden;
+  box-shadow: 0 18px 44px rgba(10, 12, 24, 0.55);
+}
+/* On a short window it is the deck's reading that scrolls, never the button
+   that starts the game. */
+.pg-side > .deckreading {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--iron) transparent;
+}
+.pg-side-foot {
+  flex: 0 0 auto;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pg-side-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.pg-side-row > button {
+  flex: 0 0 auto;
+  min-height: 31px;
+}
+.pg-seed {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pg-seed .label {
+  font-size: 12px;
+}
+.pg-seed input {
+  width: 100%;
+  min-width: 0;
+  font-size: 13px;
+}
+.pg-go {
+  --cut: 10px;
+  width: 100%;
+  padding: 11px 16px;
+  font-size: 20px;
+}
+.pg-wait {
+  text-align: center;
+}
+
+.deckreading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.deckreading > * {
+  flex: 0 0 auto;
+}
+.deckreading.empty {
+  flex: 1;
+  justify-content: center;
+  text-align: center;
+}
+.deckreading-art {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background-color: var(--oak-lit);
+  background-image: var(--cover);
+  background-size: cover;
+  background-position: center 28%;
+  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
+}
+@media (max-height: 760px) {
+  .deckreading-art {
+    flex: 0 0 auto;
+    aspect-ratio: 5 / 2;
+  }
+}
+.deckreading-art.bare {
+  background-image: var(--facets);
+}
+.deckreading-kind {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 1px 10px 2px;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.1em;
+  color: var(--ink);
+  background: var(--ember);
+  clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 6px 100%, 0 50%);
+}
+.deckreading-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 26px;
+  color: var(--tallow);
+}
+.deckreading-tag {
+  padding: 0 9px 1px;
+  font-family: Nunito, system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.1em;
+  color: var(--ink);
+  background: var(--ember);
+  clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 6px 100%, 0 50%);
+}
+.deckreading-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 0;
+}
+.deckreading-stats > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 5px 4px 6px;
+  background: rgba(12, 14, 26, 0.4);
+  border: 1px solid rgba(196, 184, 240, 0.12);
+}
+.deckreading-stats dt {
+  font-size: 11px;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.06em;
+  color: var(--ash);
+}
+.deckreading-stats dd {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.1;
+  color: var(--brass);
+}
+.deckreading-fields {
+  list-style: none;
+  margin: -4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.deckreading-fields li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--parchment);
+}
+/* The small gems: a diamond frame with the painting upright inside it. Rotating
+   the element would turn the painting with it, so the diamond is a clip, and
+   the frame is the outer clip showing round the inner one. */
+.deckreading-field-art,
+.matchup-art {
+  --rim: 1px;
+  position: relative;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  background: var(--iron-bright);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+.deckreading-field-art::after,
+.matchup-art::after {
+  content: "";
+  position: absolute;
+  inset: calc(var(--rim) * 1.42);
+  background-color: var(--oak-lit);
+  background-image: var(--cover, none);
+  background-size: cover;
+  background-position: center 30%;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+/* --------------------------------------------------------------- matchup */
+
+.matchup {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px;
+  border-top: 1px solid rgba(196, 184, 240, 0.14);
+  border-bottom: 1px solid rgba(196, 184, 240, 0.14);
+}
+.matchup-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  text-align: center;
+}
+.matchup-art {
+  --rim: 2px;
+  width: 58px;
+  height: 58px;
+  margin-bottom: 2px;
+  background: var(--ember);
+}
+.matchup-side.open .matchup-art {
+  background: var(--iron);
+}
+.matchup-label {
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.1em;
+  color: var(--ash);
+}
+.matchup-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--tallow);
+}
+.matchup-side.open .matchup-name {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ash);
+}
+.matchup-vs {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ember);
+  text-shadow: 0 0 14px rgba(243, 156, 74, 0.6);
+}
+
+/* ------------------------------------------------------------ the room */
+
+.pg-room {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(196, 184, 240, 0.14);
+}
+.pg-room .lobby-crest {
+  margin: 0 0 2px;
+  font-size: 38px;
+}
+
+/* The door: the three controls of the way in, alone in the middle. */
+.pg-door {
+  --edge: 12px;
+  width: min(460px, 100%);
+  padding: 26px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  box-shadow: 0 18px 44px rgba(10, 12, 24, 0.55);
+}
+
+/* ================================================================= phone */
+
+@media (max-width: 700px) {
+  /* The one screen before the game that scrolls: three doors or nine boxes
+     and a panel do not fit a phone's height, and it is better to scroll a
+     menu than to shrink a deck box below a thumb. */
+  .pregame {
+    overflow-y: auto;
+    padding-top: var(--safe-t);
+  }
+  .pg-head {
+    grid-template-columns: auto 1fr auto;
+    padding: 8px 10px 4px;
+  }
+  .pg-title h2 {
+    font-size: 20px;
+  }
+  .pg-body {
+    flex: 0 0 auto;
+    display: block;
+    /* Block layout honours `justify-items` now, and the desktop's `center`
+       shrank the three doors to nothing. */
+    place-items: normal;
+    padding: 6px 12px calc(16px + var(--safe-b));
+  }
+
+  .pg-modes {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .pg-mode {
+    --cut: 12px;
+    width: 100%;
+    height: clamp(130px, 24dvh, 190px);
+  }
+  .pg-mode-plate {
+    padding: 34px 14px 12px;
+  }
+  .pg-mode-name {
+    font-size: 24px;
+  }
+  .pg-mode-note {
+    font-size: 13px;
+  }
+  .pg-mode-slot:hover {
+    transform: none;
+  }
+
+  .pg-deckstep {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .deckshelf {
+    --tile-w: calc((100vw - 24px - 2 * 30px - 2 * 6px - 2 * var(--gap)) / 3);
+    --gap: 8px;
+    column-gap: 6px;
+    justify-content: center;
+  }
+  .deckshelf-arrow {
+    --cut: 6px;
+    width: 30px;
+    height: 84px;
+    font-size: 28px;
+  }
+  .deckbox {
+    --cut: 9px;
+  }
+  .deckbox-plate {
+    padding: 18px 3px 6px;
+  }
+  .deckbox-name {
+    font-size: 12px;
+    letter-spacing: 0;
+  }
+  .deckbox-kind {
+    font-size: 9px;
+  }
+  .cubby:hover {
+    transform: none;
+  }
+
+  .pg-side {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+  .deckreading-art {
+    aspect-ratio: 3 / 1;
+  }
+  .deckreading-name {
+    font-size: 22px;
+  }
+}

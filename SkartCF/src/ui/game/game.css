@@ -2102,23 +2102,6 @@ body.dragging-card {
   color: var(--ash);
 }
 
-.pair {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-}
-.pair > div > h3 {
-  font-size: 15px;
-  font-variant-caps: small-caps;
-  margin-bottom: 7px;
-}
-.pair > div.p1 > h3 {
-  color: var(--brass);
-}
-.pair > div.p2 > h3 {
-  color: var(--blood);
-}
-
 .tail {
   display: flex;
   gap: 10px;
@@ -2128,41 +2111,6 @@ body.dragging-card {
   border-top: 1px solid var(--iron);
 }
 
-/* The deck picker: the lists scroll, the controls do not.
- *
- * `.casket` scrolls as a whole, which is right for a box whose contents are all
- * one thing to read and wrong for one that ends in the buttons you came for.
- * With eight decks in the columns, Ember/Gép/Online and Főmenü/Kezdjük were
- * below the fold on any window shorter than the list — so the first thing a
- * player did on the screen for starting a game was scroll to find the button
- * that starts one. Here the box is the height it is allowed to be, the two
- * columns take whatever is left over and scroll inside it, and the tails are
- * always where they were. */
-.casket.picking {
-  overflow: hidden;
-}
-.casket.picking > .pair {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--iron) transparent;
-  /* Room for the scrollbar, so it never lands on top of a deck name. */
-  padding-right: 6px;
-}
-.casket.picking > .tail {
-  flex: none;
-}
-/* Which column is which has to survive scrolling: the two lists are identical
-   apart from the heading over them. */
-.casket.picking .pair > div > h3 {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  margin: 0 0 7px;
-  padding: 2px 0 4px;
-  background: var(--panel);
-}
 
 /* ------------------------------------------------------------------- lobby */
 
@@ -2243,34 +2191,6 @@ body.dragging-card {
   color: var(--brass);
 }
 
-/* Their column of the lobby table. Same shape as a deck button so the two read
-   as one table, and pointedly not a button: their pakli is not yours to press. */
-.quiet-pick {
-  cursor: default;
-  opacity: 0.75;
-}
-.quiet-pick:hover {
-  border-color: var(--iron);
-}
-
-/* The lobby's way out sits under everything, so the casket has one tail for
-   leaving and one for starting, and they never compete for the same corner. */
-.lobby-foot {
-  width: 100%;
-}
-
-/* No scrollbar on the door screen.
- *
- * `.casket` caps itself and scrolls, which is right for the deck lists in the
- * room and wrong for the three controls on the way in: the box was short enough
- * to need no scrolling and tall enough to get a scrollbar anyway, which clipped
- * the join button against the bottom edge. The door sizes to its contents; only
- * the room, where a long deck list really can outgrow the screen, keeps the
- * cap. */
-.casket.lobby-door {
-  max-height: none;
-  overflow: visible;
-}
 .tail .grow {
   flex: 1;
 }
@@ -4257,15 +4177,10 @@ body.dragging-card {
     min-height: 36px;
   }
 
-  /* ---------------------------------------------------- the deck picker */
+  /* ---------------------------------------------------- the deck lists */
 
-  /* Who plays whom: two columns of decks, 211px each inside a casket that is
-     94vw. They stack, and the row of controls under them wraps rather than
-     pushing the start button off the edge. */
-  .pair {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
-  }
+  /* The rows of controls under a list wrap rather than pushing the last
+     button off the edge. */
   .tail {
     flex-wrap: wrap;
     margin-top: 12px;

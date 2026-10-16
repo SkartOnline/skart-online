@@ -59,6 +59,17 @@ export default function App() {
     return () => document.removeEventListener("pointerdown", onPress, { capture: true });
   }, []);
 
+  // The right button belongs to the game, on every screen: the browser's menu
+  // ("Save image as…", "Inspect") over a card or a menu door is the one thing
+  // that most loudly says *web page*. The board gives the button its own
+  // meanings (`GameView`, `stage/Controls.tsx`); everywhere else it does
+  // nothing. Text fields too — Ctrl+V still pastes a room code.
+  useEffect(() => {
+    const refuse = (e: MouseEvent) => e.preventDefault();
+    document.addEventListener("contextmenu", refuse, { capture: true });
+    return () => document.removeEventListener("contextmenu", refuse, { capture: true });
+  }, []);
+
   // The 3D board downloads behind the menu, so the first game does not wait
   // for it: the code and every model, once the menu has painted (`preload.ts`).
   useEffect(() => warmStageWhenIdle(), []);

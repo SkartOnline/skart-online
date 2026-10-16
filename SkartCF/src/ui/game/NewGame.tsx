@@ -1,6 +1,15 @@
-import { useState } from "react";
-import { allDecks, deckCost, getLocation } from "../../engine";
+import { useCallback, useState } from "react";
+import { allDecks } from "../../engine";
 import type { PlayerId } from "../../engine";
+import { artFor } from "../card/model";
+import {
+  DeckReading,
+  DeckShelf,
+  Matchup,
+  Pregame,
+  readLastDecks,
+  writeLastDecks,
+} from "./Shelf";
 
 export interface Sides {
   p1: string;
@@ -10,9 +19,22 @@ export interface Sides {
   bot: PlayerId | null;
 }
 
-const SIDE_NAME: Record<PlayerId, string> = { p1: "Első játékos", p2: "Második játékos" };
+type Mode = "hotseat" | "bot";
+type Step = "mode" | "mine" | "theirs";
 
-/** Deck choice and a seed. Everything else is a settled rule. */
+/**
+ * The way into a game, one question at a time.
+ *
+ * Where is the other player — beside you, inside the machine, or in another
+ * town — and only then which pakli each of you brings. The old screen asked all
+ * three at once, in two scrolling columns with the answer to the first question
+ * tucked under them, and the deck picked on it was not even the one that
+ * travelled when the answer was "online". Asked in order, every screen has one
+ * thing on it and one button that goes on.
+ *
+ * Online leaves at the first step: the room picks its decks on two machines
+ * (`Lobby.tsx`), with the same shelf.
+ */
 export default function NewGame({
   onStart,
   onOnline,
@@ -24,111 +46,194 @@ export default function NewGame({
   onLeave: () => void;
 }) {
   const decks = allDecks();
-  const [sides, setSides] = useState<Sides>({
-    p1: decks[0]?.id ?? "",
-    p2: decks[1]?.id ?? decks[0]?.id ?? "",
-    seed: "",
-    bot: null,
+  const [step, setStep] = useState<Step>("mode");
+  const [mode, setMode] = useState<Mode>("hotseat");
+  const [picks, setPicks] = useState(() => {
+    const last = readLastDecks();
+    const has = (id?: string) => !!id && decks.some((d) => d.id === id);
+    const mine = has(last.mine) ? last.mine! : (decks[0]?.id ?? "");
+    const theirs = has(last.theirs)
+      ? last.theirs!
+      : (decks.find((d) => d.id !== mine)?.id ?? mine);
+    return { mine, theirs };
   });
+  const [seed, setSeed] = useState("");
+
+  const back = useCallback(() => {
+    if (step === "theirs") setStep("mine");
+    else if (step === "mine") setStep("mode");
+    else onLeave();
+  }, [step, onLeave]);
 
   if (decks.length === 0) {
     return (
-      <div className="veilcloth">
-        <div className="casket timber">
-          <h2>Nincs egyetlen pakli sem</h2>
+      <Pregame title="Nincs egyetlen pakli sem" back="Főmenü" onBack={onLeave}>
+        <div className="pg-door timber">
           <p className="sub">Rakj össze egyet a Gyűjteményben, aztán gyere vissza.</p>
-          <button onClick={onLeave}>Vissza a főmenübe</button>
+          <button className="ember" onClick={onLeave}>
+            Vissza a főmenübe
+          </button>
         </div>
-      </div>
+      </Pregame>
     );
   }
 
-  return (
-    <div className="veilcloth">
-      {/* `picking`: the deck lists scroll, everything under them does not. Eight
-          decks already ran the two tails off the bottom of a short window, and
-          the button they ran off with was Kezdjük. */}
-      <div className="casket timber picking">
-        <h2>Ki áll ki ellen</h2>
+  if (step === "mode") {
+    const choose = (next: Mode | "online") => {
+      if (next === "online") return onOnline();
+      setMode(next);
+      setStep("mine");
+    };
+    return (
+      <Pregame title="Válassz játékmódot" back="Főmenü" onBack={back}>
+        <div className="pg-modes">
+          <ModeDoor
+            art="a_pek_hidja"
+            name="Helyi parti"
+            note="Ketten, egy gép előtt. Felváltva fogjátok az egeret."
+            onClick={() => choose("hotseat")}
+          />
+          <ModeDoor
+            art="husgolem"
+            name="Gép ellen"
+            note="A gép ül le veled szemben. Gondolkodik, mielőtt lép."
+            onClick={() => choose("bot")}
+          />
+          <ModeDoor
+            art="galaxismadar"
+            name="Online"
+            note="Nyiss szobát, mondd be a hat számjegyet, vagy írd be, amit kaptál."
+            onClick={() => choose("online")}
+          />
+        </div>
+      </Pregame>
+    );
+  }
 
-        <div className="pair">
-          {(["p1", "p2"] as PlayerId[]).map((side) => (
-            <div className={side} key={side}>
-              <h3>{SIDE_NAME[side]}</h3>
-              {decks.map((deck) => {
-                const stats = deckCost(deck);
-                return (
-                  <button
-                    key={deck.id}
-                    className={sides[side] === deck.id ? "pick taken" : "pick"}
-                    onClick={() => setSides((s) => ({ ...s, [side]: deck.id }))}
-                  >
-                    <span className="pick-name">{deck.name}</span>
-                    <span className="pick-note">
-                      átlagköltség {stats.avgCost.toFixed(1)} ·{" "}
-                      {deck.battlefields
-                        .map((b) => {
-                          try {
-                            return getLocation(b).name;
-                          } catch {
-                            return "?";
-                          }
-                        })
-                        .join(", ")}
-                    </span>
-                  </button>
-                );
-              })}
+  const byId = (id: string) => decks.find((d) => d.id === id) ?? null;
+  const mine = byId(picks.mine);
+  const theirs = byId(picks.theirs);
+  const who =
+    mode === "bot"
+      ? { mine: "A paklid", theirs: "A gép paklija", left: "Te", right: "Gép" }
+      : {
+          mine: "Első játékos paklija",
+          theirs: "Második játékos paklija",
+          left: "Első",
+          right: "Második",
+        };
+  const kicker = mode === "bot" ? "Gép ellen" : "Helyi parti";
+
+  if (step === "mine") {
+    const next = (id: string) => {
+      setPicks((p) => ({ ...p, mine: id }));
+      setStep("theirs");
+    };
+    return (
+      <Pregame kicker={kicker} title={who.mine} back="Játékmód" onBack={back} steps={[0, 2]}>
+        <div className="pg-deckstep">
+          <DeckShelf
+            decks={decks}
+            chosen={picks.mine}
+            onPick={(id) => setPicks((p) => ({ ...p, mine: id }))}
+            onConfirm={next}
+          />
+          <aside className="pg-side timber">
+            <DeckReading deck={mine} />
+            <div className="pg-side-foot">
+              <button className="ember pg-go" disabled={!mine} onClick={() => next(picks.mine)}>
+                Tovább
+              </button>
             </div>
-          ))}
+          </aside>
         </div>
+      </Pregame>
+    );
+  }
 
-        <div className="tail" style={{ marginTop: 14, paddingTop: 12 }}>
-          <span className="label">Második játékos:</span>
-          <button
-            className={sides.bot === null ? "tiny ember" : "tiny"}
-            onClick={() => setSides((s) => ({ ...s, bot: null }))}
-          >
-            Ember
-          </button>
-          <button
-            className={sides.bot === "p2" ? "tiny ember" : "tiny"}
-            onClick={() => setSides((s) => ({ ...s, bot: "p2" }))}
-          >
-            Gép
-          </button>
-          <span className="grow" />
-          {/* Not a third value of the same setting, which is why it is a
-              separate button that leaves. The two above answer "who sits in the
-              other chair"; this one answers "where is the other chair", and the
-              deck picked on this screen is not the one that travels — the other
-              player picks their own, on their own machine. */}
-          <button className="tiny" onClick={onOnline}>
-            Online ellenfél…
-          </button>
-        </div>
+  const start = () => {
+    writeLastDecks({ mine: picks.mine, theirs: picks.theirs });
+    onStart({
+      p1: picks.mine,
+      p2: picks.theirs,
+      seed: seed || String(Date.now()),
+      bot: mode === "bot" ? "p2" : null,
+    });
+  };
+  const shuffle = () => {
+    const others = decks.filter((d) => d.id !== picks.theirs);
+    const pool = others.length ? others : decks;
+    const id = pool[Math.floor(Math.random() * pool.length)].id;
+    setPicks((p) => ({ ...p, theirs: id }));
+  };
 
-        <div className="tail">
-          <label className="f">
-            <span>Kezdőérték</span>
-            <input
-              value={sides.seed}
-              placeholder="üres = véletlen"
-              onChange={(e) => setSides((s) => ({ ...s, seed: e.target.value }))}
-            />
-          </label>
-          <span className="grow" />
-          <button className="quiet" onClick={onLeave}>
-            Főmenü
-          </button>
-          <button
-            className="ember"
-            onClick={() => onStart({ ...sides, seed: sides.seed || String(Date.now()) })}
-          >
-            Kezdjük
-          </button>
-        </div>
+  return (
+    <Pregame kicker={kicker} title={who.theirs} back={who.mine} onBack={back} steps={[1, 2]}>
+      <div className="pg-deckstep">
+        <DeckShelf
+          decks={decks}
+          chosen={picks.theirs}
+          marks={{ [picks.mine]: who.left }}
+          onPick={(id) => setPicks((p) => ({ ...p, theirs: id }))}
+          onConfirm={(id) => {
+            if (id === picks.theirs) start();
+          }}
+        />
+        <aside className="pg-side timber">
+          <DeckReading deck={theirs} />
+          <div className="pg-side-foot">
+            <Matchup left={mine} right={theirs} leftLabel={who.left} rightLabel={who.right} />
+            <div className="pg-side-row">
+              <button className="tiny" onClick={shuffle}>
+                Véletlen
+              </button>
+              <label className="pg-seed">
+                <span className="label">Kezdőérték</span>
+                <input
+                  value={seed}
+                  placeholder="üres = véletlen"
+                  onChange={(e) => setSeed(e.target.value)}
+                />
+              </label>
+            </div>
+            <button className="ember pg-go" disabled={!mine || !theirs} onClick={start}>
+              Kezdjük
+            </button>
+          </div>
+        </aside>
       </div>
+    </Pregame>
+  );
+}
+
+/** One of the three doors: a painting, a name, and one line of what is behind it. */
+function ModeDoor({
+  art,
+  name,
+  note,
+  onClick,
+}: {
+  art: string;
+  name: string;
+  note: string;
+  onClick: () => void;
+}) {
+  const url = artFor(art);
+  return (
+    <div className="pg-mode-slot">
+      <button
+        className="pg-mode"
+        style={url ? ({ "--cover": `url("${url}")` } as React.CSSProperties) : undefined}
+        onClick={onClick}
+      >
+        <span className="pg-mode-face">
+          <span className="pg-mode-art" />
+          <span className="pg-mode-plate">
+            <span className="pg-mode-name">{name}</span>
+            <span className="pg-mode-note">{note}</span>
+          </span>
+        </span>
+      </button>
     </div>
   );
 }
