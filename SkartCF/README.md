@@ -505,9 +505,19 @@ These were open questions and no longer are. They are constants, not options, an
 is no UI to change them:
 
 - Unit deck **30**, spell deck 30.
-- Positional keywords live in one table, `POSITIONAL_KEYWORDS` in `power.ts`: **Melee**
-  front row +1, **Távolsági** back row +2. No unit in the current set carries Melee — the
-  Excel never marked any — so the front-row bonus is live code with no cards on it yet.
+- **Only the élharcos counts** (4.9, 11): the unit furthest forward in each column, plus any
+  **Távolsági** unit in its own back row. Everyone else is a támogató — abilities live, power
+  not summed. An equal sum goes to whoever is ahead in more columns. `leadOf`/`countsInTotal`
+  in `power.ts`, `boardTotal`/`columnsAhead` in `totaling.ts`.
+- Keywords: **Távolsági** counts from the back, **Testőr** shelters the unit behind it from
+  enemy spells, **Falka** stacks copies of one card on a tile as a single unit. Közelharcos is
+  gone, and so is line of sight: range is the whole of targeting.
+- **A caster casts on one turn per battle** (8.3.5, 8.3.6): a chain of spells out of one
+  school, total cost within its spellpower, then it is `tapped`. A Mesteri may close the chain
+  of the unit that finishes it, and may be begun without a target.
+- **The loser picks the next battlefield** (3.4), the winner may leave a **helyőrség** and the
+  loser may send a **veterán** on (12.12), and a player may **retreat** during the gyülekezés
+  and take the army back to hand (6.7). Each of these is a prompt kind in `interactions.ts`.
 - **No limit** on face-down units per location — the only gate is being able to pay,
   since hiding discards a unit card and you cannot pay with the last card in hand.
 - Playing a spell **ends your turn**: nothing can follow it, so the turn passes on its

@@ -427,7 +427,7 @@ export function spellTouches(card: SpellCard): CardTouches {
   const positional = reads.some((r) => r.quantity === "slot" && r.edge === "value");
   if (target) pushRead(reads, ["slot"], ["mine"], positional ? "enable" : "reach");
   pushRead(reads, ["spellpower", "alive"], ["mine"], "reach");
-  if (target && !target.ignoreSight) pushRead(reads, ["alive", "slot"], ["theirs"], "reach");
+  if (target && !target.ignoreGuard) pushRead(reads, ["alive", "slot"], ["theirs"], "reach");
   if (target) pushRead(reads, ["alive"], targetSides, "reach");
 
   return { writes, reads };

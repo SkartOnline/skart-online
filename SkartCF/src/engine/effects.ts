@@ -11,7 +11,6 @@ import {
   opposedSlot,
   orthogonalNeighbours,
   ownerOfSlot,
-  sightRoutes,
   slotLabel,
   slotsOf,
 } from "./grid";
@@ -29,6 +28,7 @@ import {
   damageReductionFor,
   effectiveRange,
   isDead,
+  isGuarded,
   isUntargetable,
   keywordMatches,
   keywordsOf,
@@ -106,10 +106,11 @@ export function removeUnit(
   if (!unit) return null;
   state.board[slot] = null;
   const owner = state.players[toPlayer ?? unit.owner];
-  const card: HandCard = { uid: unit.uid, cardId: unit.cardId };
-  if (destination === "hand") owner.unitHand.push(card);
-  else if (destination === "deckBottom") owner.unitDeck.push(card);
-  else owner.discard.push(card);
+  // 9.3.3.3: a pile leaves as one, every card of it to the same place.
+  const cards: HandCard[] = [{ uid: unit.uid, cardId: unit.cardId }, ...(unit.stack ?? [])];
+  if (destination === "hand") owner.unitHand.push(...cards);
+  else if (destination === "deckBottom") owner.unitDeck.push(...cards);
+  else owner.discard.push(...cards);
   return unit;
 }
 
@@ -667,6 +668,10 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     for (const unit of targetUnits(ctx, effect, targets)) {
       const before = cardOf(unit).name;
       unit.transformedFrom = unit.cardId;
+      // A pile that is turned into something else is one body afterwards: the
+      // cards under the top one have nothing left to be part of.
+      ctx.state.players[unit.owner].discard.push(...(unit.stack ?? []));
+      unit.stack = [];
       unit.cardId = into;
       unit.setPower = null;
       unit.abilitiesSuppressed = !keepAbilities;
@@ -1442,7 +1447,10 @@ export const EFFECT_HANDLERS: Record<string, EffectHandler> = {
     const slot = unit.slot;
     const before = cardOf(unit).name;
     ctx.state.board[slot] = null;
-    ctx.state.players[unit.owner].discard.push({ uid: unit.uid, cardId: unit.cardId });
+    ctx.state.players[unit.owner].discard.push(
+      { uid: unit.uid, cardId: unit.cardId },
+      ...(unit.stack ?? []),
+    );
     ctx.state.board[slot] = makeUnitInstance(ctx.state, handCard.uid, handCard.cardId, unit.owner, slot, {
       order: unit.order,
       paidCost: unit.paidCost,
@@ -1610,6 +1618,8 @@ export function makeUnitInstance(
     locked: false,
     lockedPower: 0,
     spellSpent: {},
+    tapped: false,
+    stack: [],
     freeCastsUsed: 0,
   };
 }
@@ -1687,27 +1697,6 @@ export function redirectTarget(state: GameState, slot: SlotId): SlotId {
 }
 
 /**
- * Rálátás (4.8). A route is blocked by a tile holding a unit the caster is
- * fighting, and only by that: your own units never block your own lines
- * (4.8.4). That is what makes sight asymmetric (4.8.6), and it is why a unit
- * that infiltrated the enemy half cuts their lines rather than yours.
- */
-export function hasLineOfSight(
-  state: GameState,
-  from: SlotId,
-  to: SlotId,
-  controller: PlayerId,
-): boolean {
-  if (from === to) return true;
-  return sightRoutes(from, to).some((route) =>
-    route.every((slot) => {
-      const blocker = state.board[slot];
-      return !blocker || blocker.owner === controller;
-    }),
-  );
-}
-
-/**
  * Legal targets for one spell, measured from a nominated caster. Immunity, the
  * Jéghegy lock and every flavour of Sérthetetlen remove a unit from the list
  * rather than making the spell fizzle after the fact.
@@ -1727,12 +1716,13 @@ export function legalTargets(
   return ALL_SLOTS.filter((slot) => {
     if (distance(casterSlot, slot) > range) return false;
     if (neighbours && !neighbours.has(slot)) return false;
-    if (!spec.ignoreSight && !hasLineOfSight(state, casterSlot, slot, controller)) return false;
     if (!sideMatches(slot, spec, controller, casterSlot)) return false;
     const unit = state.board[slot];
     if (spec.emptyOnly) return !unit && !isBlocked(state, slot);
     if (!unit) return false;
     if (slot !== casterSlot && isUntargetable(state, unit)) return false;
+    // 9.3.2: a Testőr in front of it puts a unit out of the other side's reach.
+    if (!spec.ignoreGuard && isGuarded(state, unit, controller)) return false;
     for (const tag of [...spell.schools, ...(spell.tags ?? [])]) {
       if (unit.immunities.includes(tag)) return false;
     }

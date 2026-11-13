@@ -21,7 +21,7 @@
     "tags": [
       "Támadás"
     ],
-    "text": "Belevájom fogaim egy ellenségbe. 2-t sebződik."
+    "text": "Megharapok egy ellenséget. 2 sebzést kap."
   },
   {
     "id": "odu",
@@ -43,7 +43,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Bebújok az odúmba. Ha nincs mellettem szövetséges, nem lehet varázslattal megcélozni."
+    "text": "Bebújok az odúmba. Amíg rajtam van ez a lap, és nincs szomszédos szövetségesem, nem lehet varázslattal megcélozni."
   },
   {
     "id": "roham",
@@ -65,7 +65,7 @@
     "tags": [
       "Képesség"
     ],
-    "text": "Előrenyomulok, amíg egységnek vagy a csatatér szélének ütközök."
+    "text": "Előrerohanok az oszlopomban, amíg egységbe vagy a csatatér szélébe nem ütközöm."
   },
   {
     "id": "ugras",
@@ -87,7 +87,7 @@
     "tags": [
       "Képesség"
     ],
-    "text": "Egy szomszédos mezőre ugrok."
+    "text": "Egy szomszédos üres mezőre ugrom."
   },
   {
     "id": "gyogyfuvek",
@@ -112,7 +112,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Begyógyítom egy szövetséges sebeit. Vegyél le róla egy sebzést okozó lapot!"
+    "text": "Meggyógyítok egy szövetségest. Vegyél le róla egy sebzést okozó lapot!"
   },
   {
     "id": "indak",
@@ -136,7 +136,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Indákat idézek egy egység köré. Amíg az Indák rajta van, nem mozoghat."
+    "text": "Indákat növesztek egy egység köré. Amíg rajta van ez a lap, nem mozoghat."
   },
   {
     "id": "novekedes",
@@ -163,7 +163,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Egy szövetséges Állatnak +1 gyűrűt adok."
+    "text": "Megnövesztek egy szövetséges Állatot. +1 gyűrűt kap."
   },
   {
     "id": "oltalom",
@@ -191,7 +191,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Megvédek egy szövetségest a sötétségtől. Feketemágia varázslatok nem hatnak rá, és az ereje nem csökkenhet az alapereje alá."
+    "text": "Megvédek egy szövetségest a sötétségtől. Amíg rajta van ez a lap, Feketemágia nem hat rá, és az ereje nem csökkenhet az alapereje alá."
   },
   {
     "id": "sujtas",
@@ -221,7 +221,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Lesújtok a természet ellenségére. Ha a célpont nem Druida vagy Állat, 1-et sebződik. Ha Élettelen vagy Feketemágus, 4-et sebződik."
+    "text": "Lesújtok a természet ellenségére. 1 sebzést kap, de ha Élettelen vagy Feketemágus, 4-et. Druidára és Állatra nem hat."
   },
   {
     "id": "alku",
@@ -244,7 +244,7 @@
     "tags": [
       "Feketemágia"
     ],
-    "text": "Eldobsz egy varázslatot, hogy +1 gyűrűt kapjak. A varázslatkereted ennyivel kisebb lesz."
+    "text": "Dobj el egy varázslatot a kezedből! +1 gyűrűt kapok."
   },
   {
     "id": "megtorlas",
@@ -267,7 +267,7 @@
     "tags": [
       "Feketemágia"
     ],
-    "text": "Feláldozok egy szövetségest, és az erejével egyenlő sebzést okozok egy szomszédos ellenségnek."
+    "text": "Feláldozok egy szövetségest. Egy vele szomszédos ellenség annyi sebzést kap, amennyi az áldozat ereje volt."
   },
   {
     "id": "transzfuzio",
@@ -287,7 +287,7 @@
     "tags": [
       "Feketemágia"
     ],
-    "text": "Egy lapot áthelyezek magamról egy szomszédos egységre!"
+    "text": "Egy rajtam lévő lapot átteszek egy szomszédos egységre."
   },
   {
     "id": "osi_omen",
@@ -302,13 +302,13 @@
     "effects": [
       {
         "kind": "peek",
-        "what": "nextLocation"
+        "what": "hand"
       }
     ],
     "tags": [
       "Feketemágia"
     ],
-    "text": "Nézd meg a következő csatateret!"
+    "text": "Jósjelet olvasok. Megnézheted az ellenfeled kezében lévő egységeket."
   },
   {
     "id": "falanx",
@@ -330,7 +330,7 @@
     "tags": [
       "Képesség"
     ],
-    "text": "Védekező pozíciót veszek fel. Ha az első sorban állok, +1 erőt kapok."
+    "text": "Védekező állást veszek fel. Amíg rajtam van ez a lap, és az első sorban állok, +1 erőt kapok."
   },
   {
     "id": "kardcsapas",
@@ -354,7 +354,7 @@
     "tags": [
       "Támadás"
     ],
-    "text": "Odavágok egy ellenségnek. 2-t sebződik."
+    "text": "Megvágok egy ellenséget. 2 sebzést kap."
   },
   {
     "id": "lefegyverzes",
@@ -401,7 +401,7 @@
     "tags": [
       "Képesség"
     ],
-    "text": "Egy szomszédos mezőre mozgok."
+    "text": "Egy szomszédos üres mezőre lépek."
   },
   {
     "id": "explar",
@@ -425,7 +425,7 @@
     "tags": [
       "Tűzmágia"
     ],
-    "text": "Tűzcsóvát hajítok egy ellenségre. 2-t sebződik."
+    "text": "Tűzcsóvát hajítok egy ellenségre. 2 sebzést kap."
   },
   {
     "id": "fagypancel",
@@ -449,7 +449,7 @@
     "tags": [
       "Fagymágia"
     ],
-    "text": "Fagypáncélt adok egy szövetségesnek. Minden beérkező sebzés 1-gyel kevesebb."
+    "text": "Fagypáncélt adok egy szövetségesnek. Amíg rajta van, minden sebzésből 1-gyel kevesebbet kap."
   },
   {
     "id": "tuzkopeny",
@@ -473,7 +473,7 @@
     "tags": [
       "Tűzmágia"
     ],
-    "text": "Tűzköpenyt adok egy szövetségesnek. Tűz és Fagy varázslatok nem hatnak rá."
+    "text": "Tűzköpenyt adok egy szövetségesnek. Tűz és Fagy varázslat nem hat rá."
   },
   {
     "id": "becsusszanas",
@@ -495,7 +495,7 @@
     "tags": [
       "Képesség"
     ],
-    "text": "Átlósan mozgok egy mezőt."
+    "text": "Átlósan lépek egy mezőt."
   },
   {
     "id": "elcsenes",
@@ -522,7 +522,7 @@
     "tags": [
       "Képesség"
     ],
-    "text": "Elcsenek egy gyűrűt egy ellenségtől és megkapom."
+    "text": "Elcsenek egy gyűrűt egy ellenségtől. Az enyém lesz."
   },
   {
     "id": "hajitotor",
@@ -548,7 +548,7 @@
     "tags": [
       "Támadás"
     ],
-    "text": "Tőrt hajítok egy óvatlan ellenségre. 1-et sebződik, ha nincs mellette szövetséges, 3-at."
+    "text": "Tőrt hajítok egy ellenségre. 1 sebzést kap, de ha nincs szomszédos szövetségese, 3-at."
   },
   {
     "id": "hatbaszuras",
@@ -574,7 +574,7 @@
     "tags": [
       "Támadás"
     ],
-    "text": "Leszúrok egy óvatlan ellenséget. 1-et sebződik, ha a hátsó sorban van, 4-et."
+    "text": "Hátba szúrok egy ellenséget. 1 sebzést kap, de ha a hátsó sorban áll, 4-et."
   },
   {
     "id": "kotel",
@@ -598,7 +598,7 @@
     "tags": [
       "Felszerelés"
     ],
-    "text": "Gúzsba kötök egy egységet. Amíg a Kötél rajta van, nem mozoghat."
+    "text": "Megkötözök egy egységet. Amíg rajta van ez a lap, nem mozoghat."
   },
   {
     "id": "osszjatek",
@@ -622,7 +622,7 @@
     "tags": [
       "Képesség"
     ],
-    "text": "Kicserélek két szomszédos szövetségest."
+    "text": "Két szomszédos szövetségesed helyet cserél."
   },
   {
     "id": "marcangolas",
@@ -649,7 +649,7 @@
     "tags": [
       "Támadás"
     ],
-    "text": "Széttépem a prédám. 3-at sebzek egy nálam gyengébb egységbe."
+    "text": "Széttépek egy nálam gyengébb egységet. 3 sebzést kap."
   },
   {
     "id": "szoritas",
@@ -678,7 +678,7 @@
     "tags": [
       "Támadás"
     ],
-    "text": "Összeroppantom egy ellenség csontjait. Amíg a Szorítás rajta van, nem tud mozogni. Ha már valamilyen hatás megakadályozza a mozgásban, 4-et sebzek is bele."
+    "text": "Megszorítok egy ellenséget. Amíg rajta van ez a lap, nem mozoghat. Ha már eddig sem mozoghatott, 4 sebzést is kap."
   },
   {
     "id": "csatacsorda",
@@ -706,7 +706,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Megáldok egy szövetséges Állatot. Ő és minden szövetséges másolata +1 gyűrűt kap."
+    "text": "Megáldok egy szövetséges Állatot. Ő és minden ugyanilyen nevű szövetségesed +1 gyűrűt kap."
   },
   {
     "id": "ki_mint_vet",
@@ -733,7 +733,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Magokat vetek, felkészülve az ínséges időkre. A következő csatában 1-gyel nagyobb az egység- és a varázslatkereted."
+    "text": "Elvetem a magokat. A következő csatában eggyel több egység és eggyel több varázslat lehet a kezedben."
   },
   {
     "id": "termeszetes_forma",
@@ -757,7 +757,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Egy egységre helyezem ezt a lapot. Amíg a Természetes forma rajta van, az ereje egyenlő az alaperejével. Ez a lap minden más erősítést és gyengítést felülír."
+    "text": "Ráteszem ezt a lapot egy egységre. Amíg rajta van, az ereje pontosan az alapereje: semmi sem növeli, és semmi sem csökkenti."
   },
   {
     "id": "tisztitas",
@@ -785,7 +785,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Megtisztítok egy szövetségest egy negatív hatástól. Vegyél le róla egy másik lapot!"
+    "text": "Megtisztítok egy szövetségest. Vegyél le róla egy lapot!"
   },
   {
     "id": "toviskorbacs",
@@ -809,7 +809,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Tövises indákkal csapok egy ellenségre. 3-at sebződik."
+    "text": "Tövises indával csapok egy ellenségre. 3 sebzést kap."
   },
   {
     "id": "halalfelelem",
@@ -833,7 +833,7 @@
     "tags": [
       "Feketemágia"
     ],
-    "text": "Rettegést ültetek egy ellenség szívébe. Amíg a Halálfélelem rajta van, -3 erőt kap, ha nincs vele szomszédos szövetséges."
+    "text": "Rettegést ültetek egy ellenségbe. Amíg rajta van ez a lap, és nincs szomszédos szövetségese, -3 erőt kap."
   },
   {
     "id": "lelekszipoly",
@@ -861,7 +861,7 @@
     "tags": [
       "Feketemágia"
     ],
-    "text": "Megölök egy szövetségest, hogy +4 erőt kapjak."
+    "text": "Feláldozok egy szomszédos szövetségest, és +4 gyűrűt kapok."
   },
   {
     "id": "senyvesztes",
@@ -909,7 +909,7 @@
     "tags": [
       "Felszerelés"
     ],
-    "text": "Acélpengét adok egy szövetségesnek. +1 erőpontot kap."
+    "text": "Acélpengét adok egy szövetségesnek. +1 erőt kap."
   },
   {
     "id": "egysegben_az_ero",
@@ -931,7 +931,7 @@
     "tags": [
       "Képesség"
     ],
-    "text": "Ha 2 másik szövetségessel együtt állok az első sorban, mindannyian +1 erőt kapunk."
+    "text": "Amíg rajtam van ez a lap, és két másik szövetségessel állok az első sorban, mindhárman +1 erőt kapunk."
   },
   {
     "id": "kitores",
@@ -961,7 +961,7 @@
     "tags": [
       "Támadás"
     ],
-    "text": "Egy szomszédos mezőre mozoghatok, majd 2-t sebzek egy ellenségbe."
+    "text": "Egy szomszédos üres mezőre léphetek. Utána egy ellenség 2 sebzést kap."
   },
   {
     "id": "kopja",
@@ -983,7 +983,7 @@
     "tags": [
       "Felszerelés"
     ],
-    "text": "Hosszú kopjámmal távol tartom az ellenséget. Amíg a Kopja rajtam van és ellenség áll előttem, +1 erőt kapok és nem célozhat varázslattal."
+    "text": "Kopjával tartom távol az ellenséget. Amíg rajtam van ez a lap, és ellenség áll velem szemben, +1 erőt kapok, és nem lehet varázslattal megcélozni."
   },
   {
     "id": "nehezvert",
@@ -1005,7 +1005,7 @@
     "tags": [
       "Felszerelés"
     ],
-    "text": "Nehéz acélpáncélt öltök. Amíg rajtam van, +2 erőt kapok, de nem tudok mozogni."
+    "text": "Nehéz páncélt öltök. Amíg rajtam van, +2 erőt kapok, de nem mozoghatok."
   },
   {
     "id": "pajzs",
@@ -1029,7 +1029,7 @@
     "tags": [
       "Felszerelés"
     ],
-    "text": "Pajzsot adok egy szövetségesnek. Amíg a Pajzs rajta van, minden beérkező sebzés 2-vel kevesebb."
+    "text": "Pajzsot adok egy szövetségesnek. Amíg rajta van, minden sebzésből 2-vel kevesebbet kap."
   },
   {
     "id": "verszomj",
@@ -1051,7 +1051,7 @@
     "tags": [
       "Képesség"
     ],
-    "text": "Minden sérült ellenség után +1 erőt kapok."
+    "text": "Vérszomj fog el. Amíg rajtam van ez a lap, minden sérült ellenség után +1 erőt kapok."
   },
   {
     "id": "lelektuz",
@@ -1076,7 +1076,7 @@
     "tags": [
       "Tűzmágia"
     ],
-    "text": "Belülről elemésztek egy ellenséget. Minden rajta lévő lap és gyűrű után 1-et sebződik."
+    "text": "Belülről égetek el egy ellenséget. Minden rajta lévő lap és gyűrű után 1 sebzést kap."
   },
   {
     "id": "szellokes",
@@ -1100,7 +1100,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Egy vele szomszédos mezőre mozgatok egy egységet."
+    "text": "Széllel meglökök egy egységet. Egy vele szomszédos üres mezőre kerül."
   },
   {
     "id": "vaskarom",
@@ -1124,7 +1124,7 @@
     "tags": [
       "Felszerelés"
     ],
-    "text": "Vasmágiával gyűrűt formálok és egy szövetségesnek adom. +1 gyűrűt kap."
+    "text": "Gyűrűt kovácsolok egy szövetségesnek. +1 gyűrűt kap."
   },
   {
     "id": "alomfogo",
@@ -1148,7 +1148,7 @@
     "tags": [
       "Felszerelés"
     ],
-    "text": "Álomfogót adok egy szövetségesnek. A következő őt érő varázslat hatástalan."
+    "text": "Álomfogót adok egy szövetségesnek. A következő rá célzott varázslat hatástalan."
   },
   {
     "id": "fedezek",
@@ -1170,7 +1170,7 @@
     "tags": [
       "Képesség"
     ],
-    "text": "Fedezékbe húzódom. Amíg a Fedezék rajtam van és a hátsó sorban állok, nem lehet varázslattal megcélozni."
+    "text": "Fedezékbe húzódom. Amíg rajtam van ez a lap, és a hátsó sorban állok, nem lehet varázslattal megcélozni."
   },
   {
     "id": "infiltracio",
@@ -1200,7 +1200,7 @@
     "tags": [
       "Képesség"
     ],
-    "text": "Egy tetszőleges üres mezőre mozgatok egy szövetséges Orgyilkost vagy Csempészt."
+    "text": "Egy szövetséges Orgyilkost vagy Csempészt bármelyik üres mezőre küldök."
   },
   {
     "id": "leskelodes",
@@ -1221,7 +1221,7 @@
     "tags": [
       "Képesség"
     ],
-    "text": "Meglesem az ellenség terveit. Nézd meg a varázslatkezét!"
+    "text": "Kilesem az ellenfeled terveit. Megnézheted a kezében lévő varázslatokat."
   },
   {
     "id": "testcsel",
@@ -1268,7 +1268,7 @@
     "tags": [
       "Képesség"
     ],
-    "text": "Túszt ejtek. Elveszem az ellenfél paklijának felső egységlapját."
+    "text": "Túszt ejtek. Az ellenfeled egységpaklijának felső lapja a kezedbe kerül."
   },
   {
     "id": "verdij",
@@ -1292,7 +1292,7 @@
     "tags": [
       "Képesség"
     ],
-    "text": "Vérdíjat tűzök ki egy ellenségre. Az őt megölő szövetséges 3 gyűrűt kap."
+    "text": "Vérdíjat tűzök ki egy ellenségre. Amelyik szövetségesed megöli, 3 gyűrűt kap."
   },
   {
     "id": "zsebmetszes",
@@ -1315,7 +1315,7 @@
     "tags": [
       "Képesség"
     ],
-    "text": "Kipakolom az ellenfelem zsebeit. Húzz egy varázslatot a kezéből! A kerete ennyivel kisebb lesz."
+    "text": "Kifosztom az ellenfeled zsebét. Húzz egy varázslatot a kezéből!"
   },
   {
     "id": "sarkanypikkelyek",
@@ -1337,7 +1337,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Varázsellenálló sárkánypikkelyeket növesztek. Nem hatnak rám varázslatok."
+    "text": "Sárkánypikkelyeket növesztek. Amíg rajtam van ez a lap, nem hat rám varázslat."
   },
   {
     "id": "vedles",
@@ -1359,7 +1359,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Levedlem az irhám. Leveszek minden lapot magamról."
+    "text": "Levedlem a bőrömet. Vegyél le rólam minden lapot!"
   },
   {
     "id": "csordaszellem",
@@ -1381,7 +1381,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Erőt adok a velem együtt harcoló Állatoknak. Minden velem szomszédos Állat +1 erőt kap."
+    "text": "Erőt adok a csordának. Amíg rajtam van ez a lap, minden más szövetséges Állat +1 erőt kap."
   },
   {
     "id": "metamorfozis",
@@ -1404,7 +1404,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Állattá változok. Játssz ki a helyemre egy Állatot, amelynek költsége legfeljebb 5!"
+    "text": "Állattá változom. Tegyél a helyemre a kezedből egy Állatot, amelynek a költsége legfeljebb 5!"
   },
   {
     "id": "napfeny",
@@ -1428,7 +1428,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Napsugarakat hívok egy szövetségesre. +2 erőt kap."
+    "text": "Napsugarat hívok egy szövetségesre. +2 erőt kap."
   },
   {
     "id": "rothadas",
@@ -1450,7 +1450,7 @@
     "tags": [
       "Feketemágia"
     ],
-    "text": "Minden szomszédos egység -2 erőt kap."
+    "text": "Rothadást árasztok. Amíg rajtam van ez a lap, minden velem szomszédos egység -2 erőt kap."
   },
   {
     "id": "moral",
@@ -1472,7 +1472,7 @@
     "tags": [
       "Képesség"
     ],
-    "text": "Feltüzelem a harcostársaim. Én, és minden szomszédos szövetséges Harcos +1 erőt kap."
+    "text": "Feltüzelem a társaimat. Amíg rajtam van ez a lap, én és minden szövetséges Harcos +1 erőt kapunk."
   },
   {
     "id": "parbaj",
@@ -1523,7 +1523,7 @@
     "tags": [
       "Támadás"
     ],
-    "text": "Áttöröm az arcvonalat. Egy első sorban álló ellenség 4-et sebződik."
+    "text": "Áttöröm az arcvonalat. Egy első sorban álló ellenség 4 sebzést kap."
   },
   {
     "id": "oriasolo",
@@ -1551,7 +1551,7 @@
       "Támadás",
       "Mesteri"
     ],
-    "text": "Mesteri.\nMegölök egy velem szomszédos egységet, akinek az ereje legalább 8."
+    "text": "Mesteri.\nMegölök egy szomszédos egységet, akinek az ereje legalább 8."
   },
   {
     "id": "elfeledes",
@@ -1575,11 +1575,11 @@
     "tags": [
       "Feketemágia"
     ],
-    "text": "Kitörlöm egy egység emlékeit. Amíg az Elfeledés rajta van, nincs képessége."
+    "text": "Kitörlöm egy egység emlékeit. Amíg rajta van ez a lap, nincs képessége."
   },
   {
     "id": "geomancia",
-    "name": "Geománcia",
+    "name": "Geomancia",
     "kind": "spell",
     "schools": [
       "Mágus"
@@ -1598,7 +1598,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Kikeresek egy már elhasznált varázslatot a temetőből. Húzd fel!"
+    "text": "A földből olvasok. Válassz egy varázslatot a temetődből, és vedd a kezedbe!"
   },
   {
     "id": "nemitas",
@@ -1622,7 +1622,7 @@
     "tags": [
       "Feketemágia"
     ],
-    "text": "Elnémítok egy egységet. Amíg a Némítás rajta van, nem varázsolhat."
+    "text": "Elnémítok egy egységet. Amíg rajta van ez a lap, nem varázsolhat."
   },
   {
     "id": "szikraszilank",
@@ -1646,7 +1646,7 @@
     "tags": [
       "Tűzmágia"
     ],
-    "text": "Izzó szikraszilánkot küldök egy ellenségre. 4-et sebződik."
+    "text": "Izzó szilánkot lövök egy ellenségre. 4 sebzést kap."
   },
   {
     "id": "csapdaallitas",
@@ -1666,7 +1666,7 @@
     "tags": [
       "Felszerelés"
     ],
-    "text": "Csapdát állítok. Tegyél le lefordítva egy varázslatot a kezedből egy üres ellenséges mezőre! Aki rálép, arra sül el."
+    "text": "Csapdát állítok. Tegyél le a kezedből egy varázslatot lefordítva egy üres ellenséges mezőre! Arra sül el, aki először rálép."
   },
   {
     "id": "fojtas",
@@ -1692,7 +1692,7 @@
     "tags": [
       "Támadás"
     ],
-    "text": "Megölök egy ellenséget, amelynek ereje legfeljebb 3."
+    "text": "Megfojtok egy ellenséget, akinek az ereje legfeljebb 3. Meghal."
   },
   {
     "id": "fustbomba",
@@ -1716,7 +1716,7 @@
     "tags": [
       "Felszerelés"
     ],
-    "text": "Füstbombát dobok egy mezőre. Az itt álló egységet nem lehet varázslattal megcélozni."
+    "text": "Füstbombát dobok egy egységre. Amíg rajta van ez a lap, nem lehet varázslattal megcélozni."
   },
   {
     "id": "rajtautes",
@@ -1771,7 +1771,7 @@
     "tags": [
       "Támadás"
     ],
-    "text": "Megölöm magam és egy velem szomszédos ellenséget."
+    "text": "Felrobbantom magam egy szomszédos ellenséggel együtt. Mindketten meghalunk."
   },
   {
     "id": "falkavezer",
@@ -1795,7 +1795,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Átveszem a falka vezetését. Minden további szövetséges Állat után +1 gyűrűt kapok."
+    "text": "Átveszem a falka vezetését. Minden más szövetséges Állat után +1 gyűrűt kapok."
   },
   {
     "id": "ven_tolgy",
@@ -1819,7 +1819,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Vén tölggyé gyökereztetek egy szövetségest. +3 erőt kap, de nem mozoghat."
+    "text": "Fává változtatok egy szövetségest. Amíg rajta van ez a lap, +3 erőt kap, de nem mozoghat."
   },
   {
     "id": "csontvert",
@@ -1844,7 +1844,7 @@
     "tags": [
       "Feketemágia"
     ],
-    "text": "A halottak csontjait használom páncélként. Minden 7 temetőben lévő lap után +1 gyűrűt kapok (de legfeljebb 5-öt)."
+    "text": "Csontokból rakok páncélt. A temetődben lévő minden 7 lap után +1 gyűrűt kapok, de legfeljebb 5-öt."
   },
   {
     "id": "feltamadas",
@@ -1870,7 +1870,7 @@
     "tags": [
       "Feketemágia"
     ],
-    "text": "Kikeresek a temetőből egy egységet, amely ereje legfeljebb 3, és megidézem a csatatéren."
+    "text": "Válassz a temetődből egy egységet, akinek az ereje legfeljebb 3! Visszahozom a csatatérre."
   },
   {
     "id": "rontas",
@@ -1894,7 +1894,7 @@
     "tags": [
       "Feketemágia"
     ],
-    "text": "Rontást küldök egy ellenségre. Amíg a Rontás rajta van, minden vele szomszédos egység -1 erőt kap."
+    "text": "Megrontok egy ellenséget. Amíg rajta van ez a lap, minden vele szomszédos egység -1 erőt kap."
   },
   {
     "id": "kegyelemdofes",
@@ -1947,7 +1947,7 @@
     "tags": [
       "Feketemágia"
     ],
-    "text": "Elcsábítok egy egységet. A csata után helyezd a kezedbe!"
+    "text": "Elcsábítok egy egységet. A csata után a kezedbe kerül."
   },
   {
     "id": "fagyos_lehelet",
@@ -1971,7 +1971,7 @@
     "tags": [
       "Fagymágia"
     ],
-    "text": "Ráfagyasztom a leheletem egy ellenségre. -3 erőt kap."
+    "text": "Ráfújok egy ellenségre. -3 erőt kap."
   },
   {
     "id": "langlandzsa",
@@ -1995,7 +1995,7 @@
     "tags": [
       "Tűzmágia"
     ],
-    "text": "Lánglándzsát döfök egy ellenségbe. 5-öt sebződik."
+    "text": "Lánglándzsát döfök egy ellenségbe. 5 sebzést kap."
   },
   {
     "id": "teleport",
@@ -2019,7 +2019,7 @@
     "tags": [
       "Portálmágia"
     ],
-    "text": "Egy tetszőleges üres mezőre mozgatok egy szövetségest."
+    "text": "Egy szövetségest bármelyik üres mezőre küldök."
   },
   {
     "id": "eltaposas",
@@ -2052,7 +2052,7 @@
   },
   {
     "id": "hydrairha",
-    "name": "Hydrairha",
+    "name": "Hidrairha",
     "kind": "spell",
     "schools": [
       "Bestia"
@@ -2070,7 +2070,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "A Hydra áttörhetetlen irhája védelmez. Amíg rajtam van, Sérthetetlen vagyok."
+    "text": "Hidrairhát öltök. Amíg rajtam van, Sérthetetlen vagyok."
   },
   {
     "id": "sarkanytuz",
@@ -2094,7 +2094,7 @@
     "tags": [
       "Tűzmágia"
     ],
-    "text": "Sárkánytüzet okádok egy ellenségre. 5-öt sebződik."
+    "text": "Tüzet okádok egy ellenségre. 5 sebzést kap."
   },
   {
     "id": "napejegyenloseg",
@@ -2117,7 +2117,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Minden egységről minden varázslatot eltávolítok."
+    "text": "Minden egységről leveszek minden varázslatot."
   },
   {
     "id": "villamcsapas",
@@ -2131,7 +2131,7 @@
     "target": {
       "side": "enemy",
       "range": 3,
-      "ignoreSight": true
+      "ignoreGuard": true
     },
     "effects": [
       {
@@ -2142,7 +2142,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Derült égből villám csap le egy ellenségbe, aki 4-et sebződik. Ehhez a varázslathoz nem szükséges rálátás."
+    "text": "Villámot hívok egy ellenségre. 4 sebzést kap. A Testőr sem védi meg."
   },
   {
     "id": "enyeszet",
@@ -2166,7 +2166,7 @@
     "tags": [
       "Feketemágia"
     ],
-    "text": "Ráhozom az enyészetet egy ellenségre. -4 erőt kap."
+    "text": "Enyészetet hozok egy ellenségre. -4 erőt kap."
   },
   {
     "id": "kaoszkolera",
@@ -2191,7 +2191,7 @@
       "Feketemágia",
       "Mesteri"
     ],
-    "text": "Mesteri.\nHalálos járványt szabadítok el a csatatéren. Minden egység, amelynek az ereje 2 vagy kevesebb, meghal."
+    "text": "Mesteri.\nJárványt szabadítok a csatatérre. Meghal minden egység, akinek az ereje legfeljebb 2."
   },
   {
     "id": "eloskodes",
@@ -2220,7 +2220,7 @@
     "tags": [
       "Feketemágia"
     ],
-    "text": "Elszívom egy ellenség erejét. -2 erőt kap, én pedig +2 gyűrűt."
+    "text": "Elszívom egy ellenség erejét. Ő -2 erőt kap, én +2 gyűrűt."
   },
   {
     "id": "kiviragzas",
@@ -2242,7 +2242,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Virágokba borítom a csatateret. Minden szövetséges +1 gyűrűt kap."
+    "text": "Virágba borítom a csatateret. Minden szövetséges +1 gyűrűt kap."
   },
   {
     "id": "monstrosis",
@@ -2265,7 +2265,7 @@
     "tags": [
       "Természeti erő"
     ],
-    "text": "Bestiává változok. Játssz ki a helyemre egy Bestiát, amelynek költsége legfeljebb 8!"
+    "text": "Bestiává változom. Tegyél a helyemre a kezedből egy Bestiát, amelynek a költsége legfeljebb 8!"
   },
   {
     "id": "enormorf",
@@ -2289,7 +2289,7 @@
     "tags": [
       "Portálmágia"
     ],
-    "text": "Óriásira növelek egy egységet. Amíg az Enormorf rajta van, az ereje 6."
+    "text": "Óriásira növesztek egy egységet. Amíg rajta van ez a lap, az ereje 6."
   },
   {
     "id": "idezes",
@@ -2316,7 +2316,7 @@
     "tags": [
       "Portálmágia"
     ],
-    "text": "Megidézek egy egységet a kezedből egy szomszédos mezőre, akinek a költsége legfeljebb 4."
+    "text": "Megidézek egy egységet. Tegyél le a kezedből egy legfeljebb 4 költségű egységet egy velem szomszédos üres mezőre!"
   },
   {
     "id": "jeghegy",
@@ -2340,7 +2340,7 @@
     "tags": [
       "Fagymágia"
     ],
-    "text": "Jégbe zárok egy egységet. Amíg a Jéghegy rajta van, sérthetetlenné válik, de nem varázsolhat és az ereje 1."
+    "text": "Jégbe zárok egy egységet. Amíg rajta van ez a lap, Sérthetetlen, de nem varázsolhat, és az ereje 1."
   },
   {
     "id": "elmezavar",
@@ -2364,7 +2364,7 @@
       "Feketemágia",
       "Mesteri"
     ],
-    "text": "Mesteri.\nÖsszezavarok egy ellenséget. Megtámadja egy szomszédos szövetségesét, és az erejével egyenlő sebzést okoz neki."
+    "text": "Mesteri.\nÖsszezavarok egy ellenséget. Megtámadja egy szomszédos társát, aki annyi sebzést kap, amennyi a támadó ereje."
   },
   {
     "id": "lepumorf",
@@ -2390,7 +2390,7 @@
       "Feketemágia",
       "Mesteri"
     ],
-    "text": "Mesteri.\nNyúllá változtatok egy egységet. Játssz ki a helyére egy Nyulat, aki egy képesség nélküli Állat 1 erővel!"
+    "text": "Mesteri.\nNyúllá változtatok egy egységet. Egy 1 erejű, képesség nélküli Nyúl kerül a helyére."
   },
   {
     "id": "argeo",
@@ -2439,7 +2439,7 @@
       "Feketemágia",
       "Mesteri"
     ],
-    "text": "Mesteri.\nPusztító járványt szabadítok el a csatatéren. Minden egység, amelynek az ereje 3 vagy kevesebb, meghal."
+    "text": "Mesteri.\nJárványt szabadítok a csatatérre. Meghal minden egység, akinek az ereje legfeljebb 3."
   },
   {
     "id": "nyirokhold",
@@ -2465,7 +2465,7 @@
     "tags": [
       "Feketemágia"
     ],
-    "text": "Kikeresek két egységet a temetőből, amelyeknek az ereje legfeljebb 4-4, és megidézem őket a csatatéren."
+    "text": "Válassz a temetődből két egységet, akiknek az ereje legfeljebb 4! Visszahozom őket a csatatérre."
   },
   {
     "id": "valosagtores",

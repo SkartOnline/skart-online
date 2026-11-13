@@ -39,6 +39,10 @@ public site.
 | Rules disputes, phase order, timing | `docs/szabaly-teljes.md` (numbered, authoritative) → `src/engine/reducer.ts`, `resolve.ts`; `rulebook.test.ts` pins numbered rules |
 | Power, statics, positional bonuses | `src/engine/power.ts` (`basePower` vs `power` — see invariants) |
 | Slot adjacency, ranges | `src/engine/grid.ts` |
+| Who counts in the sum (élharcos, Távolsági), Testőr, Falka piles | `leadOf`/`countsInTotal`/`isGuarded`/`headcount` in `src/engine/power.ts`, `src/engine/totaling.ts`; `elvonal.test.ts` pins them |
+| Chains and tapping, retreat, veterans and garrisons, picking the next battlefield | `src/engine/reducer.ts` (`closeChain`, `doRetreat`, `askReserves`, `stepArrivals`, `askNextField`), `resolve.ts` (`payingSchool`), handlers in `interactions.ts` |
+| Writing or rewording card text | `SkartCF/docs/lapszoveg.md` — who speaks, which verb form, fixed vocabulary |
+| Adapting the bot to the élvonal rules | `SkartCF/docs/bot-elvonal-plan.md` — only the compatibility pass is done |
 | Game setup, decks, rule config | `src/engine/setup.ts`, `src/engine/cards.ts` (registry + `validateCardSet`) |
 | Online play, lobby, relay | `SkartCF/README.md` § *Playing across a room* first; `src/net/` — `protocol.ts`, `room.ts`, `link.ts`, `relayCore.ts` (matchmaking, no socket), `loopback.ts`/`channel.ts`/`socket.ts` (three transports), `match.ts` (`HostMatch` holds the truth, `GuestMatch` a picture); `src/ui/game/Lobby.tsx`; `server/relay.ts` + `npm run smoke` |
 | Game screen UI | `src/ui/game/`: `GameView.tsx` (orchestrator: state, undo, beat/reveal clock, bot timer, drag), `LeftRail.tsx` (battlefield card, turn cue, tools, annals), `RightRail.tsx` (counters, piles, ledger), `Hands.tsx` (both hands, hover reading, prompt takeover), `TheatreView.tsx` (banner + played-card panel), `Asking.tsx` (Almanac pile panel, Curtain reveals), `Prologue.tsx` (opening ceremony), `Overlays.tsx` (chronicle, aftermath), `common.ts` (shared props/lookups), `Board.tsx`, `theatre.ts` (state-diff → animation beats), `NewGame.tsx` (mode → your deck → theirs), `Shelf.tsx` (the paged 3×3 deck shelf, deck reading, matchup, and the `Pregame` frame — `Lobby.tsx` reuses all of it; styles in `pregame.css`), `bot.ts`. The browser's right-click menu is refused app-wide in `App.tsx` |
@@ -104,7 +108,8 @@ public site.
   thing. `src/sim/baseline.ts` is the planner's fallback for the phases it does
   not speak for, not a policy anyone chooses.
 - **Domain vocabulary is Hungarian** (Belépő, Mustra, Csata, gyűrű, Diadal,
-  Vigasz…) and card text is first person. Keep both in any text you write.
+  Vigasz…) and card text is first person — except battlefields, which state a
+  rule and never speak. `SkartCF/docs/lapszoveg.md` is the style guide.
 
 ## Working style for agents
 

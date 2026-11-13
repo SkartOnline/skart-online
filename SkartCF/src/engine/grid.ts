@@ -6,8 +6,8 @@ import { PLAYERS, SIDE_NAME } from "./types";
  * the enemy, back row B1–B3 behind. Column n faces column n.
  *
  * Distance treats the two halves as one 4×3 grid and takes the larger of the
- * row and column gaps (4.5.2). Whether a spell actually gets there is a
- * separate question, answered by the sight routes at the bottom of this file.
+ * row and column gaps (4.5.2). There is no line of sight: range is the whole of
+ * it, and what shelters a unit is a Testőr standing in front (9.3.2).
  */
 
 export const ROWS: Row[] = ["F", "B"];
@@ -210,101 +210,4 @@ export function distance(a: SlotId, b: SlotId): number {
 /** Every slot within `range` of `from`, including `from` itself. */
 export function slotsWithin(from: SlotId, range: number): SlotId[] {
   return ALL_SLOTS.filter((s) => distance(from, s) <= range);
-}
-
-// ---------------------------------------------------------------------------
-// Line of sight (4.8)
-//
-// A route runs from the midpoint of one tile's side to the midpoint of another
-// tile's side, and corners never count. Tiles in the same row or column have
-// one route; every other pair has two, one turning each way, and a route is
-// blocked by any tile it passes through.
-//
-// Whose units block is not decided here, because it depends on who is looking:
-// only the caster's opponent blocks (4.8.3), which is what makes sight
-// asymmetric (4.8.6). This table holds the geometry, `hasLineOfSight` in
-// `effects.ts` reads the board.
-// ---------------------------------------------------------------------------
-
-type Point = [number, number];
-
-function routeEnds(a: SlotId, b: SlotId): [Point, Point][] {
-  const r1 = gridRow(a);
-  const c1 = gridCol(a);
-  const r2 = gridRow(b);
-  const c2 = gridCol(b);
-  const dr = Math.sign(r2 - r1);
-  const dc = Math.sign(c2 - c1);
-  // Same row or same column: the two facing sides, one route.
-  if (dr === 0 || dc === 0) {
-    return [
-      [
-        [r1 + dr * 0.5, c1 + dc * 0.5],
-        [r2 - dr * 0.5, c2 - dc * 0.5],
-      ],
-    ];
-  }
-  // Otherwise two mirrored routes of equal length: horizontal side to vertical
-  // side, and vertical side to horizontal side.
-  return [
-    [
-      [r1 + dr * 0.5, c1],
-      [r2, c2 - dc * 0.5],
-    ],
-    [
-      [r1, c1 + dc * 0.5],
-      [r2 - dr * 0.5, c2],
-    ],
-  ];
-}
-
-/** Does the segment pass through the tile's interior? Grazing an edge does not. */
-function passesThrough(p0: Point, p1: Point, slot: SlotId): boolean {
-  const centre: Point = [gridRow(slot), gridCol(slot)];
-  let lo = 0;
-  let hi = 1;
-  for (let axis = 0; axis < 2; axis++) {
-    const from = p0[axis];
-    const span = p1[axis] - from;
-    const min = centre[axis] - 0.5;
-    const max = centre[axis] + 0.5;
-    if (Math.abs(span) < 1e-12) {
-      if (from <= min + 1e-12 || from >= max - 1e-12) return false;
-      continue;
-    }
-    let a = (min - from) / span;
-    let b = (max - from) / span;
-    if (a > b) [a, b] = [b, a];
-    lo = Math.max(lo, a);
-    hi = Math.min(hi, b);
-    if (hi - lo <= 1e-9) return false;
-  }
-  return hi - lo > 1e-9;
-}
-
-function buildSightRoutes(): Record<SlotId, Record<SlotId, SlotId[][]>> {
-  const table: Record<SlotId, Record<SlotId, SlotId[][]>> = {};
-  for (const a of ALL_SLOTS) {
-    table[a] = {};
-    for (const b of ALL_SLOTS) {
-      if (a === b) {
-        table[a][b] = [[]];
-        continue;
-      }
-      table[a][b] = routeEnds(a, b).map(([p0, p1]) =>
-        ALL_SLOTS.filter((s) => s !== a && s !== b && passesThrough(p0, p1, s)),
-      );
-    }
-  }
-  return table;
-}
-
-/**
- * Every route between two tiles, each as the list of tiles it passes through.
- * An empty list means that route is clear whatever the board looks like.
- */
-export const SIGHT_ROUTES = buildSightRoutes();
-
-export function sightRoutes(a: SlotId, b: SlotId): SlotId[][] {
-  return SIGHT_ROUTES[a]?.[b] ?? [[]];
 }

@@ -22,11 +22,13 @@ elképzelt táblával is játszható.
 ## A cél
 
 A két játékos hat csatatérért harcol, egyszerre mindig csak egyért. Egy
-csatateret az visz el, akinek a csata végén nagyobb az összes egységének ereje.
-Aki több csatateret szerez meg, megnyerte a játékot.
+csatateret az visz el, akinek a csata végén erősebbek az élharcosai: azok az
+egységei, amelyek az oszlopukban legelöl állnak. Aki több csatateret szerez meg,
+megnyerte a játékot.
 
-Ha a két összeg egyenlő, azt a csatateret egyik játékos sem szerzi meg, és
-egyikőjük állásába sem számít bele.
+Ha a két összeg egyenlő, az nyer, aki több oszlopban erősebb. Ha ez is egyenlő,
+azt a csatateret egyik játékos sem szerzi meg, és egyikőjük állásába sem számít
+bele.
 
 Ha a hat csata után egyenlő az állás, jön a hetedik csatatér, A Zóna, és az
 dönt. Ha azt sem szerzi meg senki, a játék döntetlen. A meccs abban a
@@ -36,12 +38,13 @@ meg.
 ## Felkészülés
 
 A játék kezdete előtt mindkét játékosnak ki kell tennie a három csatatérlapját
-képpel felfelé. Ezeket a játék elejétől mindenki látja, tehát mindkét fél tudja,
-milyen harcok jönnek.
+képpel felfelé. Ezeket a játék elejétől mindenki látja.
 
-A hat lapot ezután lefordítva össze kell keverni, és egy sorba rakni. Az nem
-derül ki előre, melyik jön elsőnek. A Zóna a sor végére kerül, és csak akkor
-fordul fel, ha a hat csata után egyenlő az állás.
+A hat lapot ezután lefordítva össze kell keverni, és egyet húzni közülük: ez az
+első csatatér. A többi öt képpel felfelé az asztalon marad, és **minden csata
+után a vesztes választja ki, melyik következzen**. Döntetlen után az választ,
+aki az előző csatateret nem hozta. A Zóna félre kerül, és csak akkor jön, ha a
+hat csata után egyenlő az állás.
 
 Végül mindkét játékosnak meg kell kevernie mindkét pakliját, és húznia kell 5
 egységlapot és 5 varázslatlapot. A két kéz a játék végéig külön marad, és
@@ -67,8 +70,8 @@ leszereléskor visszaáll 5-re.
 ## A lapok
 
 **Egységkártya.** Bal felül a költség: ennyit fizet érte a játékos a keretéből.
-Jobb alul az erő: ennyit ér az összeadásnál. Bal alul a varázserő, ha az egység
-tud varázsolni: egy iskola jele és egy szám. Középen a szövege, fölötte a
+Jobb alul az erő: ennyit ér az összeadásnál, ha élharcos. Bal alul a varázserő,
+ha az egység tud varázsolni: egy iskola jele és egy szám. Középen a szövege, fölötte a
 típussor a ritkasággal és a kulcsszavakkal.
 
 **Varázslatkártya.** Bal alul az iskola és a költség: ilyen fajta varázserőből
@@ -89,13 +92,30 @@ az ellenfél 1-es oszlopával.
 Egy egység oda kerül, ahova leteszik, és onnan magától nem mozdul. Csak varázslat
 mozgathatja.
 
-A sor nemcsak elhelyezkedés, hanem erő is:
+### Élharcos és támogató
 
-- A **Közelharcos** egység az első sorban egy erővel többet ér.
-- A **Távolsági** egység a hátsó sorban két erővel többet ér.
+Az összeadásnál nem minden egység számít. Minden oszlopban csak az **élharcos**
+ér pontot: az, aki ott legelöl áll. Ha az első sorban áll valaki, ő az; ha az
+első sor üres, a mögötte álló.
 
-A bónusz csak a saját sorában jár. A másik sorban az egység nem kapja meg, de
-nem is veszít semmit — és a csatatér kikapcsolhatja bármelyiket.
+Aki nem élharcos, az **támogató**. Az ereje nem számít bele az összegbe, de
+minden képessége él: erősítheti az élharcosokat, és varázsolhat. Ha az élharcos
+elesik, a mögötte álló támogató azonnal a helyébe lép, és onnantól ő számít.
+
+Tehát legfeljebb három egységed ér pontot. Az első sorba azt érdemes tenni, aki
+erős, a hátsóba azt, aki varázsol vagy segít.
+
+Három kulcsszó változtat ezen:
+
+- A **Távolsági** egység a hátsó sorból is beleszámít az összegbe, akkor is, ha
+  áll előtte valaki.
+- A **Testőr** egység megvédi a mögötte állót: amíg az első sorban áll, a
+  mögötte lévő egységedet az ellenfél nem célozhatja meg varázslattal.
+- A **Falka** egységet egy ugyanilyen egységed tetejére is leteheted. A halom
+  egyetlen egység, az ereje a lapok erejének összege — de ha elesik, az összes
+  lap odavész.
+
+A csatatér kikapcsolhatja bármelyiket.
 
 ## Egy csatatér menete
 
@@ -111,12 +131,15 @@ játékosonként. A Zónán nincs keret: ott annyit tehet le a játékos, amenny
 Ha a lapnak nyitóhatása van, az most fut le, előbb annál a játékosnál, aki a
 csatateret hozta.
 
+Ezután érkeznek az előző csatákból megmaradt egységek, a veteránok és a
+helyőrségek. Róluk a Leszerelésnél lesz szó.
+
 ### 2. Gyülekezés
 
 Az kezd, aki a csatateret hozta, és a két játékos felváltva következik. A
-körében két dolgot tehet: letesz egy egységet valamelyik üres mezőjére, vagy
-kimondja, hogy kész. Egy körben egy egység tehető le, nem több, és a letétel
-lezárja a kört.
+körében három dolgot tehet: letesz egy egységet valamelyik üres mezőjére,
+kimondja, hogy kész, vagy visszavonul. Egy körben egy egység tehető le, nem
+több, és a letétel lezárja a kört.
 
 A letett egységek összköltsége nem lépheti túl a keretet.
 
@@ -136,6 +159,12 @@ költségét az ellenfele nem ismeri.
 Ha egy játékosnak nincs letehető lapja vagy nincs szabad mezője, késznek kell
 lennie — de a bejelentés akkor is az ő lépése, a következő körében. Nem történik
 meg magától.
+
+**Visszavonulás.** Ha látod, hogy ezt a csatateret nem nyered meg, a körödben
+visszavonulhatsz. Ekkor a csatatér az ellenfeledé, a csata azonnal véget ér, a
+még álló egységeid viszont visszakerülnek a kezedbe. A leszerelésnél így több
+lapod lesz, mint amennyi a kezedben maradhat, és te döntöd el, melyiket tartod
+meg. Aki már kimondta, hogy kész, nem vonulhat vissza.
 
 **Légy résen!** A keret fogyó készlet, nem pillanatnyi összeg. Ami egyszer
 leíródott róla, azt semmi nem adja vissza: ha az egységed még a gyülekezés alatt
@@ -171,21 +200,34 @@ el, és ha addigra már nem áll a mezőjén, nem sül el egyáltalán.
 
 Most jönnek a varázslatok. Megint az kezd, aki a csatateret hozta — az nem
 számít, ki fejezte be előbb a gyülekezést. A két játékos felváltva következik,
-körönként egy varázslattal.
+és **egy körben egyetlen egysége varázsol**.
 
 Minden varázslat nyíltan megy. A játékos kiteszi a lapot, megmondja, melyik
 egysége varázsolja és mire, és a hatás azonnal, teljesen lefut. Az ellenfél nem
 tud közbevágni és nem tud rá válaszul varázsolni — kivárni tud, kivédeni nem.
 
-A körében három dolog közül választhat a játékos: kijátszik egy varázslatot,
+**Varázslánc.** Ugyanaz az egység egymás után több varázslatot is kijátszhat a
+körében, amíg a varázsereje kitart: a varázslatok költsége együtt nem lehet több
+a varázserejénél. Egy 5-ös mágus kijátszhat egy 3-as és egy 2-es varázslatot,
+vagy öt 1-eset. Minden varázslat lefut, mielőtt a következőről döntened kellene.
+
+**Elfordulás.** Amikor az egység befejezte, fordítsd el a lapját oldalra. Ebben
+a csatában már nem varázsol többet — akkor sem, ha maradt volna varázsereje.
+Minden más ugyanúgy marad rajta: az ereje is, a képességei is.
+
+A körében három dolog közül választhat a játékos: varázsol egy egységével,
 befejez egy megkezdett Mesteri varázslatot, vagy kimondja, hogy kész. Ez is
 végleges.
 
 **A Mesteri varázslat két körbe kerül.** Az elsőben lefordítva maga elé teszi a
 játékos, és ennyi a köre: az ellenfél csak annyit lát, hogy valami készül. A
-következő körében **csak** azt teheti, hogy befejezi — másik varázslatot nem
-játszhat ki, és készt sem mondhat. A befejezés ára egy másik varázslatlapja,
-amit el kell dobnia, és ekkor mondja meg, ki varázsolja és mire.
+következő körében be kell fejeznie — készt nem mondhat helyette. A befejezés ára
+egy másik varázslatlapja, amit el kell dobnia, és ekkor mondja meg, ki
+varázsolja és mire.
+
+Az az egység, amelyik befejezi a Mesterit, előtte más varázslatot is kijátszhat
+ugyanabban a körben, ha a varázsereje mindkettőre elég. Így lehet előbb
+megsebezni valakit, és utána Kegyelemdöféssel végezni vele.
 
 A befejezés akkor is kötelező, ha a tábla közben úgy változott, hogy a varázslat
 már nem ér el semmit: a játékos fizet, és a lap elszáll. Ha nincs eldobható
@@ -195,14 +237,37 @@ ha egyébként mindketten készek.
 
 ### 5. Összeadás
 
-Mindkét játékos összeadja a táblán maradt egységeinek erejét, úgy, ahogy a tábla
-akkor éppen áll. A kézben maradt lapok, a temető és a pakli nem számítanak bele.
-A nagyobb szám viszi a csatateret. Ha a két összeg egyenlő, a csatatér senkié
-nem lesz, és kiesik a számításból.
+Mindkét játékos összeadja az élharcosai erejét — oszloponként egy egységét —,
+és hozzáadja a hátsó sorban álló Távolsági egységeiét. A támogatók, a kézben
+maradt lapok, a temető és a pakli nem számítanak bele.
+
+A nagyobb szám viszi a csatateret. Ha a két összeg egyenlő, az nyer, akinek több
+oszlopban erősebb az élharcosa; az üresen hagyott oszlop azé, aki áll benne. Ha
+ez is egyenlő, a csatatér senkié nem lesz, és kiesik a számításból.
 
 Az eredmény ezzel rögzül. Utána a Diadal szövegek elsülnek a győztes állva
 maradt egységein, a Vigasz szövegek a vesztesén — de a csata kimenetelén ezek
 már nem változtatnak. Döntetlennél egyik sem sül el.
+
+### Helyőrség és veterán
+
+A csata után nem mindenki megy a temetőbe.
+
+- **A győztes helyőrséget hagyhat.** Kiválaszthatja egy állva maradt egységét,
+  és ráteszi a megszerzett csatatérlapra. Ott vár. Bármelyik későbbi csata
+  elején hadba hívhatja: ilyenkor az egység egy gyűrűt kap, és megérkezik az új
+  csatatérre.
+- **A vesztes veteránt küldhet tovább.** Kiválaszthatja egy állva maradt
+  egységét, amely a következő csatában érkezik.
+
+Mindkettő megtartja a gyűrűit, minden más lekerül róla. Az új csatatéren a
+gyülekezés előtt érkeznek, felfordítva, egy üres mezőre, amelyet a gazdájuk
+választ. A költségük beleszámít a keretbe, a Belépőjük nem sül el újra. Ha a
+veterán nem fér bele a keretbe, a temetőbe kerül; a helyőrség ilyenkor csak
+vár tovább.
+
+Döntetlen után mindkét játékos küldhet veteránt, helyőrséget viszont senki nem
+hagyhat. Aki visszavonult, nem küldhet veteránt.
 
 ### Leszerelés
 
@@ -219,7 +284,8 @@ pakli üres, a húzás elmarad, a temetőt nem szabad visszakeverni, és ezért
 semmilyen büntetés nem jár — csak kevesebb lapja lesz.
 
 A csatatérlap a megszerzője oldalára kerül, döntetlennél félre, így az állás
-végig látszik. Jöhet a következő csatatér.
+végig látszik. A vesztes kiválasztja a következő csatateret, és kezdődik az új
+csata.
 
 ## Varázslás
 
@@ -232,8 +298,8 @@ tudja varázsolni.
 
 Három dolgot érdemes fejben tartani:
 
-- A varázserő elfogy. Ha a 3-as mágus kifizet egy 3-as varázslatot, ezen a
-  csatatéren már nem varázsol többet abból az iskolából.
+- Egy egység csatánként egy körben varázsol. Utána elfordul, és abban a
+  csatában már nem varázsol többet.
 - Nem lehet összeadni. Két 3-as varázsló nem fizet ki egy 6-os varázslatot, és
   két különböző iskola száma sem adódik össze, akkor sem, ha ugyanazon a lapon
   állnak.
@@ -274,21 +340,14 @@ két mező akkor, ha közös élük van, és ott az átló nem számít. A lapsz
 szomszédja mindig ez, nem az 1 távolság — és a mozgás is a szomszédosságot
 követi, tehát az egység nem lép átlósan.
 
-## Rálátás
+## Ki mit érhet el
 
-A hatótáv önmagában nem elég: a célpontnak rálátásban is kell lennie.
+Rálátás nincs: ami hatótávon belül van, azt a varázslat eléri, akármennyi egység
+áll közben. Egyetlen dolog véd: a **Testőr**. Ha az első sorban Testőr áll, a
+közvetlenül mögötte álló egységet az ellenfél nem célozhatja meg varázslattal.
+A Testőrt magát igen — tehát előbb őt kell eltenni az útból.
 
-Két mező között egy vagy két útvonal fut. Egy útvonal akkor elzárt, ha olyan
-mezőn halad át, amelyen a **varázsló ellenfelének** egysége áll. A saját egységek
-sosem zárják el a saját útvonalat, és a célpont mezője sem számít elzárásnak.
-Amennyiben legalább az egyik útvonal szabad, van rálátás.
-
-Ebből következik, hogy a rálátás nem kölcsönös: ugyanaz a mezőpár az egyik
-irányban szabad lehet, a másikban nem. Egy testfal tehát valódi védelem a
-mögötte állóknak, és a lefordított egység ugyanúgy elzár, mint a felfordított.
-
-A képességek hatóköre — szomszédos, átlósan érintkező, szemközti, oszlop — nem
-kér rálátást. Az csak a varázslatok célzására vonatkozik.
+A lefordított Testőr nem véd, amíg fel nem fordul.
 
 ## Rejtett egységek
 
@@ -301,7 +360,7 @@ másiké — de ezt az ellenfél nem látja.
 
 Amíg le van fordítva, az egység nem ad és nem kap aurát, nincs statikus
 képessége, és lapszöveg sem célozhatja meg. Az összeadásnál viszont már fel van
-fordítva, tehát a teljes erejével számít.
+fordítva, tehát ha élharcos, a teljes erejével számít.
 
 Használd a rejtést arra, hogy az ellenfeled vakon rakja le a saját egységeit!
 Cserébe egy lapot fizetsz érte. A csatatér változtathat ezen: van, ahol a rejtés

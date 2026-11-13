@@ -37,6 +37,10 @@ function blankState(locationId = "plazs"): GameState {
     traps: [],
     currentCaster: null,
     portals: [],
+    chain: null,
+    reserves: [],
+    arrivals: [],
+    fieldChosen: false,
     placementCounter: 0,
     promptCounter: 0,
     revealCounter: 0,
@@ -124,14 +128,17 @@ describe("card data", () => {
 });
 
 describe("power()", () => {
-  it("gives Távolsági units the back-row bonus and nothing to anyone else", () => {
+  it("gives Távolsági units no power of their own: the keyword is about counting (9.3.1)", () => {
     const state = blankState();
     place(state, "felindori_ijasz", "p1.B1"); // 3 printed, Távolsági
     place(state, "felindori_ijasz", "p1.F1");
     place(state, "novicius", "p1.B3");
-    expect(power(state.board["p1.B1"]!, state)).toBe(5);
+    expect(power(state.board["p1.B1"]!, state)).toBe(3);
     expect(power(state.board["p1.F1"]!, state)).toBe(3);
-    expect(power(state.board["p1.B3"]!, state)).toBe(2); // mage, no positional keyword
+    expect(power(state.board["p1.B3"]!, state)).toBe(2);
+    // Both archers count — one leads the column, one shoots over it — and the
+    // mage counts because nobody stands in front of it.
+    expect(boardTotal(state, "p1")).toBe(8);
   });
 
   it("drops the Távolsági bonus on Ködrét", () => {
@@ -842,7 +849,12 @@ describe("phase flow", () => {
     expect(moves.some((m) => m.type === "playUnit")).toBe(true);
     expect(moves.some((m) => m.type === "declareUnitsDone")).toBe(true);
     // Playing ends the turn on its own, so passing is not a move.
-    expect(moves.every((m) => m.type === "playUnit" || m.type === "declareUnitsDone")).toBe(true);
+    // 6.7 added the third thing a turn can be: taking the army home.
+    expect(
+      moves.every(
+        (m) => m.type === "playUnit" || m.type === "declareUnitsDone" || m.type === "retreat",
+      ),
+    ).toBe(true);
   });
 
   it("offers every card in hand as the price of hiding a unit", () => {
@@ -1064,11 +1076,15 @@ describe("Sikátor", () => {
   it.each(["p1", "p2"] as const)("requires %s to finish gathering when the middle column is full", (player) => {
     let state = blankState("sikator");
     state.turn = player;
-    state.players[player].unitHand = [{ uid: "rat", cardId: "patkany" }];
-    place(state, "patkany", `${player}.F2`);
-    place(state, "patkany", `${player}.B2`);
+    // A Polgár, not a Patkány: a Falka card could still go on top of its own kind.
+    state.players[player].unitHand = [{ uid: "townsman", cardId: "felindori_polgar" }];
+    place(state, "felindori_polgar", `${player}.F2`);
+    place(state, "felindori_polgar", `${player}.B2`);
     expect(remainingCap(state, player)).toBe(6); // space, rather than cost, closes the alley
-    expect(legalActions(state, player)).toEqual([{ type: "declareUnitsDone", player }]);
+    expect(legalActions(state, player)).toEqual([
+      { type: "declareUnitsDone", player },
+      { type: "retreat", player },
+    ]);
     state = applyAction(state, { type: "declareUnitsDone", player });
     expect(state.players[player].flags.unitsClosed).toBe(true);
   });

@@ -377,13 +377,14 @@ function fingerprint(state: GameState, player: PlayerId): string {
       .join("");
     parts.push(
       `${slot}:${unit.cardId}:${unit.powerDelta}:${unit.setPower ?? ""}:${unit.damage}:` +
-        `${unit.rings}:${unit.placed.length}:${unit.faceDown ? 1 : 0}:${spent}`,
+        `${unit.rings}:${unit.placed.length}:${unit.faceDown ? 1 : 0}:${spent}:${unit.tapped ? "t" : ""}`,
     );
   }
   parts.push(
     "H" + [...state.players[player].spellHand.map((c) => c.cardId)].sort().join(","),
   );
   parts.push("C" + (state.channel[player]?.cardId ?? ""));
+  parts.push("K" + (state.chain?.player === player ? state.chain.casterUid : ""));
   return parts.join("|");
 }
 
@@ -657,6 +658,19 @@ export function bestPlan(
     }
 
     const lines = completeCasts(from, player, opts, search);
+    // 8.3.5: while one caster holds the turn only its own spells are on offer.
+    // Closing the chain is free in the probe — the opponent has finished, so
+    // the turn comes straight back — and it is what lets a plan move on to a
+    // second caster. The close travels as the first action of the next cast.
+    if (from.chain?.player === player) {
+      const end: Action = { type: "endChain", player };
+      if (legalActions(from, player).some((a) => a.type === "endChain")) {
+        const ended = applyAction(from, end);
+        for (const line of completeCasts(ended, player, opts, search)) {
+          lines.push({ ...line, cast: { ...line.cast, actions: [end, ...line.cast.actions] } });
+        }
+      }
+    }
     if (lines.length === 0) return;
     const kept = worthExploring(lines, setups, opts);
     if (kept.length < lines.length) search.truncate();

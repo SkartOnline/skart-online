@@ -19,7 +19,9 @@
     "kind": "unit",
     "cost": 1,
     "power": 1,
-    "keywords": [],
+    "keywords": [
+      "Falka"
+    ],
     "spellpower": {
       "Bestia": 1
     },
@@ -27,7 +29,8 @@
     "race": "Állat",
     "tags": [
       "swarm"
-    ]
+    ],
+    "text": "Falka (ugyanilyen lapra is letehetsz; az erőnk összeadódik)."
   },
   {
     "id": "papagaj",
@@ -60,7 +63,7 @@
       "swarm",
       "kaloz"
     ],
-    "text": "Csak szövetséges Kalózzal szomszédos mezőre játszhatsz ki. +1 erőt kapok, ha legalább 3 másik Kalóz szövetségessel együtt harcolok."
+    "text": "Csak egy Kalózod mellé, elé vagy mögé tehetsz le. Ha legalább 3 másik Kalóz harcol velem, +1 erőt kapok."
   },
   {
     "id": "felindori_polgar",
@@ -84,7 +87,9 @@
     "kind": "unit",
     "cost": 1,
     "power": 1,
-    "keywords": [],
+    "keywords": [
+      "Falka"
+    ],
     "spellpower": {
       "Harcos": 1
     },
@@ -93,7 +98,8 @@
     "tags": [
       "swarm",
       "kaloz"
-    ]
+    ],
+    "text": "Falka (ugyanilyen lapra is letehetsz; az erőnk összeadódik)."
   },
   {
     "id": "kem",
@@ -120,7 +126,7 @@
       "swarm",
       "csempesz"
     ],
-    "text": "Ha van velem szomszédos Maffiavezér, nem lehet őt varázslattal megcélozni."
+    "text": "A szomszédos Maffiavezért nem lehet varázslattal megcélozni."
   },
   {
     "id": "kincskereso",
@@ -150,7 +156,7 @@
     "tags": [
       "swarm"
     ],
-    "text": "Diadal: A következő csatában eggyel nagyobb az egységkereted."
+    "text": "Diadal: A következő csatában eggyel több egység lehet a kezedben."
   },
   {
     "id": "greta",
@@ -170,14 +176,14 @@
       "effects": [
         {
           "kind": "peek",
-          "what": "nextLocation"
+          "what": "hand"
         }
       ]
     },
     "tags": [
       "swarm"
     ],
-    "text": "Belépő: Nézd meg a következő csatateret!"
+    "text": "Belépő: Megnézheted az ellenfeled kezében lévő egységeket."
   },
   {
     "id": "szerencsejatekos",
@@ -206,7 +212,7 @@
     "tags": [
       "csempesz"
     ],
-    "text": "Belépő: Dobj fel egy érmét! Ha unikornis, +1 erőt kapok és dönthetsz úgy, hogy újra dobj és megduplázd a kapott erőt. Ha írás, minden kapott erőt elveszítek."
+    "text": "Belépő: Dobj fel egy érmét! Ha unikornis, +1 erőt kapok, és ha akarod, újra dobhatsz a duplájáért. Ha írás, elveszítek mindent, amit így kaptam."
   },
   {
     "id": "caecus",
@@ -235,7 +241,7 @@
     "tags": [
       "caster"
     ],
-    "text": "Belépő: A varázslatkeretem 1-gyel nő a csata végéig, és rögtön húzol rá."
+    "text": "Belépő: Húzz egy varázslatot!"
   },
   {
     "id": "bandita",
@@ -243,7 +249,9 @@
     "kind": "unit",
     "cost": 2,
     "power": 2,
-    "keywords": [],
+    "keywords": [
+      "Falka"
+    ],
     "spellpower": {
       "Zsivány": 2
     },
@@ -252,7 +260,8 @@
     "tags": [
       "swarm",
       "csempesz"
-    ]
+    ],
+    "text": "Falka (ugyanilyen lapra is letehetsz; az erőnk összeadódik)."
   },
   {
     "id": "burastya",
@@ -293,7 +302,7 @@
     "tags": [
       "harcos"
     ],
-    "text": "Ha ebben a csatában egy egységet sem rejtettél el, +1 erőt kapok."
+    "text": "Ha ebben a csatában egyetlen egységet sem rejtettél el, +1 erőt kapok."
   },
   {
     "id": "kovacs",
@@ -311,13 +320,13 @@
         "kind": "aura",
         "amount": 1,
         "side": "ally",
-        "scope": "adjacent"
+        "scope": "board"
       }
     ],
     "tags": [
       "support"
     ],
-    "text": "Minden szomszédos szövetségesnek +1 erőt adok."
+    "text": "Minden más szövetséges +1 erőt kap."
   },
   {
     "id": "felderito",
@@ -342,7 +351,7 @@
     "tags": [
       "support"
     ],
-    "text": "Belépő: felfedek egy rejtett ellenséget."
+    "text": "Belépő: Felfedek egy rejtett ellenséget."
   },
   {
     "id": "zsalu",
@@ -371,7 +380,7 @@
       "csempesz",
       "caster"
     ],
-    "text": "Ha legalább 3 másik Csempész szövetségessel harcolok együtt, +3 erőt kapok."
+    "text": "Ha legalább 3 másik Csempész harcol velem, +3 erőt kapok."
   },
   {
     "id": "farkas",
@@ -380,7 +389,8 @@
     "cost": 3,
     "power": 2,
     "keywords": [
-      "Farkas"
+      "Farkas",
+      "Falka"
     ],
     "spellpower": {
       "Bestia": 2
@@ -400,7 +410,7 @@
       "beast",
       "swarm"
     ],
-    "text": "Minden további szövetséges Farkasért +1 erőt kapok."
+    "text": "Falka (ugyanilyen lapra is letehetsz; az erőnk összeadódik).\nMinden további Farkasod után +1 erőt kapok."
   },
   {
     "id": "vadasz",
@@ -431,7 +441,7 @@
     "tags": [
       "beast"
     ],
-    "text": "Belépő: Eldobhatsz egy Állatot vagy Bestiát, hogy +2 erőt kapjak. Az egységkereted ennyivel kisebb lesz."
+    "text": "Belépő: Eldobhatsz a kezedből egy Állatot vagy Bestiát. Ha megteszed, +2 gyűrűt kapok."
   },
   {
     "id": "novicius",
@@ -460,7 +470,7 @@
     "tags": [
       "caster"
     ],
-    "text": "Belépő: A varázslatkeretem 1-gyel nő a csata végéig, és rögtön húzol rá."
+    "text": "Belépő: Húzz egy varázslatot!"
   },
   {
     "id": "kereskedo",
@@ -487,7 +497,7 @@
     "tags": [
       "polgar"
     ],
-    "text": "Belépő: Az egységkeretem 1-gyel nő a csata végéig, és rögtön húzol rá."
+    "text": "Belépő: Húzz egy egységet!"
   },
   {
     "id": "barkakedvenc",
@@ -545,7 +555,7 @@
     "tags": [
       "elettelen"
     ],
-    "text": "Amikor egy egység meghal, +1 erőt kapok."
+    "text": "Valahányszor meghal egy egység, +1 gyűrűt kapok."
   },
   {
     "id": "makacs_elohalott",
@@ -613,7 +623,9 @@
     "kind": "unit",
     "cost": 3,
     "power": 3,
-    "keywords": [],
+    "keywords": [
+      "Testőr"
+    ],
     "spellpower": {
       "Harcos": 2
     },
@@ -623,7 +635,8 @@
     "tags": [
       "felindori",
       "harcos"
-    ]
+    ],
+    "text": "Testőr (ha az első sorban állok, a mögöttem állót az ellenfél nem célozhatja varázslattal)."
   },
   {
     "id": "siraso",
@@ -652,7 +665,7 @@
     "tags": [
       "elettelen"
     ],
-    "text": "Belépő: kikeresek egy nem-Legendás egységet a temetődből. Húzd fel!"
+    "text": "Belépő: Válassz a temetődből egy nem Legendás egységet, és vedd a kezedbe!"
   },
   {
     "id": "vizkopo",
@@ -675,7 +688,7 @@
     "tags": [
       "keleti"
     ],
-    "text": "Ha nincs rajtam kívül szövetséges az első sorban, +4 erőt kapok."
+    "text": "Ha rajtam kívül nincs szövetséges az első sorban, +4 erőt kapok."
   },
   {
     "id": "griff_hamiskartyas",
@@ -702,7 +715,7 @@
     "tags": [
       "csempesz"
     ],
-    "text": "Belépő: húzz legfeljebb 3 egységet az ellenfeled kezéből, majd adj neki ugyanennyit a tiédből!"
+    "text": "Belépő: Húzz legfeljebb 3 egységet az ellenfeled kezéből, aztán adj neki ugyanennyit a sajátodból!"
   },
   {
     "id": "magusinkvizitor",
@@ -731,7 +744,7 @@
     "tags": [
       "keleti"
     ],
-    "text": "Belépő: fedd fel az ellenfeled kezében lévő varázslatokat!"
+    "text": "Belépő: Megnézheted az ellenfeled kezében lévő varázslatokat."
   },
   {
     "id": "varju",
@@ -764,7 +777,7 @@
     "tags": [
       "elettelen"
     ],
-    "text": "Belépő: Annyi egységet dobsz el, amennyit akarsz. Minden eldobott egység után +1 erőt kapok, és ennyivel kisebb az egységkereted a csata végéig."
+    "text": "Belépő: Eldobhatsz a kezedből akárhány egységet. Minden eldobott lap után +1 gyűrűt kapok."
   },
   {
     "id": "rablo",
@@ -794,7 +807,7 @@
     "tags": [
       "csempesz"
     ],
-    "text": "Belépő: elrabolom az ellenfelem paklijának felső lapját!"
+    "text": "Belépő: Elrablom az ellenfeled egységpaklijának felső lapját. A kezedbe kerül."
   },
   {
     "id": "sir_werdzsell",
@@ -820,7 +833,7 @@
       "felindori",
       "harcos"
     ],
-    "text": "Ha nálam erősebb ellenség áll előttem, +2 erőt kapok."
+    "text": "Ha velem szemben nálam erősebb ellenség áll, +2 erőt kapok."
   },
   {
     "id": "hajnalmadar",
@@ -849,7 +862,7 @@
     "tags": [
       "beast"
     ],
-    "text": "Belépő: Ha nincs rajtam kívül szövetséges a csatatéren, +2 erőt kapok."
+    "text": "Belépő: Ha rajtam kívül nincs szövetséges a csatatéren, +2 gyűrűt kapok."
   },
   {
     "id": "fuedrax",
@@ -878,7 +891,7 @@
       "felindori",
       "orgyilkos"
     ],
-    "text": "Belépő: Játssz ki körön kívül egy varázslatot az egyik ellenséges mezőre csapdaként! Ha egy egység rálép, a csapda automatikusan kijátszódik, azt az egységet célozva."
+    "text": "Belépő: Tegyél le a kezedből egy varázslatot lefordítva egy üres ellenséges mezőre! Ez csapda: arra sül el, aki először rálép."
   },
   {
     "id": "fejvadasz",
@@ -907,7 +920,7 @@
     "tags": [
       "orgyilkos"
     ],
-    "text": "Belépő: Felfedek egy lapot az ellenfél kezében! Ha nálam nagyobb költségű egység, +2 erőt kapok."
+    "text": "Belépő: Felfedek egy lapot az ellenfeled kezéből. Ha az nálam drágább egység, +2 gyűrűt kapok."
   },
   {
     "id": "pirato_sanchez",
@@ -934,7 +947,7 @@
       "kaloz",
       "harcos"
     ],
-    "text": "Minden szövetséges Kalóz után +1 erőt kapok."
+    "text": "Minden más Kalózod után +1 erőt kapok."
   },
   {
     "id": "magiacenzor",
@@ -963,7 +976,7 @@
       "keleti",
       "control"
     ],
-    "text": "Belépő: a velem egy oszlopban álló legnagyobb varázserejű ellenség varázserejét 2-vel csökkentem."
+    "text": "Belépő: Az oszlopomban álló, legnagyobb varázserejű ellenség varázsereje 2-vel csökken."
   },
   {
     "id": "adeptus",
@@ -992,7 +1005,7 @@
     "tags": [
       "caster"
     ],
-    "text": "Belépő: A varázslatkeretem 1-gyel nő a csata végéig, és rögtön húzol rá."
+    "text": "Belépő: Húzz egy varázslatot!"
   },
   {
     "id": "felindori_ijasz",
@@ -1011,7 +1024,7 @@
       "felindori",
       "harcos"
     ],
-    "text": "Távolsági (a hátsó sorban +2 erőt kapok)."
+    "text": "Távolsági (a hátsó sorból is beleszámítok)."
   },
   {
     "id": "altus",
@@ -1040,7 +1053,7 @@
       "druida",
       "swarm"
     ],
-    "text": "Minden 1 alaperejű szövetségesnek +1 erőt adok."
+    "text": "Minden 1 alaperejű szövetséges +1 erőt kap."
   },
   {
     "id": "felindori_kardforgato",
@@ -1048,7 +1061,9 @@
     "kind": "unit",
     "cost": 4,
     "power": 4,
-    "keywords": [],
+    "keywords": [
+      "Testőr"
+    ],
     "spellpower": {
       "Harcos": 3
     },
@@ -1059,7 +1074,8 @@
       "felindori",
       "harcos",
       "value"
-    ]
+    ],
+    "text": "Testőr (ha az első sorban állok, a mögöttem állót az ellenfél nem célozhatja varázslattal)."
   },
   {
     "id": "chupacabra",
@@ -1089,7 +1105,7 @@
     "tags": [
       "beast"
     ],
-    "text": "Belépő: Eldobsz egy lapot, és ennyivel kisebb a kereted a csata végéig."
+    "text": "Belépő: Dobj el egy lapot a kezedből!"
   },
   {
     "id": "lenyidomar",
@@ -1106,7 +1122,7 @@
         "kind": "aura",
         "amount": 2,
         "side": "ally",
-        "scope": "adjacent",
+        "scope": "board",
         "keyword": "Állat,Bestia"
       }
     ],
@@ -1114,7 +1130,7 @@
       "beast",
       "support"
     ],
-    "text": "Minden szomszédos Állatnak vagy Bestiának +2 erőt adok."
+    "text": "Minden szövetséges Állat és Bestia +2 erőt kap."
   },
   {
     "id": "maffiavezer",
@@ -1133,7 +1149,7 @@
         "kind": "aura",
         "amount": 1,
         "side": "ally",
-        "scope": "adjacent",
+        "scope": "board",
         "keyword": "Csempész"
       }
     ],
@@ -1141,7 +1157,7 @@
       "csempesz",
       "caster"
     ],
-    "text": "Minden szomszédos Csempésznek +1 erőt adok."
+    "text": "Minden más Csempészed +1 erőt kap."
   },
   {
     "id": "bergyilkos",
@@ -1171,7 +1187,7 @@
       "orgyilkos",
       "control"
     ],
-    "text": "Belépő: Megölöm a leggyengébb ellenséget az oszlopomban, ha gyengébb nálam!"
+    "text": "Belépő: Megölöm az oszlopom leggyengébb ellenségét, ha gyengébb nálam."
   },
   {
     "id": "sir_ton",
@@ -1179,7 +1195,9 @@
     "kind": "unit",
     "cost": 5,
     "power": 5,
-    "keywords": [],
+    "keywords": [
+      "Testőr"
+    ],
     "spellpower": {
       "Harcos": 3
     },
@@ -1189,7 +1207,8 @@
     "tags": [
       "felindori",
       "harcos"
-    ]
+    ],
+    "text": "Testőr (ha az első sorban állok, a mögöttem állót az ellenfél nem célozhatja varázslattal)."
   },
   {
     "id": "medve",
@@ -1213,7 +1232,7 @@
     "tags": [
       "beast"
     ],
-    "text": "Ha nincs velem átlósan érintkező szövetséges, +1 erőt kapok."
+    "text": "Ha nincs átlósan érintkező szövetségesem, +1 erőt kapok."
   },
   {
     "id": "nyominger_melak",
@@ -1221,7 +1240,9 @@
     "kind": "unit",
     "cost": 5,
     "power": 5,
-    "keywords": [],
+    "keywords": [
+      "Testőr"
+    ],
     "spellpower": {
       "Bestia": 5
     },
@@ -1229,7 +1250,8 @@
     "race": "Bestia",
     "tags": [
       "beast"
-    ]
+    ],
+    "text": "Testőr (ha az első sorban állok, a mögöttem állót az ellenfél nem célozhatja varázslattal)."
   },
   {
     "id": "liderc",
@@ -1317,7 +1339,7 @@
       "felindori",
       "caster"
     ],
-    "text": "Vigasz: Portált nyitok a következő csatatérre. Ha ilyen módon érkezem, nem számítok bele a költséglimitbe."
+    "text": "Vigasz: Portált nyitok a következő csatatérre. Ott ingyen érkezem: nem számítok bele a költségkeretbe."
   },
   {
     "id": "artifex",
@@ -1349,7 +1371,7 @@
       "felindori",
       "caster"
     ],
-    "text": "Belépő: Kikeresek egy tetszőleges varázslatot a pakliból. Húzd fel!"
+    "text": "Belépő: Válassz egy varázslatot a varázslatpaklidból, és vedd a kezedbe!"
   },
   {
     "id": "explodus",
@@ -1376,7 +1398,7 @@
       "felindori",
       "caster"
     ],
-    "text": "Minden Tűz varázslatod 1-gyel kevesebbe kerül."
+    "text": "A Tűz varázslataid 1-gyel kevesebbe kerülnek."
   },
   {
     "id": "magister",
@@ -1405,7 +1427,7 @@
     "tags": [
       "caster"
     ],
-    "text": "Belépő: A varázslatkeretem 2-vel nő a csata végéig, és rögtön húzol rá."
+    "text": "Belépő: Húzz 2 varázslatot!"
   },
   {
     "id": "ninja",
@@ -1431,7 +1453,7 @@
       "keleti",
       "orgyilkos"
     ],
-    "text": "Ha nincs velem szomszédos szövetséges, +3 erőt kapok."
+    "text": "Ha nincs szomszédos szövetségesem, +3 erőt kapok."
   },
   {
     "id": "szarvas",
@@ -1462,7 +1484,7 @@
     "tags": [
       "beast"
     ],
-    "text": "Mustra: Előrenyomulok, amíg van előttem üres mező az oszlopban. Minden előrenyomult mezőért +1 erőt kapok."
+    "text": "Mustra: Előrerontok az oszlopomban, amíg üres mező van előttem. Minden megtett mező után +1 gyűrűt kapok."
   },
   {
     "id": "elfina",
@@ -1490,7 +1512,7 @@
       "druida",
       "caster"
     ],
-    "text": "Ha egy szövetséges Állatot célzok meg varázslattal, +1 gyűrűt kap."
+    "text": "Ha szövetséges Állatra varázsolok, az +1 gyűrűt kap."
   },
   {
     "id": "felindori_bajnok",
@@ -1498,7 +1520,9 @@
     "kind": "unit",
     "cost": 6,
     "power": 7,
-    "keywords": [],
+    "keywords": [
+      "Testőr"
+    ],
     "spellpower": {
       "Harcos": 4
     },
@@ -1509,7 +1533,8 @@
       "felindori",
       "harcos",
       "value"
-    ]
+    ],
+    "text": "Testőr (ha az első sorban állok, a mögöttem állót az ellenfél nem célozhatja varázslattal)."
   },
   {
     "id": "ogre",
@@ -1517,7 +1542,9 @@
     "kind": "unit",
     "cost": 6,
     "power": 7,
-    "keywords": [],
+    "keywords": [
+      "Testőr"
+    ],
     "spellpower": {
       "Bestia": 5
     },
@@ -1526,7 +1553,8 @@
     "tags": [
       "beast",
       "value"
-    ]
+    ],
+    "text": "Testőr (ha az első sorban állok, a mögöttem állót az ellenfél nem célozhatja varázslattal)."
   },
   {
     "id": "bodur_kapitany",
@@ -1560,7 +1588,7 @@
       "harcos",
       "support"
     ],
-    "text": "Amikor egy szövetséges mozog, +1 erőt kap."
+    "text": "Valahányszor egy szövetségesed mozog, +1 gyűrűt kap."
   },
   {
     "id": "serpens_tuzer",
@@ -1578,7 +1606,7 @@
     "tags": [
       "harcos"
     ],
-    "text": "Távolsági."
+    "text": "Távolsági (a hátsó sorból is beleszámítok)."
   },
   {
     "id": "carnifex",
@@ -1610,7 +1638,7 @@
       "caster",
       "control"
     ],
-    "text": "Belépő: Megölök egy legfeljebb 4 alaperejű ellenséget. Te választod, melyiket."
+    "text": "Belépő: Megölök egy általad választott ellenséget, akinek az alapereje legfeljebb 4."
   },
   {
     "id": "korgon",
@@ -1639,7 +1667,7 @@
       "caster",
       "druida"
     ],
-    "text": "Minden ellenséges Élettelen egység után +1 erőt kapok."
+    "text": "Minden ellenséges Élettelen után +1 erőt kapok."
   },
   {
     "id": "derfoldi_deoren",
@@ -1679,7 +1707,7 @@
       "felindori",
       "orgyilkos"
     ],
-    "text": "Az ellenség térfelén +4 erőt kapok."
+    "text": "Az ellenfeled térfelén +4 erőt kapok."
   },
   {
     "id": "boljin",
@@ -1704,7 +1732,7 @@
     "tags": [
       "support"
     ],
-    "text": "Távolsági.\nAz előttem álló szövetséges Sérthetetlen."
+    "text": "Távolsági (a hátsó sorból is beleszámítok).\nAz előttem álló szövetséges Sérthetetlen."
   },
   {
     "id": "verfarkas",
@@ -1735,7 +1763,7 @@
       "beast",
       "value"
     ],
-    "text": "Ha nálam gyengébb egység áll előttem, +2 erőt kapok, és az ő képessége nem aktív."
+    "text": "Ha velem szemben nálam gyengébb egység áll, +2 erőt kapok, és neki nincs képessége."
   },
   {
     "id": "welsing",
@@ -1779,7 +1807,7 @@
       "elettelen",
       "caster"
     ],
-    "text": "Belépő: Kicseréled a kezed a temetőddel, és a kézkereted ennyi lesz.\nMinden szövetséges ebben a csatában Élettelen és +2 erőt kap."
+    "text": "Belépő: Cseréld ki a kezedben lévő egységeket a temetődben lévőkre! A csata végéig annyi egység lehet a kezedben, ahány most odakerült.\nEbben a csatában minden szövetséges Élettelen, és +2 erőt kap."
   },
   {
     "id": "erif_mester",
@@ -1805,7 +1833,7 @@
     "tags": [
       "caster"
     ],
-    "text": "Minden Tűz varázslatod +1-et sebez."
+    "text": "A Tűz varázslataid 1-gyel többet sebeznek."
   },
   {
     "id": "viator",
@@ -1834,7 +1862,7 @@
     "tags": [
       "caster"
     ],
-    "text": "Belépő: A varázslatkeretem 2-vel nő a csata végéig, és rögtön húzol rá."
+    "text": "Belépő: Húzz 2 varázslatot!"
   },
   {
     "id": "charon",
@@ -1885,7 +1913,7 @@
       "harcos",
       "value"
     ],
-    "text": "Minden további szövetséges Felindori +1 erőt kap. Minden ellenséges Bestia után +1 erőt kapok."
+    "text": "Minden más Felindori szövetséges +1 erőt kap. Minden ellenséges Bestia után +1 erőt kapok."
   },
   {
     "id": "okto_abnormitas",
@@ -1920,7 +1948,7 @@
       "beast",
       "kaloz"
     ],
-    "text": "Mustra: Ha a velem átlósan érintkező nálam gyengébb egységek összereje legalább 8, felfalom őket és +8 erőt kapok!"
+    "text": "Mustra: Ha a velem átlósan érintkező, nálam gyengébb egységek ereje együtt legalább 8, felfalom őket, és +8 gyűrűt kapok."
   },
   {
     "id": "husgolem",
@@ -1928,7 +1956,9 @@
     "kind": "unit",
     "cost": 8,
     "power": 9,
-    "keywords": [],
+    "keywords": [
+      "Testőr"
+    ],
     "spellpower": {
       "Bestia": 6
     },
@@ -1937,7 +1967,8 @@
     "tags": [
       "elettelen",
       "value"
-    ]
+    ],
+    "text": "Testőr (ha az első sorban állok, a mögöttem állót az ellenfél nem célozhatja varázslattal)."
   },
   {
     "id": "azman",
@@ -1970,7 +2001,7 @@
     "tags": [
       "beast"
     ],
-    "text": "Belépő: Feláldozom a mögöttem álló egységet, hogy +4 erőt kapjak."
+    "text": "Belépő: Feláldozom a mögöttem álló egységet, és +4 gyűrűt kapok."
   },
   {
     "id": "kirkar",
@@ -1999,7 +2030,7 @@
       "caster",
       "control"
     ],
-    "text": "Belépő: visszaküldöm a legutoljára kijátszott egységet az időben. Helyezd a paklija aljára!"
+    "text": "Belépő: Visszaküldöm az időben a legutóbb letett egységet. A gazdája paklijának aljára kerül."
   },
   {
     "id": "ikerhidra",
@@ -2041,7 +2072,7 @@
       "druida",
       "caster"
     ],
-    "text": "A szövetséges egységek ereje nem csökkenhet az alaperejük alá."
+    "text": "A szövetségeseid ereje nem csökkenhet az alaperejük alá."
   },
   {
     "id": "a_faarcu",
@@ -2068,7 +2099,7 @@
       "caster",
       "support"
     ],
-    "text": "Minden szövetséges egység legfeljebb 2 sebzést szenvedhet el egy hatástól."
+    "text": "Egy szövetséges egy hatástól legfeljebb 2 sebzést kaphat."
   },
   {
     "id": "celebrant",
@@ -2113,7 +2144,7 @@
     "tags": [
       "caster"
     ],
-    "text": "Álomfogóm van."
+    "text": "Az első rám célzott varázslat hatástalan."
   },
   {
     "id": "galaxismadar",
@@ -2150,7 +2181,7 @@
     "tags": [
       "control"
     ],
-    "text": "Nem lehet varázslatot kijátszani."
+    "text": "Amíg a csatatéren vagyok, senki sem varázsolhat."
   },
   {
     "id": "umbradog",
@@ -2193,7 +2224,7 @@
       "beast",
       "control"
     ],
-    "text": "Nem rejthetsz el.\nBelépő: Megölök minden más egységet a csatatéren. Eldobod a kezed, és ebben a csatában nem húzol vissza semmit."
+    "text": "Engem nem rejthetsz el.\nBelépő: Megölök minden más egységet. Dobd el a kezedet! Ebben a csatában már nem húzol."
   },
   {
     "id": "cassanus",
@@ -2227,7 +2258,7 @@
       "harcos",
       "value"
     ],
-    "text": "Ha legalább 12 egység van a temetődben, +3 erőt kapok és Sérthetetlen vagyok."
+    "text": "Ha legalább 12 egység van a temetődben, +3 erőt kapok, és Sérthetetlen vagyok."
   },
   {
     "id": "feher_pasztor",
@@ -2255,7 +2286,7 @@
       "support",
       "value"
     ],
-    "text": "Sérthetetlen vagyok. A szövetséges egységek nem tudnak meghalni."
+    "text": "Sérthetetlen vagyok. A szövetségeseid nem halhatnak meg."
   },
   {
     "id": "gouraldir",
@@ -2284,7 +2315,7 @@
       "caster",
       "control"
     ],
-    "text": "A játék elején rejtsd el a Három Ereklyét a paklidban!\nHa én és a Három Ereklye egyszerre a csatatéren van, megnyerem a csatát."
+    "text": "A játék elején keverd a Három Ereklyét a paklidba!\nHa én és a Három Ereklye egyszerre vagyunk a csatatéren, megnyered a csatát."
   },
   {
     "id": "a_moirak",
@@ -2310,6 +2341,6 @@
       "value",
       "caster"
     ],
-    "text": "Sérthetetlen vagyok. Három varázslatot kijátszhatok költség nélkül."
+    "text": "Sérthetetlen vagyok. Három varázslatot ingyen varázsolok, és csak a harmadik után fordulok el."
   }
 ]

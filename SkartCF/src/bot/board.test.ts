@@ -49,6 +49,10 @@ function gathering(locationId = "umbra"): GameState {
     traps: [],
     currentCaster: null,
     portals: [],
+    chain: null,
+    reserves: [],
+    arrivals: [],
+    fieldChosen: false,
     placementCounter: 0,
     promptCounter: 0,
     revealCounter: 0,
@@ -175,7 +179,13 @@ describe("the board optimiser against brute force", () => {
     expect(plan.score).toBe(bruteForce(state, "p1"));
   });
 
-  it("takes the smaller body when it is the one that can cast", () => {
+  // Skipped, not deleted. The arithmetic below is the old rules': three rats in
+  // the back row used to add three to the sum, and under 4.9 they are three
+  // leaders the new unit displaces one of. The premise still stands — a caster
+  // must be able to outrank a bigger body — but the numbers have to be worked
+  // out again together with the board search itself, which is phase 3 of
+  // `docs/bot-elvonal-plan.md`.
+  it.skip("takes the smaller body when it is the one that can cast", () => {
     // The case the cheap tier inside the beam is blind to, arranged so the two
     // boards cannot tie. A cap of 15 means Celebrant (10) or Charon (8), never
     // both.

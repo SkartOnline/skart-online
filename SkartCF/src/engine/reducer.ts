@@ -5,22 +5,31 @@ import {
   makeUnitInstance,
   openSlots,
   refillHand,
+  removeUnit,
   runEffects,
   salvageDestination,
 } from "./effects";
 import { ALL_SLOTS, orthogonalNeighbours, ownerOfSlot, slotLabel, slotsOf } from "./grid";
+import { askPrompt } from "./prompts";
 import {
   cardKeywords,
   cardOf,
   currentLocation,
   effectiveCost,
   castingBanned,
+  freeCastsLeft,
+  hasKeyword,
+  headcount,
   isMasterSpell,
+  PACK,
   unitsOf,
 } from "./power";
 import {
   advanceResolution,
   beginCast,
+  canBeginMesteri,
+  canContinueChain,
+  canFinishChannel,
   chooseHandCard,
   chooseSlot,
   fireBelepo,
@@ -34,6 +43,7 @@ import {
   clearTraps,
   finishPrompt,
   portalArrival,
+  reserveCost,
   settlePrompts,
   springTraps,
 } from "./interactions";
@@ -232,6 +242,10 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
           !cardForbidsHiding(unitCard) &&
           !autoHidden(state, unitCard) &&
           p.unitHand.filter((c) => c.uid !== card.uid).length >= toll;
+        // 9.3.3: a Falka card may also go on top of a copy of itself.
+        for (const slot of pileSlots(state, player, unitCard)) {
+          out.push({ type: "playUnit", player, uid: card.uid, slot });
+        }
         for (const slot of free) {
           if (!placementAllowed(state, unitCard, player, slot)) continue;
           out.push({ type: "playUnit", player, uid: card.uid, slot });
@@ -254,6 +268,8 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
       }
     }
     if (!p.flags.unitsClosed) out.push({ type: "declareUnitsDone", player });
+    // 6.7: instead of placing or finishing, the whole army may be taken home.
+    if (!p.flags.unitsClosed && !state.turnActions.unitPlayed) out.push({ type: "retreat", player });
     return out;
   }
 
@@ -261,17 +277,45 @@ export function legalActions(state: GameState, player: PlayerId): Action[] {
     // A Mesteri spell begun last turn owns this one. Finishing it is mandatory
     // and costs a spell out of hand, so nothing else is on offer.
     const channel = state.channel[player];
-    if (channel) {
+    const chain = state.chain?.player === player ? state.chain : null;
+    const banned = castingBanned(state);
+    // 8.3.5: what the caster holding the turn may still put in front of it.
+    const chainCasts = (): void => {
+      if (banned || p.flags.spellsClosed) return;
       for (const card of p.spellHand) {
-        out.push({ type: "finishChannel", player, discardUid: card.uid });
+        const spell = getSpell(card.cardId);
+        if (isMasterSpell(spell)) continue;
+        if (!hasViableCaster(state, spell, player)) continue;
+        out.push({ type: "castSpell", player, uid: card.uid });
       }
+    };
+    if (channel) {
+      // 8.3.5.2: finishing is still owed this turn, but the unit that finishes
+      // may cast other spells first, and the Mesteri then closes its chain.
+      if (canFinishChannel(state, player)) {
+        for (const card of p.spellHand) {
+          out.push({ type: "finishChannel", player, discardUid: card.uid });
+        }
+      }
+      chainCasts();
+      if (chain && out.length === 0) out.push({ type: "endChain", player });
+      return out;
+    }
+    if (chain) {
+      chainCasts();
+      out.push({ type: "endChain", player });
       return out;
     }
     // Omen stops anyone casting at all while it stands.
-    if (!p.flags.spellsClosed && !state.turnActions.spellPlayed && !castingBanned(state)) {
+    if (!p.flags.spellsClosed && !state.turnActions.spellPlayed && !banned) {
       for (const card of p.spellHand) {
-        // A spell no unit of yours can fund or aim is not castable at all.
-        if (!hasViableCaster(state, getSpell(card.cardId), player)) continue;
+        // A spell no unit of yours can fund or aim is not castable at all. A
+        // Mesteri is aimed only when it is finished, so it needs funding alone.
+        const spell = getSpell(card.cardId);
+        const castable = isMasterSpell(spell)
+          ? canBeginMesteri(state, spell, player)
+          : hasViableCaster(state, spell, player);
+        if (!castable) continue;
         out.push({ type: "castSpell", player, uid: card.uid });
       }
     }
@@ -308,6 +352,19 @@ export function applyAction(state: GameState, action: Action): GameState {
         next.players[action.player].flags.spellsClosed = true;
         log(next, "Varázslatok: kész.", action.player);
       }
+      break;
+    case "endChain":
+      if (
+        next.phase === "battle" &&
+        next.turn === action.player &&
+        next.chain?.player === action.player &&
+        !next.resolution
+      ) {
+        closeChain(next);
+      }
+      break;
+    case "retreat":
+      doRetreat(next, action.player);
       break;
     case "chooseSlot":
       chooseSlot(next, action.slot);
@@ -439,7 +496,7 @@ function doPlayUnit(state: GameState, action: Extract<Action, { type: "playUnit"
   if (state.phase !== "units" || state.turn !== action.player) return;
   const p = state.players[action.player];
   if (p.flags.unitsClosed || state.turnActions.unitPlayed) return;
-  if (ownerOfSlot(action.slot) !== action.player || state.board[action.slot]) return;
+  if (ownerOfSlot(action.slot) !== action.player) return;
   if (isBlocked(state, action.slot)) return;
 
   const source = playablePile(state, action.player).find((c) => c.uid === action.uid);
@@ -447,6 +504,26 @@ function doPlayUnit(state: GameState, action: Extract<Action, { type: "playUnit"
   const card = getUnit(source.cardId);
   const cost = effectiveCost(card, state);
   if (cost > remainingCap(state, action.player)) return;
+
+  // 9.3.3: onto a copy of itself. The pile is one unit from here on; the card
+  // costs what it always costs, and it goes down face up.
+  const under = state.board[action.slot];
+  if (under) {
+    if (action.faceDown || !pileSlots(state, action.player, card).includes(action.slot)) return;
+    const added = takeFromPile(state, action.player, action.uid);
+    if (!added) return;
+    p.capSpent += cost;
+    under.stack.push(added);
+    under.paidCost += cost;
+    state.turnActions.unitPlayed = true;
+    log(
+      state,
+      `${card.name} a halomra kerül (${slotLabel(action.slot)}), most ${headcount(under)} lap.`,
+      action.player,
+    );
+    passTurn(state);
+    return;
+  }
   if (!placementAllowed(state, card, action.player, action.slot)) return;
 
   let faceDown = action.faceDown === true;
@@ -512,14 +589,23 @@ function doPlayUnit(state: GameState, action: Extract<Action, { type: "playUnit"
 function doCastSpell(state: GameState, action: Extract<Action, { type: "castSpell" }>): void {
   if (state.phase !== "battle" || state.turn !== action.player) return;
   const p = state.players[action.player];
-  if (state.channel[action.player]) return; // finish what you started first
-  if (p.flags.spellsClosed || state.turnActions.spellPlayed) return;
+  const chaining = state.chain?.player === action.player;
+  if (p.flags.spellsClosed) return;
+  // One caster per turn (8.1.2): a second spell is legal only as the next link
+  // of the chain that caster has already begun.
+  if (state.turnActions.spellPlayed && !chaining) return;
   if (state.resolution) return; // one spell finishes before the next begins
   if (castingBanned(state)) return;
   const index = p.spellHand.findIndex((c) => c.uid === action.uid);
   if (index === -1) return;
   const spell = getSpell(p.spellHand[index].cardId);
-  if (!hasViableCaster(state, spell, action.player)) return;
+  const castable = isMasterSpell(spell)
+    ? canBeginMesteri(state, spell, action.player)
+    : hasViableCaster(state, spell, action.player);
+  if (!castable) return;
+  // 8.3.5.2: a Mesteri is never begun inside a chain, and never while another
+  // one is still waiting to be finished.
+  if (isMasterSpell(spell) && (chaining || state.channel[action.player])) return;
   const [card] = p.spellHand.splice(index, 1);
 
   // A Mesteri spell goes down face-down and does nothing this turn. The
@@ -555,6 +641,7 @@ function doFinishChannel(
   if (state.resolution) return;
   const channel = state.channel[action.player];
   if (!channel) return;
+  if (!canFinishChannel(state, action.player)) return;
   const p = state.players[action.player];
   const index = p.spellHand.findIndex((c) => c.uid === action.discardUid);
   if (index === -1) return;
@@ -569,6 +656,7 @@ function doFinishChannel(
     order: state.spellsCast.length,
   });
   state.turnActions.spellPlayed = true;
+  state.turnActions.closing = true;
   log(
     state,
     `${getSpell(channel.cardId).name} befejezve, ára ${getSpell(toss.cardId).name}.`,
@@ -580,6 +668,112 @@ function doFinishChannel(
 function passTurn(state: GameState): void {
   state.turn = other(state.turn);
   state.turnActions = { unitPlayed: false, spellPlayed: false };
+}
+
+/**
+ * 8.3.6: the caster's turn is over. It turns sideways and may not cast again
+ * this battle — unless it is still owed free casts, which is the whole of what
+ * A Moirák's "three spells" means across more than one turn.
+ */
+function closeChain(state: GameState): void {
+  const chain = state.chain;
+  if (chain) {
+    const caster = unitsOf(state, chain.player).find((u) => u.uid === chain.casterUid);
+    if (caster && freeCastsLeft(caster, state) === 0) {
+      caster.tapped = true;
+      log(state, `${cardOf(caster).name} elfordul: ebben a csatában többet nem varázsol.`, chain.player);
+    }
+  }
+  state.chain = null;
+  passTurn(state);
+}
+
+/** The tiles holding a face-up copy of this Falka card that another may join. */
+function pileSlots(state: GameState, player: PlayerId, card: UnitCard): SlotId[] {
+  if (!cardKeywords(card).includes(PACK)) return [];
+  return slotsOf(player).filter((slot) => {
+    const unit = state.board[slot];
+    return (
+      !!unit &&
+      unit.owner === player &&
+      !unit.faceDown &&
+      unit.cardId === card.id &&
+      !unit.transformedFrom &&
+      hasKeyword(unit, PACK)
+    );
+  });
+}
+
+/**
+ * 6.7 Visszavonulás. The battlefield is lost on the spot and the battle is
+ * over: no Mustra, no spells, no Diadal and no Vigasz. Everything of the
+ * retreating player's still standing goes back to the hand it came from — which
+ * will usually leave that hand over its level, and leszerelés makes them choose
+ * what to keep (12.6.3).
+ */
+function doRetreat(state: GameState, player: PlayerId): void {
+  if (state.phase !== "units" || state.turn !== player) return;
+  const p = state.players[player];
+  if (p.flags.unitsClosed || state.turnActions.unitPlayed) return;
+  if (pendingPrompt(state) || state.resolution) return;
+  const foe = other(player);
+  for (const slot of ALL_SLOTS) {
+    const unit = state.board[slot];
+    if (unit && unit.owner === player) removeUnit(state, slot, "hand");
+  }
+  const loc = state.locations[state.locationIndex];
+  loc.winner = foe;
+  loc.retreatedBy = player;
+  loc.totals = totals(state);
+  state.phase = "scored";
+  state.resolution = null;
+  state.chain = null;
+  state.turn = foe;
+  log(state, `Visszavonulás: ${getLocation(loc.cardId).name} ${SIDE_NAME[foe]} játékosé.`, player);
+  state.scores = scoreboard(state);
+  askReserves(state);
+}
+
+/**
+ * 12.2: who stays and who marches on. The winner may leave one survivor on the
+ * battlefield as a helyőrség; the loser may send one on to the next battle as a
+ * veterán. On a drawn battlefield there is nothing to hold, so both players may
+ * take a veteran. A player who retreated has already taken everyone home.
+ */
+function askReserves(state: GameState): void {
+  if (gameIsDecided(state)) return;
+  const loc = state.locations[state.locationIndex];
+  if (!loc.winner) return;
+  const leaving = new Set(state.portals.map((p) => p.uid));
+  const survivors = (player: PlayerId): SlotId[] =>
+    ALL_SLOTS.filter((slot) => {
+      const unit = state.board[slot];
+      return !!unit && unit.owner === player && !unit.claimedBy && !leaving.has(unit.uid);
+    });
+  const ask = (player: PlayerId, kind: "pickGarrison" | "pickVeteran"): void => {
+    const slots = survivors(player);
+    if (slots.length === 0) return;
+    askPrompt(state, {
+      kind,
+      player,
+      prompt:
+        kind === "pickGarrison"
+          ? "Helyőrség: melyik egységed marad itt"
+          : "Veterán: melyik egységed vonul tovább",
+      picking: "slot",
+      slots,
+      min: 0,
+      max: 1,
+    });
+  };
+  if (loc.winner === "void") {
+    ask(loc.broughtBy, "pickVeteran");
+    ask(other(loc.broughtBy), "pickVeteran");
+    return;
+  }
+  ask(loc.winner, "pickGarrison");
+  const loser = other(loc.winner);
+  if (loc.retreatedBy !== loser) ask(loser, "pickVeteran");
 }
 
 // ---------------------------------------------------------------------------
@@ -662,6 +856,8 @@ export function settle(state: GameState): void {
   // empty panel while the other waited.
   if (state.phase === "cleanup") {
     if (PLAYERS.every((id) => state.players[id].tossDone)) {
+      // 3.4.1: the loser names the next battlefield before it is turned over.
+      if (!state.fieldChosen && askNextField(state)) return;
       finishCleanup(state);
       return;
     }
@@ -673,6 +869,9 @@ export function settle(state: GameState): void {
   }
 
   if (state.phase === "units") {
+    // 12.2: veterans and garrisons step onto the new battlefield before anyone
+    // places a card, one at a time, each onto a tile its owner picks.
+    if (stepArrivals(state)) return;
     if (!bothStopped(state, "unitsClosed")) {
       skipStopped(state, "unitsClosed");
       return;
@@ -688,10 +887,21 @@ export function settle(state: GameState): void {
       if (state.resolution.pending) return;
       if (!resolutionFinished(state)) return;
       state.resolution = null;
-      passTurn(state);
+      // 8.3.5: the turn stays with a caster that can still go on. A Mesteri
+      // just finished closes the chain whatever is left in the unit.
+      const player = state.turn;
+      fizzleDeadChannels(state);
+      const goesOn =
+        state.chain?.player === player &&
+        !state.turnActions.closing &&
+        !castingBanned(state) &&
+        (canContinueChain(state, player) ||
+          (!!state.channel[player] && canFinishChannel(state, player)));
+      if (!goesOn) closeChain(state);
     }
 
     fizzleDeadChannels(state);
+    if (state.chain) return;
     // A player still owing a Mesteri spell has not finished the battle, even
     // with both flags down.
     const owing = PLAYERS.some((id) => state.channel[id]);
@@ -727,6 +937,7 @@ function runMustra(state: GameState): void {
   fireMustra(state, hidden);
 
   state.phase = "battle";
+  state.chain = null;
   // The player who brought the battlefield opens the battle too, same as the
   // units phase, casting first now costs information rather than buying it.
   state.turn = state.locations[state.locationIndex].broughtBy;
@@ -736,6 +947,7 @@ function runMustra(state: GameState): void {
 function scoreLocation(state: GameState): void {
   state.phase = "scored";
   state.resolution = null;
+  state.chain = null;
   const t = totals(state);
   const winner = locationWinner(state);
   const loc = state.locations[state.locationIndex];
@@ -760,6 +972,7 @@ function scoreLocation(state: GameState): void {
   }
 
   state.scores = scoreboard(state);
+  askReserves(state);
 }
 
 // ---------------------------------------------------------------------------
@@ -776,6 +989,9 @@ function scoreLocation(state: GameState): void {
  */
 function beginCleanup(state: GameState): void {
   if (state.phase !== "scored") return;
+  // 12.2 comes first: nobody leaves the battlefield while a player is still
+  // choosing who stays on it and who marches on.
+  if (pendingPrompt(state)) return;
 
   const portalling = new Set(state.portals.map((p) => p.uid));
 
@@ -797,13 +1013,14 @@ function beginCleanup(state: GameState): void {
       } else {
         const where = salvageDestination(state, getUnit(unit.cardId));
         const owner = state.players[unit.owner];
+        const cards = [card, ...unit.stack];
         if (where === "deckBottom") {
-          owner.unitDeck.push(card);
+          owner.unitDeck.push(...cards);
           log(state, `${getUnit(unit.cardId).name} a pakli aljára kerül.`, unit.owner);
         } else if (where === "hand") {
-          owner.unitHand.push(card);
+          owner.unitHand.push(...cards);
         } else {
-          owner.discard.push(card);
+          owner.discard.push(...cards);
         }
       }
     }
@@ -895,6 +1112,8 @@ function finishCleanup(state: GameState): void {
   }
 
   state.locationIndex += 1;
+  state.fieldChosen = false;
+  state.chain = null;
   state.phase = "units";
   state.turn = state.locations[state.locationIndex].broughtBy;
   state.turnActions = { unitPlayed: false, spellPlayed: false };
@@ -905,7 +1124,88 @@ function finishCleanup(state: GameState): void {
   );
   landPortals(state);
   applyLocationStart(state);
+  // 12.2: the veterans come first, then the garrisons their owners may call in,
+  // and on each list the player who brought this battlefield goes first.
+  const bringer = state.locations[state.locationIndex].broughtBy;
+  const rank = (r: { kind: string; owner: PlayerId }): number =>
+    (r.kind === "veteran" ? 0 : 2) + (r.owner === bringer ? 0 : 1);
+  state.arrivals = [...state.reserves].sort((a, b) => rank(a) - rank(b)).map((r) => r.uid);
   settle(state);
+}
+
+/**
+ * Offers the next waiting veteran or garrison a tile. True when a prompt went
+ * up, which stops everything else until it is answered.
+ *
+ * A veteran that cannot come — it costs more than the keret has left, or there
+ * is no tile for it — is lost (12.2.6). A garrison in the same position simply
+ * stays where it is and may be called another time.
+ */
+function stepArrivals(state: GameState): boolean {
+  while (state.arrivals.length > 0) {
+    if (state.prompts.length > 0) return true;
+    const uid = state.arrivals.shift()!;
+    const reserve = state.reserves.find((r) => r.uid === uid);
+    if (!reserve) continue;
+    const card = getUnit(reserve.cardId);
+    const fits = reserveCost(state, reserve) <= remainingCap(state, reserve.owner);
+    const slots = fits ? emptySlotsOf(state, reserve.owner) : [];
+    if (slots.length === 0) {
+      if (reserve.kind === "veteran") {
+        state.reserves = state.reserves.filter((r) => r.uid !== uid);
+        state.players[reserve.owner].discard.push(
+          { uid: reserve.uid, cardId: reserve.cardId },
+          ...reserve.stack,
+        );
+        log(state, `${card.name} nem fér el ezen a csatatéren, a temetőbe kerül.`, reserve.owner);
+      }
+      continue;
+    }
+    const veteran = reserve.kind === "veteran";
+    askPrompt(state, {
+      kind: "arrive",
+      player: reserve.owner,
+      prompt: veteran
+        ? `${card.name} veteránként érkezik: hova álljon`
+        : `${card.name} helyőrségben áll: hadba hívod`,
+      picking: "slot",
+      slots,
+      min: veteran ? 1 : 0,
+      max: 1,
+      data: { uid },
+      sourceCardId: card.id,
+    });
+    return true;
+  }
+  return false;
+}
+
+/**
+ * 3.4.1: asks whoever lost the last battle which battlefield comes next. False
+ * when there is nothing to choose — one regular battlefield left, or only A
+ * Zóna — and the list simply runs on.
+ */
+function askNextField(state: GameState): boolean {
+  const open = state.locations
+    .map((loc, index) => ({ loc, index }))
+    .filter(({ loc, index }) => index > state.locationIndex && !getLocation(loc.cardId).tiebreaker);
+  if (open.length < 2) return false;
+  const last = state.locations[state.locationIndex];
+  const picker =
+    last.winner === "p1" || last.winner === "p2" ? other(last.winner) : other(last.broughtBy);
+  askPrompt(state, {
+    kind: "pickField",
+    player: picker,
+    prompt: "Melyik csatatér következzen",
+    picking: "option",
+    options: open.map(({ loc, index }) => ({
+      id: String(index),
+      label: `${getLocation(loc.cardId).name} (${SIDE_NAME[loc.broughtBy]} hozta)`,
+    })),
+    min: 1,
+    max: 1,
+  });
+  return true;
 }
 
 /**

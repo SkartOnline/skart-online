@@ -7,7 +7,6 @@ import {
   forwardOf,
   opposedSlot,
   orthogonalNeighbours,
-  sightRoutes,
   slotLabel,
 } from "./grid";
 
@@ -75,59 +74,6 @@ describe("range geometry", () => {
     expect(exposure("p1.F2")).toBe("1/1/1");
     expect(exposure("p1.F1")).toBe("1/1/2");
     expect(exposure("p1.B1")).toBe("2/2/2");
-  });
-});
-
-/**
- * The sight routes, checked against the table in 4.8.8. `sightRoutes` holds
- * geometry only; who blocks is the board's business, so these compare tile
- * lists rather than a yes or no.
- */
-describe("sight routes", () => {
-  const routes = (a: string, b: string) => sightRoutes(a, b).map((r) => [...r].sort());
-
-  it("gives one route inside a row or column and two everywhere else", () => {
-    expect(sightRoutes("p1.F2", "p2.B2")).toHaveLength(1);
-    expect(sightRoutes("p1.F1", "p1.F3")).toHaveLength(1);
-    expect(sightRoutes("p1.F2", "p2.B1")).toHaveLength(2);
-  });
-
-  it("leaves touching tiles clear, corners included", () => {
-    expect(routes("p1.F1", "p2.F1")).toEqual([[]]);
-    for (const route of routes("p1.F2", "p2.F1")) {
-      // The mirror route runs through my own half, so it is always open to me.
-      expect(route.every((s) => s.startsWith("p2.")) || route.every((s) => s.startsWith("p1."))).toBe(
-        true,
-      );
-    }
-  });
-
-  it("routes E1 to their E3 either past their middle or past my own", () => {
-    expect(routes("p1.F1", "p2.F3")).toEqual([
-      ["p2.F1", "p2.F2"],
-      ["p1.F2", "p1.F3"],
-    ]);
-  });
-
-  it("screens their back corner behind the tile in front of it", () => {
-    expect(routes("p1.F1", "p2.B1")).toEqual([["p2.F1"]]);
-    expect(routes("p1.F2", "p2.B1")).toEqual([
-      ["p2.B2", "p2.F2"],
-      ["p1.F1", "p2.F1"],
-    ]);
-  });
-
-  it("covers the corner from an infiltrator with the tile in front and the one beside", () => {
-    expect(routes("p2.F2", "p2.B1")).toEqual([["p2.B2"], ["p2.F1"]]);
-  });
-
-  it("always leaves an enemy front-row tile reachable through my own half", () => {
-    for (const mine of ALL_SLOTS.filter((s) => s.startsWith("p1."))) {
-      for (const front of ["p2.F1", "p2.F2", "p2.F3"]) {
-        const open = sightRoutes(mine, front).some((r) => r.every((s) => s.startsWith("p1.")));
-        expect(open, `${mine} → ${front}`).toBe(true);
-      }
-    }
   });
 });
 

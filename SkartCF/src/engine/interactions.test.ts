@@ -38,6 +38,10 @@ function blankState(locationId = "plazs"): GameState {
     traps: [],
     currentCaster: null,
     portals: [],
+    chain: null,
+    reserves: [],
+    arrivals: [],
+    fieldChosen: false,
     placementCounter: 0,
     promptCounter: 0,
     revealCounter: 0,
@@ -155,12 +159,16 @@ describe("Fejvadász", () => {
 });
 
 describe("Gréta", () => {
-  it("reads the next battlefield and nobody else's", () => {
+  it("reads the units in their hand, and only for the player who placed her", () => {
+    // She used to read the next battlefield; since 3.4 turned the battlefields
+    // face up and let the loser pick, there is nothing left there to read.
     const state = blankState();
+    state.players.p2.unitHand = [{ uid: "u1", cardId: "ogre" }];
     fireBelepo(state, put(state, "greta", "p1", "p1.F1"));
     const reveal = state.reveals.at(-1);
     expect(reveal?.player).toBe("p1");
-    expect(reveal?.cardIds).toEqual(["malom"]);
+    expect(reveal?.cardIds).toEqual(["ogre"]);
+    expect(redact(state, "p2").reveals).toHaveLength(0);
   });
 });
 

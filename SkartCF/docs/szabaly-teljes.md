@@ -20,13 +20,13 @@ A 3. fejezet kivételével a szabályok nem időrendben állnak, hanem tárgykö
 
 1.2.2 A csaták száma hat. Ha ezek után az állás egyenlő, sorra kerül A Zóna is.
 
-1.2.3 A csatatérlapok sorrendje az előkészületkor dől el, és ettől kezdve rögzített. Lapszöveg megváltoztathatja.
+1.2.3 Az első csatateret sorsolás jelöli ki. Minden további csatateret az előző csata vesztese választ ki (3.4).
 
 ### 1.3 A győzelem
 
-1.3.1 Egy csatateret az a játékos szerzi meg, akinek az összesítéskor nagyobb az összereje. Az összesítés szabályait a 11. fejezet írja le.
+1.3.1 Egy csatateret az a játékos szerzi meg, akinek az összesítéskor nagyobb az összege (11. fejezet), vagy akinek az ellenfele visszavonult (6.7).
 
-1.3.2 Ha a két összerő egyenlő, a csatateret egyik játékos sem szerzi meg, és az a csatatér egyik játékos állásába sem számít bele.
+1.3.2 Ha a két összeg egyenlő, és az oszlopok sem döntenek (11.3), a csatateret egyik játékos sem szerzi meg, és az a csatatér egyik játékos állásába sem számít bele.
 
 1.3.3 A hat csata után az nyer, aki több csatateret szerzett meg.
 
@@ -54,9 +54,9 @@ A 3. fejezet kivételével a szabályok nem időrendben állnak, hanem tárgykö
 
 ### 1.5 Nyilvános és rejtett információ
 
-1.5.1 Nyilvános a csatatéren álló felfordított egységek minden adata, a kijátszott varázslatok, a temetők tartalma, a paklik lapszáma, a hat csatatérlap és az addigi állás.
+1.5.1 Nyilvános a csatatéren álló felfordított egységek minden adata, az, hogy melyik egység fordult már el (8.3.6), a kijátszott varázslatok, a temetők tartalma, a paklik lapszáma, a hat csatatérlap és a sorrendjük, az addigi állás, valamint a helyőrségek és a veteránok (12.12).
 
-1.5.2 Rejtett a kézben tartott lapok, a paklik sorrendje, a rejtett egységek azonossága, a fókuszban álló varázslat azonossága, és a csatatérlapok sorrendje a felfordításig.
+1.5.2 Rejtett a kézben tartott lapok, a paklik sorrendje, a rejtett egységek azonossága, a fókuszban álló varázslat azonossága,.
 
 1.5.3 Az elköltött és a maradék költségkeret nem nyilvános adat, mert a rejtett egységek költsége is beleszámít. Mindkét játékos maga tartja számon a sajátját. Amit az ellenfeled keretéről leolvashatsz, az mindig alsó becslés: a felfordítva letett egységek költsége, azoké is, amelyek már elestek (6.4.3).
 
@@ -74,7 +74,7 @@ A 3. fejezet kivételével a szabályok nem időrendben állnak, hanem tárgykö
 
 2.1.2 A jobb alsó sarokban az alaperő áll. Ebből indul ki az egység erejének kiszámítása.
 
-2.1.3 A bal alsó sarokban a varázserő áll, iskolánként egy jellel és egy számmal. Ez az a készlet, amelyből az egység varázsolni tud.
+2.1.3 A bal alsó sarokban a varázserő áll, iskolánként egy jellel és egy számmal. Ennyi az összköltsége azoknak a varázslatoknak, amelyeket az egység egy körben kijátszhat (8.3).
 
 2.1.4 A típussor a laptípust, utána a ritkaságot, végül az eredetet, a rendet és a további kulcsszavakat sorolja fel.
 
@@ -124,11 +124,17 @@ A 3. fejezet kivételével a szabályok nem időrendben állnak, hanem tárgykö
 
 3.2 Mindkét játékos három csatatérlapot hoz. Ugyanaz a csatatér mindkét játékosnál szerepelhet, ilyenkor kétszer kerül sorra.
 
-3.3 Mindkét játékos képpel felfelé kiteszi a három csatatérlapját. A hat csatatér ettől kezdve a játék végéig nyilvános, tehát mindenki tudja, milyen harcok jönnek.
+3.3 Mindkét játékos képpel felfelé kiteszi a három csatatérlapját. A hat csatatér ettől kezdve a játék végéig nyilvános.
 
-3.4 A hat lapot ezután lefordítva összekeverik, és egy sorba rakják. Csak a sorrend marad rejtett.
+3.4 A hat lapot lefordítva össze kell keverni, és egyet ki kell húzni közülük: ez lesz az első csatatér. A többi öt lap képpel felfelé az asztalon marad.
 
-3.5 A Zóna a sor végére kerül. Ha a hat csata után nincs egyenlőség, sosem fordul fel.
+3.4.1 Minden csata után a vesztes választja ki a következő csatateret a még le nem játszottak közül. Ha a csatateret senki nem szerezte meg, az választ, aki azt a csatateret nem hozta.
+
+3.4.2 A választás a leszerelés végén történik (12.10).
+
+3.4.3 Ha már csak egy csatatér maradt, nincs mit választani: az következik.
+
+3.5 A Zóna nem kerül a többi közé, és nem lehet választani. Csak akkor jön, ha a hat csata után egyenlő az állás.
 
 3.6 Mindkét játékos megkeveri mindkét paklijat, majd öt egységlapot és öt varázslatlapot húz. Kezdőkéz-csere nincs.
 
@@ -188,7 +194,7 @@ A 3. fejezet kivételével a szabályok nem időrendben állnak, hanem tárgykö
 
 4.5.3 Minden mező távolsága önmagától nulla.
 
-4.5.4 A távolságot a mezők foglaltsága nem befolyásolja. Azt, hogy a varázslat átér-e a közbeeső egységeken, a rálátás dönti el (4.8), nem a távolság.
+4.5.4 A távolságot a mezők foglaltsága nem befolyásolja. A közbeeső egységek nem állják útját a varázslatnak (4.7.4).
 
 4.5.5 A távolság és a szomszédosság két külön dolog. A távolság számol az átlóval, a szomszédosság nem. A szomszédos vagy átlósan érintkező mezőkre hivatkozó lapszövegeket ezért mindig a 4.2 és a 4.3 szerint kell érteni, függetlenül attól, mekkora távolságot mérnél. A mozgás is a szomszédosságot követi: az egység a vele közös élű mezőre lép át, nem átlósan.
 
@@ -225,78 +231,23 @@ Az alábbi táblázat a saját térféleden belüli távolságokat adja meg.
 
 4.7.3 A hatótávot mindig annak az egységnek a mezőjétől kell mérni, amelyik a varázslatot kijátssza.
 
-4.7.4 A hatótáv önmagában nem elég. A célponthoz rálátás is kell (4.8).
+4.7.4 A hatótávon belül minden egység elérhető: a csatatéren álló egységek nem takarják el egymást. Kivétel a Testőr (9.3.2) és minden olyan lap, amely kifejezetten célozhatatlanná tesz.
 
 ### 4.8 Rálátás
 
-4.8.1 A varázslat célpontjának a varázslótól rálátásban kell lennie, kivéve ha a varázslat szövege mást mond.
+4.8.1 Rálátás nincs. A varázslathoz csak hatótáv kell (4.7).
 
-4.8.2 Két mező között egy vagy két útvonal fut. Az útvonalak a mezők oldalfelező pontjait kötik össze, a sarkokat pedig soha nem vesszük figyelembe. Azonos sorban vagy azonos oszlopban álló mezők között egy útvonal van, minden más esetben kettő.
+### 4.9 Élharcos
 
-4.8.3 Az útvonal elzárt, ha olyan mezőn halad át, amelyen a varázsló ellenfelének egysége áll.
+4.9.1 Minden oszlopban mindkét játékosnak legfeljebb egy élharcosa van: az az egysége, amelyik az oszlopban legelöl áll. Ez rendszerint az első sorbeli egység, és ha az első sorbeli mező üres, a mögötte álló.
 
-4.8.4 A saját egységeid soha nem zárják el a saját útvonalaidat, és a célpont mezője sem számít elzárásnak.
+4.9.2 Az élharcos nem rögzített. Ha az első sorbeli egység elesik vagy elmozdul, a mögötte álló azonnal élharcossá válik.
 
-4.8.5 Rálátás akkor van, ha legalább az egyik útvonal szabad.
+4.9.3 A rejtett egység is lehet élharcos. Az összesítéskor már fel van fordítva.
 
-4.8.6 A rálátás nem kölcsönös. Mindkét játékos a maga szemszögéből vizsgálja, mert csak a másik játékos egységei zárnak el, ezért ugyanaz a mezőpár az egyik irányban szabad lehet, a másikban nem.
+4.9.4 Aki nem élharcos, az támogató. A támogató minden képessége él, varázsolhat, és célpont is lehet, de az ereje nem számít bele az összegbe, hacsak nem Távolsági (9.3.1).
 
-4.8.7 A rejtett egység ugyanúgy elzárja az útvonalat, mint a felfordított.
-
-4.8.8 Az útvonalakat az alábbi két táblázat adja meg. A prefix nélküli mezők a varázsló térfelén állnak, az ő-vel jelöltek az ellenfelén. Az itt fel nem sorolt mezőpárok között mindkét útvonal szabad. Ahol a második útvonal helyén gondolatjel áll, ott egyetlen útvonal van.
-
-Varázsló a saját térfelén, célpont az ellenfél térfelén:
-
-| Varázsló | Célpont | 1. útvonal | 2. útvonal |
-|---|---|---|---|
-| E1 | ő E2 | ő E1 | E2 |
-| E1 | ő E3 | ő E1, ő E2 | E2, E3 |
-| E1 | ő H1 | ő E1 | — |
-| E1 | ő H2 | ő H1, ő E1 | ő E2, E2 |
-| E1 | ő H3 | ő H2, ő E1, ő E2 | ő E2, ő E3, E2 |
-| E2 | ő E1 | ő E2 | E1 |
-| E2 | ő E3 | ő E2 | E3 |
-| E2 | ő H1 | ő H2, ő E2 | ő E1, E1 |
-| E2 | ő H2 | ő E2 | — |
-| E2 | ő H3 | ő H2, ő E2 | ő E3, E3 |
-| E3 | ő E1 | ő E2, ő E3 | E1, E2 |
-| E3 | ő E2 | ő E3 | E2 |
-| E3 | ő H1 | ő H2, ő E2, ő E3 | ő E1, ő E2, E2 |
-| E3 | ő H2 | ő H3, ő E3 | ő E2, E2 |
-| E3 | ő H3 | ő E3 | — |
-| H1 | ő E1 | E1 | — |
-| H1 | ő E2 | ő E1, E1 | E2, H2 |
-| H1 | ő E3 | ő E2, E1, E2 | E2, E3, H2 |
-| H1 | ő H1 | ő E1, E1 | — |
-| H1 | ő H2 | ő H1, ő E1, E1 | ő E2, E2, H2 |
-| H1 | ő H3 | ő H2, ő E2, E1, E2 | ő E2, ő E3, E2, H2 |
-| H2 | ő E1 | ő E2, E2 | E1, H1 |
-| H2 | ő E2 | E2 | — |
-| H2 | ő E3 | ő E2, E2 | E3, H3 |
-| H2 | ő H1 | ő H2, ő E2, E2 | ő E1, E1, H1 |
-| H2 | ő H2 | ő E2, E2 | — |
-| H2 | ő H3 | ő H2, ő E2, E2 | ő E3, E3, H3 |
-| H3 | ő E1 | ő E2, E2, E3 | E1, E2, H2 |
-| H3 | ő E2 | ő E3, E3 | E2, H2 |
-| H3 | ő E3 | E3 | — |
-| H3 | ő H1 | ő H2, ő E2, E2, E3 | ő E1, ő E2, E2, H2 |
-| H3 | ő H2 | ő H3, ő E3, E3 | ő E2, E2, H2 |
-| H3 | ő H3 | ő E3, E3 | — |
-
-Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor számítanak, ha ellenséges egység áll az adott térfélen:
-
-| Varázsló | Célpont | 1. útvonal | 2. útvonal |
-|---|---|---|---|
-| E1 | E3 | E2 | — |
-| E1 | H2 | H1 | E2 |
-| E1 | H3 | H1, H2 | E2, E3 |
-| E2 | H1 | H2 | E1 |
-| E2 | H3 | H2 | E3 |
-| E3 | H1 | H2, H3 | E1, E2 |
-| E3 | H2 | H3 | E2 |
-| H1 | H3 | H2 | — |
-
-4.8.9 A rálátás csak a varázslatok célzására vonatkozik. A képességek hatóköre (szomszédos, átlósan érintkező, szemközti, oszlop) rálátástól független.
+4.9.5 Az élharcos és a támogató nem kulcsszó, hanem helyzet. Ahol egy lap „élharcosod”-ról beszél, mindig az éppen élharcosként álló egységeidet kell érteni.
 
 ---
 
@@ -306,7 +257,9 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 5.1.1 a csatatérlap felfordítása (5.2);
 
-5.1.2 gyülekezés (6. fejezet);
+5.1.1.1 a veteránok és a hadba hívott helyőrségek érkezése (12.12);
+
+5.1.2 gyülekezés (6. fejezet), amely visszavonulással is véget érhet (6.7);
 
 5.1.3 Mustra (7. fejezet);
 
@@ -342,9 +295,9 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 ### 6.2 A kör tartalma
 
-6.2.1 A körödben két dolog közül választhatsz: leteszel egy egységet, vagy befejezed a gyülekezést.
+6.2.1 A körödben három dolog közül választhatsz: leteszel egy egységet, befejezed a gyülekezést, vagy visszavonulsz (6.7).
 
-6.2.2 A kör kihagyására nincs mód. Ha nem teszel le egységet, csak a gyülekezés befejezése marad.
+6.2.2 A kör kihagyására nincs mód. Ha nem teszel le egységet, a befejezés vagy a visszavonulás marad.
 
 6.2.3 Az egység letétele lezárja a körödet. Ugyanabban a körben már nem teszel le másik egységet, és nem fejezheted be a gyülekezést.
 
@@ -365,6 +318,14 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 6.3.5 A csatatérlap letilthat mezőket. A letiltott mező a csata végéig üresen marad, és semmilyen hatás nem tehet rá egységet.
 
 6.3.6 A felfordítva letett egység Belépője azonnal elsül, ahogy azt a 10.1 leírja.
+
+6.3.7 A Falka egységet egy felfordítva álló, ugyanilyen nevű saját egységed tetejére is leteheted. Ez ugyanúgy egy letétel: lezárja a körödet, és a lap költsége terheli a keretedet. Halomra rejtve letenni nem lehet, és a halomra tett lap Belépője nem sül el.
+
+6.3.7.1 A halom egyetlen egység. Az alapereje a benne lévő lapok alaperejének összege, a szövege egyszer érvényes, a sebzés, a gyűrű és a ráhelyezett lap pedig az egész halomé.
+
+6.3.7.2 Ha egy lap egységeket számol, a halom annyinak számít, ahány lap van benne.
+
+6.3.7.3 A halom együtt mozog, és együtt esik el. Ha elesik, minden lapja a temetőbe kerül.
 
 ### 6.4 A költségkeret
 
@@ -418,6 +379,20 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 6.6.5 A gyülekezés akkor ér véget, amikor mindkét játékos befejezte.
 
+### 6.7 Visszavonulás
+
+6.7.1 A saját körödben egység letétele vagy a befejezés helyett visszavonulhatsz. Aki már befejezte a gyülekezést, nem vonulhat vissza.
+
+6.7.2 Aki visszavonul, elveszti a csatateret, és a csata azonnal véget ér. Nincs Mustra, nincs csatafázis, nincs összesítés, és sem Diadal, sem Vigasz nem sül el.
+
+6.7.3 A visszavonuló minden csatatéren álló egysége visszakerül a kezébe, a rejtettek is. A rajtuk lévő gyűrűk, sebzések és lapok megszűnnek. Ami a gyülekezés alatt elesett, a temetőben marad.
+
+6.7.4 A visszavonuló keze így több lapot is tarthat, mint a kézkerete. A fölösleget a leszereléskor kell eldobnia, és ő választja ki, mi megy (12.6.3).
+
+6.7.5 A visszavonuló nem küldhet veteránt a következő csatába. A győztes ugyanúgy hagyhat helyőrséget, mint bármelyik másik csata után (12.12).
+
+6.7.6 A visszavonuló a csata vesztese, tehát ő választja a következő csatateret (3.4.1).
+
 ---
 
 ## 7. Mustra
@@ -456,21 +431,21 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 8.1.1 A csatafázist a 7.10 szerinti játékos kezdi.
 
-8.1.2 A játékosok felváltva következnek, körönként egy varázslattal.
+8.1.2 A játékosok felváltva következnek. Egy körben egyetlen egységed varázsol, de az akár több varázslatot is kijátszhat egymás után (8.3.5).
 
 8.1.3 Ha az egyik játékos befejezte a csatafázist, a másik egyedül folytatja.
 
 ### 8.2 A kör tartalma
 
-8.2.1 A körödben három dolog közül választhatsz: kijátszol egy varázslatot, befejezel egy megkezdett Mesteri varázslatot, vagy befejezed a csatafázist.
+8.2.1 A körödben három dolog közül választhatsz: varázsolsz valamelyik egységeddel, befejezel egy megkezdett Mesteri varázslatot, vagy befejezed a csatafázist.
 
-8.2.2 A kör kihagyására itt sincs mód. Ha nem játszol ki varázslatot, csak a csatafázis befejezése marad.
+8.2.2 A kör kihagyására itt sincs mód. Ha nem varázsolsz, csak a csatafázis befejezése marad.
 
-8.2.3 A varázslat kijátszása lezárja a körödet, akkor is, ha a varázslat végül nem ért el semmit.
+8.2.3 A köröd akkor zárul le, amikor a varázslód befejezi a varázsláncot (8.3.5), akkor is, ha a varázslatai végül nem értek el semmit.
 
 8.2.4 A kijátszott varázslat azonnal és teljesen lefut. Az ellenfél nem tud közbevágni, és nem tud rá válaszul varázsolni.
 
-8.2.5 Miután a köröd lezárult, feltöltöd a varázslatkezed a kézkeretedig. A Mesteri varázslat ára is a kezedből ment el (8.6), tehát az is visszatöltődik.
+8.2.5 Minden kijátszott varázslat után feltöltöd a varázslatkezed a kézkeretedig. A Mesteri varázslat ára is a kezedből ment el (8.6), tehát az is visszatöltődik.
 
 ### 8.3 Kijátszás és fizetés
 
@@ -478,19 +453,31 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 8.3.2 A Mesteri varázslatnál a varázslót és a célpontot a befejezéskor kell megnevezni, mert a hatás akkor fut le.
 
-8.3.3 Az egység akkor tudja kifizetni a varázslatot, ha a lap valamelyik iskolájából legalább a varázslat költségének megfelelő szabad varázsereje van.
+8.3.3 Az egység akkor tudja kifizetni a varázslatot, ha a lap valamelyik iskolájából legalább akkora a varázsereje, mint a varázslat költsége.
 
-8.3.4 A teljes költséget egyetlen iskolából kell fizetni. Két iskola számai akkor sem adódnak össze, ha ugyanazon a lapon állnak.
+8.3.4 A teljes költséget egyetlen iskolából kell fizetni. Két iskola számai akkor sem adódnak össze, ha ugyanazon a lapon állnak, és két különböző egység varázsereje sem adódik össze.
 
-8.3.5 Két különböző egység varázsereje sem adódik össze.
+8.3.5 Varázslánc. Az egység a körödben több varázslatot is kijátszhat egymás után, amíg a varázsereje kitart. A lánc varázslatainak együttes költsége nem lehet több a varázserejénél, és mindet ugyanabból az iskolából kell fizetni, amelyikből az első varázslatot fizette.
 
-8.3.6 A kifizetett varázserő a csata hátralévő részére elfogy annál az egységnél és abban az iskolában.
+8.3.5.1 A lánc minden varázslata teljesen lefut, mielőtt a következőt kijátszanád. A következő varázslatot és a célpontját csak ekkor kell eldöntened.
+
+8.3.5.2 A láncot bármikor abbahagyhatod. Ha a varázslód már semmit nem tud kifizetni, a lánc magától véget ér.
+
+8.3.5.3 Láncban Mesteri varázslatot elkezdeni nem lehet. Egy már megkezdett Mesterit viszont a lánc lezárhat (8.6.3).
+
+8.3.6 Elfordulás. Amikor a lánc véget ér, a varázsló elfordul. Az elfordult egység ebben a csatában többet nem varázsol, egyik iskolájából sem. Ezen kívül semmi nem változik rajta: az ereje, a képességei és a helye ugyanaz marad.
+
+8.3.6.1 A varázserő tehát nem fogyó készlet. Csak azt kell számon tartani, melyik egység fordult már el.
+
+8.3.6.2 Ha egy lap ingyenes varázslatokat ad, az egység addig nem fordul el, amíg mindet fel nem használta.
 
 8.3.7 A varázslat költségét a csatatérlap és a lapszövegek módosíthatják. Fizetni a módosított költséget kell.
 
 8.3.8 A költséget mindig a megnevezett varázslóra kell kiszámolni, mert egyes módosítók attól függenek, ki varázsol.
 
-8.3.9 Ha egy lap ingyenes varázslást ad, a varázslat költsége semelyik készletből nem kerül levonásra, a varázslót viszont ilyenkor is meg kell nevezni.
+8.3.9 Ha egy lap ingyenes varázslást ad, a varázslat költsége nem számít bele a lánc összköltségébe, a varázslót viszont ilyenkor is meg kell nevezni.
+
+8.3.10 Ha egy hatás csökkenti egy egység varázserejét, az a csökkentett számmal varázsol a csata végéig.
 
 ### 8.4 Célzás
 
@@ -500,7 +487,7 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 8.4.2.1 a varázsló mezőjétől mért távolsága nem nagyobb a varázslat hatótávjánál;
 
-8.4.2.2 a varázslónak rálátása van rá a 4.8 szerint;
+8.4.2.2 ha a varázslat ellenséges egységre szól, az ott álló egység előtt nem áll Testőr (9.3.2);
 
 8.4.2.3 megfelel a varázslat oldalmegkötésének, tehát annak, hogy ellenséges, szövetséges vagy saját egységre szól-e;
 
@@ -540,9 +527,9 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 8.6.1 A Mesteri fokozatú varázslat kijátszása két kört vesz igénybe.
 
-8.6.2 Az első körben a lap lefordítva a fókuszodba kerül, és a köröd véget ér. Ekkor semmi nem történik, és az ellenfél is csak annyit tud meg, hogy Mesteri varázslat készül.
+8.6.2 Az első körben a lap lefordítva a fókuszodba kerül, és a köröd véget ér. Ekkor semmi nem történik, és az ellenfél is csak annyit tud meg, hogy Mesteri varázslat készül. Elkezdeni csak akkor lehet, ha van olyan egységed, amelyik ki tudná fizetni.
 
-8.6.3 A következő körödben egyetlen dolgot tehetsz: befejezed a Mesteri varázslatot. Sem másik varázslat, sem a csatafázis befejezése nem választható helyette.
+8.6.3 A következő körödben be kell fejezned a Mesteri varázslatot, és a csatafázist sem fejezheted be helyette. Az az egység, amelyik befejezi, előtte más varázslatokat is kijátszhat ugyanabban a láncban, ha a varázsereje a Mesterire is kitart. A Mesteri befejezése lezárja a láncot.
 
 8.6.4 A befejezés ára egy másik varázslatlap, amelyet a kezedből a temetődbe dobsz.
 
@@ -582,19 +569,17 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 9.2.1.1 alaperő;
 
-9.2.1.2 a pozíciós kulcsszó bónusza;
+9.2.1.2 a csatatérlap erőmódosítói;
 
-9.2.1.3 a csatatérlap erőmódosítói;
+9.2.1.3 az egység saját statikus képességei;
 
-9.2.1.4 az egység saját statikus képességei;
+9.2.1.4 a más egységektől kapott aurák;
 
-9.2.1.5 a más egységektől kapott aurák;
+9.2.1.5 a ráhelyezett lapok erőmódosítói;
 
-9.2.1.6 a ráhelyezett lapok erőmódosítói;
+9.2.1.6 a gyűrűk;
 
-9.2.1.7 a gyűrűk;
-
-9.2.1.8 a varázslatokból és képességekből származó egyszeri erőmódosítások.
+9.2.1.7 a varázslatokból és képességekből származó egyszeri erőmódosítások.
 
 9.2.2 Ha egy hatás azt mondja, hogy az egység ereje nem eshet az alaperő alá, ezt a számolás végén kell alkalmazni.
 
@@ -604,15 +589,15 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 9.2.5 Ha egy lap alaperőt mond, alaperőt kell nézni, ha pedig erőt mond, az aktuális erőt. A kettőt sosem szabad felcserélni.
 
-### 9.3 Pozíciós kulcsszavak
+### 9.3 Kulcsszavak
 
-9.3.1 A Közelharcos kulcsszavú egység az első sorban egy erővel többet ér.
+9.3.1 Távolsági. A Távolsági egység a saját hátsó sorából is beleszámít az összegbe, akkor is, ha áll előtte egység. Erőt nem kap érte.
 
-9.3.2 A Távolsági kulcsszavú egység a hátsó sorban két erővel többet ér.
+9.3.2 Testőr. Amíg a Testőr egység az első sorban áll, a közvetlenül mögötte álló szövetségesét az ellenfél nem célozhatja meg varázslattal. A rejtett Testőr nem véd, és az sem, akinek a képességei le vannak tiltva.
 
-9.3.3 A bónusz csak a kulcsszóhoz tartozó sorban jár. A másik sorban az egység nem kapja meg, de nem is veszít semmit.
+9.3.3 Falka. A Falka egység egy ugyanilyen nevű saját egységed tetejére is letehető, és a kettő egy halommá válik (6.3.7).
 
-9.3.4 A csatatérlap kikapcsolhatja valamelyik pozíciós bónuszt.
+9.3.4 A csatatérlap kikapcsolhatja bármelyik kulcsszót.
 
 ### 9.4 Gyűrű
 
@@ -732,13 +717,13 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 ## 11. Összesítés
 
-11.1 Mindkét játékos összeadja a csatatéren álló egységeinek aktuális erejét, a csatatér akkori állása szerint.
+11.1 Mindkét játékos összeadja az élharcosai (4.9) aktuális erejét, és hozzáadja a hátsó sorból beleszámító Távolsági egységeiét (9.3.1), a csatatér akkori állása szerint.
 
-11.2 A nagyobb összeg viszi a csatateret. Ha a két összeg egyenlő, a csatateret egyik játékos sem szerzi meg.
+11.2 A nagyobb összeg viszi a csatateret.
 
-11.3 A sebzés nem számít bele az összegbe.
+11.3 Ha a két összeg egyenlő, az nyer, akinek több oszlopban erősebb az élharcosa. Az az oszlop, ahol csak az egyik játékosnak áll egysége, az övé. Ha ez is egyenlő, a csatateret egyik játékos sem szerzi meg.
 
-11.4 A kézben maradt lapok, a temető és a pakli nem számítanak bele az összegbe.
+11.4 A támogatók ereje, a sebzés, a kézben maradt lapok, a temető és a pakli nem számítanak bele az összegbe.
 
 11.5 Az összesítés eredménye rögzül. Ami ezután történik, az a csata kimenetelén már nem változtat.
 
@@ -750,7 +735,9 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 12.1 A leszerelés zárja le a csatát, és készíti elő a következőt.
 
-12.2 A csatatéren maradt egységek a rajtuk lévő lapokkal együtt a tulajdonosuk temetőjébe kerülnek, kivéve azokat, amelyeket egy hatás máshova rendel.
+12.2 A csatatéren maradt egységek a rajtuk lévő lapokkal együtt a tulajdonosuk temetőjébe kerülnek, kivéve a helyőrséget és a veteránt (12.12), valamint azokat, amelyeket egy hatás máshova rendel.
+
+12.2.1 A helyőrséget és a veteránt még a leszerelés előtt, közvetlenül az összesítés után kell kiválasztani.
 
 12.3 A csatában kijátszott varázslatok a tulajdonosuk temetőjébe kerülnek.
 
@@ -770,11 +757,11 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 12.7.1 Az a húzás sem jár hátránnyal, amelyet a kijátszás utáni feltöltés (6.3.4, 8.2.5) nem tudott teljesíteni. A kéz egyszerűen kisebb marad.
 
-12.8 A sebzések, a gyűrűk, a ráhelyezett lapok és minden csatához kötött nyilvántartás megszűnik.
+12.8 A sebzések, a gyűrűk, a ráhelyezett lapok, az elfordulás és minden csatához kötött nyilvántartás megszűnik. Kivétel a helyőrség és a veterán gyűrűje: az megmarad (12.12.4).
 
 12.9 A csatatérlap a megszerzője oldalára kerül, döntetlen esetén pedig félre. Az állás így a játék végéig látszik.
 
-12.10 Ezután a következő csatatérlap fordul fel, hacsak a játék már el nem dőlt.
+12.10 Ezután a vesztes kiválasztja a következő csatateret (3.4.1), és az felfordul, hacsak a játék már el nem dőlt.
 
 ### 12.11 A kézkeret mozgatása
 
@@ -789,6 +776,24 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 12.11.5 Ha egy hatás a kezedből vesz el lapot (nem te dobod el), a kereted annyival csökken. A cserék, ahol ugyanannyi lap érkezik vissza, nem mozdítják a keretet.
 
 12.11.6 Ha a kéz a keret fölé kerül, a tulajdonosa választja ki, mely lapokat dobja el a keretig.
+
+### 12.12 Helyőrség és veterán
+
+12.12.1 Helyőrség. A győztes kiválaszthatja egy állva maradt egységét, hogy a megszerzett csatatéren maradjon. A helyőrség a csatatérlapra kerül, a győztes oldalán.
+
+12.12.2 A helyőrség nincs a csatatéren: nem célozható, nem varázsol, a képességei nem élnek, és az ereje sehol nem számít.
+
+12.12.3 A gazdája bármelyik későbbi csata elején hadba hívhatja. Ilyenkor a helyőrség egy gyűrűt kap, és a veteránokhoz hasonlóan érkezik (12.12.6). Ha nem hívja, a helyőrség a helyén marad, és később is hívható. A csatatérlap a hadba hívás után is a gazdájáé marad.
+
+12.12.4 Veterán. A vesztes kiválaszthatja egy állva maradt egységét, hogy továbbvonuljon. A veterán félre kerül, és a következő csatában érkezik. Ha a csatateret senki nem szerezte meg, mindkét játékos választhat veteránt, helyőrséget pedig egyik sem állíthat.
+
+12.12.5 A helyőrség és a veterán megtartja a gyűrűit. Minden más lekerül róla: a sebzés, a ráhelyezett lapok és a varázslatok hatása.
+
+12.12.6 Érkezés. A csatatér felfordítása után, a gyülekezés előtt előbb a veteránok érkeznek, azután a hadba hívott helyőrségek. Mindkét csoportban a csatatérlapot hozó játékos kezd. A gazda felfordítva leteszi az egységet egy üres mezőjére. A költsége terheli a keretét, a Belépője nem sül el újra.
+
+12.12.7 Ha a veterán költsége nem fér bele a keretbe, vagy nincs szabad mező, a veterán a temetőbe kerül. A helyőrség ilyenkor egyszerűen nem hívható hadba.
+
+12.12.8 A helyőrség és a veterán is a gazdája lapja: ha valaha a temetőbe kerül, az ő temetőjébe kerül.
 
 ---
 
@@ -845,6 +850,12 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 **Belépő.** A letételkor vagy a felfedéskor elsülő, kötelező képesség (10.1).
 
+**Élharcos.** Az oszlopban legelöl álló egységed; csak az ő ereje számít bele az összegbe (4.9).
+
+**Elfordul.** A varázsló, amelyik befejezte a láncát. Ebben a csatában többet nem varázsol (8.3.6).
+
+**Falka.** Kulcsszó: a lap egy ugyanilyen nevű egység tetejére is letehető, és vele egy halmot alkot (6.3.7).
+
 **Csata.** Az egy csatatérlapon folyó küzdelem, a felfordítástól a leszerelésig (5.1).
 
 **Csatatér.** A játékterület, mindkét játékos előtt hat mezővel (2.4.3).
@@ -859,6 +870,8 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 **Gyűrű.** Az egységnek tartósan átadott, tőle elvehetetlen erő (9.4).
 
+**Helyőrség.** A megszerzett csatatéren hagyott egység, amelyet a gazdája később hadba hívhat (12.12).
+
 **Gyülekezés.** Az a fázis, amelyben az egységek a csatatérre kerülnek (6. fejezet).
 
 **Költségkeret.** A csatatérre állított egységek költségének felső határa (6.4).
@@ -869,14 +882,24 @@ Varázsló és célpont ugyanazon a térfélen. Ezek az útvonalak csak akkor sz
 
 **Ráhelyezett lap.** Egységre kijátszott varázslat, amely ott is marad (10.6).
 
-**Rálátás.** Takarásmentes útvonal a varázsló és a célpont mezője között (4.8).
-
 **Rejtett egység.** Lefordítva letett egység (6.5).
 
 **Szomszédos.** Közös élű mezők (4.2).
 
+**Támogató.** Az az egységed, amelyik nem élharcos. Varázsolhat és segíthet, de az ereje nem számít (4.9.4).
+
+**Testőr.** Kulcsszó: az első sorból megvédi a mögötte állót az ellenfél varázslataitól (9.3.2).
+
+**Távolsági.** Kulcsszó: a hátsó sorból is beleszámít az összegbe (9.3.1).
+
+**Veterán.** A vesztes csatából a következőbe továbbvonuló egység (12.12.4).
+
+**Visszavonulás.** A csatatér feladása a gyülekezés alatt; az egységek a kézbe kerülnek (6.7).
+
 **Átlósan érintkező.** Csak sarokban érintkező mezők (4.3).
 
-**Varázserő.** Az egység iskolához kötött, elfogyó készlete, amelyből varázsolni tud (8.3).
+**Varázserő.** Az egység iskolához kötött száma: ennyi lehet egy körben kijátszott varázslatainak együttes költsége (8.3).
+
+**Varázslánc.** Egy egység egymás után kijátszott varázslatai ugyanabban a körben (8.3.5).
 
 **Vigasz.** A csatateret elvesztő játékos állva maradt egységein elsülő képesség (10.3.3).

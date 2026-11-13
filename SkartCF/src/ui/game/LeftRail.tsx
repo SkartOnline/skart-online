@@ -261,14 +261,35 @@ export function TurnCue(props: FieldProps & { moves: Action[]; viewer: PlayerId 
             <span className="phase">{phase}</span>
             {state.phase === "units"
               ? can("declareUnitsDone") && (
+                  <>
+                    <button
+                      className="ember tiny"
+                      onClick={() => send({ type: "declareUnitsDone", player: viewer })}
+                    >
+                      Gyülekezés vége
+                    </button>
+                    {can("retreat") && (
+                      <button
+                        className="tiny"
+                        title="Feladod a csatateret, az egységeid visszakerülnek a kezedbe."
+                        onClick={() => send({ type: "retreat", player: viewer })}
+                      >
+                        Visszavonulás
+                      </button>
+                    )}
+                  </>
+                )
+              : can("endChain")
+                ? (
                   <button
                     className="ember tiny"
-                    onClick={() => send({ type: "declareUnitsDone", player: viewer })}
+                    title="A varázslód elfordul, és az ellenfeled következik."
+                    onClick={() => send({ type: "endChain", player: viewer })}
                   >
-                    Gyülekezés vége
+                    Lánc vége
                   </button>
                 )
-              : can("declareSpellsDone") && (
+                : can("declareSpellsDone") && (
                   <button
                     className="ember tiny"
                     onClick={() => send({ type: "declareSpellsDone", player: viewer })}

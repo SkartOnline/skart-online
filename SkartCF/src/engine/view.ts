@@ -120,6 +120,8 @@ function conceal(unit: UnitInstance): UnitInstance {
     locked: false,
     lockedPower: 0,
     spellSpent: {},
+    tapped: false,
+    stack: [],
     freeCastsUsed: 0,
   };
 }

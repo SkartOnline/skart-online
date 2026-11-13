@@ -36,6 +36,10 @@ function blankState(locationId = "oppidium"): GameState {
     traps: [],
     currentCaster: null,
     portals: [],
+    chain: null,
+    reserves: [],
+    arrivals: [],
+    fieldChosen: false,
     placementCounter: 0,
     promptCounter: 0,
     revealCounter: 0,
@@ -303,7 +307,19 @@ describe("leszerelés, 12.5", () => {
     state = applyAction(state, { type: "declareTossDone", player: second });
     expect(state.phase).toBe("cleanup"); // one down, one to go
     state = applyAction(state, { type: "declareTossDone", player: first });
+    // 3.4.1: the last word of leszerelés is the loser naming the next
+    // battlefield. An empty board is a void, so the player who did not bring
+    // this one chooses.
+    const asking = state.prompts[0];
+    expect(asking?.kind).toBe("pickField");
+    expect(asking?.player).not.toBe(state.locations[state.locationIndex].broughtBy);
+    state = applyAction(state, {
+      type: "answerPrompt",
+      player: asking.player,
+      pick: asking.options![2].id,
+    });
     expect(state.phase).not.toBe("cleanup");
+    expect(state.locationIndex).toBe(1);
   });
 });
 

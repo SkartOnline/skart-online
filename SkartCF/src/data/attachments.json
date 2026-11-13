@@ -3,14 +3,14 @@
     "id": "acelpenge",
     "name": "Acélpenge",
     "powerDelta": 1,
-    "text": "+1 erő, amíg rajta van."
+    "text": "+1 erőt kap."
   },
   {
     "id": "vaskarom",
     "name": "Vaskarom",
     "powerDelta": 1,
     "ring": true,
-    "text": "Gyűrű: +1 erő, amíg rajta van."
+    "text": "+1 gyűrűt kap."
   },
   {
     "id": "indak",
@@ -46,7 +46,7 @@
     "id": "termeszetes_forma",
     "name": "Természetes forma",
     "powerEqualsBase": true,
-    "text": "Az ereje egyenlő az alaperejével, minden mást felülírva."
+    "text": "Az ereje pontosan az alapereje."
   },
   {
     "id": "enormorf",
@@ -64,13 +64,13 @@
     "id": "sarkanypikkelyek",
     "name": "Sárkánypikkelyek",
     "spellImmune": true,
-    "text": "Nem hatnak rá varázslatok."
+    "text": "Nem hat rá varázslat."
   },
   {
     "id": "odu",
     "name": "Odú",
     "untargetableCondition": "isolated",
-    "text": "Amíg nincs mellette szövetséges, nem célozható."
+    "text": "Amíg nincs szomszédos szövetségese, nem lehet varázslattal megcélozni."
   },
   {
     "id": "kopja",
@@ -83,7 +83,7 @@
         "condition": "opposedOccupied"
       }
     ],
-    "text": "Amíg ellenség áll előtte: +1 erő, és nem célozható varázslattal."
+    "text": "Amíg ellenség áll vele szemben, +1 erőt kap, és nem lehet varázslattal megcélozni."
   },
   {
     "id": "falanx",
@@ -95,7 +95,7 @@
         "condition": "frontRow"
       }
     ],
-    "text": "+1 erő az első sorban."
+    "text": "Az első sorban +1 erőt kap."
   },
   {
     "id": "verszomj",
@@ -109,7 +109,7 @@
         "requires": "damaged"
       }
     ],
-    "text": "+1 erő minden sérült ellenség után."
+    "text": "Minden sérült ellenség után +1 erőt kap."
   },
   {
     "id": "halalfelelem",
@@ -121,7 +121,7 @@
         "condition": "isolated"
       }
     ],
-    "text": "-3 erő, amíg nincs vele szomszédos szövetséges."
+    "text": "Amíg nincs szomszédos szövetségese, -3 erőt kap."
   },
   {
     "id": "csordaszellem",
@@ -131,11 +131,11 @@
         "kind": "aura",
         "amount": 1,
         "side": "ally",
-        "scope": "adjacent",
+        "scope": "board",
         "keyword": "Állat"
       }
     ],
-    "text": "Minden szomszédos szövetséges Állat +1 erőt kap."
+    "text": "Minden más szövetséges Állat +1 erőt kap."
   },
   {
     "id": "moral",
@@ -150,11 +150,11 @@
         "kind": "aura",
         "amount": 1,
         "side": "ally",
-        "scope": "adjacent",
+        "scope": "board",
         "keyword": "Harcos"
       }
     ],
-    "text": "Én, és minden szomszédos szövetséges Harcos +1 erőt kap."
+    "text": "Ő és minden szövetséges Harcos +1 erőt kap."
   },
   {
     "id": "egysegben_az_ero",
@@ -170,7 +170,7 @@
         "atLeastCount": 3
       }
     ],
-    "text": "Ha hárman állnak az első sorban, mindannyian +1 erőt kapnak."
+    "text": "Ha hárman állnak az első sorban, mindhárman +1 erőt kapnak."
   },
   {
     "id": "rothadas",
@@ -183,38 +183,38 @@
         "scope": "adjacent"
       }
     ],
-    "text": "Minden szomszédos egység -2 erőt kap."
+    "text": "Minden vele szomszédos egység -2 erőt kap."
   },
   {
     "id": "tisztitas",
     "name": "Tisztítás",
-    "text": "Levett róla egy lapot."
+    "text": "Lekerült róla egy lap."
   },
   {
     "id": "fagypancel",
     "name": "Fagypáncél",
     "damageReduction": 1,
-    "text": "Minden beérkező sebzés 1-gyel kevesebb."
+    "text": "Minden sebzésből 1-gyel kevesebbet kap."
   },
   {
     "id": "pajzs",
     "name": "Pajzs",
     "damageReduction": 2,
-    "text": "Minden beérkező sebzés 2-vel kevesebb."
+    "text": "Minden sebzésből 2-vel kevesebbet kap."
   },
   {
     "id": "nehezvert",
     "name": "Nehézvért",
     "powerDelta": 2,
     "preventsMove": true,
-    "text": "+2 erő, de nem mozoghat."
+    "text": "+2 erőt kap, de nem mozoghat."
   },
   {
     "id": "ven_tolgy",
     "name": "Vén tölgy",
     "powerDelta": 3,
     "preventsMove": true,
-    "text": "+3 erő, de nem mozoghat."
+    "text": "+3 erőt kap, de nem mozoghat."
   },
   {
     "id": "oltalom",
@@ -232,7 +232,7 @@
     "id": "fedezek",
     "name": "Fedezék",
     "untargetableCondition": "backRow",
-    "text": "Amíg a hátsó sorban áll, nem célozható varázslattal."
+    "text": "Amíg a hátsó sorban áll, nem lehet varázslattal megcélozni."
   },
   {
     "id": "verdij",
@@ -255,7 +255,7 @@
   },
   {
     "id": "hydrairha",
-    "name": "Hydrairha",
+    "name": "Hidrairha",
     "statics": [
       {
         "kind": "selfGrant",

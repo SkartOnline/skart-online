@@ -3,7 +3,6 @@ import { BASE_CARD_SET, getLocation, getSpell, getUnit, loadCardSet, validateCar
 import { copyLimit } from "./schema";
 import {
   applyEffect,
-  hasLineOfSight,
   legalDestinations,
   legalTargets,
   makeUnitInstance,
@@ -45,6 +44,10 @@ function blankState(locationId = "oppidium"): GameState {
     traps: [],
     currentCaster: null,
     portals: [],
+    chain: null,
+    reserves: [],
+    arrivals: [],
+    fieldChosen: false,
     placementCounter: 0,
     promptCounter: 0,
     revealCounter: 0,
@@ -84,77 +87,75 @@ function place(state: GameState, cardId: string, slot: SlotId): void {
 
 function noop() {}
 
+/**
+ * Runs leszerelés out: both players say they are done, and whoever lost names
+ * the next battlefield (3.4.1) by taking the first one on offer.
+ */
+function closeCleanup(start: GameState): GameState {
+  let state = start;
+  while (state.phase === "cleanup") {
+    const asking = pendingPrompt(state);
+    state = asking
+      ? applyAction(state, legalActions(state, asking.player)[0])
+      : applyAction(state, { type: "declareTossDone", player: state.turn });
+  }
+  return state;
+}
+
 beforeEach(() => {
   loadCardSet(BASE_CARD_SET);
 });
 
 // ---------------------------------------------------------------------------
-// Chapter 4.8, rálátás
+// 9.3.2, Testőr — what replaced line of sight
 // ---------------------------------------------------------------------------
 
-describe("rálátás", () => {
+describe("Testőr", () => {
   const explar = () => getSpell("explar");
-  const enemyAtRangeTwo = { side: "enemy", range: 2 } as const;
-  const sees = (state: GameState, caster: SlotId, target: SlotId) =>
-    legalTargets(state, enemyAtRangeTwo, caster, "p1", explar()).includes(target);
+  const enemyAtRangeThree = { side: "enemy", range: 3 } as const;
+  const reaches = (state: GameState, caster: SlotId, target: SlotId) =>
+    legalTargets(state, enemyAtRangeThree, caster, "p1", explar()).includes(target);
 
-  it("screens a back corner once both routes are held (4.8.5)", () => {
-    const state = blankState();
-    place(state, "felindori_polgar", "p1.F2");
-    place(state, "felindori_polgar", "p2.B1");
-    expect(sees(state, "p1.F2", "p2.B1")).toBe(true);
-
-    // One route runs past their B2 and F2, the other past their F1.
-    place(state, "felindori_polgar", "p2.F2");
-    expect(sees(state, "p1.F2", "p2.B1")).toBe(true);
-    place(state, "felindori_polgar", "p2.F1");
-    expect(sees(state, "p1.F2", "p2.B1")).toBe(false);
-
-    // Break the wall and the shot opens again, which is the two-card play.
-    state.board["p2.F2"] = null;
-    expect(sees(state, "p1.F2", "p2.B1")).toBe(true);
-  });
-
-  it("never lets your own units block your own line (4.8.4)", () => {
-    const state = blankState();
-    place(state, "felindori_polgar", "p1.F2");
-    place(state, "felindori_polgar", "p1.F1"); // sits on the second route
-    place(state, "felindori_polgar", "p2.F2"); // blocks the first
-    place(state, "felindori_polgar", "p2.B1");
-    expect(sees(state, "p1.F2", "p2.B1")).toBe(true);
-  });
-
-  it("is not mutual (4.8.6)", () => {
+  it("range is the whole of targeting: bodies in the way block nothing", () => {
     const state = blankState();
     place(state, "felindori_polgar", "p1.F2");
     place(state, "felindori_polgar", "p2.F1");
     place(state, "felindori_polgar", "p2.F2");
     place(state, "felindori_polgar", "p2.B1");
-    // Their own wall does not stand in their way.
-    expect(hasLineOfSight(state, "p1.F2", "p2.B1", "p1")).toBe(false);
-    expect(hasLineOfSight(state, "p2.B1", "p1.F2", "p2")).toBe(true);
+    expect(reaches(state, "p1.F2", "p2.B1")).toBe(true);
   });
 
-  it("keeps the enemy front row targetable behind any wall (4.8.8)", () => {
-    const state = blankState();
-    place(state, "felindori_polgar", "p1.B3");
-    for (const slot of ["p2.F1", "p2.F2", "p2.F3", "p2.B1", "p2.B2", "p2.B3"] as SlotId[]) {
-      place(state, "felindori_polgar", slot);
-    }
-    expect(sees(state, "p1.B3", "p2.F1")).toBe(true);
-    expect(sees(state, "p1.B3", "p2.F2")).toBe(true);
-    // The back row behind that wall is another matter.
-    expect(sees(state, "p1.B3", "p2.B2")).toBe(false);
-  });
-
-  it("lets a spell say it does not need the line (4.8.1)", () => {
+  it("shelters the ally directly behind it from the other side's spells", () => {
     const state = blankState();
     place(state, "felindori_polgar", "p1.F2");
-    place(state, "felindori_polgar", "p2.F1");
-    place(state, "felindori_polgar", "p2.F2");
+    place(state, "felindori_kardforgato", "p2.F1");
     place(state, "felindori_polgar", "p2.B1");
-    const blind = { side: "enemy", range: 2, ignoreSight: true } as const;
-    expect(legalTargets(state, blind, "p1.F2", "p1", explar())).toContain("p2.B1");
+    place(state, "felindori_polgar", "p2.B2");
+    expect(reaches(state, "p1.F2", "p2.B1")).toBe(false);
+    // Only the tile behind: the guard itself and the next column stay open.
+    expect(reaches(state, "p1.F2", "p2.F1")).toBe(true);
+    expect(reaches(state, "p1.F2", "p2.B2")).toBe(true);
+  });
+
+  it("does nothing from the back row, face down, or against its own side", () => {
+    const state = blankState();
+    place(state, "felindori_polgar", "p1.F2");
+    place(state, "felindori_kardforgato", "p2.F1");
+    place(state, "felindori_polgar", "p2.B1");
+    state.board["p2.F1"]!.faceDown = true;
+    expect(reaches(state, "p1.F2", "p2.B1")).toBe(true);
+    state.board["p2.F1"]!.faceDown = false;
+    const ally = { side: "ally", range: 3 } as const;
+    expect(legalTargets(state, ally, "p2.B2", "p2", explar())).toContain("p2.B1");
+  });
+
+  it("lets a spell say the Testőr does not help (Villámcsapás)", () => {
+    const state = blankState();
+    place(state, "felindori_polgar", "p1.F2");
+    place(state, "felindori_kardforgato", "p2.F1");
+    place(state, "felindori_polgar", "p2.B1");
+    const bolt = { side: "enemy", range: 3, ignoreGuard: true } as const;
+    expect(legalTargets(state, bolt, "p1.F2", "p1", explar())).toContain("p2.B1");
   });
 });
 
@@ -208,9 +209,7 @@ describe("leszerelés", () => {
   it("is never forced: declaring done keeps every card", () => {
     let state = applyAction(scoreFirst(), { type: "nextLocation" });
     const kept = state.players.p1.unitHand.map((c) => c.uid);
-    while (state.phase === "cleanup") {
-      state = applyAction(state, { type: "declareTossDone", player: state.turn });
-    }
+    state = closeCleanup(state);
     expect(state.phase).toBe("units");
     expect(state.players.p1.unitHand.map((c) => c.uid)).toEqual(expect.arrayContaining(kept));
   });
@@ -224,9 +223,7 @@ describe("leszerelés", () => {
     // 12.5 throws and does not replace: this is the one place in the game where
     // the hand is meant to sit under its level.
     expect(state.players[player].unitHand).toHaveLength(DEFAULT_CONFIG.handSize - 3);
-    while (state.phase === "cleanup") {
-      state = applyAction(state, { type: "declareTossDone", player: state.turn });
-    }
+    state = closeCleanup(state);
     expect(state.phase).toBe("units");
     expect(state.locationIndex).toBe(1);
     expect(state.players[player].unitHand).toHaveLength(DEFAULT_CONFIG.handSize);
@@ -245,9 +242,7 @@ describe("leszerelés", () => {
     // walk into the next battlefield a card over.
     expect(state.players.p1.handLimit.units).toBe(DEFAULT_CONFIG.handSize);
 
-    while (state.phase === "cleanup") {
-      state = applyAction(state, { type: "declareTossDone", player: state.turn });
-    }
+    state = closeCleanup(state);
     expect(state.players.p1.unitHand).toHaveLength(DEFAULT_CONFIG.handSize);
   });
 
@@ -274,9 +269,7 @@ describe("leszerelés", () => {
     let state = applyAction(scoreFirst(), { type: "nextLocation" });
     state.players.p1.unitDeck = [];
     state.players.p1.unitHand = state.players.p1.unitHand.slice(0, 2);
-    while (state.phase === "cleanup") {
-      state = applyAction(state, { type: "declareTossDone", player: state.turn });
-    }
+    state = closeCleanup(state);
     expect(state.players.p1.unitHand).toHaveLength(2);
     expect(state.phase).toBe("units");
   });
@@ -320,7 +313,11 @@ describe("kötelező befejezés", () => {
 
     // One legal move, which is what lets the screen light the button up rather
     // than leaving the player hunting for what they are allowed to do.
-    expect(legalActions(after, "p1")).toEqual([{ type: "declareUnitsDone", player: "p1" }]);
+    // Two, since 6.7: finish, or take the army home. Neither places a card.
+    expect(legalActions(after, "p1")).toEqual([
+      { type: "declareUnitsDone", player: "p1" },
+      { type: "retreat", player: "p1" },
+    ]);
   });
 });
 
@@ -1053,29 +1050,35 @@ describe("költségkeret nyilvánossága", () => {
 // 9.3.1, the front-row keyword is the word the rulebook prints
 // ---------------------------------------------------------------------------
 
-describe("sor szerinti bónusz", () => {
-  it("pays Közelharcos in the front row and Távolsági in the back", () => {
-    // The keyword lived in the engine as the English "Melee" against a rulebook
-    // that says Közelharcos, and no card in the set carries either — so 9.3.1
-    // was unreachable and nothing failed to notice. Pinned against the table
-    // rather than a card, because the card that will one day carry it does not
-    // exist yet and this is the promise made to whoever writes it.
-    expect(POSITIONAL_KEYWORDS).toContainEqual({ keyword: "Közelharcos", row: "F", amount: 1 });
-    expect(POSITIONAL_KEYWORDS).toContainEqual({ keyword: "Távolsági", row: "B", amount: 2 });
-
-    // The difference between the two rows, not the absolute number: Oppidium
-    // rings everything that arrives, and what is being measured here is the row.
+describe("pozíciós kulcsszó", () => {
+  it("leaves no keyword that adds power by row (9.3)", () => {
+    // Közelharcos is out of the rules and Távolsági decides who is counted, not
+    // how much they are worth, so the table of row bonuses is empty on purpose.
+    expect(POSITIONAL_KEYWORDS).toEqual([]);
     const state = blankState("oppidium");
     place(state, "felindori_ijasz", "p1.F1");
     place(state, "felindori_ijasz", "p1.B1");
-    expect(power(state.board["p1.B1"]!, state) - power(state.board["p1.F1"]!, state)).toBe(2);
+    expect(power(state.board["p1.B1"]!, state)).toBe(power(state.board["p1.F1"]!, state));
   });
 
-  it("lets Ködrét switch the back-row bonus off, which is why the bot stands in front there", () => {
+  it("counts a Távolsági unit from behind its own front line (9.3.1)", () => {
+    const state = blankState();
+    place(state, "felindori_polgar", "p1.F1"); // 1
+    place(state, "felindori_ijasz", "p1.B1"); // 3, Távolsági
+    place(state, "felindori_polgar", "p1.F2"); // 1
+    place(state, "ogre", "p1.B2"); // 7, and nobody counts it
+    const counted = ["p1.F1", "p1.B1", "p1.F2"].reduce(
+      (sum, slot) => sum + power(state.board[slot]!, state),
+      0,
+    );
+    expect(boardTotal(state, "p1")).toBe(counted);
+  });
+
+  it("lets Ködrét switch Távolsági off", () => {
     const state = blankState("kodret");
-    place(state, "felindori_ijasz", "p1.F1");
+    place(state, "felindori_polgar", "p1.F1");
     place(state, "felindori_ijasz", "p1.B1");
-    expect(power(state.board["p1.B1"]!, state) - power(state.board["p1.F1"]!, state)).toBe(0);
+    expect(boardTotal(state, "p1")).toBe(power(state.board["p1.F1"]!, state));
   });
 });
 

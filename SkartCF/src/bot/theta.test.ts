@@ -50,6 +50,10 @@ function blankBattle(locationId = "umbra"): GameState {
     traps: [],
     currentCaster: null,
     portals: [],
+    chain: null,
+    reserves: [],
+    arrivals: [],
+    fieldChosen: false,
     placementCounter: 0,
     promptCounter: 0,
     revealCounter: 0,
@@ -169,8 +173,10 @@ describe("Θ on the combos a per-cast score cannot see", () => {
     expect(ids).toContain("kaoszkolera");
     // The debuff has to land before the sweep reads power, and a Mesteri spell
     // takes two turns of its own (8.6.1), so the sweep appears twice: once
-    // channelled, once finished.
-    expect(ids.indexOf("senyvesztes")).toBeLessThan(ids.indexOf("kaoszkolera"));
+    // channelled, once finished. Since 8.3.5.2 the debuff may come between the
+    // two — the caster that finishes a Mesteri may chain in front of it — so
+    // what is pinned is that it lands before the sweep *resolves*.
+    expect(ids.indexOf("senyvesztes")).toBeLessThan(ids.lastIndexOf("kaoszkolera"));
   });
 });
 

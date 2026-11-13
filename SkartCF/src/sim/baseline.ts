@@ -210,7 +210,10 @@ function chooseBattleAction(
     })[0];
   }
 
-  const stop = options.find((a) => a.type === "declareSpellsDone");
+  // Inside a chain (8.3.5) the way to stop is to end it; kész comes a turn later.
+  const stop =
+    options.find((a) => a.type === "declareSpellsDone") ??
+    options.find((a) => a.type === "endChain");
   const casts = options
     .filter((a): a is Extract<Action, { type: "castSpell" }> => a.type === "castSpell")
     .filter((a) => {

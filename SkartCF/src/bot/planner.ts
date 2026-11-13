@@ -429,7 +429,11 @@ export class Planner {
 
     if (plan.casts.length === 0) {
       this.stats.stops += 1;
-      const done = legal.find((a) => a.type === "declareSpellsDone");
+      // Mid-chain there is no kész to declare: the caster stops, and the turn
+      // passes (8.3.5).
+      const done =
+        legal.find((a) => a.type === "declareSpellsDone") ??
+        legal.find((a) => a.type === "endChain");
       return done ?? chooseBaselineAction(state, player, this.params.fallback);
     }
     if (plan.casts.length > 1) this.stats.multiCast += 1;

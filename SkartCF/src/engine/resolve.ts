@@ -22,6 +22,7 @@ import {
   castRingFor,
   currentLocation,
   freeCastsLeft,
+  isMasterSpell,
   remainingSpellpower,
   spellCost,
   spellDamageBonus,
@@ -371,12 +372,73 @@ export function payingSchool(
   spell: SpellCard,
   caster: UnitInstance,
 ): School | "" | null {
+  const chain = state.chain;
+  // 8.3.5: while a chain runs, only its caster casts, and only out of the
+  // school the chain began in.
+  if (chain && chain.player === caster.owner && chain.casterUid !== caster.uid) return null;
+  const locked = chain && chain.casterUid === caster.uid && chain.school !== "" ? chain.school : null;
   const cost = spellCost(spell, state, caster);
+  // 8.3.5.2: a Mesteri waiting to be finished closes the chain, so whoever
+  // casts in front of it has to keep enough back to pay for it, in a school the
+  // Mesteri accepts.
+  const owed = owedMesteri(state, caster.owner, spell);
   for (const school of spell.schools) {
-    if (remainingSpellpower(caster, school, state) >= cost) return school;
+    if (locked && school !== locked) continue;
+    let need = cost;
+    if (owed) {
+      if (!owed.schools.includes(school)) continue;
+      need += spellCost(owed, state, caster);
+    }
+    if (remainingSpellpower(caster, school, state) >= need) return school;
   }
-  if (freeCastsLeft(caster, state) > 0) return "";
+  if (!owed && freeCastsLeft(caster, state) > 0) return "";
   return null;
+}
+
+/**
+ * The Mesteri this player has begun and not finished, when the spell being
+ * weighed is something else. Null while that very Mesteri is the one resolving
+ * — `finishChannel` clears the focus before it casts.
+ */
+function owedMesteri(state: GameState, player: PlayerId, spell: SpellCard): SpellCard | null {
+  const channel = state.channel[player];
+  if (!channel) return null;
+  void spell;
+  return getSpell(channel.cardId);
+}
+
+/**
+ * 8.3.5: can this caster go on? Either a Mesteri is waiting for it to finish,
+ * or something in hand is still castable by it out of the chain's school.
+ */
+export function canContinueChain(state: GameState, player: PlayerId): boolean {
+  const chain = state.chain;
+  if (!chain || chain.player !== player) return false;
+  const caster = unitsOf(state, player).find((u) => u.uid === chain.casterUid);
+  if (!caster) return false;
+  return state.players[player].spellHand.some((c) => {
+    const spell = getSpell(c.cardId);
+    if (isMasterSpell(spell)) return false;
+    return casterIsViable(state, spell, caster.slot);
+  });
+}
+
+/** Can the chain's caster finish the Mesteri its owner has begun? */
+export function canFinishChannel(state: GameState, player: PlayerId): boolean {
+  const channel = state.channel[player];
+  if (!channel) return false;
+  if (state.players[player].spellHand.length === 0) return false;
+  const chain = state.chain;
+  if (!chain || chain.player !== player) return true;
+  const caster = unitsOf(state, player).find((u) => u.uid === chain.casterUid);
+  if (!caster) return false;
+  const spell = getSpell(channel.cardId);
+  const cost = spellCost(spell, state, caster);
+  return spell.schools.some(
+    (school) =>
+      (chain.school === "" || school === chain.school) &&
+      remainingSpellpower(caster, school, state) >= cost,
+  );
 }
 
 /** Would nominating this caster produce a resolvable spell? */
@@ -422,6 +484,17 @@ export function viableCasters(state: GameState, entry: CastEntry): SlotId[] {
   return unitsOf(state, entry.owner)
     .map((u) => u.slot)
     .filter((slot) => casterIsViable(state, spell, slot));
+}
+
+/**
+ * 8.6.2: a Mesteri goes down face up to nobody, and names its caster and its
+ * target only when it is finished (8.6.5). So beginning one asks for less than
+ * casting anything else: some unit of yours that could pay for it, and nothing
+ * about what it would hit. That is what lets a player start a Kegyelemdöfés
+ * and wound its target on the way to finishing it.
+ */
+export function canBeginMesteri(state: GameState, spell: SpellCard, player: PlayerId): boolean {
+  return unitsOf(state, player).some((u) => payingSchool(state, spell, u) !== null);
 }
 
 /**
@@ -594,6 +667,9 @@ function applyCastEntry(state: GameState, entry: CastEntry, spell: SpellCard): v
   // and the points are gone for anything stacked behind this.
   if (school === "") caster.freeCastsUsed += 1;
   else caster.spellSpent[school] = (caster.spellSpent[school] ?? 0) + cost;
+  // 8.3.5: the turn now belongs to this caster and this school until its owner
+  // stops or it runs dry. `settle` decides which once the spell has landed.
+  state.chain = { player: entry.owner, casterUid: caster.uid, school };
 
   // Dionzosz steps in front of his neighbour after the target is picked, so the
   // caster cannot play around it by choosing differently.

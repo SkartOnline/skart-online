@@ -45,15 +45,20 @@ import type {
  * against `rawPower`, the same computation minus that one location effect.
  */
 
-/** Positional keywords, as a table rather than a chain of ifs. */
-export const POSITIONAL_KEYWORDS: { keyword: string; row: "F" | "B"; amount: number }[] = [
-  // Hungarian, like every other word a card can carry. It was `"Melee"` here
-  // and `Közelharcos` in 9.3.1, which made the rule unreachable: no card in the
-  // set has either word, so tagging one with the word the rulebook prints would
-  // have bought it nothing at all.
-  { keyword: "Közelharcos", row: "F", amount: 1 },
-  { keyword: "Távolsági", row: "B", amount: 2 },
-];
+/**
+ * Positional keywords that change a unit's own number. There are none left:
+ * Közelharcos is gone from the rules, and Távolsági no longer adds power — it
+ * decides whether a back-row unit is counted at all (9.3.1, `countsInTotal`).
+ * The table stays because a battlefield may still switch a keyword off by name.
+ */
+export const POSITIONAL_KEYWORDS: { keyword: string; row: "F" | "B"; amount: number }[] = [];
+
+/** The keyword that lets a back-row unit count from behind its own front line. */
+export const RANGED = "Távolsági";
+/** The keyword that shelters whoever stands directly behind. */
+export const GUARD = "Testőr";
+/** The keyword that lets copies of one card share a tile. */
+export const PACK = "Falka";
 
 export function cardOf(unit: UnitInstance): UnitCard {
   return getUnit(unit.cardId);
@@ -435,7 +440,12 @@ export function basePower(unit: UnitInstance): number {
       return Number(ability.value ?? 0);
     }
   }
-  return unit.setPower ?? cardOf(unit).power;
+  return unit.setPower ?? cardOf(unit).power * headcount(unit);
+}
+
+/** How many cards this unit is: one, or the height of its Falka pile (9.3.3). */
+export function headcount(unit: UnitInstance): number {
+  return 1 + (unit.stack?.length ?? 0);
 }
 
 export function costOf(unit: UnitInstance): number {
@@ -446,7 +456,7 @@ export function costOf(unit: UnitInstance): number {
 // Location effects
 // ---------------------------------------------------------------------------
 
-function positionalSuppressed(state: GameState, keyword: string): boolean {
+export function positionalSuppressed(state: GameState, keyword: string): boolean {
   return (currentLocation(state).effects ?? []).some(
     (e) => e.kind === "suppressPositional" && e.keyword === keyword,
   );
@@ -536,8 +546,14 @@ function selfStaticBonus(unit: UnitInstance, state: GameState): number {
           if (requires === "placed" && other.placed.length === 0) return false;
           return true;
         });
+        // 9.3.3: a pile counts as many as it has cards, and the rest of my own
+        // pile are "further" allies of mine when they answer to the same word.
+        let count = matching.reduce((sum, other) => sum + headcount(other), 0);
+        if (keywordMatches(keywordsOf(unit), keyword) && requires === "any") {
+          count += headcount(unit) - 1;
+        }
         const atLeast = Number(ability.atLeast ?? 0);
-        total += atLeast > 0 ? (matching.length >= atLeast ? amount : 0) : amount * matching.length;
+        total += atLeast > 0 ? (count >= atLeast ? amount : 0) : amount * count;
         break;
       }
       case "rowBonus":
@@ -577,7 +593,7 @@ function auraAmountFrom(state: GameState, granter: UnitInstance, unit: UnitInsta
       const crowd = unitsInScope(state, granter, scope, String(ability.side ?? "ally"), true).filter(
         (u) => keywordMatches(keywordsOf(u), keyword),
       );
-      if (crowd.length < atLeastCount) continue;
+      if (crowd.reduce((sum, u) => sum + headcount(u), 0) < atLeastCount) continue;
     }
     amount += Number(ability.amount ?? 0);
   }
@@ -951,6 +967,8 @@ export function canMove(unit: UnitInstance, state: GameState): boolean {
 /** What is left in this unit's school-locked pool. Never pooled across units. */
 export function remainingSpellpower(unit: UnitInstance, school: School, state: GameState): number {
   if (!canCast(unit, state)) return 0;
+  // 8.3.6: a unit that has cast on an earlier turn is spent for the battle.
+  if (unit.tapped) return 0;
   const spent = unit.spellSpent[school] ?? 0;
   return printedSpellpower(unit, school, state) - spent;
 }
@@ -1020,6 +1038,68 @@ export function castingBanned(state: GameState): boolean {
   return allUnitsOnBoard(state).some((u) =>
     staticsOf(u, state).some((a) => a.kind === "banCasting"),
   );
+}
+
+// ---------------------------------------------------------------------------
+// Élharcos (4.9): who counts
+// ---------------------------------------------------------------------------
+
+/**
+ * A column from one player's point of view, from the tile nearest the enemy's
+ * back line to their own: a unit that has pushed across the centreline is
+ * further forward than one that has not.
+ */
+function columnFromFront(player: PlayerId, col: number): SlotId[] {
+  const foe: PlayerId = player === "p1" ? "p2" : "p1";
+  const [ownFront, ownBack] = columnSlotsOf(player, col);
+  const [foeFront, foeBack] = columnSlotsOf(foe, col);
+  return [foeBack, foeFront, ownFront, ownBack];
+}
+
+/**
+ * 4.9.1: the unit of this player standing furthest forward in the column, or
+ * null when they have nobody there. In the ordinary case that is the front-row
+ * unit, and the back-row one when the front tile is empty.
+ */
+export function leadOf(state: GameState, player: PlayerId, col: number): UnitInstance | null {
+  for (const slot of columnFromFront(player, col)) {
+    const unit = state.board[slot];
+    if (unit && unit.owner === player) return unit;
+  }
+  return null;
+}
+
+export function isLead(state: GameState, unit: UnitInstance): boolean {
+  return leadOf(state, unit.owner, colOfSlot(unit.slot))?.uid === unit.uid;
+}
+
+/**
+ * 11.1: does this unit's power go into its owner's sum? An élharcos always; a
+ * Távolsági unit from its own back row as well, unless the battlefield has
+ * switched the keyword off (Ködrét).
+ */
+export function countsInTotal(state: GameState, unit: UnitInstance): boolean {
+  if (isLead(state, unit)) return true;
+  return (
+    hasKeyword(unit, RANGED) &&
+    rowOfSlot(unit.slot) === "B" &&
+    ownerOfSlot(unit.slot) === unit.owner &&
+    !positionalSuppressed(state, RANGED)
+  );
+}
+
+/**
+ * 9.3.2: a Testőr in the front row shelters the ally directly behind it from
+ * the other side's spells. A face-down Testőr shelters nobody, and neither does
+ * one whose abilities have been switched off.
+ */
+export function isGuarded(state: GameState, unit: UnitInstance, caster: PlayerId): boolean {
+  if (unit.owner === caster) return false;
+  if (rowOfSlot(unit.slot) !== "B" || ownerOfSlot(unit.slot) !== unit.owner) return false;
+  const front = frontOfSlot(unit.slot);
+  const guard = front ? state.board[front] : null;
+  if (!guard || guard.owner !== unit.owner || guard.faceDown) return false;
+  return hasKeyword(guard, GUARD) && abilitiesActive(guard, state);
 }
 
 /** Column-facing helper used by Belépő auto-targets and by the UI. */

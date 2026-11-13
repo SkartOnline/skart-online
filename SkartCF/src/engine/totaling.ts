@@ -1,14 +1,35 @@
-import { power, unitsOf } from "./power";
+import { COLS } from "./grid";
+import { countsInTotal, leadOf, power, unitsOf } from "./power";
 import type { GameState, PlayerId } from "./types";
 import { PLAYERS } from "./types";
 
 /**
- * Totaling reads the final board. Sum both sides against the state as it stands
- * after the stack has resolved, then compare. Equal totals: nobody takes it.
+ * Totaling reads the final board (11). Only the units that count are summed:
+ * the élharcos of each column, and a Távolsági unit standing behind one. The
+ * larger sum takes the battlefield; on an equal sum the columns decide (11.3),
+ * and only if those are level too does nobody take it.
  */
 
 export function boardTotal(state: GameState, player: PlayerId): number {
-  return unitsOf(state, player).reduce((sum, u) => sum + power(u, state), 0);
+  return unitsOf(state, player)
+    .filter((u) => countsInTotal(state, u))
+    .reduce((sum, u) => sum + power(u, state), 0);
+}
+
+/**
+ * 11.3: in how many columns this player's élharcos is the stronger. A column
+ * the other side has left empty belongs to whoever is standing in it.
+ */
+export function columnsAhead(state: GameState, player: PlayerId): number {
+  const foe: PlayerId = player === "p1" ? "p2" : "p1";
+  let ahead = 0;
+  for (const col of COLS) {
+    const mine = leadOf(state, player, col);
+    const theirs = leadOf(state, foe, col);
+    if (!mine) continue;
+    if (!theirs || power(mine, state) > power(theirs, state)) ahead += 1;
+  }
+  return ahead;
 }
 
 /**
@@ -18,7 +39,7 @@ export function boardTotal(state: GameState, player: PlayerId): number {
  */
 export function visibleTotal(state: GameState, player: PlayerId): number {
   return unitsOf(state, player)
-    .filter((u) => !u.faceDown)
+    .filter((u) => !u.faceDown && countsInTotal(state, u))
     .reduce((sum, u) => sum + power(u, state), 0);
 }
 
@@ -50,6 +71,10 @@ export function locationWinner(state: GameState): PlayerId | "void" {
   const t = totals(state);
   if (t.p1 > t.p2) return "p1";
   if (t.p2 > t.p1) return "p2";
+  const c1 = columnsAhead(state, "p1");
+  const c2 = columnsAhead(state, "p2");
+  if (c1 > c2) return "p1";
+  if (c2 > c1) return "p2";
   return "void";
 }
 

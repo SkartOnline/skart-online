@@ -113,8 +113,8 @@ export interface TargetSpec {
    * Párbaj, Rozzant gránát, Óriásölő and Idézés all say it.
    */
   adjacent?: boolean;
-  /** 4.8.1: a spell may say it does not need a clear line to its target. */
-  ignoreSight?: boolean;
+  /** 9.3.2: a spell may say a Testőr does not shelter its target (Villámcsapás). */
+  ignoreGuard?: boolean;
   /** Target an empty slot instead of a unit (Idézés, Teleport destinations). */
   emptyOnly?: boolean;
   filter?: TargetFilter;
@@ -239,7 +239,7 @@ export interface UnitCard {
   order?: string;
   /** Faj, what it is: Állat, Bestia, Élettelen, Sárkány. */
   race?: string;
-  /** School-locked pools. No pooling across units, depletes across the stack. */
+  /** School-locked spellpower. Never added across units; the caster is spent after its turn. */
   spellpower: Record<School, number>;
   /** Fires on placement, or at reveal for a face-down unit. Mandatory. */
   belepo?: { effects: Effect[]; target: AutoTargetSpec } | null;
@@ -407,8 +407,21 @@ export interface UnitInstance {
   /** Jéghegy: untargetable, cannot cast, power is exactly `lockedPower`. */
   locked: boolean;
   lockedPower: number;
-  /** Spellpower already spent this location, per school. */
+  /**
+   * Spellpower this unit cannot use, per school. Two things write it: a chain
+   * in progress (8.3.5 — what the caster has paid so far this turn), and
+   * anything that takes spellpower off a unit outright (Mágiacenzor). It is not
+   * a pool that lasts the battle any more: once the turn closes the caster is
+   * `tapped` and the number stops mattering.
+   */
   spellSpent: Record<School, number>;
+  /** 8.3.6: this unit has cast on an earlier turn of this battle and may not again. */
+  tapped: boolean;
+  /**
+   * Falka (9.3.3): the other cards of a pile. A pile is one unit — one tile,
+   * one text, one death — whose printed power is every card's added together.
+   */
+  stack: HandCard[];
   /** A Moirák: free casts already used. */
   freeCastsUsed: number;
   /** Set when the unit arrived via transform, for display only. */
@@ -671,12 +684,45 @@ export interface Portal {
   slot: SlotId;
 }
 
+/**
+ * A unit that outlived its battle and is waiting for another (12.2).
+ *
+ * A veterán belongs to the player who lost: it goes to the very next
+ * battlefield. A helyőrség belongs to the player who won: it stays on the
+ * battlefield it took, and its owner may call it into any later battle, where
+ * it arrives with one more ring. Both keep their rings and nothing else.
+ */
+export interface Reserve {
+  uid: string;
+  cardId: string;
+  owner: PlayerId;
+  rings: number;
+  stack: HandCard[];
+  kind: "veteran" | "garrison";
+  /** A helyőrség: the battlefield card it is standing on. */
+  heldField?: string;
+}
+
+/**
+ * A chain in progress (8.3.5). One unit casts spell after spell out of one
+ * school until its spellpower runs out or its owner stops, and only then does
+ * the turn pass.
+ */
+export interface ChainState {
+  player: PlayerId;
+  casterUid: string;
+  /** `""` while the caster is spending free casts (A Moirák). */
+  school: School | "";
+}
+
 export interface LocationInstance {
   cardId: string;
   broughtBy: PlayerId;
   /** null = still being fought or not reached; "void" = tied, nobody took it. */
   winner: PlayerId | "void" | null;
   totals?: Record<PlayerId, number>;
+  /** 6.7: whoever walked away from this one before the Mustra. */
+  retreatedBy?: PlayerId;
 }
 
 /**
@@ -707,7 +753,12 @@ export interface GameState {
   phase: Phase;
   turn: PlayerId;
   /** One unit per turn in the units phase, one spell per turn in the battle. */
-  turnActions: { unitPlayed: boolean; spellPlayed: boolean };
+  turnActions: {
+    unitPlayed: boolean;
+    spellPlayed: boolean;
+    /** 8.3.5.2: a Mesteri has just been finished, which closes the chain. */
+    closing?: boolean;
+  };
   /** Spells cast this location, in play order. All of them are public. */
   spellsCast: CastEntry[];
   /** A Mesteri spell each player has begun but not yet finished. */
@@ -732,6 +783,14 @@ export interface GameState {
   currentCaster: string | null;
   /** Felix: units owed a place on the next battlefield, outside the cap. */
   portals: Portal[];
+  /** 8.3.5: the caster holding the turn, or null between chains. */
+  chain: ChainState | null;
+  /** 12.2: veterans owed to the next battle and garrisons standing on won fields. */
+  reserves: Reserve[];
+  /** Uids out of `reserves` still to be offered a tile on the battlefield just opened. */
+  arrivals: string[];
+  /** 3.4: the next battlefield has been chosen, so leszerelés may close. */
+  fieldChosen: boolean;
   placementCounter: number;
   promptCounter: number;
   revealCounter: number;
@@ -769,6 +828,10 @@ export type Action =
   | { type: "finishChannel"; player: PlayerId; discardUid: string }
   | { type: "declareUnitsDone"; player: PlayerId }
   | { type: "declareSpellsDone"; player: PlayerId }
+  /** 8.3.5: stop the chain. The caster turns sideways and the turn passes. */
+  | { type: "endChain"; player: PlayerId }
+  /** 6.7: give the battlefield up before the Mustra and take the army home. */
+  | { type: "retreat"; player: PlayerId }
   | { type: "chooseSlot"; player: PlayerId; slot: SlotId }
   | { type: "chooseHandCard"; player: PlayerId; uid: string }
   /** Ends the scored step and opens the leszerelés. */

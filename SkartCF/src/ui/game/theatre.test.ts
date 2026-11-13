@@ -53,6 +53,8 @@ function hide(state: GameState, player: "p1" | "p2", slot: SlotId): void {
     locked: false,
     lockedPower: 0,
     spellSpent: {},
+    tapped: false,
+    stack: [],
     freeCastsUsed: 0,
   };
 }
@@ -256,6 +258,8 @@ describe("the board waits for the beat", () => {
       locked: false,
       lockedPower: 0,
       spellSpent: {},
+      tapped: false,
+      stack: [],
       freeCastsUsed: 0,
     };
     const passed = applyAction(before, { type: "declareUnitsDone", player: before.turn });

@@ -1,16 +1,17 @@
-import { getSpell, getUnit } from "./cards";
+import { getLocation, getSpell, getUnit } from "./cards";
 import {
   applyEffect,
   bumpHandLimit,
   flipCoin,
   isBlocked,
   legalDestinations,
+  makeUnitInstance,
   sweepDead,
   trapSlots,
 } from "./effects";
 import type { EffectContext } from "./effects";
 import { ALL_SLOTS, opponentOf, ownerOfSlot, slotLabel, slotsOf } from "./grid";
-import { cardOf, matchesFilter } from "./power";
+import { cardOf, effectiveCost, matchesFilter } from "./power";
 import { askPrompt, pendingPrompt, promptOptions, promptSatisfied, recordReveal } from "./prompts";
 import { randomInt } from "./rng";
 import type {
@@ -20,6 +21,7 @@ import type {
   PlayerId,
   Portal,
   Prompt,
+  Reserve,
   SlotId,
   SpellCard,
   Trap,
@@ -341,6 +343,59 @@ export const PROMPT_HANDLERS: Record<string, PromptHandler> = {
     sweepDead(state, log);
   },
 
+  /**
+   * 12.2: the winner leaves a unit on the battlefield it took. It steps off the
+   * board with its rings and nothing else — damage and the cards lying on it
+   * stay behind with the battle.
+   */
+  pickGarrison(state, prompt, log) {
+    standDown(state, prompt, "garrison", log);
+  },
+
+  /** 12.2: the loser sends one survivor on to the next battle. */
+  pickVeteran(state, prompt, log) {
+    standDown(state, prompt, "veteran", log);
+  },
+
+  /**
+   * A veteran or a garrison stepping onto the new battlefield. Its cost counts
+   * against the keret, it arrives face up, and its Belépő does not fire again.
+   * A garrison left unanswered stays where it is.
+   */
+  arrive(state, prompt, log) {
+    const uid = String(prompt.data?.uid ?? "");
+    const reserve = state.reserves.find((r) => r.uid === uid);
+    const slot = prompt.chosen[0];
+    if (!reserve || !slot || state.board[slot]) return;
+    const cost = reserveCost(state, reserve);
+    const unit = makeUnitInstance(state, reserve.uid, reserve.cardId, reserve.owner, slot, {
+      order: state.placementCounter++,
+      paidCost: cost,
+    });
+    unit.stack = reserve.stack;
+    unit.rings += reserve.rings + (reserve.kind === "garrison" ? 1 : 0);
+    state.board[slot] = unit;
+    state.players[reserve.owner].capSpent += cost;
+    state.reserves = state.reserves.filter((r) => r.uid !== uid);
+    log(
+      reserve.kind === "garrison"
+        ? `${cardOf(unit).name} elhagyja a helyőrséget, és egy gyűrűvel érkezik ide: ${slotLabel(slot)}.`
+        : `${cardOf(unit).name} veteránként érkezik ide: ${slotLabel(slot)}.`,
+    );
+  },
+
+  /** 3.4.1: the battlefield the loser named moves to the front of the queue. */
+  pickField(state, prompt, log) {
+    const index = Number(prompt.chosen[0]);
+    const next = state.locationIndex + 1;
+    if (Number.isInteger(index) && index > state.locationIndex && index < state.locations.length) {
+      const [chosen] = state.locations.splice(index, 1);
+      state.locations.splice(next, 0, chosen);
+      log(`A következő csatatér: ${getLocation(chosen.cardId).name}.`);
+    }
+    state.fieldChosen = true;
+  },
+
   /** Fuedrax, the second half: which tile it watches. */
   trapSlot(state, prompt, log) {
     const slot = prompt.chosen[0];
@@ -369,6 +424,38 @@ export const PROMPT_HANDLERS: Record<string, PromptHandler> = {
 // ---------------------------------------------------------------------------
 // Traps
 // ---------------------------------------------------------------------------
+
+/** Takes a survivor off the board and writes it down as a veteran or a garrison. */
+function standDown(
+  state: GameState,
+  prompt: Prompt,
+  kind: Reserve["kind"],
+  log: (text: string) => void,
+): void {
+  const slot = prompt.chosen[0];
+  const unit = slot ? state.board[slot] : null;
+  if (!unit || unit.owner !== prompt.player) return;
+  state.board[slot] = null;
+  state.reserves.push({
+    uid: unit.uid,
+    cardId: unit.cardId,
+    owner: unit.owner,
+    rings: unit.rings,
+    stack: unit.stack,
+    kind,
+    heldField: kind === "garrison" ? state.locations[state.locationIndex].cardId : undefined,
+  });
+  log(
+    kind === "garrison"
+      ? `${cardOf(unit).name} helyőrségként a csatatéren marad.`
+      : `${cardOf(unit).name} veteránként továbbvonul a következő csatába.`,
+  );
+}
+
+/** What a waiting unit charges the keret when it arrives: every card of a pile. */
+export function reserveCost(state: GameState, reserve: Reserve): number {
+  return effectiveCost(getUnit(reserve.cardId), state) * (1 + reserve.stack.length);
+}
 
 export function trapAt(state: GameState, slot: SlotId): Trap | null {
   return state.traps.find((t) => t.slot === slot) ?? null;

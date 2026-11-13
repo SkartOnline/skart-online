@@ -9,7 +9,7 @@
         "slots": "F1,F3,B1,B3"
       }
     ],
-    "text": "Szűk vagyok: csak a középső oszlopom járható. Egység csak az E2 és a H2 mezőre kerülhet."
+    "text": "Szűk hely: egység csak a középső oszlopba kerülhet."
   },
   {
     "id": "feketepiac",
@@ -26,7 +26,7 @@
         "exceptKeyword": "Csempész"
       }
     ],
-    "text": "Minden Csempész rejtett. A nem-Csempész egységek elrejtése 2 egységbe kerül."
+    "text": "A Csempészek rejtve érkeznek. Minden más egység elrejtése 2 egységlapba kerül."
   },
   {
     "id": "akaczos",
@@ -41,7 +41,7 @@
         "invert": true
       }
     ],
-    "text": "Az első sorban álló nem-Állat egységek -1 erőt kapnak."
+    "text": "Az első sorban álló egységek -1 erőt kapnak, kivéve az Állatokat."
   },
   {
     "id": "a_pek_hidja",
@@ -53,7 +53,7 @@
         "slots": "F1,F3"
       }
     ],
-    "text": "Az első sor két szélső mezője szakadék (nem kerülhet ide egység)."
+    "text": "Az első sor két szélső mezője szakadék: oda nem kerülhet egység."
   },
   {
     "id": "maguskor",
@@ -66,7 +66,7 @@
         "min": 1
       }
     ],
-    "text": "Minden varázslat költsége 1-gyel kevesebb (de legalább 1)."
+    "text": "Minden varázslat 1-gyel kevesebbe kerül, de legalább 1-be."
   },
   {
     "id": "lingadori_konyvtar",
@@ -80,7 +80,7 @@
         "count": 1
       }
     ],
-    "text": "Mindkét játékos kikereshet egy varázslatot a paklijából és felhúzhatja."
+    "text": "A csata elején mindkét játékos választ egy varázslatot a paklijából, és a kezébe veszi."
   },
   {
     "id": "kikoto",
@@ -94,7 +94,7 @@
         "min": 0
       }
     ],
-    "text": "Minden Kalóz 1 arannyal kevesebbe kerül."
+    "text": "A Kalózok 1-gyel kevesebbe kerülnek."
   },
   {
     "id": "oppidium",
@@ -106,7 +106,7 @@
         "amount": 1
       }
     ],
-    "text": "Minden egység +1 gyűrűt kap, ahogy a csatatérre lép."
+    "text": "Minden egység +1 gyűrűt kap, amikor a csatatérre lép."
   },
   {
     "id": "malom",
@@ -121,7 +121,7 @@
         "mode": "set"
       }
     ],
-    "text": "Mindkét játékos kézkerete 4 lap. A fölösleget te választod ki."
+    "text": "Ebben a csatában mindkét játékos kezében csak 4 egység és 4 varázslat lehet. A fölösleget mindenki maga választja ki."
   },
   {
     "id": "faloda",
@@ -136,7 +136,7 @@
         "mode": "set"
       }
     ],
-    "text": "Mindkét játékos kézkerete 6 lap."
+    "text": "Ebben a csatában mindkét játékos kezében 6 egység és 6 varázslat lehet."
   },
   {
     "id": "kesergo",
@@ -167,7 +167,7 @@
         "keyword": "Távolsági"
       }
     ],
-    "text": "Minden egység rejtett. A varázslatok hatótávja legfeljebb 1. A Távolsági bónuszok nem érvényesülnek."
+    "text": "Minden egység rejtve érkezik. A varázslatok hatótávja legfeljebb 1. A Távolsági egységek nem számítanak bele a hátsó sorból."
   },
   {
     "id": "plazs",
@@ -180,7 +180,7 @@
         "to": "deckBottom"
       }
     ],
-    "text": "A csata végén a Felindori egységek a temető helyett a pakli aljára kerülnek."
+    "text": "A csata végén a Felindori egységek nem a temetőbe, hanem a pakli aljára kerülnek."
   },
   {
     "id": "umbra",
@@ -191,7 +191,7 @@
         "kind": "playFromGraveyard"
       }
     ],
-    "text": "A temetőből is kijátszhatsz egységeket."
+    "text": "A temetődből is letehetsz egységeket."
   },
   {
     "id": "a_zona",
