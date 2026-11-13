@@ -915,7 +915,14 @@ export function flyBack(
 
 /** Where a player's deck, discard or hand currently sits on screen. */
 export function anchorRect(selector: string): DOMRect | null {
-  return document.querySelector(selector)?.getBoundingClientRect() ?? null;
+  // The first match that is actually drawn. A desktop and a phone keep their
+  // piles in different furniture and the stylesheet hides one set, so the first
+  // match in the document may be a box of no size.
+  for (const el of document.querySelectorAll(selector)) {
+    const rect = el.getBoundingClientRect();
+    if (rect.width > 0 || rect.height > 0) return rect;
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,757 @@
+/* ------------------------------------------------------------------ the HUD
+ *
+ * The game screen on anything wider than a phone. Loaded after `game.css`, and
+ * every rule in it sits inside `min-width: 701px`, so the phone layout at the
+ * foot of that file never meets this one: the phone keeps its rails and its
+ * drawers, the desktop hides them and floats `Hud.tsx` over the board instead.
+ *
+ * The board is the whole window. The furniture lives in its margins:
+ *
+ *     far hand ─── campaign ─── far hand            tools
+ *   ┌ their sum                                 their commander
+ *   │ their means
+ *   │ (beam)            the board               phase · the one button
+ *   │ your means
+ *   └ your sum · camp ──── your hand ────        your commander
+ *
+ * `--rail` survives as a number: the width of each margin. The hands, the
+ * annals, the loupe and the board's own tile size were all written against it
+ * and still are.
+ *
+ * `--me` and `--foe` are the two sides' colours, set inline on `.field` from
+ * the orders they fight under (`factions.ts`).
+ */
+
+@media (min-width: 701px) {
+  .field {
+    --rail: clamp(196px, 17vw, 264px);
+    --me: var(--brass);
+    --foe: var(--blood);
+    display: block;
+    background: var(--oak-pitch);
+  }
+
+  /* The phone's furniture. */
+  .field > .rail-left,
+  .field > .rail-right {
+    display: none;
+  }
+
+  /* The board takes the window; the padding is only where the camera may not
+     put the tiles — under the campaign, behind the hand, inside the margins. */
+  .arena {
+    position: absolute;
+    inset: 0;
+    padding: 132px var(--rail) 168px;
+    overflow: hidden;
+  }
+  /* The margins of the page, darkened so parchment type reads over a meadow at
+     noon as well as it does over an alley at night. Above the canvas and its
+     plates, under everything that can be pressed. */
+  .arena::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background:
+      linear-gradient(
+        90deg,
+        rgba(12, 11, 16, 0.9) 0,
+        rgba(12, 11, 16, 0.55) 14%,
+        rgba(12, 11, 16, 0) 30%,
+        rgba(12, 11, 16, 0) 70%,
+        rgba(12, 11, 16, 0.55) 86%,
+        rgba(12, 11, 16, 0.9) 100%
+      ),
+      linear-gradient(
+        180deg,
+        rgba(12, 11, 16, 0.78) 0,
+        rgba(12, 11, 16, 0) 24%,
+        rgba(12, 11, 16, 0) 74%,
+        rgba(12, 11, 16, 0.82) 100%
+      );
+  }
+
+  /* ------------------------------------------------------------ campaign */
+
+  .hud-campaign {
+    position: absolute;
+    top: 0;
+    left: var(--rail);
+    right: var(--rail);
+    z-index: 20;
+    padding-top: 12px;
+    text-align: center;
+    pointer-events: none;
+  }
+  .hud-fields {
+    --step: clamp(46px, 4.6vw, 70px);
+    position: relative;
+    display: inline-flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    height: 48px;
+  }
+  /* The road the six fields lie along. */
+  .hud-fields::before {
+    content: "";
+    position: absolute;
+    left: calc(var(--step) / 2);
+    right: calc(var(--step) / 2);
+    top: 24px;
+    height: 1px;
+    background: rgba(241, 233, 216, 0.34);
+  }
+  .hud-field {
+    position: relative;
+    width: var(--step);
+    height: 48px;
+    pointer-events: auto;
+    cursor: help;
+  }
+  .hud-gem {
+    position: absolute;
+    left: 50%;
+    top: 24px;
+    width: 18px;
+    height: 18px;
+    transform: translate(-50%, -50%) rotate(45deg);
+    background: var(--oak-pitch);
+    border: 1px solid rgba(241, 233, 216, 0.62);
+    transition: top 400ms ease, background-color 400ms ease;
+  }
+  /* A field that has been taken leans toward whoever took it. */
+  .hud-field.mine .hud-gem {
+    top: 29px;
+    background: var(--me);
+    border-color: var(--me);
+  }
+  .hud-field.theirs .hud-gem {
+    top: 19px;
+    background: var(--foe);
+    border-color: var(--foe);
+  }
+  .hud-field.void .hud-gem {
+    background: var(--iron);
+    border-color: var(--iron-bright);
+  }
+  .hud-field.here .hud-gem {
+    width: 28px;
+    height: 28px;
+    border: 2px solid var(--tallow);
+    box-shadow: 0 0 16px rgba(241, 233, 216, 0.55);
+  }
+  /* A helyőrség, standing on the field it holds. */
+  .hud-field .hud-token {
+    position: absolute;
+    left: calc(50% + 4px);
+    top: 28px;
+    width: 24px;
+    height: 24px;
+  }
+  .hud-field.theirs .hud-token {
+    top: -4px;
+  }
+
+  .hud-here h2 {
+    font-size: clamp(19px, 1.8vw, 26px);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--tallow);
+    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+  }
+  .hud-here p {
+    margin: 2px auto 0;
+    max-width: 56ch;
+    font-size: 13px;
+    line-height: 1.35;
+    color: var(--ash);
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95);
+    text-wrap: balance;
+  }
+  .hud-here p b {
+    font-weight: 400;
+    color: var(--tallow);
+    white-space: nowrap;
+  }
+
+  /* -------------------------------------------------------- reserve tokens */
+
+  .hud-token {
+    position: relative;
+    display: inline-block;
+    flex: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 2px solid var(--side, var(--ash));
+    background: var(--oak);
+    pointer-events: auto;
+    cursor: help;
+  }
+  .hud-token.mine {
+    --side: var(--me);
+  }
+  .hud-token.theirs {
+    --side: var(--foe);
+  }
+  /* A veteran is on the march, not standing anywhere: a broken ring. */
+  .hud-token.veteran {
+    border-style: dashed;
+  }
+  .hud-token img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+  }
+  .hud-token > b {
+    position: absolute;
+    right: -6px;
+    bottom: -5px;
+    min-width: 15px;
+    height: 15px;
+    padding: 0 3px;
+    border-radius: 8px;
+    background: var(--side, var(--ash));
+    color: var(--oak-pitch);
+    font-size: 11px;
+    line-height: 15px;
+    text-align: center;
+  }
+
+  /* --------------------------------------------------------------- scale */
+
+  .hud-scale {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 20;
+    width: var(--rail);
+    padding: 18px 10px 18px 18px;
+    display: grid;
+    grid-template-columns: 5px minmax(0, 1fr);
+    grid-template-rows: auto minmax(24px, 1fr) auto;
+    column-gap: 14px;
+    pointer-events: none;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+  }
+  .hud-beam {
+    grid-column: 1;
+    grid-row: 1 / -1;
+    display: flex;
+    flex-direction: column;
+  }
+  .hud-beam i {
+    display: block;
+    flex-basis: 0;
+    transition: flex-grow 700ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .hud-beam i.theirs {
+    background: var(--foe);
+  }
+  .hud-beam i.mine {
+    background: var(--me);
+  }
+  /* Where the two sums meet: a lozenge on the beam and the lead beside it. */
+  .hud-beam-mark {
+    position: relative;
+    flex: none;
+    height: 0;
+    z-index: 1;
+  }
+  .hud-beam-mark::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 13px;
+    height: 13px;
+    transform: translate(-50%, -50%) rotate(45deg);
+    background: var(--oak-pitch);
+    border: 2px solid var(--tallow);
+  }
+  .hud-beam-mark b {
+    position: absolute;
+    left: 19px;
+    top: 0;
+    transform: translateY(-50%);
+    font-size: 17px;
+    font-weight: 400;
+    white-space: nowrap;
+    color: var(--tallow);
+  }
+  .hud-beam-mark.mine b {
+    color: var(--me);
+  }
+  .hud-beam-mark.theirs b {
+    color: var(--foe);
+  }
+
+  .hud-side {
+    grid-column: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+    pointer-events: auto;
+  }
+  .hud-side.theirs {
+    grid-row: 1;
+    --side: var(--foe);
+  }
+  /* Yours reads upward from the bottom edge: the sum at the foot, where the
+     far side's is at the head. */
+  .hud-side.mine {
+    grid-row: 3;
+    flex-direction: column-reverse;
+    --side: var(--me);
+  }
+  .hud-who {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--side);
+  }
+  .hud-who em {
+    font-style: normal;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: none;
+    color: var(--ash);
+  }
+  .hud-total {
+    font-size: clamp(58px, 6.2vw, 92px);
+    font-weight: 500;
+    line-height: 0.92;
+    letter-spacing: -0.02em;
+    color: var(--side);
+  }
+  .hud-total sup {
+    font-size: 0.3em;
+    vertical-align: top;
+    color: var(--ash);
+    cursor: help;
+  }
+  /* The three columns' élharcosok, left to right as they stand. */
+  .hud-lanes {
+    display: flex;
+    gap: 6px;
+    font-size: 15px;
+    color: var(--tallow);
+  }
+  .hud-lanes span {
+    min-width: 22px;
+    padding: 0 4px;
+    text-align: center;
+    border-bottom: 2px solid var(--side);
+  }
+  .hud-lanes span.none {
+    color: var(--ash-dim);
+    border-bottom-color: rgba(241, 233, 216, 0.22);
+  }
+  .hud-means {
+    margin: 2px 0 0;
+    display: grid;
+    gap: 1px;
+    font-size: 12.5px;
+    color: var(--ash);
+  }
+  .hud-means div {
+    display: flex;
+    gap: 8px;
+  }
+  .hud-means dt {
+    width: 38px;
+    color: var(--ash-dim);
+  }
+  .hud-means dd {
+    margin: 0;
+  }
+  .hud-means b {
+    font-weight: 400;
+    color: var(--tallow);
+  }
+  .hud-means em {
+    font-style: normal;
+    color: var(--ash-dim);
+    cursor: help;
+  }
+  .hud-means .moved b {
+    color: var(--frost);
+  }
+
+  /* Decks and the graveyard: three small cards with their depth on them. */
+  .hud-piles {
+    display: flex;
+    gap: 6px;
+    margin-top: 2px;
+  }
+  .hud-pile {
+    width: 30px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--iron-bright);
+    border-radius: 2px;
+    background: rgba(18, 17, 24, 0.82);
+    font-size: 14px;
+    color: var(--tallow);
+    text-shadow: none;
+  }
+  .hud-pile,
+  .hud-pile.readable:hover {
+    box-shadow: none;
+  }
+  .hud-pile > b {
+    font-weight: 500;
+    text-shadow: none;
+  }
+  .hud-pile.unit,
+  .hud-pile.spell,
+  .hud-pile.grave {
+    background: rgba(18, 17, 24, 0.82);
+  }
+  .hud-pile.unit {
+    border-top: 3px solid var(--vellum-deep);
+  }
+  .hud-pile.spell {
+    border-top: 3px solid var(--rune-deep);
+  }
+  .hud-pile.grave {
+    border-style: dashed;
+  }
+  .hud-pile.grave > b {
+    color: var(--ash);
+  }
+  .hud-pile.readable {
+    cursor: help;
+  }
+  .hud-pile.readable:hover {
+    border-color: var(--tallow);
+  }
+
+  /* The camp: whoever is waiting off the board, garrison or veteran. */
+  .hud-camp {
+    list-style: none;
+    margin: 6px 0;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+  }
+  .hud-camp li {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+  }
+  .hud-camp li > span:last-child {
+    display: grid;
+    min-width: 0;
+    line-height: 1.2;
+  }
+  .hud-camp b {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--tallow);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .hud-camp em {
+    font-style: normal;
+    font-size: 11.5px;
+    color: var(--ash);
+  }
+
+  /* ---------------------------------------------------------- right edge */
+
+  .hud-right {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 20;
+    width: var(--rail);
+    padding: 12px 18px 18px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+    pointer-events: none;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+  }
+  .hud-right > * {
+    pointer-events: auto;
+  }
+  .hud-gap {
+    flex: 1;
+    pointer-events: none;
+  }
+  .hud-tools {
+    display: flex;
+    gap: 2px;
+  }
+  .hud-tools button.on {
+    color: var(--tallow);
+    border-color: var(--iron-bright);
+  }
+
+  /* Who a side fights under. A plate with the order's mark; the commander's
+     portrait goes where the mark is, the day there are commanders. */
+  .hud-commander {
+    --side: var(--foe);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 12px 5px 5px;
+    border: 1px solid var(--side);
+    border-radius: 999px;
+    background: rgba(12, 11, 16, 0.78);
+    font-family: var(--display);
+    font-size: 15px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--tallow);
+    text-shadow: none;
+  }
+  .hud-commander.mine {
+    --side: var(--me);
+  }
+  .hud-commander svg {
+    width: 34px;
+    height: 34px;
+    padding: 7px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    background: var(--side);
+    fill: var(--oak-pitch);
+  }
+
+  /* The battle as six steps, the current one lit; then the turn cue. */
+  .hud-phase {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+    width: 100%;
+  }
+  .hud-steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    justify-items: end;
+    gap: 1px;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ash-dim);
+  }
+  .hud-steps li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: color 300ms;
+  }
+  .hud-steps li::after {
+    content: "";
+    width: 5px;
+    height: 5px;
+    transform: rotate(45deg);
+    border: 1px solid currentColor;
+  }
+  .hud-steps li.here {
+    padding: 3px 0;
+    font-family: var(--display);
+    font-size: clamp(19px, 1.7vw, 25px);
+    letter-spacing: 0.12em;
+    color: var(--tallow);
+  }
+  .hud-steps li.here::after {
+    width: 8px;
+    height: 8px;
+    background: var(--tallow);
+  }
+
+  /* The turn cue, out of its rail box and set flush right. */
+  .hud-phase .turn-cue {
+    width: 100%;
+    padding: 0;
+    gap: 8px;
+    align-items: flex-end;
+    text-align: right;
+    font-size: 13px;
+    background: none;
+    border: 0;
+  }
+  .hud-phase .turn-cue .phase {
+    display: none; /* the steps above already say it */
+  }
+  .hud-phase .turn-cue .turn {
+    font-size: 14px;
+    letter-spacing: 0.06em;
+    color: var(--ash);
+  }
+  .hud-phase .turn-cue .turn.mine {
+    color: var(--me);
+  }
+  .hud-phase .turn-cue .turn.theirs {
+    color: var(--foe);
+  }
+  /* The one button: the side's own colour, full width of the margin. */
+  .hud-phase .turn-cue button.ember {
+    width: 100%;
+    padding: 12px 14px;
+    font-family: var(--display);
+    font-size: 17px;
+    font-weight: 400;
+    font-variant-caps: normal;
+    letter-spacing: 0.08em;
+    background-color: var(--me);
+    border-color: transparent;
+    color: var(--oak-pitch);
+    text-shadow: none;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5);
+  }
+  .hud-phase .turn-cue button.ember:hover:not(:disabled) {
+    background-color: var(--me);
+    filter: brightness(1.12);
+  }
+  .hud-phase .turn-cue button:not(.ember) {
+    padding: 6px 0;
+    background: none;
+    border-color: transparent;
+    box-shadow: none;
+    color: var(--ash);
+  }
+  .hud-phase .turn-cue button:not(.ember):hover:not(:disabled) {
+    color: var(--tallow);
+  }
+
+  /* ------------------------------------------------- the one reading spot
+   *
+   * Whatever is being read — a unit on a tile, a battlefield in the campaign
+   * row, a unit in a camp, a card in the annals, a deck or a graveyard — is
+   * printed in the same place: the strip of table between the board and the
+   * right margin. One place to look, and it never covers the board. */
+  .field > .loupe,
+  .field > .loupe.mine,
+  .field > .loupe.theirs {
+    left: auto;
+    right: calc(var(--rail) + 6px);
+    --loupe-w: clamp(176px, calc(var(--sidegap, 220px) - 20px), 264px);
+  }
+  .loupe.peek {
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+  }
+  .loupe.peek .cardface.battlefield {
+    --card-w: var(--loupe-w);
+  }
+  .loupe-note {
+    padding: 2px 10px;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    color: var(--tallow);
+    background: rgba(12, 11, 16, 0.86);
+    border: 1px solid var(--iron);
+  }
+  .annal-card {
+    left: auto;
+    right: calc(var(--rail) + 6px);
+  }
+  .hud-ledger {
+    position: absolute;
+    right: calc(var(--rail) + 6px);
+    top: 50%;
+    z-index: 26;
+    width: clamp(190px, calc(var(--sidegap, 220px) - 20px), 250px);
+    max-height: 72dvh;
+    transform: translateY(-50%);
+    display: flex;
+    pointer-events: none;
+    filter: drop-shadow(0 12px 26px rgba(0, 0, 0, 0.7));
+  }
+  .hud-ledger .ledger {
+    flex: 1;
+    min-height: 0;
+    background: var(--panel);
+    border: 1px solid var(--iron);
+  }
+
+  /* ----------------------------------------------------------- the hands */
+
+  /* The far hand: two small fans of backs either side of the campaign, cut by
+     the top edge. Units left, spells right, as your own lie. */
+  .hand-rail.far {
+    left: calc(var(--rail) + 22px);
+    right: calc(var(--rail) + 22px);
+    justify-content: space-between;
+    gap: 0;
+    transform: translateY(-50%);
+  }
+  .hand-rail.far .hand-slot {
+    --hand-card-w: 54px;
+    margin: 0 -17px;
+  }
+  .hand-rail.far .cardback {
+    width: 54px;
+    height: calc(54px * 88 / 63);
+  }
+
+  /* The hand you cannot play from this phase folds up: still there, still
+     readable card by card, but out of the way of the one you can. */
+  .hand-rail.near {
+    gap: 34px;
+  }
+  .hand-rail.near .hand-group.muted {
+    /* The cards in it are already greyed as unplayable; dimming the group on
+       top of that turned parchment into slate. */
+    opacity: 0.9;
+    filter: none;
+  }
+  .hand-rail.near .hand-group.muted .hand-slot {
+    --hand-card-w: 84px;
+    margin: 0 -30px;
+  }
+
+  /* Annals: tucked against the left margin, in the sides' own colours. */
+  .annals-list {
+    background: rgba(12, 11, 16, 0.7);
+    border-color: var(--iron);
+    border-left: 1px solid var(--iron);
+  }
+  .annal.mine,
+  .annal.veiled.mine {
+    border-left-color: var(--me);
+  }
+  .annal.theirs,
+  .annal.veiled.theirs {
+    border-left-color: var(--foe);
+  }
+}
+
+/* ---------------------------------------------------------------- the phone
+ *
+ * The phone keeps the rails and their drawers. None of this furniture is drawn
+ * there. */
+@media (max-width: 700px) {
+  .hud-campaign,
+  .hud-scale,
+  .hud-right,
+  .hud-ledger,
+  .loupe.peek {
+    display: none;
+  }
+}

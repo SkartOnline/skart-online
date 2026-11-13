@@ -1,46 +1,48 @@
 import { Component, lazy, Suspense } from "react";
-import type { ComponentProps, ReactNode } from "react";
-import Board from "../game/Board";
+import type { ReactNode } from "react";
+import type { BoardProps } from "../game/Board";
 import type { LiveBeat } from "../game/common";
 import { hasWebGL } from "./setting";
 
 /**
- * The board, in whichever way this device draws it.
+ * The board.
  *
- * `Stage` takes `Board`'s props, so this is the only place that knows there
- * are two. It takes one more, the cast on screen: the 2D board says a spell
- * with two ringed tiles, the stage draws the spell itself.
+ * There is one: the 3D stage. The flat board it grew out of is gone, and with
+ * it the switch between the two. What is left of the old fallback is a plain
+ * notice, for a browser with no WebGL and for a canvas that throws — a lost
+ * context should say so rather than leave an empty table.
  *
- * The 2D board is also every fallback: while the 3D chunk is still downloading, when the browser has no WebGL, and when the canvas throws
- * — a lost context on a phone should cost the flourish, never the game.
- *
- * The stage is lazy so the editor, the collection and anyone playing in 2D
- * never download three.js.
+ * The stage is lazy so the editor, the collection and the menu never download
+ * three.js.
  */
 
 const Stage = lazy(() => import("./Stage"));
 
-type BoardProps = ComponentProps<typeof Board>;
-
 export default function Surface({
-  threeD,
   spell,
   onReady,
   ...props
 }: BoardProps & {
-  threeD: boolean;
   spell?: LiveBeat;
-  /** The stage has drawn its first frames, or given up and left the flat board. */
+  /** The stage has drawn its first frames, or given up. */
   onReady?: () => void;
 }) {
-  const flat = <Board {...props} />;
-  if (!threeD || !hasWebGL()) return flat;
+  if (!hasWebGL()) return <Missing />;
   return (
-    <Fallback to={flat} onFail={onReady}>
-      <Suspense fallback={flat}>
+    <Fallback to={<Missing />} onFail={onReady}>
+      <Suspense fallback={null}>
         <Stage {...props} spell={spell} onReady={onReady} />
       </Suspense>
     </Fallback>
+  );
+}
+
+function Missing() {
+  return (
+    <div className="stage-missing" role="alert">
+      <b>A csatatér nem rajzolható ki</b>
+      <span>Ehhez a játékhoz WebGL kell, és ez a böngésző most nem ad.</span>
+    </div>
   );
 }
 
@@ -52,7 +54,7 @@ class Fallback extends Component<{ to: ReactNode; onFail?: () => void; children:
   }
 
   componentDidCatch(error: unknown) {
-    console.warn("3D stage failed; drawing the 2D board instead.", error);
+    console.warn("The 3D stage failed.", error);
     // Whoever is holding a curtain up for the stage must not wait for it.
     this.props.onFail?.();
   }

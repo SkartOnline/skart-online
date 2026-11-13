@@ -220,3 +220,120 @@
     max-width: 6em;
   }
 }
+
+/* ------------------------------------------------- front row and back row
+ *
+ * 4.9: only whoever stands at the front of a column goes into the sum. The
+ * board says so three ways and never in words. A unit that counts wears a
+ * filled number, one that only supports wears a hollow one; the back row's
+ * tiles stand in shade; and the line where the two front rows meet is drawn,
+ * column by column, in the colour of whoever is winning that column.
+ *
+ * `--me` and `--foe` are the sides' colours (`game/factions.ts`). */
+
+.stage-hud {
+  --side: var(--iron-bright);
+  gap: 6px;
+  padding: 2px 9px 2px 2px;
+  border-radius: 999px;
+  border-color: var(--side);
+  background: rgba(12, 11, 16, 0.9);
+}
+.stage-hud.mine {
+  --side: var(--me, var(--brass));
+  border-color: var(--side);
+}
+.stage-hud.theirs {
+  --side: var(--foe, var(--blood));
+  border-color: var(--side);
+}
+.stage-hud.veiled {
+  padding: 2px 9px;
+}
+.stage-hud .tile-power {
+  flex: none;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1;
+  background: var(--side);
+  color: var(--oak-pitch);
+}
+/* Raised or lowered from the printed value: a ring round the number, so the
+   number itself keeps the side's colour and stays legible. */
+.stage-hud .tile-power.up {
+  color: var(--oak-pitch);
+  box-shadow: 0 0 0 2px var(--sprout);
+}
+.stage-hud .tile-power.down {
+  color: var(--oak-pitch);
+  box-shadow: 0 0 0 2px var(--rot);
+}
+.stage-hud.supports {
+  border-style: dashed;
+  background: rgba(12, 11, 16, 0.72);
+  color: var(--ash);
+}
+.stage-hud.supports .tile-power,
+.stage-hud.supports .tile-power.up,
+.stage-hud.supports .tile-power.down {
+  background: none;
+  border: 1px dashed var(--side);
+  color: var(--side);
+}
+
+.stage-tile.back:not(.open),
+.stage-tile.back:not(.open):hover:not(:disabled) {
+  background: rgba(12, 11, 16, 0.3);
+}
+
+.stage-seam {
+  position: absolute;
+  height: 3px;
+  border-radius: 2px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  transition: translate 400ms ease, background-color 400ms ease, box-shadow 400ms ease;
+}
+.stage-seam.mine {
+  translate: 0 -5px;
+  background: var(--me, var(--brass));
+  box-shadow: 0 0 12px 1px var(--me, var(--brass));
+}
+.stage-seam.theirs {
+  translate: 0 5px;
+  background: var(--foe, var(--blood));
+  box-shadow: 0 0 12px 1px var(--foe, var(--blood));
+}
+.stage-seam.even {
+  background: var(--tallow);
+  box-shadow: 0 0 10px 1px rgba(241, 233, 216, 0.6);
+}
+.stage-seam.empty,
+.stage-seam.unread {
+  height: 1px;
+  background: rgba(241, 233, 216, 0.3);
+}
+
+/* No WebGL, or a canvas that threw. */
+.stage-missing {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 6px;
+  text-align: center;
+  color: var(--ash);
+}
+.stage-missing b {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--tallow);
+}

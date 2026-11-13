@@ -1,38 +1,14 @@
 /**
- * Whether this device draws the board in 3D.
+ * What the stage needs from the device.
  *
- * The 3D board is the game now and the default; the flat board is a choice
- * someone makes in the tools rail, and the fallback for a browser that cannot
- * draw the other one. A per-device preference, like the audio levels, so it
- * lives in localStorage: a private window or a refusing browser simply gets
- * the default.
- *
- * The key moved to v2 when the default did. Under v1, 3D was opt-in, and a
- * stored "2d" mostly meant someone who once tried the switch while the stage
- * was still placeholders; it should not keep them off the board they never saw.
+ * There used to be a preference here: 3D or the flat board, kept per device.
+ * The flat board is gone, so there is nothing left to prefer — the only
+ * question is whether this browser can draw the stage at all.
  */
 
-const STORE = "skartcf.stage.v2";
-
-export function readStage(): boolean {
-  try {
-    return localStorage.getItem(STORE) !== "2d";
-  } catch {
-    return true;
-  }
-}
-
-export function writeStage(on: boolean): void {
-  try {
-    localStorage.setItem(STORE, on ? "3d" : "2d");
-  } catch {
-    // Unwritable storage costs the preference, not the session.
-  }
-}
-
-/** Whether a game on this device will be drawn on the stage: wanted, and possible. */
+/** Whether a game on this device will be drawn on the stage. */
 export function wantsStage(): boolean {
-  return readStage() && hasWebGL();
+  return hasWebGL();
 }
 
 /**

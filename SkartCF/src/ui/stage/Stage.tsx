@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { ComponentProps, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { flushSync } from "react-dom";
 import {
   BufferAttribute,
@@ -30,12 +30,16 @@ import {
   coordLabel,
   getSpell,
   getUnit,
+  countsInTotal,
   isBlocked,
+  leadOf,
   power,
+  rowOfSlot,
   trapAt,
 } from "../../engine";
 import type { GameState, PlayerId, SlotId, UnitInstance } from "../../engine";
-import Board, { Marks, Status, poolsOf } from "../game/Board";
+import { Marks, Status, poolsOf } from "../game/Board";
+import type { BoardProps } from "../game/Board";
 import { castingPips, schoolSlug } from "../card/model";
 import type { LiveBeat } from "../game/common";
 import { BEAT_GAP, CAST_TARGET_MS } from "../game/theatre";
@@ -85,8 +89,8 @@ import "./stage.css";
  * and spells are drawn from it the same way (`vfx.ts`, `fx.tsx`).
  */
 
-type Props = ComponentProps<typeof Board> & {
-  /** The cast beat on screen, which `Board` reads only as the two rings in `marks`. */
+type Props = BoardProps & {
+  /** The cast beat on screen: the spell itself, where `marks` is only its two tiles. */
   spell?: LiveBeat;
   /** Called once the canvas has drawn everything it will ever draw at least once. */
   onReady?: () => void;
@@ -290,6 +294,7 @@ const Scene = memo(function Scene({
   marks,
   spell,
   onReady,
+  tint,
   version,
   small,
 }: Props & { version: number; small: boolean }) {
@@ -359,6 +364,7 @@ const Scene = memo(function Scene({
           blocked={isBlocked(state, slot)}
           trapped={!!trapAt(state, slot)}
           mark={marks?.get(slot)}
+          tint={tint}
         />
       ))}
 
@@ -373,6 +379,7 @@ const Scene = memo(function Scene({
           stir={stirring?.get(slot)}
           casting={marks?.get(slot) === "caster"}
           small={small}
+          tint={tint}
         />
       ))}
 
@@ -510,12 +517,14 @@ function Tile({
   blocked,
   trapped,
   mark,
+  tint,
 }: {
   slot: SlotId;
   viewer: PlayerId;
   blocked: boolean;
   trapped: boolean;
   mark?: string;
+  tint?: { mine: string; theirs: string };
 }) {
   const { x, z } = slotWorld(slot, viewer);
   const h = hash(slot);
@@ -550,8 +559,12 @@ function Tile({
   }
 
   const owner = slot.slice(0, 2) as PlayerId;
-  const rim = mark ? MARK[mark] : owner === viewer ? INK.mine : INK.theirs;
-  const rimMat = flat(rim, mark ? 1.4 : 0.35, 0.5);
+  const side = owner === viewer ? (tint?.mine ?? INK.mine) : (tint?.theirs ?? INK.theirs);
+  const rim = mark ? MARK[mark] : side;
+  // The front row is where the battle is counted (4.9), so its rim is lit; the
+  // row behind it stands in the same colour with the lamp turned down.
+  const front = rowOfSlot(slot) === "F";
+  const rimMat = flat(rim, mark ? 1.4 : front ? 0.6 : 0.06, 0.5);
   const half = TILE / 2 - 0.02;
   const diag = Math.SQRT1_2 * TILE;
   return (
@@ -631,6 +644,7 @@ function Piece({
   stir,
   casting,
   small,
+  tint,
 }: {
   slot: SlotId;
   unit: UnitInstance;
@@ -641,6 +655,7 @@ function Piece({
   /** This unit threw the spell on screen right now. */
   casting: boolean;
   small: boolean;
+  tint?: { mine: string; theirs: string };
 }) {
   void state;
   const group = useRef<Group>(null);
@@ -726,7 +741,7 @@ function Piece({
       {/* Whose it is, under its feet: a hidden unit's owner is public. */}
       <mesh
         position={[0, TILE_TOP + 0.012, 0]}
-        material={flat(mine ? INK.mine : INK.theirs, 0.12, 0.6)}
+        material={flat(mine ? (tint?.mine ?? INK.mine) : (tint?.theirs ?? INK.theirs), 0.12, 0.6)}
       >
         <cylinderGeometry args={[0.26, 0.28, 0.02, 10]} />
       </mesh>
@@ -1124,7 +1139,8 @@ function TileLayer({
   /** Bumped whenever the camera moves, which moves every projection with it. */
   moved: number;
 }) {
-  const slots = [...slotsOf(viewer === "p1" ? "p2" : "p1"), ...slotsOf(viewer)];
+  const foe: PlayerId = viewer === "p1" ? "p2" : "p1";
+  const slots = [...slotsOf(foe), ...slotsOf(viewer)];
   const townFootprint = hasTownFootprint(state.locations[state.locationIndex]?.cardId ?? "");
   return (
     <div className="stage-tiles">
@@ -1152,6 +1168,7 @@ function TileLayer({
         // telling the loupe its slot would be a free "Mindent mutat" (1.5.2).
         const readable = !!unit && !veiled;
         const classes = ["stage-tile"];
+        if (rowOfSlot(slot) === "B") classes.push("back");
         if (isOpen) classes.push("open");
         if (blocked) classes.push("chasm");
         const name = readable ? cardOf(unit).name : null;
@@ -1216,6 +1233,41 @@ function TileLayer({
         );
       })}
 
+      {/* The front line: one stretch per column, in the colour of whoever leads
+          it and pushed toward the side that is losing it. 11.3 breaks a tied
+          sum by columns, so this is a rule being drawn, not a decoration. */}
+      {[1, 2, 3].map((col) => {
+        const near = `${viewer}.F${col}` as SlotId;
+        const far = `${foe}.F${col}` as SlotId;
+        if (isBlocked(state, near) && isBlocked(state, far)) return null;
+        const a = projectTile(near, viewer, camera, width, height).box;
+        const b = projectTile(far, viewer, camera, width, height).box;
+        const left = Math.min(a.left, b.left);
+        const right = Math.max(a.left + a.width, b.left + b.width);
+        const mine = leadOf(state, viewer, col);
+        const theirs = leadOf(state, foe, col);
+        const unread = !!theirs && theirs.faceDown && !bare;
+        const m = mine ? power(mine, state) : -1;
+        const t = theirs ? power(theirs, state) : -1;
+        const verdict =
+          !mine && !theirs
+            ? "empty"
+            : unread
+              ? "unread"
+              : m > t
+                ? "mine"
+                : t > m
+                  ? "theirs"
+                  : "even";
+        return (
+          <span
+            key={`seam-${col}`}
+            className={`stage-seam ${verdict}`}
+            style={{ left, width: right - left, top: (b.top + b.height + a.top) / 2 }}
+          />
+        );
+      })}
+
       {slots.map((slot) => {
         const unit = state.board[slot];
         if (!unit || isBlocked(state, slot)) return null;
@@ -1248,9 +1300,14 @@ function TileLayer({
         return (
           <div
             key={`hud-${slot}`}
-            className={`stage-hud ${unit.owner === viewer ? "mine" : "theirs"}`}
+            // 4.9.4: an élharcos (or a Távolsági behind one) goes into the sum and
+            // wears a filled number; everybody else supports, and theirs is hollow.
+            className={`stage-hud ${unit.owner === viewer ? "mine" : "theirs"} ${
+              countsInTotal(state, unit) ? "counts" : "supports"
+            }`}
             style={{ left: at.x, top: at.y }}
           >
+            <span className={`tile-power num${tone}`}>{live}</span>
             <span className="stage-hud-name">{card.name}</span>
             {pips.length > 0 && (
               <span className="cf-pips">
@@ -1267,7 +1324,6 @@ function TileLayer({
                 })}
               </span>
             )}
-            <span className={`tile-power num${tone}`}>{live}</span>
             <Marks unit={unit} state={state} />
             <Status unit={unit} state={state} />
           </div>

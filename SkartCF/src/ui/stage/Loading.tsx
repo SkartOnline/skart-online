@@ -19,21 +19,13 @@ import "./loading.css";
 /** The order the tiles land in: across the arcvonal and back, like a game being set. */
 const ORDER = [7, 4, 6, 5, 8, 3, 10, 1, 9, 2, 11, 0];
 
-export default function Loading({ done, onFlat }: { done: boolean; onFlat: () => void }) {
+export default function Loading({ done }: { done: boolean }) {
   const load = useStageLoad();
   const [gone, setGone] = useState(done);
-  const [patient, setPatient] = useState(false);
 
   useEffect(() => {
     if (!done) return;
     const t = window.setTimeout(() => setGone(true), 650);
-    return () => window.clearTimeout(t);
-  }, [done]);
-
-  // Somebody on a slow line should not be held hostage by the scenery.
-  useEffect(() => {
-    if (done) return;
-    const t = window.setTimeout(() => setPatient(true), 9000);
     return () => window.clearTimeout(t);
   }, [done]);
 
@@ -70,11 +62,6 @@ export default function Loading({ done, onFlat }: { done: boolean; onFlat: () =>
         </div>
         <b className="curtain-line">{line}</b>
         <span className="curtain-step">{step}</span>
-        {patient && !done && (
-          <button className="quiet tiny curtain-flat" onClick={onFlat}>
-            Kezdés sík táblán
-          </button>
-        )}
       </div>
     </div>
   );

@@ -1220,7 +1220,6 @@
   position: absolute;
   z-index: 3;
   font-size: 1.85em;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
 }
 .hand-slot .cf-cost {
   top: -0.18em;
@@ -1235,7 +1234,12 @@
   bottom: -0.1em;
   min-width: 1.5em;
   height: 1.5em;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.7));
+  /* A disc of the card's own stock under the figure, so it reads where it
+     overhangs the corner and lands on the next card in the fan. */
+  background: var(--frame, var(--vellum));
+  border: 1px solid var(--frame-edge, var(--ink-edge));
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
 }
 /* The name has the top-left corner to itself now that the gem sits over it. */
 .hand-slot .cf-name {
@@ -1269,30 +1273,28 @@
  * amber gem in the middle, so a hand of backs reads as the same cards turned
  * over rather than as a second design. */
 .cardback {
-  --back: #7a5a44;
-  --back-hi: #9a7658;
-  --gem: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 52'%3E%3Cpath d='M20 2 L38 26 L20 50 L2 26 Z' fill='#a85d2c'/%3E%3Cpath d='M20 2 L38 26 L20 26 Z' fill='#ffd27d'/%3E%3Cpath d='M20 2 L2 26 L20 26 Z' fill='#f39c4a'/%3E%3Cpath d='M2 26 L20 50 L20 26 Z' fill='#d97f38'/%3E%3Cpath d='M20 8 L33 26 L20 44 L7 26 Z' fill='none' stroke='#2f2335' stroke-opacity='.25' stroke-width='1.2'/%3E%3C/svg%3E");
+  --back: var(--vellum-deep);
+  /* One lozenge in the middle, in the stock's own colour. */
+  --gem: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 52'%3E%3Cpath d='M20 6 L34 26 L20 46 L6 26 Z' fill='none' stroke='%23efe5cf' stroke-opacity='.55' stroke-width='2'/%3E%3C/svg%3E");
   display: block;
+  box-sizing: border-box;
   width: 108px;
   height: calc(108px * 88 / 63);
-  background-color: var(--back);
-  background-image:
-    var(--gem),
-    linear-gradient(152deg, var(--back-hi) 0 30%, rgba(255, 255, 255, 0) 30% 68%, rgba(0, 0, 0, 0.16) 68%),
-    var(--facets);
-  background-repeat: no-repeat, no-repeat, repeat;
-  background-position: center, center, center;
-  background-size: 34% auto, auto, 90px 90px;
-  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
-  box-shadow: inset 0 0 0 4px rgba(20, 23, 38, 0.18);
+  background-color: var(--oak-lit);
+  background-image: var(--gem);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 38% auto;
+  border: 1px solid var(--back);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 3px var(--oak-lit), inset 0 0 0 4px rgba(241, 233, 216, 0.18);
 }
 .cardback.unit {
-  --back: #7a5a44;
-  --back-hi: #9a7658;
+  --back: var(--vellum-deep);
 }
 .cardback.spell {
-  --back: #5d4d8a;
-  --back-hi: #7a69a8;
+  --back: var(--rune-deep);
+  background-color: #2a2540;
 }
 
 /* The turn cue floats over the board, just clear of the near fan. It is the

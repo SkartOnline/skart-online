@@ -9,3 +9,6 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Old builds, bundles and spreadsheets kept for reference
+_archive/

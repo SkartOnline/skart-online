@@ -6,11 +6,11 @@
  * left. Everything is sized in `em` off the card's own font size, so one
  * `--card-w` scales the whole thing.
  *
- * The look is a low-poly token: the card is a faceted frame cut with chamfered
- * corners and coloured by what it is (warm timber for a unit, violet for a
- * spell, meadow green for a battlefield), and the things you read sit on it as
- * cream plates. Numbers are gems: the cost an amber hexagon, power a coral
- * shield, range a blue marker, each cut into a lit and a shadowed half.
+ * The look is a printed card: one sheet of stock, tinted by what it is
+ * (parchment for a unit, a cool rune paper for a spell, a sage one for a
+ * battlefield), ink type straight on it, and hairlines where the old frame had
+ * plates. The cost is an ink seal in the corner; power is the one large figure
+ * at the foot, range the same figure in a ring.
  */
 
 /* A card face reads as printed, wherever it is mounted.
@@ -28,9 +28,9 @@
   font-style: normal;
 
   --card-w: 208px;
-  --frame: #7a5a44;
-  --frame-hi: #9a7658;
-  --cut-card: 0.55em;
+  --frame: var(--vellum);
+  --frame-edge: #b7a57e;
+  --cut-card: 0px;
   /* The corner gems are laid out against the frame, so the frame is the
      containing block. */
   position: relative;
@@ -45,11 +45,8 @@
   gap: 0.28em;
   padding: 0.45em;
   background-color: var(--frame);
-  background-image:
-    linear-gradient(152deg, var(--frame-hi) 0 30%, rgba(255, 255, 255, 0) 30% 68%, rgba(0, 0, 0, 0.14) 68%),
-    var(--facets);
-  background-size: auto, 9em 9em;
-  border: none;
+  border: 1px solid var(--frame-edge);
+  border-radius: 0.4em;
   clip-path: polygon(
     var(--cut-card) 0,
     calc(100% - var(--cut-card)) 0,
@@ -67,12 +64,12 @@
 
 .cardface.spell,
 .cardface.kind-spell {
-  --frame: #5d4d8a;
-  --frame-hi: #7a69a8;
+  --frame: var(--rune);
+  --frame-edge: #a79cc4;
 }
 .cardface.kind-location {
-  --frame: #4e7a4c;
-  --frame-hi: #6a9a62;
+  --frame: #e2e6d4;
+  --frame-edge: #a3ad8c;
 }
 
 /* ------------------------------------------------------------------- head */
@@ -88,30 +85,29 @@
   display: block;
   height: 100%;
 }
-/* The cost: an amber gem, a hexagon cut into a lit top and a shadowed foot. */
+/* The cost: an ink seal. */
 .cf-cost {
   flex: none;
   width: 1.6em;
   height: 1.6em;
   display: grid;
   place-items: center;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 1em;
-  color: var(--ink);
-  background-color: var(--ember);
-  background-image: linear-gradient(160deg, var(--flame) 0 46%, rgba(255, 255, 255, 0) 46%);
-  clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%);
+  color: var(--vellum);
+  background-color: var(--ink);
+  border-radius: 50%;
 }
-/* The name is stamped on the frame, cream on timber. */
+/* The name, in ink on the stock. */
 .cf-name {
   flex: 1;
   margin: 0;
   text-align: center;
-  font-size: 0.94em;
-  font-weight: 600;
+  font-family: var(--display);
+  font-size: 0.98em;
+  font-weight: 400;
   line-height: 1.1;
-  color: var(--tallow);
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+  color: var(--ink);
   overflow-wrap: anywhere;
   align-self: center;
 }
@@ -122,9 +118,9 @@
   position: relative;
   flex: none;
   aspect-ratio: 4 / 3;
-  background-color: #9cc3dc;
-  background-image: var(--facets);
-  clip-path: polygon(0.35em 0, calc(100% - 0.35em) 0, 100% 0.35em, 100% 100%, 0 100%, 0 0.35em);
+  /* No picture yet: a darker wash of the card's own stock, not a hole in it. */
+  background-color: rgba(28, 24, 32, 0.12);
+  border-radius: 0.2em;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.18);
   overflow: hidden;
 }
@@ -137,7 +133,7 @@
 
 /* -------------------------------------------------------------- type line */
 
-/* A cream ribbon across the frame. */
+/* One ruled line across the card. */
 .cf-type {
   flex: none;
   display: flex;
@@ -145,12 +141,12 @@
   justify-content: space-between;
   gap: 0.5em;
   margin: 0;
-  padding: 0.08em 0.4em;
+  padding: 0.14em 0.15em;
   font-size: 0.6em;
   letter-spacing: 0.02em;
-  background: var(--vellum-deep);
-  color: var(--ink);
-  clip-path: polygon(0.4em 0, calc(100% - 0.4em) 0, 100% 50%, calc(100% - 0.4em) 100%, 0.4em 100%, 0 50%);
+  border-top: 1px solid rgba(28, 24, 32, 0.22);
+  border-bottom: 1px solid rgba(28, 24, 32, 0.22);
+  color: var(--ink-soft);
 }
 .cf-kind {
   font-weight: 700;
@@ -191,23 +187,17 @@
 
 /* -------------------------------------------------------------- rules box */
 
-/* The rules on a cream plate, cut at the top corners like the art above it. */
+/* The rules, straight on the stock. */
 .cf-box {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 0.2em;
-  padding: 0.35em 0.45em;
+  padding: 0.15em 0.2em;
   font-size: 0.62em;
   line-height: 1.24;
-  background: var(--vellum);
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 0.6em), calc(100% - 0.6em) 100%, 0.6em 100%, 0 calc(100% - 0.6em));
   overflow: hidden;
-}
-.cardface.spell .cf-box,
-.cardface.kind-spell .cf-box {
-  background: var(--rune);
 }
 .cf-keywords {
   font-weight: 800;
@@ -235,33 +225,31 @@
   padding: 0 0.25em;
   display: grid;
   place-items: center;
-  font-size: 1em;
-  font-weight: 600;
-  color: var(--tallow);
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+  font-family: var(--numeral);
+  font-size: 1.35em;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
 }
-/* Power is a shield, range is a notched marker: two silhouettes, so the corner
-   reads without a caption. Each is cut into a lit and a shadowed half. */
+/* Power is a bare figure, range the same figure in a ring: two silhouettes, so
+   the corner reads without a caption. */
 .cf-power {
-  background-color: var(--might);
-  background-image: linear-gradient(150deg, rgba(255, 255, 255, 0.24) 0 48%, rgba(255, 255, 255, 0) 48%);
-  clip-path: polygon(0 0, 100% 0, 100% 62%, 50% 100%, 0 62%);
-  padding-bottom: 0.35em;
+  color: var(--might);
 }
 .cf-range {
-  background-color: var(--reach);
-  background-image: linear-gradient(150deg, rgba(255, 255, 255, 0.22) 0 48%, rgba(255, 255, 255, 0) 48%);
-  clip-path: polygon(50% 0, 100% 28%, 100% 100%, 0 100%, 0 28%);
+  height: 1.3em;
+  min-width: 1.3em;
+  font-size: 1.1em;
+  color: var(--reach);
+  border: 0.09em solid var(--reach);
+  border-radius: 50%;
 }
 /* A battlefield's cost cap: a purse rather than a shield or a notch, because it
    is neither a threat nor a reach — it is what you are allowed to spend here. */
 .cf-cap {
-  background-color: var(--ember);
-  background-image: linear-gradient(150deg, var(--flame) 0 48%, rgba(255, 255, 255, 0) 48%);
   color: var(--ink);
-  text-shadow: none;
-  clip-path: polygon(14% 0, 86% 0, 100% 100%, 0 100%);
-  padding: 0 0.4em;
+  border-bottom: 0.12em solid var(--ember-dim);
+  padding: 0 0.2em;
 }
 
 /* ------------------------------------------------------------------- pips */
@@ -287,7 +275,6 @@
   font-weight: 600;
   color: #fbefdc;
   background-color: var(--pip);
-  background-image: linear-gradient(150deg, rgba(255, 255, 255, 0.22) 0 48%, rgba(255, 255, 255, 0) 48%);
   border: none;
 }
 .pip > em {

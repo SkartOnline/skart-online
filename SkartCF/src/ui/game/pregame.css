@@ -532,7 +532,7 @@
 }
 .deckreading-tag {
   padding: 0 9px 1px;
-  font-family: Nunito, system-ui, sans-serif;
+  font-family: inherit;
   font-size: 12px;
   font-weight: 800;
   font-variant-caps: small-caps;

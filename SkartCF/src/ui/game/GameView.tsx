@@ -14,7 +14,7 @@ import type { Action, GameState, PlayerId, SlotId } from "../../engine";
 import type { GuestMatch, HostMatch, MatchState } from "../../net";
 import { Loaded } from "./Board";
 import Surface from "../stage/Surface";
-import { DRAG_SLOP, hasWebGL, readStage, writeStage } from "../stage/setting";
+import { DRAG_SLOP, hasWebGL } from "../stage/setting";
 import { warmStage, useStageLoad } from "../stage/preload";
 import Loading from "../stage/Loading";
 import NewGame from "./NewGame";
@@ -55,6 +55,12 @@ import type {
 import Theatre from "./TheatreView";
 import { Battlefield, Annals, Tools, TurnCue } from "./LeftRail";
 import { Counters, Ledger } from "./RightRail";
+import { Campaign, Commander, PhaseRail, Scale } from "./Hud";
+import type { Peek } from "./Hud";
+import { dress } from "./factions";
+import CardFace from "../card/CardFace";
+import { getLocation } from "../../engine";
+import "./hud.css";
 import type { Tracking } from "./RightRail";
 import { FarHand, NearHand, Reading } from "./Hands";
 import {
@@ -459,8 +465,8 @@ export default function GameView({ onLeave }: { onLeave: () => void }) {
       if (!side) continue;
       const near = side === (botSide ? other(botSide) : state.turn);
       const hand = anchorRect(near ? ".hand-rail.near" : ".hand-rail.far");
-      const deck = anchorRect(`.counters.${side} .pile-icon.unit`);
-      const grave = anchorRect(`.counters.${side} .pile-icon.grave`);
+      const deck = anchorRect(`[data-seat="${side}"] .pile-icon.unit`);
+      const grave = anchorRect(`[data-seat="${side}"] .pile-icon.grave`);
       const count = Math.min(beat.count ?? 1, 6);
       for (let i = 0; i < count; i++) {
         if (beat.kind === "draw") flyBack("unit", deck, hand, i);
@@ -685,21 +691,14 @@ function Field(props: FieldProps) {
   const asking = pendingPrompt(state);
   const pending = state.resolution?.pending ?? null;
   const [logOpen, setLogOpen] = useState(false);
-  /** Whether this device draws the board as a 3D table. A preference, not game state. */
-  const [threeD, setThreeD] = useState(readStage);
-  const toggleThreeD = () =>
-    setThreeD((on) => {
-      writeStage(!on);
-      return !on;
-    });
   /**
    * Whether the board is ready to be looked at. The 3D board is not until its
    * code and models are in and its canvas has drawn a rehearsal of everything it
    * will ever draw (`Stage`'s `Rehearsal`); until then the game waits behind
    * `Loading`, and the prologue — the first thing anybody sees — has not begun.
-   * Latched: switching boards mid-game never brings the curtain back.
+   * Latched: nothing mid-game ever brings the curtain back.
    */
-  const [stageReady, setStageReady] = useState(() => !(threeD && hasWebGL()));
+  const [stageReady, setStageReady] = useState(() => !hasWebGL());
   /** Where a right press began, to tell a click (cancel) from a drag (turn the table). */
   const rightPress = useRef<{ x: number; y: number } | null>(null);
   const markReady = useCallback(() => setStageReady(true), []);
@@ -713,16 +712,11 @@ function Field(props: FieldProps) {
   }, [stageReady, markReady]);
   useEffect(() => {
     // Everything is in and the canvas still has not drawn: a hidden tab, or a
-    // GPU that is not going to. The flat board under it is a whole game.
+    // GPU that is not going to. Lift the curtain on whatever there is.
     if (stageReady || stageLoad.phase !== "ready") return;
     const t = window.setTimeout(markReady, 8000);
     return () => window.clearTimeout(t);
   }, [stageReady, stageLoad.phase, markReady]);
-  const playFlat = useCallback(() => {
-    // For this game only: the preference stays 3D, and the next game will have it.
-    setThreeD(false);
-    setStageReady(true);
-  }, []);
   /**
    * Which rail is up, on a phone. Both rails are columns beside the board on a
    * desktop and drawers over it here; `null` — nothing open — is the only value
@@ -750,6 +744,11 @@ function Field(props: FieldProps) {
    * the thing you need to scroll. Pointing at another pile replaces it.
    */
   const [tracking, setTracking] = useState<Tracking | null>(null);
+  /**
+   * A card held up in the reading spot beside the board by something that is
+   * not a tile: a battlefield in the campaign row, a unit in somebody's camp.
+   */
+  const [peek, setPeek] = useState<Peek | null>(null);
   /**
    * A decision panel pushed out of the way so the board can be read.
    *
@@ -1351,6 +1350,19 @@ function Field(props: FieldProps) {
     [beats],
   );
 
+  /** What each side wears. Read by the furniture as `--me` and `--foe`, and by the board's tiles. */
+  const worn = useMemo(
+    () => dress(state, viewer),
+    // The cards a side owns do not change, only where they are; the reserves
+    // and the board are in the list because a concealed card can come to light.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state.players, state.board, state.reserves, viewer],
+  );
+  const tint = useMemo(
+    () => ({ mine: worn.meColor, theirs: worn.foeColor }),
+    [worn.meColor, worn.foeColor],
+  );
+
   const classes = ["field"];
   if (!over) classes.push("opening");
   if (spotlit && !tucked) classes.push("spotlit");
@@ -1366,6 +1378,7 @@ function Field(props: FieldProps) {
       // Which rail a phone has slid up over the board. Unset on a desktop,
       // where both rails are columns and nothing can open a drawer.
       data-sheet={sheet ?? undefined}
+      style={{ ["--me" as string]: worn.meColor, ["--foe" as string]: worn.foeColor }}
       // The right button is the game's, never the browser's. A right *click*
       // takes back a spell that has not finished being declared — anywhere on
       // the screen, because there is no one place a player would think to aim
@@ -1403,9 +1416,40 @@ function Field(props: FieldProps) {
           {...props}
           onLog={() => setLogOpen((v) => !v)}
           logOpen={logOpen}
-          threeD={threeD}
-          onThreeD={toggleThreeD}
         />
+      </aside>
+
+      {/* The furniture of anything wider than a phone (`Hud.tsx`): the campaign
+          across the top, the scale down the left edge, the phase and the two
+          commanders down the right. The rails above and below are the phone's;
+          the stylesheet draws one set or the other. */}
+      <Campaign state={state} viewer={viewer} onPeek={setPeek} />
+      <Scale
+        state={state}
+        viewer={viewer}
+        botSide={botSide}
+        bare={bare}
+        onTrack={setTracking}
+        onPeek={setPeek}
+      />
+      <aside className="hud-right">
+        <div className="hud-tools">
+          <button
+            className={`quiet tiny${logOpen ? " on" : ""}`}
+            onClick={() => setLogOpen((v) => !v)}
+            aria-pressed={logOpen}
+          >
+            Krónika
+          </button>
+          <button className="quiet tiny" onClick={props.onLeave}>
+            Menü
+          </button>
+        </div>
+        <Commander faction={worn.foe} tone="theirs" />
+        <span className="hud-gap" />
+        <PhaseRail {...props} moves={moves} viewer={viewer} />
+        <span className="hud-gap" />
+        <Commander faction={worn.me} tone="mine" />
       </aside>
 
       {/* A thin strip of pictures beside the left rail, clear of everything the
@@ -1414,7 +1458,7 @@ function Field(props: FieldProps) {
 
       <div className="arena">
         <Surface
-          threeD={threeD}
+          tint={tint}
           state={shown}
           open={open}
           onPick={pickSlot}
@@ -1437,6 +1481,25 @@ function Field(props: FieldProps) {
           className={`loupe ${inspected.owner === viewer ? "mine" : "theirs"}`}
         >
           <Loaded unit={inspected} state={shown} />
+        </div>
+      )}
+
+      {/* The same reading spot, for a card nobody is standing on: a battlefield
+          out of the campaign row, a unit waiting in a camp. */}
+      {peek && !inspected && (
+        <div className="loupe peek">
+          <CardFace
+            card={peek.kind === "location" ? getLocation(peek.cardId) : cardFor(peek.cardId)!}
+            className={peek.kind === "location" ? "battlefield" : peek.kind === "spell" ? "spell" : ""}
+          />
+          {peek.note && <span className="loupe-note">{peek.note}</span>}
+        </div>
+      )}
+
+      {/* And a pile being read: a deck, a graveyard, the battles so far. */}
+      {tracking && (
+        <div className="hud-ledger">
+          <Ledger state={state} tracking={tracking} />
         </div>
       )}
 
@@ -1687,14 +1750,12 @@ function Field(props: FieldProps) {
         <Prologue state={state} botSide={botSide} onDone={props.endPrologue} />
       )}
 
-      <Loading done={stageReady} onFlat={playFlat} />
+      <Loading done={stageReady} />
 
       {logOpen && (
         <Chronicle
           state={state}
           onClose={() => setLogOpen(false)}
-          threeD={threeD}
-          onThreeD={toggleThreeD}
         />
       )}
       {over && (

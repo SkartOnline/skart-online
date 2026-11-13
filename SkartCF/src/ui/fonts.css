@@ -5,23 +5,20 @@
  * subset with its own `unicode-range`, so latin and latin-ext join into one
  * face. The per-subset files declare no range at all, and two faces of the same
  * weight without ranges do not combine — one of them simply wins, and Hungarian
- * lost its two letters to the fallback font that way. Fredoka had a second
- * problem on top: its latin-ext file has 22 glyphs and neither ő nor ű, so it
- * could never set Hungarian and is gone.
+ * lost its two letters to the fallback font that way.
  *
- * Nunito carries the running text: rounded, warm, easy at card size. 400 body,
- * 400 italic for the cards' own voice, 600 and 700 for labels and buttons, 800
- * for the lamp button.
+ * Sofia Sans carries the running text and the interface: 400 body, 400 italic
+ * for the cards’ own voice, 500 to 800 for labels and buttons.
  *
- * Baloo 2 is the display face and the numbers (`--display` in theme.css):
- * chunky and friendly like Fredoka was, and whole in Hungarian. 500 to 700.
+ * Marcellus is the display face and the numbers (`--display` in theme.css): an
+ * inscription roman with a single weight. Nothing may ask it for a bold —
+ * `font-synthesis: none` in theme.css sees to that.
  */
 
-@import "@fontsource/nunito/400.css";
-@import "@fontsource/nunito/400-italic.css";
-@import "@fontsource/nunito/600.css";
-@import "@fontsource/nunito/700.css";
-@import "@fontsource/nunito/800.css";
-@import "@fontsource/baloo-2/500.css";
-@import "@fontsource/baloo-2/600.css";
-@import "@fontsource/baloo-2/700.css";
+@import "@fontsource/sofia-sans/400.css";
+@import "@fontsource/sofia-sans/400-italic.css";
+@import "@fontsource/sofia-sans/500.css";
+@import "@fontsource/sofia-sans/600.css";
+@import "@fontsource/sofia-sans/700.css";
+@import "@fontsource/sofia-sans/800.css";
+@import "@fontsource/marcellus/400.css";

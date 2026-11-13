@@ -123,7 +123,7 @@ export default function Prologue({
       // would be twice as long and say something untrue.
       let nth = 0;
       for (const kind of ["unit", "spell"] as const) {
-        const deck = anchorRect(`.counters.${side} .pile-icon.${kind}`);
+        const deck = anchorRect(`[data-seat="${side}"] .pile-icon.${kind}`);
         const held =
           kind === "unit"
             ? state.players[side].unitHand.length

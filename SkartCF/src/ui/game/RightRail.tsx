@@ -66,7 +66,7 @@ export function Counters({
     p.handLimit.spells !== state.config.spellHandSize;
 
   return (
-    <div className={`counters ${side}`}>
+    <div className={`counters ${side}`} data-seat={side}>
       <span className="who">
         {seatName(side, viewer, botSide)}
         <b
